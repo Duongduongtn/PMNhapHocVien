@@ -1,0 +1,44 @@
+# ── PII & bí mật — TUYỆT ĐỐI không đẩy lên repo ──
+# DBcu/: dump DB cũ (CCCD, tên, địa chỉ HV thật) + env.txt (mật khẩu)
+DBcu/
+# UI.png: ảnh màn app cũ, có thể lộ HV thật
+UI.png
+# bangiaoprompt.md: file bàn giao tạm (/bangiao sinh lại), chứa thông số kết nối
+bangiaoprompt.md
+# anh-kiem/: ảnh kiểm Playwright
+anh-kiem/
+
+# ── Biến môi trường (giữ file mẫu) ──
+.env
+.env.*
+!.env.example
+# config tool mã hóa cục bộ
+tool/config/*.enc
+
+# ── Node / Vite / React ──
+node_modules/
+dist/
+build/
+.vite/
+*.local
+
+# ── Python ──
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# ── Staging tool (SQLite) ──
+*.sqlite
+*.sqlite3
+staging.sqlite
+
+# ── Đóng gói ──
+*.spec
+tool/dist/
+
+# ── OS / Editor ──
+Thumbs.db
+.DS_Store

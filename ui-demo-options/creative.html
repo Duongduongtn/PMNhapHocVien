@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thu nhận hồ sơ — Bản Sáng tạo</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: { sans: ['"Be Vietnam Pro"', 'system-ui', 'sans-serif'] },
+      colors: {
+        ink: '#0f2e2a',
+        teal: { DEFAULT:'#0d9488', 600:'#0d9488', 700:'#0f766e', 50:'#f0fdfa', 100:'#ccfbf1' },
+        flame: { DEFAULT:'#ea580c', 50:'#fff7ed' },
+        paper: '#f4f7f6',
+      }
+    }
+  }
+}
+</script>
+<style>
+  :root { color-scheme: light; }
+  [hidden] { display: none !important; }
+  body { background:#eef3f1; }
+  .in { width:100%; font-size:14px; padding:9px 12px; border-radius:12px; border:1.5px solid #d7e3e0; background:#fff; transition:all .15s; }
+  .in:focus { outline:none; border-color:#0d9488; box-shadow:0 0 0 4px rgba(13,148,136,.12); }
+  .in[readonly]{ background:#f4f7f6; color:#5b6b68; }
+  .lbl { font-size:12px; font-weight:600; color:#5b6b68; text-transform:uppercase; letter-spacing:.03em; }
+  ::-webkit-scrollbar{height:10px;width:10px}
+  ::-webkit-scrollbar-thumb{background:#c3d3cf;border-radius:8px}
+  .rowc:hover{background:#f0fdfa}
+  .rowc.on{background:#ccfbf1}
+  .phone{width:min(392px, calc(100vw - 56px));border-radius:46px;box-shadow:0 40px 70px -25px rgba(13,46,42,.55)}
+  .phone-s{border-radius:34px;overflow:hidden;height:800px}
+  .navi{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 0;border-radius:14px;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s}
+</style>
+</head>
+<body class="font-sans text-ink antialiased">
+
+<div class="max-w-[1640px] mx-auto px-4 sm:px-6 pt-6 pb-2 flex items-center gap-3 flex-wrap">
+  <span class="inline-flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full bg-flame/10 text-flame border border-flame/20">Bản 🎨 SÁNG TẠO — Flat teal</span>
+  <h1 class="text-base font-extrabold">Thu nhận hồ sơ học viên</h1>
+  <span class="text-xs text-teal-700/70">App web thu thập · Tool nạp DB</span>
+</div>
+
+<div class="max-w-[1640px] mx-auto px-4 sm:px-6 pb-16 flex gap-8 items-start flex-wrap 2xl:flex-nowrap">
+
+  <!-- ===== APP WEB (mobile, dark, camera-first) ===== -->
+  <section class="mx-auto 2xl:mx-0 shrink-0">
+    <div class="mb-3 text-sm font-bold text-teal-700 flex items-center gap-2">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2.5"/></svg>
+      App web — điện thoại
+    </div>
+    <div class="phone bg-[#04211d] p-2.5">
+      <div class="phone-s bg-[#04211d] text-white flex flex-col relative">
+        <!-- top -->
+        <div class="px-5 pt-4 pb-3 flex items-center justify-between">
+          <div>
+            <div class="text-[11px] text-teal-300/80 font-semibold uppercase tracking-wide">Xin chào</div>
+            <div class="text-base font-bold">Trần Thị Hoa</div>
+          </div>
+          <div class="w-10 h-10 rounded-2xl bg-teal-500/20 flex items-center justify-center text-teal-300">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+          </div>
+        </div>
+
+        <!-- camera hero -->
+        <div class="mx-4 rounded-[28px] overflow-hidden relative flex-1 bg-black">
+          <div class="absolute inset-0" style="background:radial-gradient(circle at 50% 35%,#0b3b35,#030f0d)"></div>
+          <div class="absolute inset-x-8 top-16 bottom-40 rounded-2xl border border-white/10 bg-white/[.02]"></div>
+          <div class="absolute left-1/2 top-[42%] -translate-x-1/2 -translate-y-1/2 w-56 h-56">
+            <span class="absolute -top-1 -left-1 w-10 h-10 border-t-[5px] border-l-[5px] border-teal-400 rounded-tl-2xl"></span>
+            <span class="absolute -top-1 -right-1 w-10 h-10 border-t-[5px] border-r-[5px] border-teal-400 rounded-tr-2xl"></span>
+            <span class="absolute -bottom-1 -left-1 w-10 h-10 border-b-[5px] border-l-[5px] border-teal-400 rounded-bl-2xl"></span>
+            <span class="absolute -bottom-1 -right-1 w-10 h-10 border-b-[5px] border-r-[5px] border-teal-400 rounded-br-2xl"></span>
+          </div>
+          <div class="absolute top-5 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-teal-400 text-[#04211d] text-xs font-bold px-4 py-2 rounded-full shadow-lg">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="3.5" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
+            Đã nhận diện QR
+          </div>
+          <div class="absolute bottom-5 inset-x-5 text-center text-[12px] text-white/60">Giữ mặt trước căn cước trong khung — tự chụp</div>
+        </div>
+
+        <!-- quick fields sheet -->
+        <div class="bg-white text-ink rounded-t-[32px] -mt-8 relative px-5 pt-5 pb-4 shrink-0">
+          <div class="w-10 h-1.5 bg-slate-200 rounded-full mx-auto mb-4"></div>
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-extrabold text-[15px]">Thông tin căn cước</h2>
+            <span class="text-[11px] font-semibold text-flame bg-flame/10 px-2 py-1 rounded-full">Sửa được</span>
+          </div>
+          <div class="space-y-3 max-h-[210px] overflow-y-auto pr-1">
+            <div><div class="lbl mb-1">Số CCCD</div><input class="in" value="070202008455"></div>
+            <div><div class="lbl mb-1">Họ và tên</div><input class="in" value="NGUYỄN THANH TÂM"></div>
+            <div class="grid grid-cols-2 gap-3">
+              <div><div class="lbl mb-1">Ngày sinh</div><input class="in" value="21/11/2002"></div>
+              <div><div class="lbl mb-1">Giới tính</div><select class="in"><option>Nam</option><option>Nữ</option></select></div>
+            </div>
+            <div><div class="lbl mb-1">Nơi thường trú</div><input class="in" value="Xã Phú Nghĩa, Bình Phước"></div>
+            <div><div class="lbl mb-1">Ngày cấp</div><input class="in" value="10/03/2021"></div>
+          </div>
+          <div class="mt-3 flex items-center gap-1.5 text-[11px] text-flame font-medium">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+            Đã lưu nháp offline — tự gửi khi có mạng
+          </div>
+          <div class="grid grid-cols-[1fr_1.4fr] gap-3 mt-4">
+            <button class="h-12 rounded-2xl border-2 border-teal-600 text-teal-700 font-bold text-sm flex items-center justify-center gap-1.5 hover:bg-teal-50 transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3Z"/><circle cx="12" cy="13" r="3"/></svg>
+              Chụp ảnh
+            </button>
+            <button class="h-12 rounded-2xl bg-flame text-white font-bold text-sm flex items-center justify-center gap-2 hover:brightness-110 transition shadow-lg shadow-flame/30">
+              Gửi hồ sơ
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== TOOL (dashboard + sidebar) ===== -->
+  <section class="flex-1 min-w-0 w-full">
+    <div class="mb-3 text-sm font-bold text-teal-700 flex items-center gap-2">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2.5"/><path d="M8 21h8"/></svg>
+      Tool máy DB — desktop (nạp hồ sơ)
+    </div>
+
+    <div class="bg-paper rounded-[24px] overflow-hidden border border-[#dbe7e4] shadow-sm flex min-h-[760px]">
+      <!-- sidebar -->
+      <aside class="w-20 bg-[#04211d] text-white flex flex-col items-center py-5 gap-2 shrink-0">
+        <div class="w-11 h-11 rounded-2xl bg-teal-500 flex items-center justify-center font-extrabold text-lg mb-3">70</div>
+        <div class="navi bg-teal-500/20 text-teal-300 w-14">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></svg>Nạp
+        </div>
+        <div class="navi text-white/50 hover:text-white hover:bg-white/5 w-14">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>Tra cứu
+        </div>
+        <div class="navi text-white/50 hover:text-white hover:bg-white/5 w-14">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/></svg>Khóa
+        </div>
+        <div class="navi text-white/50 hover:text-white hover:bg-white/5 w-14 mt-auto">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83 1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0 1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83 1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9"/></svg>Cấu hình
+        </div>
+      </aside>
+
+      <!-- main -->
+      <div class="flex-1 min-w-0 flex flex-col">
+        <!-- topbar -->
+        <div class="px-6 py-4 flex items-center justify-between border-b border-[#dbe7e4] bg-white">
+          <div>
+            <h2 class="text-lg font-extrabold">Nạp hồ sơ vào DB</h2>
+            <p class="text-[12px] text-teal-700/70">Kéo hồ sơ từ VPS · map địa chỉ · xử lý ảnh · nạp qua SP</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="inline-flex items-center gap-2 text-[12px] font-semibold bg-teal-100 text-teal-700 rounded-full px-3 py-1.5"><span class="w-2 h-2 rounded-full bg-teal-500"></span>SQL Server đã kết nối</span>
+            <span class="text-[13px] font-semibold">Lê Văn Bình</span>
+          </div>
+        </div>
+
+        <!-- KPI strip -->
+        <div class="px-6 py-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div class="bg-white rounded-2xl p-4 border border-[#dbe7e4]">
+            <div class="text-[12px] font-semibold text-teal-700/70">Chờ nạp</div>
+            <div class="text-2xl font-extrabold mt-1">12</div>
+          </div>
+          <div class="bg-white rounded-2xl p-4 border border-[#dbe7e4]">
+            <div class="text-[12px] font-semibold text-teal-700/70">Đã nạp hôm nay</div>
+            <div class="text-2xl font-extrabold mt-1">37</div>
+          </div>
+          <div class="bg-white rounded-2xl p-4 border border-[#dbe7e4]">
+            <div class="text-[12px] font-semibold text-teal-700/70">HV trong khóa</div>
+            <div class="text-2xl font-extrabold mt-1">55</div>
+          </div>
+          <div class="bg-flame/10 rounded-2xl p-4 border border-flame/20">
+            <div class="text-[12px] font-semibold text-flame">Cần chọn địa chỉ tay</div>
+            <div class="text-2xl font-extrabold mt-1 text-flame">2</div>
+          </div>
+        </div>
+
+        <!-- chọn khóa -->
+        <div class="px-6 pb-2 flex items-center gap-3 flex-wrap">
+          <div class="inline-flex rounded-full bg-white border border-[#dbe7e4] p-1">
+            <button id="cMoto" onclick="cLoai('moto')" class="px-5 py-1.5 text-sm rounded-full text-teal-700/60 font-semibold">Mô tô</button>
+            <button id="cOto" onclick="cLoai('oto')" class="px-5 py-1.5 text-sm rounded-full bg-teal-600 text-white font-bold">Ô tô</button>
+          </div>
+          <select id="cKhoa" class="in max-w-[380px] font-medium">
+            <option>70004K26B010 — B-K149 · KG 28/08/2026 · chưa BC1</option>
+            <option>70004K26B012 — C-K151 · KG 05/09/2026 · chưa BC1</option>
+          </select>
+          <button class="inline-flex items-center gap-2 h-10 px-5 rounded-full bg-teal-600 text-white font-bold text-sm hover:bg-teal-700 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+            Kéo về
+          </button>
+        </div>
+
+        <!-- card lọc (segmented) -->
+        <div class="px-6 pt-3">
+          <div class="inline-flex rounded-2xl bg-white border border-[#dbe7e4] p-1">
+            <button id="cTabCho" onclick="cTab('cho')" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold bg-teal-600 text-white transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M12 7v5l3 2"/></svg>
+              Chờ nạp (từ VPS) · 12
+            </button>
+            <button id="cTabDB" onclick="cTab('db')" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-teal-700/50 hover:text-teal-700 transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
+              Trong khóa (từ DB) · 55
+            </button>
+          </div>
+        </div>
+
+        <!-- content -->
+        <div class="flex-1 px-6 pt-3 pb-6 flex gap-4 min-h-0">
+          <!-- list -->
+          <div class="flex-1 min-w-0 bg-white rounded-2xl border border-[#dbe7e4] flex flex-col overflow-hidden">
+            <!-- CHỜ NẠP -->
+            <div id="cPaneCho" class="flex-1 flex flex-col min-h-0">
+              <div class="px-4 py-3 border-b border-[#eef3f1] flex items-center justify-between flex-wrap gap-2">
+                <span class="text-[13px] font-semibold">Đã chọn <b class="text-teal-700">3</b>/12 → nạp vào <b>B-K149</b></span>
+                <button class="inline-flex items-center gap-2 h-9 px-5 rounded-full bg-flame text-white font-bold text-sm hover:brightness-110 transition shadow shadow-flame/30">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></svg>
+                  Nạp 3 hồ sơ vào DB
+                </button>
+              </div>
+              <div class="px-4 py-2 flex items-center gap-2 text-[12px] text-flame bg-flame/5 border-b border-flame/10">
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+                1 hồ sơ trùng CCCD trong khóa — đã bỏ chọn tự động
+              </div>
+              <div class="overflow-auto flex-1" id="cChoBody"></div>
+              <div class="px-4 py-2.5 border-t border-[#eef3f1]">
+                <div class="flex justify-between text-[11px] text-teal-700/60 mb-1"><span>Tiến độ nạp lô</span><span>3/12</span></div>
+                <div class="h-2 rounded-full bg-teal-50 overflow-hidden"><div class="h-full bg-teal-600 rounded-full" style="width:25%"></div></div>
+              </div>
+            </div>
+            <!-- DB -->
+            <div id="cPaneDB" hidden class="flex-1 flex flex-col min-h-0">
+              <div class="px-4 py-3 border-b border-[#eef3f1] flex items-center justify-between flex-wrap gap-2">
+                <span class="text-[12px] text-teal-700 inline-flex items-center gap-1.5">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
+                  Đọc từ DB thật — sau khi nạp, học viên hiện ở đây (tra cứu/sửa)
+                </span>
+                <div class="flex gap-2 text-[12px]">
+                  <button class="px-3 py-1.5 rounded-full border border-[#dbe7e4] hover:bg-teal-50 font-medium transition">Xem/Sửa</button>
+                  <button class="px-3 py-1.5 rounded-full border border-[#dbe7e4] hover:bg-teal-50 font-medium transition">Xuất Excel</button>
+                </div>
+              </div>
+              <div class="overflow-auto flex-1" id="cDbBody"></div>
+            </div>
+          </div>
+
+          <!-- detail panel -->
+          <aside class="w-[300px] shrink-0 hidden xl:block bg-white rounded-2xl border border-[#dbe7e4] p-4 self-start">
+            <h3 class="font-extrabold text-sm mb-3">Hồ sơ đang chọn</h3>
+            <div class="aspect-[3/4] rounded-xl bg-paper border-2 border-dashed border-[#cddbd7] flex items-center justify-center mb-2 relative">
+              <svg class="w-14 h-14 text-[#b9cbc6]" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><circle cx="12" cy="9" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+              <span class="absolute top-2 left-2 text-[10px] bg-ink/70 text-white px-1.5 py-0.5 rounded">3:4 · nền trắng</span>
+            </div>
+            <button class="w-full h-9 rounded-xl bg-teal-600 text-white text-sm font-bold hover:bg-teal-700 transition mb-3 flex items-center justify-center gap-1.5">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M3 21h18"/></svg>
+              Xóa phông
+            </button>
+            <div class="space-y-2.5 text-[13px]">
+              <div><div class="lbl mb-1">Số hồ sơ</div><div class="font-bold text-teal-700">056</div></div>
+              <div><div class="lbl mb-1">Họ và tên</div><input class="in" value="NGUYỄN THANH TÂM"></div>
+              <div>
+                <div class="lbl mb-1 flex items-center justify-between">Nơi thường trú
+                  <span class="normal-case text-[10px] font-semibold text-teal-700 bg-teal-100 px-1.5 py-0.5 rounded-full">Đã map</span>
+                </div>
+                <input class="in" value="Xã Phú Nghĩa, Đồng Nai">
+              </div>
+              <div class="pt-1">
+                <div class="lbl mb-1.5">Giấy tờ kèm theo</div>
+                <label class="flex items-center gap-2 text-[12px] mb-1 cursor-pointer"><input type="checkbox" checked class="accent-teal-600 w-4 h-4"> Đơn đề nghị học, sát hạch</label>
+                <label class="flex items-center gap-2 text-[12px] mb-1 cursor-pointer"><input type="checkbox" checked class="accent-teal-600 w-4 h-4"> Bản sao CMND/hộ chiếu</label>
+                <label class="flex items-center gap-2 text-[12px] cursor-pointer"><input type="checkbox" checked class="accent-teal-600 w-4 h-4"> Giấy chứng nhận sức khỏe</label>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+function cLoai(l){
+  const m=document.getElementById('cMoto'), o=document.getElementById('cOto');
+  const on='px-5 py-1.5 text-sm rounded-full bg-teal-600 text-white font-bold', off='px-5 py-1.5 text-sm rounded-full text-teal-700/60 font-semibold';
+  if(l==='moto'){m.className=on;o.className=off;} else {o.className=on;m.className=off;}
+  document.getElementById('cKhoa').innerHTML = l==='moto'
+    ? '<option>70004K26A011 — A1-K33 · KG 12/09/2026 · chưa BC1</option><option>70004K26A012 — A-K34 · KG 20/09/2026 · chưa BC1</option>'
+    : '<option>70004K26B010 — B-K149 · KG 28/08/2026 · chưa BC1</option><option>70004K26B012 — C-K151 · KG 05/09/2026 · chưa BC1</option>';
+}
+function cTab(t){
+  const c=document.getElementById('cTabCho'), d=document.getElementById('cTabDB');
+  const on='inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold bg-teal-600 text-white transition';
+  const off='inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-teal-700/50 hover:text-teal-700 transition';
+  if(t==='cho'){c.className=on;d.className=off;document.getElementById('cPaneCho').hidden=false;document.getElementById('cPaneDB').hidden=true;}
+  else{d.className=on;c.className=off;document.getElementById('cPaneDB').hidden=false;document.getElementById('cPaneCho').hidden=true;}
+}
+const av=(bg)=>`<span class="inline-flex w-9 h-9 rounded-xl items-center justify-center ${bg} shrink-0"><svg class="w-5 h-5 text-white/90" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="9" r="3.2"/><path d="M5 20c0-3 3-5 7-5s7 2 7 5"/></svg></span>`;
+const pill=(t)=>{
+  if(t==='map')return '<span class="text-[11px] font-bold text-teal-700 bg-teal-100 rounded-full px-2 py-0.5">Đã map</span>';
+  if(t==='manual')return '<span class="text-[11px] font-bold text-flame bg-flame/10 rounded-full px-2 py-0.5">Chọn tay</span>';
+  if(t==='photo')return '<span class="text-[11px] font-bold text-teal-700 bg-teal-100 rounded-full px-2 py-0.5">Ảnh OK</span>';
+  return '<span class="text-[11px] font-bold text-slate-500 bg-slate-100 rounded-full px-2 py-0.5">Chưa ảnh</span>';
+};
+const cho=[
+  ['NGUYỄN THANH TÂM','Nam','070202008455','Xã Phú Nghĩa, Đồng Nai','map','photo','bg-teal-500',1],
+  ['LÊ THỊ MỸ DUYÊN','Nữ','075301004821','Xã Nghĩa Trung, Đồng Nai','map','photo','bg-rose-500',1],
+  ['PHẠM QUỐC HUY','Nam','070204006712','Xã Thọ Sơn, Đồng Nai','map','no','bg-emerald-500',1],
+  ['ĐỖ VŨ BẢO ANH','Nam','074207005570','P. Chánh Phú Hòa, TP HCM','manual','no','bg-amber-500',0],
+];
+document.getElementById('cChoBody').innerHTML = cho.map((r,i)=>`
+  <div class="rowc ${i===0?'on':''} flex items-center gap-3 px-4 py-3 border-b border-[#f1f5f4] cursor-pointer transition" onclick="document.querySelectorAll('#cChoBody .rowc').forEach(x=>x.classList.remove('on'));this.classList.add('on')">
+    <input type="checkbox" class="accent-teal-600 w-4 h-4" ${r[7]?'checked':''}>
+    ${av(r[6])}
+    <div class="min-w-0 flex-1">
+      <div class="font-bold text-[14px] truncate">${r[0]}</div>
+      <div class="text-[12px] text-teal-700/60 truncate">${r[1]} · ${r[2]} · ${r[3]}</div>
+    </div>
+    <div class="flex flex-col items-end gap-1 shrink-0">${pill(r[4])}${pill(r[5])}</div>
+  </div>`).join('');
+
+const db=[
+  ['034','NGUYỄN THỊ HUỆ AN','Nữ','072190003564','Xã Hảo Đước, Tây Ninh'],
+  ['042','ĐỖ VŨ BẢO ANH','Nam','074207005570','P. Chánh Phú Hòa, TP HCM'],
+  ['008','NGÔ NGUYỄN HOÀNG ANH','Nữ','066301002217','Xã Krông Pắc, Đắk Lắk'],
+  ['011','TRẦN TUẤN ANH','Nam','054201004151','P. Tuy Hòa, Đắk Lắk'],
+  ['036','NINH THỊ BÌNH','Nữ','070191001352','Xã Nghĩa Trung, Đồng Nai'],
+  ['055','BÙI TẤN ĐẠT','Nam','070095010655','P. Đông Phú, Đồng Nai'],
+  ['040','MÔ TRỌNG ĐẠT','Nam','070207002892','Xã Nghĩa Trung, Đồng Nai'],
+  ['045','ĐIỂU THỊ DUNG','Nữ','070192001900','Xã Thọ Sơn, Đồng Nai'],
+];
+document.getElementById('cDbBody').innerHTML = `<table class="w-full text-[13px] whitespace-nowrap"><thead><tr class="text-teal-700/60 text-left sticky top-0 bg-white"><th class="px-4 py-2 font-bold">STT</th><th class="px-4 py-2 font-bold">Số HS</th><th class="px-4 py-2 font-bold">Họ và tên</th><th class="px-4 py-2 font-bold">Giới tính</th><th class="px-4 py-2 font-bold">CMT/HC</th><th class="px-4 py-2 font-bold">Nơi thường trú</th></tr></thead><tbody>`
++ db.map((r,i)=>`<tr class="rowc border-t border-[#f1f5f4] cursor-pointer"><td class="px-4 py-2 text-teal-700/50">${i+1}</td><td class="px-4 py-2 font-bold">${r[0]}</td><td class="px-4 py-2">${r[1]}</td><td class="px-4 py-2">${r[2]}</td><td class="px-4 py-2 tabular-nums">${r[3]}</td><td class="px-4 py-2">${r[4]}</td></tr>`).join('')
++ `</tbody></table>`;
+</script>
+</body>
+</html>

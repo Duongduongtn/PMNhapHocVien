@@ -1,0 +1,86 @@
+# Tiến độ màn hình — ui-demo
+
+> File do `/prototype` sinh, `/prototype-next` cập nhật mỗi lượt.
+
+- **PRD nguồn:** docs/PRD.md
+- **Bản HTML chuẩn:** ui-demo-options/detailed.html
+- **Stack:** Vite + React + TypeScript + Tailwind v3 (token shadcn) + react-router-dom · font Be Vietnam Pro
+- **Cổng dev:** 3021 (sổ `~/.claude/local-ports.md`)
+- **Cập nhật lần cuối:** 30/09/2026 (lượt 4 — HOÀN TẤT MUST + SHOULD; chỉ còn NICE QLY-04/THU-03)
+
+## ⚠️ Prototype gộp 1 project — KIẾN TRÚC THẬT là 2 app riêng (TDD §2.4)
+
+Project `ui-demo` gộp cả 2 app vào 1 router **chỉ để xem/bấm demo**. Khi code thật (`/tieptheo`) phải tách theo TDD §2.4, KHÔNG bê nguyên cấu trúc gộp:
+
+| Folder prototype | → App thật (TDD §2.4) | Deploy |
+|---|---|---|
+| `src/pages/app/*` + `components/AppLayout.tsx` | **`webapp/`** (app web PWA) | VPS |
+| `src/pages/tool/*` + `components/ToolLayout.tsx` | **`tool/webui/`** (React static nhúng .exe) | Máy DB |
+| `src/lib/*`, `src/components/Icon.tsx`, `Placeholder.tsx` | dùng chung — copy cho cả hai | — |
+| `src/pages/DangNhap.tsx`, `admin/HoSo.tsx` | app tương ứng (đăng nhập: cả hai; admin PII: `webapp/` phía VPS) | — |
+
+Prototype là tham chiếu **style/layout**, không phải scaffold thật.
+
+## Bảng màn hình
+
+| # | Màn hình (PRD) | Mã story | Route | Trạng thái | Lượt |
+|---|---|---|---|---|---|
+| 0 | Trang chọn app (Tool / App web) | — | `/` | ✅ Xong | 1 |
+| 1 | Quét QR căn cước + preview + gửi | THU-01, THU-02 | `/app/quet` | ✅ Xong | 1 |
+| 2 | Nạp hồ sơ vào DB (list · thông tin · ảnh) | NAP-01, NAP-02, NAP-03, NAP-04, NAP-05, NAP-06, QLY-01 | `/tool/nap` | ✅ Xong | 1 |
+| 3 | Đăng nhập & phân quyền | HTG-01 | `/dang-nhap` | ✅ Xong | 2 |
+| 4 | Cấu hình kết nối | HTG-01 | `/tool/cau-hinh` | ✅ Xong | 2 |
+| 5 | Tạo khóa học | KHO-01 | `/tool/tao-khoa` | ✅ Xong | 2 |
+| 6 | Hồ sơ tôi đã gửi | THU-02 | `/app/da-gui` | ✅ Xong | 3 |
+| 7 | Tài khoản (app web) | HTG-01 | `/app/tai-khoan` | ✅ Xong | 3 |
+| 8 | Lọc & xóa PII (quản trị VPS) | HTG-03 | `/admin/ho-so` | ✅ Xong | 3 |
+| 9 | Tra cứu & sửa hồ sơ đã có | QLY-01 | `/tool/nap` (tab DB → drawer Xem/Sửa) | ✅ Xong | 4 |
+| 10 | Đổi khóa + di chuyển ảnh | QLY-02 | `/tool/nap` (drawer → dialog Đổi khóa) | ✅ Xong | 4 |
+| 11 | Xóa học viên + xóa mềm ảnh | QLY-03 | `/tool/nap` (drawer → dialog Xóa) | ✅ Xong | 4 |
+| — | Hàng đợi VPS + xóa PII 30 ngày | HTG-02 | (backend, không có UI) | ⬜ Không dựng | — |
+| — | Kết xuất Excel (NICE) | QLY-04 | (mới có nút, chưa luồng) | ⬜ NICE — sau | — |
+| — | Offline app web (NICE) | THU-03 | — | ⬜ NICE — sau | — |
+
+Chú thích: ✅ Xong · 🟡 Placeholder · ⬜ Chưa có route
+
+## Quyết định UX đã chốt
+
+| Màn | Vấn đề | Đã chốt | Lượt |
+|---|---|---|---|
+| /tool/nap | Bố trí 2 app | 2 app riêng (tool + app web), gom 1 project router: `/tool/*` và `/app/*` + trang chọn app | 1 |
+| /tool/nap | List vs form | List-first 3 cột (List · Thông tin · Ảnh); chỉ cột list cuộn, thông tin+ảnh xem trọn | 1 |
+| /tool/nap | Chờ nạp vs DB | Card lọc (segmented) "Chờ nạp (VPS) / Trong khóa (DB, lọc theo khóa)" — không tách tab đẩy list xuống | 1 |
+| /tool/nap | Trường bắt buộc vs optional | Nhóm BẮT BUỘC (viền đỏ + dấu *) theo cột NOT NULL; optional gom accordion đóng sẵn | 1 |
+| /tool/nap | Tên in | Bỏ ô — tự sinh = Họ tên cắt ≤25 giữ dấu (verify DB 99,93%) | 1 |
+| /tool/nap | Địa chỉ | Combobox tra DM_DVHC: gõ tên/mã → chọn "mã — địa chỉ", lấy đúng MaDvhc/MaDVQL | 1 |
+| /tool/nap | Ảnh | Modal chỉnh riêng (crop 3:4 kéo/zoom + xóa phông + kết quả nền trắng) | 1 |
+| /tool/nap | TT_XuLy/TrangThai theo ảnh | Có ảnh→TT_XuLy 03, thiếu ảnh→01; TrangThai=1 không đổi (verify DB) — hiện ở dòng "Tự điền" | 1 |
+| /tool/tao-khoa, /tool/cau-hinh | Form layout | Một trang; tái dùng pattern "Tự điền chip + nhóm BẮT BUỘC (viền đỏ, *) + accordion Thông tin thêm" như /tool/nap | 2 |
+| /tool/cau-hinh | Kiểm tra kết nối | Nút "Kiểm tra kết nối" → badge kết quả inline (thành công/lỗi), không popup | 2 |
+| /dang-nhap | Bố cục | Card giữa màn (username + password + nút); 3 vai trò theo tài khoản, không SSO | 2 |
+| App web (AppLayout, Quét) | Responsive desktop (PRD ⑥) | Mobile-first giữ nguyên; desktop ≥lg: sidebar trái + nội dung nhiều cột (Quét = camera trái/form phải); Đã gửi desktop = table | 2 |
+| /app/da-gui | Danh sách + chi tiết | Lọc Tất cả/Chờ nạp/Đã nạp; mobile = card list, desktop = table; bấm dòng → modal chi tiết (ảnh thô + thông tin) | 3 |
+| /admin/ho-so | Xóa PII | Bảng + checkbox chọn nhiều + lọc trạng thái/khoảng ngày; xóa tay → dialog xác nhận (không khôi phục, BR-016) | 3 |
+| /app/tai-khoan | Bố cục | Thẻ người dùng + thông tin tài khoản + Đổi mật khẩu + Đăng xuất | 3 |
+| /tool/nap (tab DB) | QLY-01/02/03 | Bấm dòng HV → drawer Xem/Sửa bên phải (chặn sửa nếu BC1, BR-012); trong drawer: Đổi khóa (dialog chọn khóa cùng hạng, BR-013) + Xóa (dialog xác nhận, xóa mềm ảnh, BR-014) | 4 |
+
+## Component dùng chung
+
+| Component | File | Dùng ở màn |
+|---|---|---|
+| Icon (SVG inline) | src/components/Icon.tsx | Tất cả |
+| ToolLayout (title bar + nav) | src/components/ToolLayout.tsx | /tool/* |
+| AppLayout (mobile shell + bottom nav) | src/components/AppLayout.tsx | /app/* |
+| Placeholder | src/components/Placeholder.tsx | Các màn placeholder |
+| AddressCombo (combobox DVHC) | trong src/pages/tool/NapHoSo.tsx | /tool/nap |
+| mock-data / format | src/lib/mock-data.ts, src/lib/format.ts | Nhiều màn |
+
+## Ghi chú
+
+- ✅ **App web đã có bản desktop (PRD ⑥) — làm 30/09/2026:** `AppLayout` responsive — mobile (< lg) giữ nguyên app điện thoại (header + bottom-nav, max-w-440); desktop (≥ lg) hiện **sidebar trái** (nav dọc + user) + nội dung rộng. `Quét` desktop thành **2 cột** (camera trái · form phải). Màn `Đã gửi` khi build sẽ làm **table** trên desktop (card list trên mobile).
+- **Component mới lượt 2:** không tạo component mới — tái dùng `Icon`, `ToolLayout`, `.field-input`, pattern "Tự điền + BẮT BUỘC + accordion". Thêm `dmHangDT` vào `mock-data.ts`.
+- **Chưa logic thật:** không API/DB/auth/validation. Nút bấm được, chuyển route được. Dữ liệu ở `src/lib/mock-data.ts` (tên/khóa/địa chỉ lấy từ PRD + DB thật).
+- **Dữ liệu địa chỉ combobox** là mẫu; thật sẽ nối `usp_DM_DVHC_SelectAll_Tinh` / `usp_DM_DVHC_SelectDanhSachXaPhuongTheoTinh`.
+- **QLY-02/03** (đổi khóa, xóa HV) là thao tác trong tab "Trong khóa (DB)" của /tool/nap — chưa dựng tương tác, sẽ thêm ở lượt sau.
+- **HTG-02** là backend VPS (hàng đợi + job xóa PII) — không có UI, không dựng màn.
+- PRD chưa gắn mã bằng `/ganma`? — PRD đã có mã story (THU/NAP/QLY/KHO/HTG), dùng luôn ở cột Mã story.

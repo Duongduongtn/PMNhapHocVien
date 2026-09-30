@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thu nhận hồ sơ — Bản Rõ ràng</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>
+tailwind.config = { theme: { extend: {
+  fontFamily: { sans: ['"Be Vietnam Pro"', 'system-ui', 'sans-serif'] },
+  colors: {
+    background:'hsl(210 40% 98%)', foreground:'hsl(222 47% 11%)', card:'hsl(0 0% 100%)',
+    primary:'hsl(222 76% 40%)', 'primary-foreground':'hsl(0 0% 100%)',
+    secondary:'hsl(210 40% 96%)', muted:'hsl(210 40% 96%)', 'muted-foreground':'hsl(215 16% 47%)',
+    accent:'hsl(224 76% 94%)', destructive:'hsl(0 72% 51%)', success:'hsl(142 71% 38%)',
+    warning:'hsl(32 90% 42%)', border:'hsl(214 32% 91%)', input:'hsl(214 32% 88%)', ring:'hsl(222 76% 40%)',
+  }, borderRadius: { lg:'0.625rem', md:'0.5rem', sm:'0.375rem' },
+}}}
+</script>
+<style>
+  :root { color-scheme: light; }
+  [hidden] { display:none !important; }
+  body { background: hsl(210 40% 96%); }
+  .field-label { font-size:12px; font-weight:600; color:hsl(215 16% 40%); }
+  .field-input { width:100%; font-size:14px; padding:7px 10px; border-radius:8px; border:1px solid hsl(214 32% 88%); background:#fff; color:hsl(222 47% 11%); transition:border-color .15s, box-shadow .15s; }
+  .field-input:focus { outline:none; border-color:hsl(222 76% 40%); box-shadow:0 0 0 3px hsl(222 76% 40% / .15); }
+  .field-input[readonly] { background:hsl(210 40% 97%); color:hsl(215 16% 35%); }
+  ::-webkit-scrollbar { height:10px; width:10px; }
+  ::-webkit-scrollbar-thumb { background:hsl(214 20% 80%); border-radius:8px; }
+  .lrow { border-bottom:1px solid hsl(214 32% 93%); cursor:pointer; transition:background .12s; }
+  .lrow:hover { background:hsl(224 76% 97%); }
+  .lrow.sel { background:hsl(224 76% 94%); box-shadow:inset 3px 0 0 hsl(222 76% 40%); }
+  .phone { width:min(390px, calc(100vw - 56px)); border-radius:44px; box-shadow:0 30px 60px -20px rgba(15,23,42,.4); }
+  .phone-screen { border-radius:32px; overflow:hidden; height:780px; }
+</style>
+</head>
+<body class="font-sans text-foreground antialiased">
+
+<div class="max-w-[1500px] mx-auto px-4 sm:px-6 pt-6 pb-3 flex items-center gap-3 flex-wrap">
+  <span class="inline-flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/20">Bản 📐 RÕ RÀNG — shadcn xanh dương</span>
+  <h1 class="text-base font-bold">Thu nhận hồ sơ học viên</h1>
+  <span class="text-xs text-muted-foreground">Tool nạp DB (chính) · App web thu thập (khu dưới)</span>
+</div>
+
+<!-- ==================== TOOL (FULL-WIDTH) ==================== -->
+<div class="max-w-[1500px] mx-auto px-4 sm:px-6">
+  <div class="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+
+    <!-- Title bar -->
+    <div class="flex items-center justify-between px-4 py-2.5 bg-primary text-primary-foreground flex-wrap gap-2">
+      <div class="flex items-center gap-2 text-sm font-semibold">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg>
+        Thu nhận hồ sơ cấp mới — Tool nạp DB
+      </div>
+      <div class="flex items-center gap-2 text-[12px]">
+        <span class="inline-flex items-center gap-1.5 bg-white/15 rounded-full px-2.5 py-1"><span class="w-2 h-2 rounded-full bg-emerald-300"></span> Đã kết nối SQL Server</span>
+        <button class="inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/20 transition-colors rounded-md px-2.5 py-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/></svg> Tạo khóa</button>
+        <button class="inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/20 transition-colors rounded-md px-2.5 py-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-2.82 1.17V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 8 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15H4a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 6 8"/></svg> Cấu hình</button>
+        <span class="text-white/80 ml-1">NV nạp: Lê Văn Bình</span>
+      </div>
+    </div>
+
+    <!-- Thanh chọn khóa -->
+    <div class="px-4 py-3 border-b border-border bg-muted/40 flex items-center gap-4 flex-wrap">
+      <div class="inline-flex rounded-lg border border-border bg-card p-0.5" role="group" aria-label="Loại xe">
+        <button id="btnMoto" onclick="setLoai('moto')" class="px-4 py-1.5 text-sm rounded-md text-muted-foreground font-medium">Mô tô</button>
+        <button id="btnOto" onclick="setLoai('oto')" class="px-4 py-1.5 text-sm rounded-md bg-primary text-primary-foreground font-semibold">Ô tô</button>
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="field-label whitespace-nowrap">Khóa đích</label>
+        <select id="khoaSelect" onchange="renderAll()" class="field-input" style="min-width:320px">
+          <option>70004K26B010 — B-K149 (KG 28/08/2026) · chưa BC1</option>
+          <option>70004K26B012 — C-K151 (KG 05/09/2026) · chưa BC1</option>
+        </select>
+      </div>
+      <div class="flex items-center gap-2 text-[12px]">
+        <span class="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1">Hạng ĐT <b class="text-foreground">B</b></span>
+        <span class="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1">Sĩ số <b class="text-foreground">55</b>/50</span>
+        <span class="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2.5 py-1 font-semibold">Chờ nạp 12</span>
+      </div>
+      <button class="ml-auto inline-flex items-center gap-2 h-9 px-4 rounded-lg border border-primary text-primary font-semibold text-sm hover:bg-primary/5 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg> Kéo về từ VPS
+      </button>
+    </div>
+
+    <!-- MAIN: 3 cột — List | Thông tin học viên | Ảnh (cố định cao, chỉ cột list cuộn) -->
+    <div class="flex flex-col xl:flex-row xl:h-[720px]">
+
+      <!-- CỘT 1: LIST -->
+      <div class="flex-1 min-w-0 border-b xl:border-b-0 xl:border-r border-border flex flex-col min-h-0">
+        <div class="px-4 py-3 flex items-center gap-3 flex-wrap border-b border-border shrink-0">
+          <div class="inline-flex rounded-lg bg-muted p-1" role="group">
+            <button id="segCho" onclick="setSeg('cho')" class="inline-flex items-center gap-2 px-3.5 py-1.5 text-sm rounded-md bg-card shadow-sm text-primary font-semibold">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M12 7v5l3 2"/></svg>
+              Chờ nạp (từ VPS) <span class="text-[11px] bg-primary/10 rounded-full px-1.5">12</span>
+            </button>
+            <button id="segDb" onclick="setSeg('db')" class="inline-flex items-center gap-2 px-3.5 py-1.5 text-sm rounded-md text-muted-foreground font-medium hover:text-foreground transition-colors">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
+              Trong khóa <span id="segDbLbl" class="font-semibold">B-K149</span> <span class="text-[11px] bg-muted-foreground/15 rounded-full px-1.5">55</span>
+            </button>
+          </div>
+          <div id="actCho" class="ml-auto flex items-center gap-3">
+            <span class="text-[12px] text-muted-foreground">Đã chọn <b class="text-primary">3</b>/12</span>
+            <button class="h-9 px-4 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center gap-2 hover:brightness-110 transition-all shadow-sm">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></svg> Nạp 3 vào B-K149
+            </button>
+          </div>
+          <div id="actDb" hidden class="ml-auto flex items-center gap-2 text-[12px]">
+            <div class="relative"><svg class="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input class="field-input pl-8" style="width:190px" placeholder="Tìm tên / CCCD / số HS"></div>
+            <button class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-border hover:bg-muted transition-colors"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Xem/Sửa</button>
+            <button class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-border hover:bg-muted transition-colors"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg> Excel</button>
+          </div>
+        </div>
+
+        <div id="dupWarn" class="px-4 py-2 flex items-center gap-2 text-[12px] text-destructive bg-destructive/5 border-b border-destructive/10 shrink-0">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+          1 hồ sơ trùng CCCD trong khóa (BR-005) — đã bỏ chọn tự động, kiểm trước khi nạp
+        </div>
+
+        <!-- rows: chỉ cột này cuộn -->
+        <div id="listBody" class="flex-1 overflow-y-auto min-h-0"></div>
+
+        <div id="footCho" class="px-4 py-2.5 border-t border-border shrink-0">
+          <div class="flex justify-between text-[11px] text-muted-foreground mb-1"><span>Tiến độ nạp lô (tuần tự, lỗi 1 HV không hỏng cả lô)</span><span>3/12</span></div>
+          <div class="h-2 rounded-full bg-muted overflow-hidden"><div class="h-full bg-primary rounded-full" style="width:25%"></div></div>
+        </div>
+        <div id="footDb" hidden class="px-4 py-2.5 border-t border-border shrink-0 flex items-center justify-between text-[12px] text-muted-foreground">
+          <span>Học viên khóa B-K149 · trang 1/3 · 20/trang</span>
+          <div class="flex items-center gap-1">
+            <button class="w-8 h-8 rounded-md border border-border flex items-center justify-center" disabled><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button>
+            <button class="w-8 h-8 rounded-md bg-primary text-primary-foreground font-semibold">1</button>
+            <button class="w-8 h-8 rounded-md border border-border hover:bg-muted transition-colors">2</button>
+            <button class="w-8 h-8 rounded-md border border-border hover:bg-muted transition-colors">3</button>
+            <button class="w-8 h-8 rounded-md border border-border hover:bg-muted flex items-center justify-center transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- CỘT 2: THÔNG TIN HỌC VIÊN -->
+      <div class="w-full xl:w-[340px] shrink-0 border-b xl:border-b-0 xl:border-r border-border bg-muted/15 flex flex-col min-h-0">
+        <div class="px-4 py-3 border-b border-border flex items-center justify-between shrink-0">
+          <h3 class="text-sm font-bold">Thông tin học viên</h3>
+          <span id="panelBadge" class="text-[11px] font-semibold text-primary bg-primary/10 rounded-full px-2 py-0.5">Chờ nạp</span>
+        </div>
+        <div class="flex-1 xl:overflow-y-auto p-4 space-y-3 min-h-0">
+          <!-- Dòng tự điền (read-only) -->
+          <div class="rounded-md bg-secondary/70 border border-border px-2.5 py-2 text-[11px] text-muted-foreground leading-relaxed">
+            <b class="text-foreground">Tự điền khi nạp:</b> Số HS <b class="text-primary">056</b> · MaDK tự sinh · Hạng B/B1 · MaLoaiHs 2 · Quốc tịch VN · Tên in = Họ tên (≤25) · CM_VN · TT_XuLy <b class="text-foreground">03</b> (có ảnh)/<b class="text-foreground">01</b> (thiếu ảnh) · TrangThai 1 · CSDT 70004
+          </div>
+
+          <!-- Nhóm BẮT BUỘC -->
+          <div class="flex items-center gap-2">
+            <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-destructive"><span class="w-1.5 h-1.5 rounded-full bg-destructive"></span> BẮT BUỘC</span>
+            <div class="flex-1 h-px bg-border"></div>
+            <span class="text-[10px] text-muted-foreground">* phải điền mới nạp được</span>
+          </div>
+          <div class="space-y-2 rounded-lg border border-destructive/25 bg-destructive/[0.03] p-3">
+            <div><label class="field-label">Họ và tên <span class="text-destructive">*</span> <span class="text-muted-foreground font-normal">(≤50 · Tên in tự sinh = tên này, cắt ≤25)</span></label><input id="pName" class="field-input mt-1" value="NGUYỄN THANH TÂM"></div>
+            <div class="grid grid-cols-2 gap-2">
+              <div><label class="field-label">Ngày sinh <span class="text-destructive">*</span></label><input class="field-input mt-1" value="21/11/2002"></div>
+              <div><label class="field-label">Giới tính <span class="text-destructive">*</span></label><select class="field-input mt-1"><option>Nam</option><option>Nữ</option></select></div>
+            </div>
+            <div><label class="field-label">Số CCCD <span class="text-destructive">*</span></label><input id="pCccd" class="field-input mt-1" value="070202008455"></div>
+            <div>
+              <div class="flex items-center justify-between mb-1"><label class="field-label">Nơi thường trú — Tỉnh/Xã <span class="text-destructive">*</span></label>
+                <span id="pAddrChip" class="inline-flex items-center gap-1 text-[10px] font-semibold text-success bg-success/10 px-1.5 py-0.5 rounded-full border border-success/30"><svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg> Đã map · Mã 25267/75</span>
+              </div>
+              <div class="relative">
+                <input id="pAddr" class="field-input" value="Xã Phú Nghĩa, Tỉnh Đồng Nai" autocomplete="off" placeholder="Gõ tên xã/tỉnh hoặc mã DVHC…" oninput="openList('pAddr','ttList')" onfocus="openList('pAddr','ttList')" onblur="hideList('ttList')">
+                <div id="ttList" hidden class="absolute z-30 left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg max-h-52 overflow-y-auto"></div>
+              </div>
+              <p class="text-[11px] text-muted-foreground mt-1">Gõ tên hoặc mã → chọn từ DB (DM_DVHC), lấy đúng mã — không gõ tay tự do.</p>
+            </div>
+            <label class="flex items-center gap-2 text-[12px] cursor-pointer"><input type="checkbox" checked onchange="toggleCT(this)" class="w-3.5 h-3.5 accent-primary"> Nơi cư trú giống thường trú (BR-004)</label>
+            <div id="ctBlock" hidden>
+              <label class="field-label">Nơi cư trú — Tỉnh/Xã <span class="text-destructive">*</span></label>
+              <div class="relative mt-1">
+                <input id="ctAddr" class="field-input" autocomplete="off" placeholder="Gõ tên xã/tỉnh hoặc mã DVHC…" oninput="openList('ctAddr','ctList')" onfocus="openList('ctAddr','ctList')" onblur="hideList('ctList')">
+                <div id="ctList" hidden class="absolute z-30 left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg max-h-52 overflow-y-auto"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Nhóm KHÔNG BẮT BUỘC (accordion, đóng sẵn) -->
+          <div class="rounded-lg border border-border overflow-hidden">
+            <button type="button" onclick="toggleOptional()" class="w-full flex items-center justify-between px-3 py-2.5 bg-muted/40 hover:bg-muted transition-colors text-left">
+              <span class="text-[13px] font-semibold flex items-center gap-2">
+                <svg class="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                Thông tin thêm <span class="font-normal text-muted-foreground text-[11px]">(không bắt buộc — bỏ qua được)</span>
+              </span>
+              <svg id="optChevron" class="w-4 h-4 text-muted-foreground transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div id="optBody" hidden class="p-3 space-y-2 border-t border-border bg-card">
+              <div class="grid grid-cols-2 gap-2">
+                <div><label class="field-label">Ngày cấp CCCD</label><input class="field-input mt-1" value="10/03/2021" placeholder="dd/mm/yyyy"></div>
+                <div><label class="field-label">Nơi cấp CCCD</label><input class="field-input mt-1" placeholder="(có thể trống)"></div>
+              </div>
+              <div><label class="field-label">Chi tiết địa chỉ (số nhà, thôn/ấp) <span class="text-muted-foreground font-normal">(gộp NoiTT ≤50)</span></label><input class="field-input mt-1" placeholder="VD: Số 12, Thôn 3"></div>
+              <div><label class="field-label">Ghi chú</label><input class="field-input mt-1" placeholder="..."></div>
+            </div>
+          </div>
+        </div>
+        <div class="p-3 border-t border-border shrink-0">
+          <button id="panelAction" class="w-full h-10 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-sm">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></svg> Nạp hồ sơ này vào B-K149
+          </button>
+        </div>
+      </div>
+
+      <!-- CỘT 3: ẢNH -->
+      <div class="w-full xl:w-[300px] shrink-0 bg-muted/5 p-4 flex flex-col">
+        <h3 class="text-sm font-bold mb-1">Ảnh chân dung</h3>
+        <p class="text-[11px] text-muted-foreground mb-3">3:4 · 353×471 · nền trắng (NAP-04)</p>
+        <div class="aspect-[3/4] w-full rounded-lg bg-white border border-input flex items-center justify-center relative overflow-hidden mb-3 shadow-sm">
+          <svg class="w-20 h-20 text-muted-foreground/40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><circle cx="12" cy="9" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+          <span class="absolute top-2 left-2 text-[10px] bg-success text-white px-1.5 py-0.5 rounded">Đã xử lý · nền trắng</span>
+          <button id="btnZoomPhoto" onclick="openPhotoModal()" aria-label="Phóng to ảnh" class="absolute top-2 right-2 w-8 h-8 rounded-lg bg-foreground/60 text-white flex items-center justify-center hover:bg-foreground/80 transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button>
+        </div>
+        <div id="panelPhotoBtns" class="space-y-2">
+          <button onclick="openPhotoModal()" class="w-full h-10 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition-all shadow-sm flex items-center justify-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg> Chỉnh ảnh (phóng to)</button>
+          <button class="w-full h-9 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors flex items-center justify-center gap-1.5"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3Z"/><circle cx="12" cy="13" r="3"/></svg> Chọn / chụp ảnh khác</button>
+        </div>
+        <p class="text-[11px] text-muted-foreground mt-3">Tên file = MaDK, lưu vào <span class="font-mono">ANHCDUNG\B-K149\</span></p>
+        <div class="mt-4 rounded-lg border border-border bg-card p-3">
+          <h4 class="text-[13px] font-bold mb-2">Giấy tờ kèm theo <span class="font-normal text-muted-foreground text-[11px]">(theo tick cuối)</span></h4>
+          <div class="space-y-1.5 text-[13px]">
+            <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked class="w-4 h-4 accent-primary"> Đơn đề nghị học, sát hạch (PL XI)</label>
+            <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked class="w-4 h-4 accent-primary"> Bản sao CMND/hộ chiếu</label>
+            <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked class="w-4 h-4 accent-primary"> Giấy chứng nhận sức khỏe</label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== APP WEB (khu riêng, dưới) ==================== -->
+<div class="max-w-[1500px] mx-auto px-4 sm:px-6 pt-10 pb-16">
+  <div class="flex items-center gap-2 text-sm font-semibold text-muted-foreground mb-4">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>
+    App web — điện thoại (nhân viên tuyển sinh thu thập) · app riêng, route riêng
+  </div>
+  <div class="flex justify-center xl:justify-start">
+    <div class="phone bg-slate-900 p-2.5">
+      <div class="phone-screen bg-background flex flex-col relative">
+        <header class="bg-primary text-primary-foreground px-4 pt-3 pb-3 flex items-center justify-between shrink-0">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg></div>
+            <div><div class="text-sm font-semibold leading-tight">Thu nhận hồ sơ</div><div class="text-[11px] text-white/70 leading-tight">Quét căn cước</div></div>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-[11px] bg-white/15 rounded-full px-2 py-1">Trần Thị Hoa</span>
+            <button aria-label="Đăng xuất" class="w-7 h-7 rounded-full bg-white/15 flex items-center justify-center hover:bg-white/25 transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
+          </div>
+        </header>
+        <div class="flex-1 overflow-y-auto">
+          <div class="relative bg-slate-950 aspect-[3/4] flex items-center justify-center overflow-hidden">
+            <div class="absolute inset-0 opacity-30" style="background:radial-gradient(circle at 50% 40%, #1e293b, #020617)"></div>
+            <div class="absolute w-[78%] aspect-[86/54] rounded-xl border border-white/10 bg-white/[.03]"></div>
+            <div class="relative w-[70%] aspect-square">
+              <span class="absolute -top-0.5 -left-0.5 w-8 h-8 border-t-4 border-l-4 border-success rounded-tl-lg"></span>
+              <span class="absolute -top-0.5 -right-0.5 w-8 h-8 border-t-4 border-r-4 border-success rounded-tr-lg"></span>
+              <span class="absolute -bottom-0.5 -left-0.5 w-8 h-8 border-b-4 border-l-4 border-success rounded-bl-lg"></span>
+              <span class="absolute -bottom-0.5 -right-0.5 w-8 h-8 border-b-4 border-r-4 border-success rounded-br-lg"></span>
+              <div class="absolute left-2 right-2 h-0.5 bg-success/80 shadow-[0_0_12px_2px] shadow-success" style="top:60%"></div>
+            </div>
+            <div class="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-success text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg> Quét thành công</div>
+            <button aria-label="Bật đèn" class="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-white/15 backdrop-blur flex items-center justify-center text-white hover:bg-white/25 transition-colors"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2Z"/></svg></button>
+            <div class="absolute bottom-3 left-3 text-[11px] text-white/70">Đưa mặt trước CCCD vào khung</div>
+          </div>
+          <div class="p-4 space-y-3">
+            <div class="flex items-center justify-between"><h2 class="text-sm font-bold">Thông tin từ căn cước</h2><span class="text-[11px] text-muted-foreground">Kiểm tra & sửa nếu sai</span></div>
+            <div><label class="field-label">Số CCCD <span class="text-destructive">*</span></label><input class="field-input mt-1" value="070202008455" inputmode="numeric"></div>
+            <div><label class="field-label">Số CMND cũ (nếu có)</label><input class="field-input mt-1" value="" placeholder="9 số — bỏ trống nếu không có"></div>
+            <div><label class="field-label">Họ và tên <span class="text-destructive">*</span></label><input class="field-input mt-1" value="NGUYỄN THANH TÂM"></div>
+            <div class="grid grid-cols-2 gap-3">
+              <div><label class="field-label">Ngày sinh <span class="text-destructive">*</span></label><input class="field-input mt-1" value="21/11/2002"></div>
+              <div><label class="field-label">Giới tính <span class="text-destructive">*</span></label><select class="field-input mt-1"><option>Nam</option><option>Nữ</option></select></div>
+            </div>
+            <div><label class="field-label">Nơi thường trú <span class="text-destructive">*</span></label><input class="field-input mt-1" value="Xã Phú Nghĩa, Tỉnh Bình Phước"></div>
+            <label class="flex items-center gap-2 text-[13px] cursor-pointer select-none"><input type="checkbox" checked class="w-4 h-4 accent-primary rounded"> Nơi cư trú giống nơi thường trú</label>
+            <div class="flex items-center gap-2 text-[12px] text-warning bg-warning/10 border border-warning/30 rounded-lg px-3 py-2"><svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4"/></svg> Đã lưu nháp — sẽ tự gửi khi có mạng</div>
+            <button class="w-full h-11 rounded-lg border border-border bg-secondary text-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:bg-muted transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3Z"/><circle cx="12" cy="13" r="3"/></svg> Chụp ảnh chân dung</button>
+            <button class="w-full h-11 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-sm"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg> Gửi hồ sơ</button>
+            <div class="text-center"><a href="#" class="text-[12px] text-primary font-medium hover:underline">QR hỏng? Nhập tay / Tải ảnh CCCD</a></div>
+          </div>
+        </div>
+        <nav class="shrink-0 border-t border-border bg-card grid grid-cols-3 text-[11px]">
+          <button class="flex flex-col items-center gap-1 py-2.5 text-primary font-semibold"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg> Quét</button>
+          <button class="flex flex-col items-center gap-1 py-2.5 text-muted-foreground hover:text-foreground transition-colors"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4Z"/></svg> Đã gửi</button>
+          <button class="flex flex-col items-center gap-1 py-2.5 text-muted-foreground hover:text-foreground transition-colors"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg> Tài khoản</button>
+        </nav>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL CHỈNH ẢNH (phóng to) ==================== -->
+<div id="photoModal" hidden class="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onclick="if(event.target===this)closePhotoModal()">
+  <div class="bg-card rounded-xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden">
+    <div class="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
+      <h3 class="font-bold text-sm flex items-center gap-2"><svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3Z"/><circle cx="12" cy="13" r="3"/></svg> Chỉnh ảnh chân dung — NGUYỄN THANH TÂM</h3>
+      <button onclick="closePhotoModal()" aria-label="Đóng" class="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center transition-colors"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+
+    <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-6 overflow-y-auto">
+      <!-- Ảnh gốc + khung crop -->
+      <div>
+        <div class="field-label mb-2">Ảnh gốc — kéo để canh mặt, khung 3:4 cố định</div>
+        <div class="relative aspect-[3/4] rounded-lg bg-slate-800 overflow-hidden flex items-center justify-center cursor-move select-none">
+          <div class="absolute inset-0" style="background:radial-gradient(circle at 50% 42%, #334155, #0f172a)"></div>
+          <svg class="w-40 h-40 text-white/25 relative" fill="none" stroke="currentColor" stroke-width="1.2" viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="4.5"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
+          <div class="absolute inset-x-5 inset-y-3 border-2 border-white/85 rounded pointer-events-none">
+            <span class="absolute -top-0.5 -left-0.5 w-5 h-5 border-t-4 border-l-4 border-primary rounded-tl"></span>
+            <span class="absolute -top-0.5 -right-0.5 w-5 h-5 border-t-4 border-r-4 border-primary rounded-tr"></span>
+            <span class="absolute -bottom-0.5 -left-0.5 w-5 h-5 border-b-4 border-l-4 border-primary rounded-bl"></span>
+            <span class="absolute -bottom-0.5 -right-0.5 w-5 h-5 border-b-4 border-r-4 border-primary rounded-br"></span>
+          </div>
+          <span class="absolute bottom-2 left-1/2 -translate-x-1/2 text-[11px] text-white/70 bg-black/40 px-2 py-1 rounded-full whitespace-nowrap">Kéo ảnh để di chuyển · cuộn/kéo thanh để phóng</span>
+        </div>
+        <div class="mt-3">
+          <label class="field-label">Thu phóng</label>
+          <input type="range" min="100" max="260" value="135" class="w-full accent-primary mt-1">
+        </div>
+        <button class="mt-2 w-full h-9 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors flex items-center justify-center gap-1.5"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3Z"/><circle cx="12" cy="13" r="3"/></svg> Chọn / chụp ảnh khác</button>
+      </div>
+
+      <!-- Kết quả + xóa phông -->
+      <div>
+        <div class="field-label mb-2">Kết quả (3:4 · 353×471 · nền trắng)</div>
+        <div class="aspect-[3/4] rounded-lg bg-white border border-border flex items-center justify-center shadow-inner">
+          <svg class="w-40 h-40 text-slate-300" fill="none" stroke="currentColor" stroke-width="1.2" viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="4.5"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
+        </div>
+        <label class="flex items-center gap-2 mt-3 text-[13px] font-medium cursor-pointer"><input type="checkbox" checked class="w-4 h-4 accent-primary"> Xóa phông → nền trắng (rembg)</label>
+        <p class="text-[11px] text-muted-foreground mt-2 leading-relaxed">Nền tách bằng rembg, xuất <b>.jp2</b> (353×471) khi bấm Nạp. Tên file = MaDK, lưu vào <span class="font-mono">ANHCDUNG\B-K149\</span></p>
+      </div>
+    </div>
+
+    <div class="px-5 py-3 border-t border-border flex justify-end gap-2 shrink-0">
+      <button onclick="closePhotoModal()" class="h-10 px-4 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Hủy</button>
+      <button onclick="closePhotoModal()" class="h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition-all shadow-sm flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg> Lưu ảnh</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function openPhotoModal(){ document.getElementById('photoModal').hidden=false; }
+function closePhotoModal(){ document.getElementById('photoModal').hidden=true; }
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closePhotoModal(); });
+function toggleOptional(){
+  const b=document.getElementById('optBody'), c=document.getElementById('optChevron');
+  b.hidden=!b.hidden; c.style.transform = b.hidden ? '' : 'rotate(180deg)';
+}
+function toggleCT(cb){ document.getElementById('ctBlock').hidden = cb.checked; }
+// Combobox địa chỉ DVHC (mock — thật sẽ nối usp_DM_DVHC_*)
+const dvhcData=[
+  ['25267','75','Xã Phú Nghĩa, Tỉnh Đồng Nai'],
+  ['25270','75','Xã Nghĩa Trung, Tỉnh Đồng Nai'],
+  ['25288','75','Xã Thọ Sơn, Tỉnh Đồng Nai'],
+  ['25291','75','Phường Đông Phú, Tỉnh Đồng Nai'],
+  ['26134','79','Phường Chánh Phú Hòa, TP Hồ Chí Minh'],
+  ['22045','80','Phường Bình Minh, Tỉnh Tây Ninh'],
+  ['08910','66','Xã Krông Pắc, Tỉnh Đắk Lắk'],
+  ['12007','37','Xã Nho Quan, Tỉnh Ninh Bình'],
+];
+function openList(inputId,listId){
+  const inp=document.getElementById(inputId), list=document.getElementById(listId);
+  const q=(inp.value||'').toLowerCase().trim();
+  const rows=dvhcData.filter(r=>!q || r[2].toLowerCase().includes(q) || (r[0]+'/'+r[1]).includes(q));
+  list.innerHTML = rows.length
+    ? rows.map(r=>`<button type="button" onmousedown="event.preventDefault();pick('${inputId}','${listId}','${r[0]}','${r[1]}','${r[2]}')" class="w-full text-left px-3 py-2 hover:bg-accent transition-colors flex items-center gap-2 border-b border-border last:border-0"><span class="font-mono text-[11px] bg-secondary rounded px-1.5 py-0.5 shrink-0">${r[0]}/${r[1]}</span><span class="text-[13px] truncate">${r[2]}</span></button>`).join('')
+    : '<div class="px-3 py-2 text-[12px] text-muted-foreground">Không khớp mã/tên — kiểm lại</div>';
+  list.hidden=false;
+}
+function pick(inputId,listId,code,dvql,ten){
+  document.getElementById(inputId).value=ten;
+  document.getElementById(listId).hidden=true;
+  if(inputId==='pAddr'){
+    document.getElementById('pAddrChip').innerHTML='<svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg> Mã '+code+'/'+dvql;
+  }
+}
+function hideList(listId){ setTimeout(()=>{ const l=document.getElementById(listId); if(l) l.hidden=true; },150); }
+function setLoai(l){
+  const m=document.getElementById('btnMoto'), o=document.getElementById('btnOto');
+  const on='px-4 py-1.5 text-sm rounded-md bg-primary text-primary-foreground font-semibold', off='px-4 py-1.5 text-sm rounded-md text-muted-foreground font-medium';
+  if(l==='moto'){m.className=on;o.className=off;} else {o.className=on;m.className=off;}
+  document.getElementById('khoaSelect').innerHTML = l==='moto'
+    ? '<option>70004K26A011 — A1-K33 (KG 12/09/2026) · chưa BC1</option><option>70004K26A012 — A-K34 (KG 20/09/2026) · chưa BC1</option>'
+    : '<option>70004K26B010 — B-K149 (KG 28/08/2026) · chưa BC1</option><option>70004K26B012 — C-K151 (KG 05/09/2026) · chưa BC1</option>';
+  renderAll();
+}
+const pill=(t)=>{
+  if(t==='map')return '<span class="text-[11px] font-medium text-success bg-success/10 border border-success/30 rounded-full px-2 py-0.5 whitespace-nowrap">Đã map</span>';
+  if(t==='manual')return '<span class="text-[11px] font-medium text-warning bg-warning/10 border border-warning/30 rounded-full px-2 py-0.5 whitespace-nowrap">Chọn tay</span>';
+  if(t==='photo')return '<span class="text-[11px] font-medium text-success bg-success/10 border border-success/30 rounded-full px-2 py-0.5 whitespace-nowrap">Ảnh ✓</span>';
+  return '<span class="text-[11px] font-medium text-muted-foreground bg-muted border border-border rounded-full px-2 py-0.5 whitespace-nowrap">Chưa ảnh</span>';
+};
+const avatar=(bg)=>`<span class="inline-flex w-9 h-9 rounded-full items-center justify-center ${bg} shrink-0"><svg class="w-5 h-5 text-white/90" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="9" r="3.2"/><path d="M5 20c0-3 3-5 7-5s7 2 7 5"/></svg></span>`;
+
+const cho=[
+  ['NGUYỄN THANH TÂM','Nam','070202008455','Xã Phú Nghĩa, Tỉnh Đồng Nai','map','photo','bg-blue-500',1,0],
+  ['LÊ THỊ MỸ DUYÊN','Nữ','075301004821','Xã Nghĩa Trung, TP Đồng Nai','map','photo','bg-rose-500',1,0],
+  ['PHẠM QUỐC HUY','Nam','070204006712','Xã Thọ Sơn, TP Đồng Nai','map','no','bg-emerald-500',1,0],
+  ['ĐỖ VŨ BẢO ANH','Nam','074207005570','P. Chánh Phú Hòa, TP Hồ Chí Minh','manual','no','bg-amber-500',0,1],
+  ['VÕ XUÂN LỘC','Nam','070094000283','Xã Đông Phú, TP Đồng Nai','map','photo','bg-violet-500',0,0],
+];
+const db=[
+  ['034','NGUYỄN THỊ HUỆ AN','Nữ','072190003564','Xã Hảo Đước, Tỉnh Tây Ninh'],
+  ['042','ĐỖ VŨ BẢO ANH','Nam','074207005570','P. Chánh Phú Hòa, TP Hồ Chí Minh'],
+  ['008','NGÔ NGUYỄN HOÀNG ANH','Nữ','066301002217','Xã Krông Pắc, Tỉnh Đắk Lắk'],
+  ['011','TRẦN TUẤN ANH','Nam','054201004151','P. Tuy Hòa, Tỉnh Đắk Lắk'],
+  ['036','NINH THỊ BÌNH','Nữ','070191001352','Xã Nghĩa Trung, TP Đồng Nai'],
+  ['055','BÙI TẤN ĐẠT','Nam','070095010655','P. Đông Phú, TP Đồng Nai'],
+  ['040','MÔ TRỌNG ĐẠT','Nam','070207002892','Xã Nghĩa Trung, TP Đồng Nai'],
+  ['045','ĐIỂU THỊ DUNG','Nữ','070192001900','Xã Thọ Sơn, TP Đồng Nai'],
+];
+
+function renderCho(){
+  document.getElementById('listBody').innerHTML = cho.map((r,i)=>`
+    <div class="lrow ${i===0?'sel':''} flex items-center gap-3 px-4 py-3" onclick="document.querySelectorAll('#listBody .lrow').forEach(x=>x.classList.remove('sel'));this.classList.add('sel')">
+      <input type="checkbox" class="accent-primary w-4 h-4 shrink-0" ${r[7]?'checked':''}>
+      ${avatar(r[6])}
+      <div class="min-w-0 flex-1">
+        <div class="font-semibold text-[14px] truncate flex items-center gap-1.5">${r[0]}${r[8]?'<span class="text-[10px] text-destructive font-medium">⚠ trùng CCCD</span>':''}</div>
+        <div class="text-[12px] text-muted-foreground truncate">${r[1]} · ${r[2]} · ${r[3]}</div>
+      </div>
+      <div class="flex items-center gap-1.5 shrink-0">${pill(r[4])}${pill(r[5])}</div>
+    </div>`).join('');
+}
+function renderDb(){
+  document.getElementById('listBody').innerHTML = db.map((r,i)=>`
+    <div class="lrow flex items-center gap-3 px-4 py-3" onclick="document.querySelectorAll('#listBody .lrow').forEach(x=>x.classList.remove('sel'));this.classList.add('sel')">
+      <span class="w-8 text-center text-[12px] text-muted-foreground shrink-0">${i+1}</span>
+      <span class="inline-flex items-center justify-center min-w-[42px] h-6 rounded-md bg-secondary text-[12px] font-bold shrink-0">${r[0]}</span>
+      <div class="min-w-0 flex-1">
+        <div class="font-semibold text-[14px] truncate">${r[1]}</div>
+        <div class="text-[12px] text-muted-foreground truncate">${r[2]} · ${r[3]} · ${r[4]}</div>
+      </div>
+      <span class="text-[12px] text-muted-foreground tabular-nums shrink-0 hidden sm:block">25/08/2026</span>
+      <span class="inline-flex items-center gap-1 text-[11px] text-success shrink-0" title="Đường dẫn ảnh"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg></span>
+    </div>`).join('');
+}
+function renderAll(){ document.getElementById('segCho').classList.contains('text-primary') ? renderCho() : renderDb(); }
+
+function setSeg(s){
+  const c=document.getElementById('segCho'), d=document.getElementById('segDb');
+  const on='inline-flex items-center gap-2 px-3.5 py-1.5 text-sm rounded-md bg-card shadow-sm text-primary font-semibold';
+  const off='inline-flex items-center gap-2 px-3.5 py-1.5 text-sm rounded-md text-muted-foreground font-medium hover:text-foreground transition-colors';
+  if(s==='cho'){ c.className=on; d.className=off;
+    document.getElementById('actCho').hidden=false; document.getElementById('actDb').hidden=true;
+    document.getElementById('dupWarn').hidden=false; document.getElementById('footCho').hidden=false; document.getElementById('footDb').hidden=true;
+    document.getElementById('panelBadge').textContent='Chờ nạp'; document.getElementById('panelPhotoBtns').hidden=false;
+    document.getElementById('panelAction').hidden=false;
+    renderCho();
+  } else { d.className=on; c.className=off;
+    document.getElementById('actCho').hidden=true; document.getElementById('actDb').hidden=false;
+    document.getElementById('dupWarn').hidden=true; document.getElementById('footCho').hidden=true; document.getElementById('footDb').hidden=false;
+    document.getElementById('panelBadge').textContent='Đã có trong DB'; document.getElementById('panelPhotoBtns').hidden=true;
+    document.getElementById('panelAction').hidden=true;
+    renderDb();
+  }
+}
+setSeg('cho');
+</script>
+</body>
+</html>
