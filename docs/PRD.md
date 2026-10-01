@@ -49,7 +49,7 @@
 
 #### [THU-01] Quét QR căn cước + xác nhận/sửa (app web, mobile)
 
-**Trạng thái:** ⏳ Todo — yêu cầu đổi 01/10/2026 (CHANGES #13): thêm lối "Lưu & nhập hồ sơ tiếp" ở màn xác nhận (gửi không ảnh → về màn chọn cách nhập, phục vụ nhập liên tiếp). Code quét/parse/preview/khung bám cũ vẫn đúng (từng ✅ 01/10 task 18+28, CHANGES #12), chỉ thêm nút + điều hướng.
+**Trạng thái:** ✅ Done — 01/10/2026. Nhập liên tiếp ("Lưu & nhập hồ sơ tiếp") + redesign UX nhập liệu (task 30, CHANGES #13/#14: ẩn ô CMND cũ, ô ngày auto-mask "/" + nút lịch giữ năm-only, desktop 2 cột + 2 nút tách hai đầu + phím tắt + nới khung). Kiểm: webapp 24 test · build · 4 review (nghiệp vụ/kỹ thuật/bảo mật/giao diện) đã vá · Playwright 1440/375 · deploy live `029026c`. Nền quét QR (task 18/28) — khung bám QR cần thẻ thật AS-001.
 **Story:** Là nhân viên thu nhận, tôi muốn quét QR căn cước để điền sẵn hồ sơ, để giảm gõ tay.
 
 **Steps to Complete:**
@@ -83,7 +83,7 @@
 
 #### [THU-02] Nhập tay + chụp ảnh + gửi VPS (app web)
 
-**Trạng thái:** ⏳ Todo — yêu cầu đổi 01/10/2026 (CHANGES #13): gửi không ảnh ngay từ màn xác nhận (toast nhanh, bỏ màn kết quả ở luồng nhập liên tiếp) + badge "Thiếu ảnh" + bộ lọc hồ sơ thiếu ảnh ở "Hồ sơ đã gửi". Code gửi/ảnh/sửa/ô tìm cũ vẫn đúng (từng ✅ 01/10 task 19+29, CHANGES #12), chỉ thêm badge+lọc+lối gửi nhanh.
+**Trạng thái:** ✅ Done — 01/10/2026. Gửi nhanh không ảnh (toast) + badge "Thiếu ảnh" + bộ lọc thiếu ảnh ở "Hồ sơ đã gửi" (task 30, CHANGES #13) + form nhập tay thân thiện (ô ngày auto-mask/lịch, CHANGES #14). Kiểm: server 67 test · webapp 24 · 4 review đã vá · Playwright 1440/375 · deploy live.
 **Story:** Là nhân viên thu nhận, tôi muốn nhập tay và chụp ảnh chân dung rồi gửi lên VPS, để thu thập được cả khi không quét được QR.
 
 **Steps to Complete:**
@@ -284,7 +284,7 @@
 
 #### [THU-04] Cảnh báo trùng CCCD khi thu nhận (app web)
 
-**Trạng thái:** ⏳ Todo — thêm 01/10/2026 (CHANGES #13)
+**Trạng thái:** ✅ Done — 01/10/2026. Cảnh báo trùng CCCD app web (task 31): `GET /api/ho-so/kiem-trung` soi hàng đợi pending/importing + banner mềm ở màn xác nhận, vẫn cho gửi. Kiểm: server 67 test (+5 kiểm-trùng, +validate cccd) · review-baomat không lỗ CHẶN (giữ hiển thị tên đầy đủ người gửi theo chủ dự án chốt) · deploy live. Đối chiếu DB thật vẫn ở NAP-06.
 **Story:** Là nhân viên thu nhận, tôi muốn được cảnh báo khi căn cước vừa nhập đã có hồ sơ chưa nạp trong hàng đợi, để tránh gửi trùng một học viên lên hệ thống.
 
 **Done khi:**
