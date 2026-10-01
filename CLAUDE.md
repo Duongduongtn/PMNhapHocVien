@@ -16,7 +16,8 @@
 
 - **Code thật:**
   - `tool/` — tool nạp DB tại máy CSDT: `tool/app/` (FastAPI localhost, cổng 8000) + `tool/webui/` (React + Vite, cổng 3011). Chạy/test: xem `tool/README.md`.
-  - `webapp/` (app web PWA) và `server/` (backend VPS) **chưa dựng** — thêm ở Phase 2 theo `docs/BUILD-PLAN.md` (cấu trúc TDD §2.4).
+  - `server/` — backend VPS (FastAPI + PostgreSQL), khung dựng ở task 12: `server/app/` + `server/db/init.sql` + `docker-compose.yml` (api+postgres+nginx). Chạy/test: xem `server/README.md`.
+  - `webapp/` (app web PWA) **chưa dựng** — thêm ở Phase 2 (task 13) theo `docs/BUILD-PLAN.md` (cấu trúc TDD §2.4).
 - **Prototype — KHÔNG sửa khi làm tính năng thật:** `ui-demo/` (project Vite + React riêng, chạy bằng `cd ui-demo && pnpm dev` — cổng 3021). Chỉ là tham chiếu style/layout.
 
 # Nguyên tắc khi implement
