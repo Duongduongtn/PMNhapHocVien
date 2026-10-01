@@ -168,7 +168,7 @@ export default function Quet() {
   }
 
   return (
-    <div className="h-full flex flex-col lg:h-auto lg:p-6 lg:max-w-md lg:mx-auto">
+    <div className="h-full flex flex-col lg:h-auto lg:p-6 lg:max-w-2xl lg:mx-auto">
       {giaiDoan === "chon" && (
         <ChonCach onQuet={() => { setLoiChon(null); setGiaiDoan("quet"); }} onNhapTay={nhapTay} onAnhFile={docAnhFile} loi={loiChon} />
       )}
@@ -231,7 +231,7 @@ function ChonCach({
 
       <div className="flex-1" />
 
-      <div className="space-y-2.5">
+      <div className="space-y-2.5 lg:max-w-md lg:mx-auto lg:w-full">
         <button
           type="button"
           onClick={onQuet}
@@ -817,7 +817,7 @@ function ChupAnhGui({ uuid, onXong }: { uuid: string; onXong: (mangYeu: boolean)
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 lg:max-w-md lg:mx-auto">
       <div className="text-center">
         <h2 className="text-base font-bold">Ảnh chân dung</h2>
         <p className="text-[12px] text-muted-foreground mt-0.5">Chụp ảnh người thật. Căn khung và xóa phông do tool nạp làm sau.</p>
