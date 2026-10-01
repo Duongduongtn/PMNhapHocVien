@@ -104,7 +104,7 @@
 
 #### [HTG-02] Hàng đợi VPS + tự xóa PII 30 ngày
 
-**Trạng thái:** 🔄 In Progress
+**Trạng thái:** ✅ Done — 01/10/2026, hàng đợi + lock CAS + upload/validate ảnh (task 15) + job APScheduler xóa PII 30 ngày bỏ qua importing (task 16); 50/50 test pass (SQLite in-memory), review-nghiepvu đủ cả 2 phần. HTTPS là cấu hình nginx lúc deploy.
 **Story:** Là hệ thống, tôi muốn lưu bản ghi thu thập vào hàng đợi và tự xóa sau 30 ngày, để tool kéo về và bảo vệ dữ liệu căn cước.
 
 **Done khi:**

@@ -5,15 +5,33 @@ Chỉ có health/readiness ở bước này. Router thật thêm sau:
   - task 15: hàng đợi ho_so_thu_thap → app.routers.ho_so
   - task 16: job xóa PII 30 ngày    → app.jobs.pii
 """
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.config import get_settings
 from app.db import engine
+from app.jobs.scheduler import tao_scheduler
 from app.routers import admin_users, auth, ho_so, nap
 
-app = FastAPI(title="Thu nhận hồ sơ — API VPS", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Bật scheduler job xóa PII khi khởi động, tắt khi dừng (TDD §7.3)."""
+    scheduler = None
+    if get_settings().enable_scheduler:
+        scheduler = tao_scheduler()
+        scheduler.start()
+    try:
+        yield
+    finally:
+        if scheduler is not None:
+            scheduler.shutdown(wait=False)
+
+
+app = FastAPI(title="Thu nhận hồ sơ — API VPS", version="0.1.0", lifespan=lifespan)
 
 app.include_router(auth.router)
 app.include_router(admin_users.router)

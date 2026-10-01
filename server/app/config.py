@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     max_anh_bytes: int = 8 * 1024 * 1024       # ảnh thô ≤ 8 MB (TDD §7.4)
     max_anh_pixels: int = 25_000_000           # chặn ảnh "bung nén" ~25 MP (TDD §7.4)
 
+    # ── Job nền (task 16 — HTG-02 2/2, TDD §7.3) ──
+    enable_scheduler: bool = True              # tắt khi test / worker phụ (chỉ 1 worker nên bật)
+
 
 @lru_cache
 def get_settings() -> Settings:

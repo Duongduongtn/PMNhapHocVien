@@ -7,6 +7,7 @@ psycopg[binary]==3.2.3
 pydantic-settings==2.6.1
 python-multipart==0.0.20   # upload ảnh thô multipart (task 15 — HTG-02)
 pillow==11.0.0             # validate ảnh: số điểm ảnh chống bung nén (task 15, TDD §7.4)
+apscheduler==3.10.4        # job quét xóa PII 30 ngày (task 16, TDD §7.3)
 
 # Auth (task 14 — HTG-01②)
 pyjwt==2.10.1
