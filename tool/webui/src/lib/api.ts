@@ -51,3 +51,35 @@ export const testConfig = (cfg: ToolConfig) =>
 
 export const getKhoaHoc = (loai: LoaiXe) =>
   fetch(`${BASE}/local/khoa-hoc?loai=${loai}`).then(json<KhoaHoc[]>);
+
+export interface Tinh {
+  ma_dvql: string;
+  ten_tinh: string;
+}
+
+export interface Xa {
+  ma_dvhc: string;
+  ma_dvql: string;
+  ten_xa: string;
+}
+
+export interface MapKetQua {
+  matched: boolean;
+  divided: boolean;
+  ma_dvhc?: string;
+  ma_dvql?: string;
+  ten_xa?: string;
+  ten_tinh?: string;
+}
+
+export const getTinh = () => fetch(`${BASE}/local/dvhc/tinh`).then(json<Tinh[]>);
+
+export const getXa = (tinh: string) =>
+  fetch(`${BASE}/local/dvhc/xa?tinh=${encodeURIComponent(tinh)}`).then(json<Xa[]>);
+
+export const mapDiaChi = (dc: { tinh: string; huyen: string; xa: string }) =>
+  fetch(`${BASE}/local/dvhc/map`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(dc),
+  }).then(json<MapKetQua>);

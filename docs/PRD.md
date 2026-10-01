@@ -153,7 +153,7 @@
 
 #### [NAP-03] Map địa chỉ cũ→mới + chọn tay
 
-**Trạng thái:** ⏳ Todo
+**Trạng thái:** ✅ Done
 **Story:** Là nhân viên nạp DB, tôi muốn nhập địa chỉ cũ hoặc mới và hệ thống tự đổi sang đơn vị hành chính mới, để không sai địa chỉ sau sáp nhập 2025.
 
 **Steps to Complete:**
@@ -164,7 +164,7 @@
 **Done khi:**
 - ✅ Địa chỉ mới hoặc cũ khớp map → điền đúng `NoiTT_MaDVHC`+`NoiTT_MaDVQL` (và `NoiCT_*`).
 - ✅ Tên hiển thị theo DB (vd "Thành phố Đồng Nai"), không theo dataset.
-- ✅ Dropdown chọn tay Tỉnh→Xã dùng `usp_DM_DVHC_SelectAll_Tinh` + `usp_DM_DVHC_SelectDanhSachXaPhuongTheoTinh`.
+- ✅ Dropdown chọn tay Tỉnh→Xã: Tỉnh lấy từ `DM_DVHC` (DISTINCT `MaDVQL`, `TrangThai=1`); Xã qua `usp_DM_DVHC_SelectDanhSachXaPhuongTheoTinh` + lọc `TrangThai=1`. (SP `usp_DM_DVHC_SelectAll_Tinh` chỉ trả đơn vị cũ TW/TI — không dùng được cho model 2 cấp mới; xem CHANGES #2.)
 - ❌ Không tự đoán khi xã bị chia — cho chọn tay.
 
 **Edge cases:**

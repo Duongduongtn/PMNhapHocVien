@@ -25,6 +25,10 @@ import unicodedata
 import urllib.request
 from pathlib import Path
 
+# Dùng CHUNG hàm chuẩn hóa với runtime (app.dvhc) — key builder & key tra cứu phải khớp y hệt.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from app.dvhc import norm_prov, norm_dist, norm_ward  # noqa: E402
+
 HERE = Path(__file__).resolve().parent
 DATA_DIR = HERE / "data"
 CSV_PATH = DATA_DIR / "convert_legacy_2025_simple.csv"
@@ -35,45 +39,23 @@ EXPECTED_WARDS = 3321                           # số xã mới của DB (Trang
 
 DDL = """
 CREATE TABLE dm_dvhc_map (
-  id            INTEGER PRIMARY KEY AUTOINCREMENT,
-  ten_tinh_cu   TEXT NOT NULL,   -- chuẩn hóa: lower, bỏ tiền tố
-  ten_huyen_cu  TEXT NOT NULL,
-  ten_xa_cu     TEXT NOT NULL,
-  ma_dvhc_moi   TEXT NOT NULL,   -- = DM_DVHC.MaDvhc (TrangThai=1) của máy đích
-  ma_dvql_moi   TEXT NOT NULL,   -- = DM_DVHC.MaDVQL
-  ten_xa_moi    TEXT NOT NULL,   -- tên hiển thị
-  ten_tinh_moi  TEXT NOT NULL,
-  is_divided    INTEGER NOT NULL DEFAULT 0
+  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  ten_tinh_cu       TEXT NOT NULL,   -- chuẩn hóa: lower, bỏ tiền tố
+  ten_huyen_cu      TEXT NOT NULL,
+  ten_xa_cu         TEXT NOT NULL,
+  ma_dvhc_moi       TEXT NOT NULL,   -- = DM_DVHC.MaDvhc (TrangThai=1) của máy đích
+  ma_dvql_moi       TEXT NOT NULL,   -- = DM_DVHC.MaDVQL
+  ten_xa_moi        TEXT NOT NULL,   -- tên hiển thị (theo DB)
+  ten_tinh_moi      TEXT NOT NULL,
+  ten_xa_moi_norm   TEXT NOT NULL,   -- chuẩn hóa tên mới → khớp khi nhập địa chỉ ĐÃ MỚI
+  ten_tinh_moi_norm TEXT NOT NULL,
+  is_divided        INTEGER NOT NULL DEFAULT 0
 )
 """
-INDEX = "CREATE INDEX ix_dvhcmap_cu ON dm_dvhc_map(ten_tinh_cu, ten_huyen_cu, ten_xa_cu)"
+INDEX_CU = "CREATE INDEX ix_dvhcmap_cu ON dm_dvhc_map(ten_tinh_cu, ten_huyen_cu, ten_xa_cu)"
+INDEX_MOI = "CREATE INDEX ix_dvhcmap_moi ON dm_dvhc_map(ten_tinh_moi_norm, ten_xa_moi_norm)"
 
-# ---- Chuẩn hóa tên để nối khớp (theo đặc tả đã verify 30/09/2026) -----------
-_PROV_PREFIX = re.compile(r"^(thành phố|tỉnh|tp\.?)\s+")
-_DIST_PREFIX = re.compile(r"^(thành phố|quận|huyện|thị xã|tp\.?)\s+")
-_WARD_PREFIX = re.compile(r"^(phường|xã|thị trấn|tt\.?)\s+")
-
-
-def _base(s: str) -> str:
-    if s is None:
-        return ""
-    s = unicodedata.normalize("NFC", str(s))
-    s = s.replace("’", "'").replace("‘", "'")
-    s = s.strip().lower()
-    return re.sub(r"\s+", " ", s).strip()
-
-
-def norm_prov(s: str) -> str:
-    return _PROV_PREFIX.sub("", _base(s)).strip()
-
-
-def norm_dist(s: str) -> str:
-    return _DIST_PREFIX.sub("", _base(s)).strip()
-
-
-def norm_ward(s: str) -> str:
-    return _WARD_PREFIX.sub("", _base(s)).strip()
-
+# Hàm chuẩn hóa (norm_prov/dist/ward) import từ app.dvhc — nguồn duy nhất.
 
 # ---- Kết nối SQL Server (CHỈ ĐỌC) -------------------------------------------
 def read_conn_params() -> dict:
@@ -98,7 +80,10 @@ def read_conn_params() -> dict:
 
 
 def load_db_wards(params: dict):
-    """Đọc DM_DVHC (TrangThai=1). Trả lookup (prov_norm, ward_norm)->(MaDvhc, MaDVQL) + tập khóa xã DB."""
+    """Đọc DM_DVHC (TrangThai=1). Trả lookup key->(MaDvhc, MaDVQL, ten_xa_DB, ten_tinh_DB).
+
+    ten_xa_DB = TenNganGon, ten_tinh_DB = phần tỉnh tách từ TenDayDu — để hiển thị THEO DB (PRD NAP-03).
+    """
     import pymssql  # lazy import
     conn = pymssql.connect(login_timeout=8, charset="UTF-8", **params)
     try:
@@ -108,16 +93,17 @@ def load_db_wards(params: dict):
     finally:
         conn.close()
 
-    lookup: dict[tuple[str, str], tuple[str, str]] = {}
+    lookup: dict[tuple[str, str], tuple[str, str, str, str]] = {}
     collisions: list = []
     db_ward_keys: set[tuple[str, str]] = set()
     for ma_dvhc, ma_dvql, ten_ngan, ten_day in rows:
-        prov_raw = ten_day.rsplit(",", 1)[-1] if ten_day and "," in ten_day else ten_day
-        key = (norm_prov(prov_raw), norm_ward(ten_ngan))
+        ten_tinh_db = ten_day.rsplit(",", 1)[-1].strip() if ten_day and "," in ten_day else (ten_day or "")
+        key = (norm_prov(ten_tinh_db), norm_ward(ten_ngan))
         db_ward_keys.add(key)
-        if key in lookup and lookup[key] != (ma_dvhc, ma_dvql):
-            collisions.append((key, lookup[key], (ma_dvhc, ma_dvql)))
-        lookup[key] = (ma_dvhc, ma_dvql)
+        val = (ma_dvhc, ma_dvql, ten_ngan, ten_tinh_db)
+        if key in lookup and lookup[key][:2] != (ma_dvhc, ma_dvql):
+            collisions.append((key, lookup[key][:2], (ma_dvhc, ma_dvql)))
+        lookup[key] = val
     return lookup, db_ward_keys, collisions, len(rows)
 
 
@@ -145,10 +131,12 @@ def write_sqlite(sqlite_path: Path, rows: list[tuple]):
         conn.executemany(
             "INSERT INTO dm_dvhc_map "
             "(ten_tinh_cu, ten_huyen_cu, ten_xa_cu, ma_dvhc_moi, ma_dvql_moi, "
-            " ten_xa_moi, ten_tinh_moi, is_divided) VALUES (?,?,?,?,?,?,?,?)",
+            " ten_xa_moi, ten_tinh_moi, ten_xa_moi_norm, ten_tinh_moi_norm, is_divided) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?)",
             rows,
         )
-        conn.execute(INDEX)
+        conn.execute(INDEX_CU)
+        conn.execute(INDEX_MOI)
         conn.commit()
     finally:
         conn.close()
@@ -170,15 +158,17 @@ def build(sqlite_path: Path, conn_params: dict) -> dict:
             unmatched.append((row["newProvince"], row["newWardShort"], row["ward"]))
             continue
         hit_db_keys.add(key)
-        ma_dvhc, ma_dvql = hit
+        ma_dvhc, ma_dvql, ten_xa_db, ten_tinh_db = hit
         rows.append((
             norm_prov(row["province"]),
             norm_dist(row["district"]),
             norm_ward(row["ward"]),
             ma_dvhc,
             ma_dvql,
-            unicodedata.normalize("NFC", row["newWardShort"].strip()),
-            unicodedata.normalize("NFC", row["newProvince"].strip()),
+            ten_xa_db,                 # tên hiển thị THEO DB (TenNganGon), không theo dataset
+            ten_tinh_db,               # tên tỉnh THEO DB (tách từ TenDayDu)
+            norm_ward(ten_xa_db),      # chuẩn hóa tên mới → khớp khi nhập địa chỉ ĐÃ MỚI
+            norm_prov(ten_tinh_db),
             1 if str(row.get("isDividedWard", "")).strip().lower() in ("true", "1") else 0,
         ))
 

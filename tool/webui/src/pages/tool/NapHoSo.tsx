@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Icon } from "../../components/Icon";
+import AddressCombo from "../../components/AddressCombo";
 import { getKhoaHoc, type KhoaHoc, type LoaiXe } from "../../lib/api";
 
 // NAP-02: chọn Mô tô/Ô tô + khóa chưa lập BC1, suy hạng/MaLoaiHs theo khóa.
@@ -105,9 +106,14 @@ export default function NapHoSo() {
         </div>
       )}
 
-      {/* Phần còn lại của màn Nạp dựng ở task sau (NAP-01/03/04/05/06) */}
-      <div className="m-4 rounded-lg border border-dashed border-border bg-muted/30 px-4 py-10 text-center text-[13px] text-muted-foreground">
-        Danh sách học viên · Thông tin · Ảnh — dựng ở các bước tiếp theo (NAP-01, NAP-03…NAP-06).
+      {/* NAP-03: map địa chỉ nơi thường trú */}
+      <div className="m-4">
+        <AddressCombo />
+      </div>
+
+      {/* Phần còn lại của màn Nạp dựng ở task sau (NAP-01/04/05/06) */}
+      <div className="mx-4 mb-4 rounded-lg border border-dashed border-border bg-muted/30 px-4 py-8 text-center text-[13px] text-muted-foreground">
+        Danh sách học viên · Thông tin cá nhân · Ảnh — dựng ở các bước tiếp theo (NAP-01, NAP-04…NAP-06).
       </div>
     </div>
   );

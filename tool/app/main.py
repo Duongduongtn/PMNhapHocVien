@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers import config as config_router
 from app.routers import khoahoc as khoahoc_router
+from app.routers import dvhc as dvhc_router
 
 app = FastAPI(
     title="Tool nạp DB — Thu nhận hồ sơ học viên",
@@ -30,6 +31,7 @@ app.add_middleware(
 
 app.include_router(config_router.router)
 app.include_router(khoahoc_router.router)
+app.include_router(dvhc_router.router)
 
 
 @app.get("/health")
