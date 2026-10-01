@@ -377,21 +377,18 @@
 
 #### [QLY-06] Mở hồ sơ khóa khác cho học viên đã có (cấp mới khác hạng, song song)
 
-**Trạng thái:** 📝 Draft — thêm 01/10/2026 (CHANGES #13); **còn nợ kiểm DB thật** trước khi chốt thiết kế. Phạm vi: **cấp mới khác hạng song song** (vd có B, học thêm A1). KHÔNG gồm **nâng hạng** (B→C/D/E — ngoài MVP, cần thâm niên/km/GPLX đã có).
+**Trạng thái:** ⏳ Todo — thêm 01/10/2026 (CHANGES #13), đã kiểm DB thật chốt thiết kế 01/10 (CHANGES #16). Phạm vi: **cấp mới khác hạng song song** (vd có B, học thêm A1). KHÔNG gồm **nâng hạng** (B→C/D/E — ngoài MVP, cần thâm niên/km/GPLX đã có).
 **Story:** Là nhân viên nạp DB, tôi muốn mở hồ sơ ở một khóa khác (khác hạng) cho học viên đã có trong DB, để học viên học thêm hạng mà không phải nhập lại thông tin từ đầu.
 
-**Còn nợ trước khi chốt (kiểm DB thật ở máy CSDT — chỉ đọc):**
-1. `EXEC sp_helptext 'usp_QuangLA_PM4_ThuNhanHS_ThemMoiCapNhat'` — SP tìm người cũ theo SoCMT rồi thêm hồ sơ, hay luôn tạo người mới?
-2. Dữ liệu: có người (SoCMT) mang >1 hồ sơ ở khóa khác nhau không (`GROUP BY SoCMT HAVING COUNT(DISTINCT MaKhoaHoc)>1`).
-- *SP tái dùng người cũ* → chỉ cần thêm **thao tác tool "mở hồ sơ khóa khác" từ màn Tra cứu DB** (chọn HV đã có → chọn khóa mới khác hạng → nạp đăng ký mới, giữ nguyên đăng ký cũ).
-- *SP tạo người trùng* → phải thiết kế thêm bước nối vào `NguoiLX` cũ (hỏi lại khi có kết quả kiểm).
+**Căn cứ DB (kiểm thật 01/10, CHANGES #16):** SP `ThemMoiCapNhat` khi nạp mới (`@p_MaDK` rỗng) **luôn tạo `NguoiLX` mới** (MaDK mới) — không dò người cũ. Dữ liệu thật: nhiều HV có 2–8 khóa, mỗi khóa 1 hồ sơ, **chung SoCMT** → nhiều dòng cùng SoCMT là đúng thiết kế, KHÔNG phải trùng. Nên nạp khác khóa = **nạp mới bình thường**, không cần nối người cũ.
 
-**Done khi:** *(chốt sau khi kiểm DB)*
-- ⬜ Từ HV đã có trong DB → mở đăng ký mới ở khóa khác (khác hạng, vẫn là cấp mới) mà không nhập lại thông tin cá nhân.
-- ⬜ Đăng ký cũ (khóa trước) giữ nguyên; không tạo người trùng.
-- ❌ Không làm nâng hạng (B→C/D/E) trong phạm vi này.
+**Done khi:**
+- ⬜ Từ màn Tra cứu DB (QLY-01), chọn HV đã có → "Mở hồ sơ khóa khác" → điền sẵn thông tin cá nhân từ bản ghi cũ (đọc theo SoCMT/MaDK) để đỡ gõ lại.
+- ⬜ Chọn khóa đích (khác hạng, vẫn là cấp mới — `MaLoaiHs` 1/2 theo khóa NAP-02) → nạp mới qua SP gộp (`@p_MaDK=NULL`) → tạo MaDK mới + hồ sơ ở khóa đích; đăng ký cũ giữ nguyên.
+- ⬜ Chặn trùng trong **cùng khóa đích** (NAP-06 theo khóa): HV đã có trong khóa đó → báo trùng, không tạo thêm.
+- ❌ Không làm nâng hạng (B→C/D/E) — ngoài MVP (SP có tham số thâm niên/km nhưng chưa thu thập).
 
-> Nguồn: user 01/10/2026 (CHANGES #13) · NAP-06 "cùng CCCD khác khóa thì cho phép" · liên quan QLY-01/QLY-02
+> Nguồn: user 01/10/2026 (CHANGES #13/#16) · kiểm DB thật · NAP-06 "cùng CCCD khác khóa thì cho phép" · liên quan QLY-01/QLY-02
 
 #### [HTG-03] Bộ lọc & xóa PII thủ công trên VPS
 

@@ -86,6 +86,8 @@
 | 20 | Tool kéo hàng đợi VPS→staging SQLite (chuyển nhập tay→kéo) + **IA 2 chế độ Nạp/Tra cứu** trên `/tool/nap` (chế độ Nạp: dropdown khóa **chỉ chưa BC1**); tên **IN HOA** + **check chính tả mức A** (thiếu dấu / ký tự lạ / khoảng trắng thừa — không từ điển tên) khi kéo về; hàng chờ nạp lô badge **Cần xử lý** (⚪ chờ + 🔴 lỗi, lỗi lên đầu) / **Đã nạp** (🟢), lô chạy hết, dòng lỗi đỏ + lý do; cảnh báo inline nổi bật (NFR⑥). Xem CHANGES #6 | `NAP-01` | M | 15,9 | 1 | [x] 01/10 — ① backend (kéo→staging+nạp lô, +2 vá server) + ② UI 2 chế độ + kéo lại làm tươi (CHANGES #11). tool 72+server 56 test · Playwright 3vp · review-nghiepvu 9/9 |
 | 28 | **Rework UX app web** (sau test điện thoại, CHANGES #12): màn vào chọn Quét/Nhập tay/Tải ảnh (camera chỉ bật khi bấm Quét) + khung bám QR (`cornerPoints`) + layout mobile `100dvh` dính đáy + header logo không nút. `webapp/Quet.tsx` + `AppLayout.tsx` | `THU-01` | M | 18 | 1 | [x] 01/10 — màn vào + khung bám QR + layout dính đáy + header. Playwright 3vp (0 tràn, nav dính đáy) · review-nghiepvu 6/6 |
 | 29 | **Rework UX app web** (CHANGES #12): endpoint `GET /api/ho-so/:uuid/anh` (collector, `created_by`) + ảnh thật list/chi tiết + modal Sửa/Chụp lại khi chờ nạp (chỉ xem khi importing/imported). `server/ho_so.py` + `webapp/DaGui.tsx` + `api.ts` | `THU-02` | M | 19,15 | 1+2 | [x] 01/10 — endpoint ảnh collector + ảnh thật list/table/chi tiết + modal Sửa/Đổi ảnh + nút "có bản mới". server 62 test · Playwright 3vp · review-nghiepvu 6/6 |
+| 30 | **Nhập liên tiếp app web** (CHANGES #13): nút "Lưu & nhập hồ sơ tiếp" ở màn Preview (gửi không ảnh→toast→về màn chọn cách nhập, cả quét QR lẫn nhập tay) + badge "Thiếu ảnh" + tab lọc "Thiếu ảnh" ở Hồ sơ đã gửi. `webapp/Quet.tsx` + `DaGui.tsx` | `THU-01`, `THU-02` | S | 28,29 | 1 | [x] 01/10 — code + typecheck + build + webapp 20 test; deploy live 3db0146, verify trực quan (Preview 2 nút + tab lọc). Mức 1 giao diện mobile đang review |
+| 31 | **Cảnh báo trùng CCCD app web** (CHANGES #13, THU-04): `GET /api/ho-so/kiem-trung` (collector, soi hàng đợi pending/importing) + banner cảnh báo mềm ở Preview, vẫn cho gửi. `server/ho_so.py` + `webapp/Quet.tsx` + `api.ts` | `THU-04` | S | 15,18 | 1+2 | [x] 01/10 — endpoint + banner; server 67 test (+5 kiem-trung). Đang review-baomat (lộ tên người gửi chéo) |
 
 ### ✅ Checkpoint 3 — sau task 14-17
 - [x] Đăng nhập 3 vai trò + collector chặn 403 — **mức 2** (01/10): server `test_auth`/`test_nap` (collector 403 ở `/api/nap/*`), tool `test_auth_tool` (3 vai trò + collector 403 + session). E2E trình duyệt live để kiểm thủ công lúc go-live (plan không đánh task 1+3).
@@ -106,6 +108,7 @@
 | 24 | Xóa HV (`usp_NguoiLX_Delete` cascade) + xóa mềm ảnh sang `_DELETED` + log | `QLY-03` | S | 22 | 1 | → PRD |
 | 25 | Admin lọc bản ghi (trạng thái/ngày) + xóa PII thủ công (bản ghi + ảnh thô) | `HTG-03` | M | 15 | 1 | → PRD |
 | 27 | Nạp/thay ảnh cho HV đã có: lọc tình trạng ảnh (`TT_XuLy` 01/03) + **dùng lại hàm ghi ảnh hướng A** (ghi `.jp2` + UPDATE 5 cột) của NAP-05; ghi đè nếu HV đã có ảnh | `QLY-05` | M | 9,22 | 1 | → PRD |
+| 32 | Mở hồ sơ khóa khác cho HV đã có (cấp mới khác hạng, song song): từ Tra cứu DB chọn HV → điền sẵn từ bản ghi cũ → nạp mới qua SP gộp vào khóa đích (MaDK mới, chung SoCMT). Đã kiểm DB chốt thiết kế (CHANGES #16). KHÔNG nâng hạng | `QLY-06` | M | 22,9 | 1 | → PRD |
 | 26 | Đóng gói tool PyInstaller (.exe) + đối chiếu bảo mật OG (không `sa`, không log CCCD, HTTPS) | — | M | tất cả | 1 | [ ] |
 
 ### ✅ Checkpoint 5 — cuối dự án
@@ -148,10 +151,10 @@
 
 > `/tieptheo` so mục này với PRD mỗi buổi để biết kế hoạch còn khớp không. Lệch thì báo user chạy lại `/kehoach` chế độ bổ sung. **Không tự sửa kế hoạch.**
 
-- **Số story trong PRD khi lập:** 16 (15 MUST/SHOULD + QLY-05; chưa tính NICE `QLY-04`, `THU-03`)
-- **Mã story đã đưa vào kế hoạch:** `HTG-01`, `HTG-02`, `HTG-03`, `THU-01`, `THU-02`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`
+- **Số story trong PRD khi lập:** 18 (17 MUST/SHOULD gồm `THU-04`, `QLY-06`; chưa tính NICE `QLY-04`, `THU-03`)
+- **Mã story đã đưa vào kế hoạch:** `HTG-01`, `HTG-02`, `HTG-03`, `THU-01`, `THU-02`, `THU-04`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`
 - **Mã story chưa đưa vào (Chờ chốt):** `QLY-04`, `THU-03` (NICE, chưa đủ chi tiết)
-- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 01/10/2026 (#12)
+- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 01/10/2026 (#13)
 
 ## Changelog
 
@@ -161,3 +164,5 @@
 | 01/10/2026 | v2 — bổ sung (CHANGES #4/#5): reconcile task 9+10 về `[ ]` + đổi mô tả sang 1 SP gộp hướng A (bỏ compensation); thêm task 27 `QLY-05` (nạp/thay ảnh HV đã có). 27 task. |
 | 01/10/2026 | v3 — bổ sung (CHANGES #6): cập nhật mô tả task 20 `NAP-01` (IA 2 chế độ, IN HOA, check chính tả mức A, nạp lô badge ⚪🔴🟢, cảnh báo nổi bật) + task 22 `QLY-01` (chế độ Tra cứu DB, tìm mọi khóa kể cả BC1). Không thêm/xóa/đổi số task — vẫn 27 task. |
 | 01/10/2026 | v4 — bổ sung (CHANGES #12): thêm task **28** (rework UX THU-01: màn vào + khung bám QR + layout dính đáy + header) + task **29** (rework UX THU-02: endpoint ảnh collector + ảnh thật + xem/sửa/chụp lại) vào cuối Phase 2. 29 task. THU-01/02 đã hạ ⏳ ở PRD. |
+| 01/10/2026 | v5 — bổ sung (CHANGES #13): thêm task **30** (nhập liên tiếp: nút "Lưu & nhập hồ sơ tiếp" + badge/lọc "Thiếu ảnh", THU-01/02) + task **31** (cảnh báo trùng CCCD app web, THU-04) — cả 2 đã code+deploy. +QLY-06 (📝 Draft) vào Chờ chốt. 31 task. |
+| 01/10/2026 | v6 — bổ sung (CHANGES #16): kiểm DB thật chốt thiết kế `QLY-06` → chuyển từ Chờ chốt thành **task 32** (Phase 3, nạp khác khóa/khác hạng). 32 task. |

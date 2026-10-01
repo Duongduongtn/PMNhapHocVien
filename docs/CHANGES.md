@@ -4,6 +4,7 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 16 | 01/10/2026 | ✏️ Sửa | `QLY-06` | Kiểm DB thật (chỉ đọc) chốt thiết kế QLY-06: SP `ThemMoiCapNhat` nạp mới **luôn tạo NguoiLX mới** (không dò người cũ); dữ liệu thật nhiều HV có **2–8 khóa chung SoCMT** → nạp khác khóa = nạp mới bình thường, không cần nối người. Gỡ 📝 Draft → ⏳ Todo | ✅ | — | ⬜ | ⬜ |
 | 15 | 01/10/2026 | ✏️ Sửa | `THU-02` | Ảnh app web: tách **2 nút "Chụp ảnh" (camera) / "Chọn từ máy" (file·thư viện)** ở màn chụp + đổi ảnh hồ sơ Chờ nạp (trước ép camera, mobile không chọn được thư viện); bấm ảnh chân dung ở chi tiết → **phóng to popup (lightbox)** | ✅ | — | ⬜ | ✅ deploy |
 | 14 | 01/10/2026 | ✏️ Sửa | `THU-01`, `THU-02` | Redesign UX nhập liệu (impeccable): ẩn ô "Số CMND cũ" (vẫn lưu từ QR nếu có) · ô ngày gõ tay dd/mm/yyyy auto-mask "/" + nút lịch (giữ năm-only) · desktop nới khung 2 cột + tách 2 nút tránh bấm nhầm + phím tắt · rà content tránh lộ story/AI slop | ✅ | ✅ | ⬜ | ✅ deploy |
 | 13 | 01/10/2026 | ✏️ Sửa + ➕ Thêm | `THU-01`, `THU-02`, `THU-04`, `QLY-06` | App web nhập liên tiếp: nút "Lưu & nhập hồ sơ tiếp" (gửi không ảnh + toast) + badge/lọc "Thiếu ảnh" (THU-01/02 hạ ⏳); +THU-04 cảnh báo trùng CCCD app web (SHOULD, cảnh báo mềm soi hàng đợi); +QLY-06 mở hồ sơ khóa khác cho HV đã có (📝 Draft, còn nợ kiểm DB) | ✅ | ✅ | ⬜ | ✅ THU-01/02/04 deploy + chốt · QLY-06 ⬜ (Draft) |
@@ -21,6 +22,19 @@
 | 1 | 01/10/2026 | ✏️ Sửa | — | Đổi nơi lưu bảng ánh xạ `DM_DVHC_MAP`: GPLX_CSDT → SQLite cục bộ của tool | — | ✅ | — | ✅ (task 5) |
 
 Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên quan
+
+---
+
+## #16 — Kiểm DB thật chốt thiết kế QLY-06 (nạp khác khóa/khác hạng) · 01/10/2026
+
+- **Mã:** `QLY-06`. Không đổi phạm vi — chỉ kiểm DB thật (chỉ đọc) để gỡ ẩn số, chốt thiết kế.
+- **Vì sao:** QLY-06 còn nợ: SP `usp_QuangLA_PM4_ThuNhanHS_ThemMoiCapNhat` khi nạp người đã có trong DB thì **tái dùng bản ghi người cũ** hay **tạo người trùng**? (quyết định cả giải pháp).
+- **Đã chạy (qua kết nối tool, chỉ đọc):**
+  - **Q1 `sp_helptext`:** nhánh `IF @p_MaDK IS NULL` → `@v_MaDK = dbo.CreateNewMaDK(...)` → **INSERT NguoiLX mới** + INSERT NguoiLX_HoSo + NguoiLXHS_GiayTo. Nhánh có `@p_MaDK` → UPDATE 3 bảng. Câu kiểm `-2` trùng CMT dùng `lx.MaDK <> @p_MaDK` nên **khi nạp mới (`@p_MaDK=NULL`) không bắt trùng** (khớp bẫy đã biết — giữ check server-side).
+  - **Q2 dữ liệu:** ≥20 HV có >1 khóa (nhiều người 5–8 khóa), mỗi khóa 1 hồ sơ, **chung SoCMT**.
+- **Kết luận:** mô hình = **mỗi đăng ký 1 dòng NguoiLX + NguoiLX_HoSo, MaDK riêng, chung SoCMT**; nhiều dòng cùng SoCMT là **đúng thiết kế**, không phải trùng. → Nạp khác khóa/khác hạng = **nạp mới bình thường** (tạo MaDK mới), KHÔNG cần bước nối người cũ. QLY-06 chỉ cần thao tác tool "từ HV đã có → mở hồ sơ khóa mới" (điền sẵn + nạp mới). **Gỡ 📝 Draft → ⏳ Todo.**
+- **Đã sửa:** PRD `QLY-06` (căn cứ DB + Done khi + gỡ Draft) · BUILD-PLAN (thêm task, bỏ khỏi Chờ chốt).
+- **Không đụng:** DB (chỉ đọc, không ghi) · server · code · schema.
 
 ---
 
