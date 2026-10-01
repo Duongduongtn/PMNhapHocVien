@@ -1,35 +1,46 @@
-"""NAP-05 (1/2) — nạp 1 học viên vào GPLX_CSDT qua SP (lõi, chưa giấy tờ/lô).
+"""NAP-05 — nạp 1 học viên vào GPLX_CSDT qua 1 SP GỘP app cũ (hướng A).
+
+Đổi 01/10/2026 (CHANGES #4/#5, TDD §10): bỏ 3 SP rời + compensation, dùng
+`usp_QuangLA_PM4_ThuNhanHS_ThemMoiCapNhat` — chính SP màn "Thu nhận Hồ sơ cấp mới".
 
 Tách 2 lớp:
-- Hàm THUẦN (sinh SoHoSo, tách họ tên, suy giá trị, validate cột, dựng tham số SP):
-  unit-test được, không chạm DB.
-- Orchestration nap_mot_hv(): applock → usp_NguoiLX_Insert → ghi .jp2 → usp_NguoiLX_HoSo_Insert
-  → releaseapplock, kèm compensation + chống mồ côi. Chạy LIVE ở bước kiểm riêng (ghi production).
+- Hàm THUẦN (sinh SoHoSo, tách họ tên IN HOA, validate cột, dựng chuỗi giấy tờ,
+  dựng 30 tham số @p_* của SP gộp): unit-test được, không chạm DB.
+- Orchestration nap_mot_hv(): applock → SoHoSo → EXEC SP gộp (@p_MaDK=NULL OUT, @p_out)
+  → ghi ảnh hướng A (ghi .jp2 + UPDATE 5 cột ảnh) → releaseapplock. Chạy LIVE (ghi production).
 
-Mọi ghi DB chỉ qua SP (TDD §10, ❌ không INSERT trực tiếp).
+SP gộp tự lo: MaLoaiHs, MaCSDT, MaSoGTVT, MaHTCap, GiayCNSK, tách họ tên, transaction.
+Tool chỉ UPDATE thẳng 5 cột ẢNH (ngoại lệ ❌ PRD, CHANGES #5) — SP không ghi ảnh.
 """
 from __future__ import annotations
 import sqlite3
 from datetime import datetime
 from pathlib import Path
 
-# ===== Hằng suy ra (TDD §10.2) =====
-MA_CSDT = "70004"
-MA_HT_CAP = "CM_VN"
+# ===== Hằng (TDD §10.2) =====
 MAX_LEN = {"HoVaTen": 50, "HoDemNLX": 30, "TenNLX": 20, "HoVaTenIn": 25, "SoCMT": 20}
+
+# Mã lỗi nghiệp vụ SP trả qua @p_out (SP KHÔNG raiserror — phải đọc @p_out, TDD §10.3).
+OUT_LOI = {
+    -1: "Số hồ sơ đã tồn tại trong khóa",
+    -2: "CCCD/CMND đã có học viên trong khóa",
+    -3: "Thâm niên lái xe không đủ theo hạng",
+    -4: "Số km lái xe an toàn không đủ theo hạng",
+}
 
 ORPHAN_DB = Path(__file__).resolve().parent.parent / "db" / "data" / "staging.sqlite"
 
 
 # ---- Hàm thuần --------------------------------------------------------------
 def sinh_so_ho_so(max_hien_tai: int) -> str:
-    """SoHoSo = RIGHT('000' + (MAX+1), 3). Khóa 55 HV → '056' (memory §1, TDD §10.1)."""
+    """SoHoSo = RIGHT('000' + (MAX+1), 3). Khóa 55 HV → '056' (TDD §10.1)."""
     return f"{max_hien_tai + 1:03d}"
 
 
 def tach_ho_ten(ho_ten: str) -> dict:
-    """TenNLX = từ cuối; HoDemNLX = phần còn lại; HoVaTenIn = HoVaTen cắt ≤25 GIỮ DẤU (EC-030)."""
-    ho_ten = " ".join((ho_ten or "").split())
+    """IN HOA GIỮ DẤU (AS-003: 55/55 HV HoVaTen in hoa). SP gộp tự tách Ho/Ten từ @p_HoVaTen;
+    hàm này chủ yếu để KIỂM ĐỘ DÀI cột + dựng HoVaTenIn (cắt ≤25, cũng in hoa giữ dấu)."""
+    ho_ten = " ".join((ho_ten or "").split()).upper()   # IN HOA, KHÔNG bỏ dấu
     parts = ho_ten.split(" ")
     ten = parts[-1] if parts else ""
     ho_dem = " ".join(parts[:-1]) if len(parts) > 1 else ""
@@ -37,21 +48,18 @@ def tach_ho_ten(ho_ten: str) -> dict:
         "HoVaTen": ho_ten,
         "TenNLX": ten,
         "HoDemNLX": ho_dem,
-        "HoVaTenIn": ho_ten[:MAX_LEN["HoVaTenIn"]],  # giữ dấu, KHÔNG hoa-bỏ-dấu
+        "HoVaTenIn": ho_ten[:MAX_LEN["HoVaTenIn"]],
     }
 
 
-def suy_tt_xuly(co_anh: bool) -> tuple[str, int | None]:
-    """Có ảnh → ('03', 1); chưa ảnh → ('01', None) (TDD §10.2, BR-011)."""
-    return ("03", 1) if co_anh else ("01", None)
-
-
 def suy_ma_loai_hs(hang_gplx: str | None) -> int:
+    """Cho việc chọn giấy tờ mặc định theo loại HS (route). A* → 1 (mô tô), còn lại → 2 (ô tô).
+    SP gộp TỰ tính MaLoaiHs khi ghi — tool không truyền."""
     return 1 if (hang_gplx or "").strip().upper().startswith("A") else 2
 
 
 def validate_do_dai(ten: dict, so_cmt: str) -> list[str]:
-    """Kiểm độ dài cột trước khi gọi SP (tránh SP lỗi); trả danh sách cảnh báo."""
+    """Kiểm độ dài cột trước khi gọi SP (SP tự tách nên Ho/Ten có thể vượt); trả danh sách lỗi."""
     loi = []
     for col in ("HoVaTen", "HoDemNLX", "TenNLX", "HoVaTenIn"):
         if len(ten.get(col, "")) > MAX_LEN[col]:
@@ -61,109 +69,76 @@ def validate_do_dai(ten: dict, so_cmt: str) -> list[str]:
     return loi
 
 
-# ---- Dựng tham số SP (thứ tự đúng định nghĩa SP; unit-test giá trị MVP) ------
-def build_params_nguoilx(hv: dict, ten: dict, now: datetime, nguoi: str) -> list[tuple]:
-    """24 tham số usp_NguoiLX_Insert (bỏ @MaDK OUT — xử lý riêng trong EXEC)."""
-    return [
-        ("DonViNhanHSo", MA_CSDT),
-        ("HoDemNLX", ten["HoDemNLX"]),
-        ("TenNLX", ten["TenNLX"]),
-        ("HoVaTen", ten["HoVaTen"]),
-        ("MaQuocTich", "VNM"),           # chuẩn ISO alpha-3 (DM_QuocTich.Ma); "VN" vỡ FK — AS-003 01/10
-        ("NgaySinh", hv.get("ngay_sinh", "")),           # varchar(8) yyyymmdd
-        ("NoiTT", hv.get("noi_tt", "")),
-        ("NoiTT_MaDVHC", hv["noi_tt_ma_dvhc"]),
-        ("NoiTT_MaDVQL", hv["noi_tt_ma_dvql"]),
-        ("NoiCT", hv.get("noi_ct", hv.get("noi_tt", ""))),
-        ("NoiCT_MaDVHC", hv.get("noi_ct_ma_dvhc", hv["noi_tt_ma_dvhc"])),   # BR-004: NoiCT = NoiTT mặc định
-        ("NoiCT_MaDVQL", hv.get("noi_ct_ma_dvql", hv["noi_tt_ma_dvql"])),
-        ("SoCMT", hv.get("so_cmt", "")),
-        ("NgayCapCMT", hv.get("ngay_cap_cmt")),
-        ("NoiCapCMT", hv.get("noi_cap_cmt", "")),
-        ("GhiChu", None),
-        ("TrangThai", 1),                                 # TrangThai=1 khi tạo (§10.2)
-        ("NguoiTao", nguoi),
-        ("NguoiSua", nguoi),
-        ("NgayTao", now),
-        ("NgaySua", now),
-        ("GioiTinh", hv.get("gioi_tinh", "")),            # 'M'/'F'
-        ("HoVaTenIn", ten["HoVaTenIn"]),
-    ]
+def dung_chuoi_giay_to(ma_gts: list[int]) -> str:
+    """Chuỗi @p_GiayTo cho SP gộp: [1,2,3] → '1,2,3,'. SP parse bằng charindex(MaGT+',', ...)
+    và tự insert từ DM_GiayTo. Chuỗi rỗng = không nộp giấy tờ nào."""
+    return "".join(f"{int(m)}," for m in sorted({int(x) for x in ma_gts}))
 
 
-def build_params_hoso(hv: dict, khoa: dict, so_ho_so: str, duong_dan_anh: str | None,
-                      tt_xuly: str, chat_luong_anh: int | None, now: datetime, nguoi: str) -> list[tuple]:
-    """69 tham số usp_NguoiLX_HoSo_Insert (bỏ @MaDK, @SoHoSo — xử lý trong EXEC).
+# ---- Dựng 30 tham số SP gộp (trừ @p_out + @p_MaDK — xử lý riêng ở EXEC) ------
+def build_params_sp_gop(hv: dict, khoa: dict, so_ho_so: str, ten: dict,
+                        giay_to_str: str, nguoi: str = "") -> list[tuple]:
+    """30 tham số @p_* của usp_QuangLA_PM4_ThuNhanHS_ThemMoiCapNhat (khớp 1:1 form app cũ).
 
-    Field MVP có giá trị; field sát hạch/báo cáo = None (app cũ cho NULL khi mới thu nhận).
-    """
-    co_anh = bool(duong_dan_anh)
-    return [
-        ("MaCSDT", MA_CSDT),
-        ("MaSoGTVT", khoa["ma_so_gtvt"]),
-        ("MaDVNhanHSo", MA_CSDT),
-        ("NgayNhanHSo", now),
-        ("NguoiNhanHSo", nguoi),
-        ("NgayHenTra", None),
-        ("MaLoaiHs", suy_ma_loai_hs(khoa["hang_gplx"])),
-        ("TT_XuLy", tt_xuly),
-        ("DuongDanAnh", duong_dan_anh),
-        ("ChatLuongAnh", chat_luong_anh),
-        ("NgayThuNhanAnh", now if co_anh else None),
-        ("NguoiThuNhanAnh", nguoi if co_anh else None),
-        ("SoGPLXDaCo", None), ("HangGPLXDaCo", None), ("DonViCapGPLXDaCo", None),
-        ("NoiCapGPLXDaCo", None), ("NgayCapGPLXDaCo", None), ("NgayHHGPLXDaCo", None),
-        ("NgayTTGPLXDaCo", None),
-        ("DonViHocLX", MA_CSDT),
-        ("NamHocLX", now.year),
-        ("HangGPLX", khoa["hang_gplx"]),
-        ("SoNamLX", None), ("SoKmLXAnToan", None),
-        ("GiayCNSK", 1),                                  # §10.2
-        ("LyDoCapDoi", None), ("MucDichCapDoi", None), ("NoiDungSH", None),
-        ("MaKhoaHoc", khoa["ma_kh"]),
-        ("HangDaoTao", khoa.get("hang_dt") or khoa["hang_gplx"]),
-        ("SoGiayCNTN", None), ("SoCCN", None), ("MaBC1", None),
-        ("BC1_TuoiTS", None), ("BC1_ThamNien", None), ("MaBC2", None),
-        ("KetQuaBC2", None), ("MaLyDoTCBC2", None), ("MaKySH", None),
-        ("SoBD", None), ("LanSH", None), ("SoQDSH", None), ("NgayQDSH", None),
-        ("KetQua_LyThuyet", None), ("NhanXet_LyThuyet", None),
-        ("KetQua_Hinh", None), ("NhanXet_Hinh", None),
-        ("KetQua_Duong", None), ("NhanXet_Duong", None),
-        ("KetQuaSH", None), ("SoQDTT", None), ("NgayQDTT", None),
-        ("GhiChu", None),
-        ("NguoiTao", nguoi), ("NguoiSua", nguoi), ("NgayTao", now), ("NgaySua", now),
-        ("SoGPLXTmp", None), ("NgayKTBC1", None), ("NguoiKTBC1", None),
-        ("NgayKTBC2", None), ("NguoiKTBC2", None), ("MaIn", None),
-        ("KetQuaDoiSanhTW", None), ("GhiChuKQDSTW", None), ("ChuKy", None),
-        ("TrangThai", 1),                                 # TrangThai=1 khi tạo (§10.2)
-        ("MaHTCap", MA_HT_CAP),                           # CM_VN
-        ("NguoiKy", None),
-    ]
-
-
-def build_params_giayto(ma_gt: int, ma_dk: str, so_ho_so: str, ten_gt: str) -> list[tuple]:
-    """5 tham số usp_NguoiLXHS_GiayTo_Insert (@MaGT,@MaDK,@SoHoSo,@TenGT,@TrangThai).
-
-    TrangThai=1 vì chỉ ghi giấy tờ ĐÃ tick (nộp đủ); giấy tờ bỏ tick không tạo dòng
-    (Done khi NAP-05: 'tab Giấy tờ có đủ dòng đã tick'). TenGT = tên đầy đủ từ DM_GiayTo.
+    Field map khớp app cũ (AS-003 01/10): MaQuocTich='VNM', CHON_IN_GPLX=2, NoiTT=ChiTiet
+    (mặc định trống — KHÔNG nhét tên xã), DonViHocLX NULL (SP không có tham số → tự NULL).
     """
     return [
-        ("MaGT", ma_gt),
-        ("MaDK", ma_dk),
-        ("SoHoSo", so_ho_so),
-        ("TenGT", ten_gt),
-        ("TrangThai", 1),
+        ("p_MaKH", khoa["ma_kh"]),
+        ("p_MaHangGPLX", khoa["hang_gplx"]),
+        ("p_HangDaoTao", khoa.get("hang_dt") or khoa["hang_gplx"]),
+        ("p_SoHoSo", so_ho_so),
+        ("p_NguoiNhanHSo", nguoi),
+        ("p_HoVaTen", ten["HoVaTen"]),        # IN HOA — SP tự tách Ho/Ten
+        ("p_HoVaTenIn", ten["HoVaTenIn"]),    # IN HOA ≤25
+        ("p_NgaySinh", hv.get("ngay_sinh", "")),              # varchar(8) yyyymmdd
+        ("p_GioiTinh", hv.get("gioi_tinh", "")),              # 'M'/'F'
+        ("p_MaQuocTich", "VNM"),                              # ISO alpha-3 (DM_QuocTich.Ma); 'VN' vỡ FK
+        ("p_SoCMT", hv.get("so_cmt", "")),
+        ("p_NgayCap", hv.get("ngay_cap_cmt") or ""),          # varchar(8); SP convert 112 nếu len=8
+        ("p_NoiCap", hv.get("noi_cap_cmt") or ""),
+        ("p_MaDVHC_TT", hv["noi_tt_ma_dvhc"]),
+        ("p_ChiTiet_TT", hv.get("chi_tiet_tt") or ""),        # chi tiết (số nhà/thôn); mặc định TRỐNG
+        ("p_MaDVHC_CT", hv.get("noi_ct_ma_dvhc") or hv["noi_tt_ma_dvhc"]),
+        ("p_ChiTiet_CT", hv.get("chi_tiet_ct") or ""),
+        ("p_SoNamLX", hv.get("so_nam_lx")),                   # None → không vỡ check thâm niên
+        ("p_SoKmLX", hv.get("so_km_lx")),
+        ("p_GiayTo", giay_to_str),                            # '1,2,3,'
+        ("p_SoGPLXDaCo", None),
+        ("p_HangGPLXDaCo", None),
+        ("p_NgayTTGPLXDaCo", None),
+        ("p_NgayCapGPLXDaCo", None),
+        ("p_NgayHHGPLXDaCo", None),
+        ("p_DVCapGPLXDaCo", None),
+        ("p_NoiCapGPLXDaCo", None),
+        ("p_GhiChu", None),
+        ("p_SO_CMND_CU", None),
+        ("p_CHON_IN_GPLX", 2),                                # "Chọn in GPLX" bắt buộc = 2 (AS-003)
     ]
 
 
-def _exec_sql(params: list[tuple], proc: str, head: str, out_select: str) -> tuple[str, list]:
-    """Dựng câu EXEC proc với tham số đặt tên + OUTPUT, trả (sql, values)."""
-    named = ", ".join(f"@{n}=%s" for n, _ in params)
-    sql = f"{head}\nEXEC dbo.{proc} {out_select}{named};"
-    return sql, [v for _, v in params]
+# ---- Ghi ảnh (hướng A) — DÙNG CHUNG cho NAP-05 và QLY-05 --------------------
+def ghi_anh_update(cur, ma_dk: str, ma_kh: str, jp2_bytes: bytes,
+                   img_path_base: str, now: datetime, nguoi: str = "") -> str:
+    """Ghi file .jp2 (tên = MaDK) + UPDATE 5 cột ảnh NguoiLX_HoSo, nâng TT_XuLy='03' (hướng A).
+
+    Đường dẫn TUYỆT ĐỐI <IMG_PATH_CSDT>\\<MaKhoaHoc>\\<MaDK>.jp2 (verify DB thật 01/10).
+    Dùng lại ở QLY-05 (nạp/thay ảnh cho HV đã có). Trả đường dẫn đã ghi.
+    """
+    folder = Path(img_path_base) / ma_kh
+    folder.mkdir(parents=True, exist_ok=True)
+    jp2_path = folder / f"{ma_dk}.jp2"
+    jp2_path.write_bytes(jp2_bytes)          # ghi đè nếu đã có (thay ảnh — QLY-05)
+    duong_dan = str(jp2_path)
+    cur.execute(
+        "UPDATE NguoiLX_HoSo SET DuongDanAnh=%s, ChatLuongAnh=1, TT_XuLy='03', "
+        "NgayThuNhanAnh=%s, NguoiThuNhanAnh=%s WHERE MaDK=%s",
+        (duong_dan, now, nguoi, ma_dk),
+    )
+    return duong_dan
 
 
-# ---- Orchestration (chạy live ở bước kiểm riêng — GHI PRODUCTION) -----------
+# ---- Chống mồ côi / chống trùng UUID (staging SQLite) ----------------------
 def _orphan_set(uuid: str, ma_dk: str) -> None:
     ORPHAN_DB.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(ORPHAN_DB))
@@ -224,20 +199,23 @@ def _done_set(uuid: str, r: dict) -> None:
         conn.close()
 
 
+# ---- Orchestration (chạy live — GHI PRODUCTION) ----------------------------
 def nap_mot_hv(conn, hv: dict, khoa: dict, jp2_bytes: bytes | None,
                img_path_base: str, nguoi: str, uuid: str,
                giay_to: list[dict] | None = None) -> dict:
-    """Nạp 1 HV (GHI PRODUCTION). conn: pymssql connection (autocommit, 1 connection giữ applock).
+    """Nạp 1 HV qua SP gộp (GHI PRODUCTION). conn: pymssql connection (autocommit, giữ applock).
 
-    giay_to: danh sách giấy tờ ĐÃ tick, mỗi phần tử {"ma_gt": int, "ten_gt": str}
-    (TenGT tên đầy đủ từ DM_GiayTo) → ghi N dòng usp_NguoiLXHS_GiayTo_Insert, TrangThai=1.
+    giay_to: danh sách giấy tờ ĐÃ tick [{"ma_gt": int, "ten_gt": str}] → dựng chuỗi @p_GiayTo
+    (SP tự insert từ DM_GiayTo; ten_gt chỉ để UI, SP không cần).
 
-    Trả {"ma_dk","so_ho_so","duong_dan_anh","so_giay_to"}.
-    Lỗi bất kỳ (kể cả giấy tờ) → compensation (xóa NguoiLX cascade → cuốn luôn HoSo+GiayTo + .jp2) + raise.
+    Trả {"ma_dk","so_ho_so","duong_dan_anh","so_giay_to"} (+ "anh_loi" nếu ghi ảnh lỗi).
+    - SP gộp atomic (SET XACT_ABORT ON) → lỗi SP tự rollback, KHÔNG để bản ghi nửa vời.
+    - @p_out ≠ 0 → lỗi nghiệp vụ, SP không insert → raise (giữ pending).
+    - Ghi ảnh lỗi SAU khi SP tạo xong → giữ TT_XuLy='01' (thiếu ảnh, BR-011), KHÔNG xóa HV.
     """
     import pymssql  # noqa: F401 (đảm bảo driver có)
 
-    da_nap = _done_get(uuid)   # bấm lại cùng UUID (mạng timeout) → trả kết quả cũ, không tạo HV 2
+    da_nap = _done_get(uuid)   # bấm lại cùng UUID → trả kết quả cũ, không tạo HV 2
     if da_nap:
         return da_nap
 
@@ -246,71 +224,51 @@ def nap_mot_hv(conn, hv: dict, khoa: dict, jp2_bytes: bytes | None,
     loi = validate_do_dai(ten, hv.get("so_cmt", ""))
     if loi:
         raise ValueError("Dữ liệu vượt độ dài cột: " + "; ".join(loi))
+    giay_to_str = dung_chuoi_giay_to([g["ma_gt"] for g in (giay_to or [])])
 
-    cur = conn.cursor(as_dict=True)   # cần dict để đọc fetchone()["MaDK"]/["m"] (pymssql mặc định trả tuple)
-    ma_dk = None
-    jp2_path: Path | None = None
+    cur = conn.cursor(as_dict=True)
     cur.execute("EXEC sp_getapplock @Resource=%s, @LockMode='Exclusive', @LockTimeout=15000",
                 (khoa["ma_kh"],))
     try:
-        # 1) usp_NguoiLX_Insert → MaDK (OUT)
-        p = build_params_nguoilx(hv, ten, now, nguoi)
-        sql, vals = _exec_sql(p, "usp_NguoiLX_Insert", "DECLARE @MaDK varchar(25);\n",
-                              "@MaDK=@MaDK OUTPUT, ")
-        cur.execute(sql + "\nSELECT @MaDK AS MaDK;", tuple(vals))
-        ma_dk = cur.fetchone()["MaDK"]
-        _orphan_set(uuid, ma_dk)  # chống mồ côi nếu tool chết (PH-3.2)
-
-        # 2) SoHoSo = MAX+1 trong khóa (đọc trong applock)
+        # 1) SoHoSo = MAX+1 trong khóa (đọc trong applock)
         cur.execute("SELECT MAX(CAST(SoHoSo AS INT)) AS m FROM NguoiLX_HoSo WHERE MaKhoaHoc=%s",
                     (khoa["ma_kh"],))
         so_ho_so = sinh_so_ho_so(cur.fetchone()["m"] or 0)
 
-        # 3) Ghi .jp2 (tên = MaDK) nếu có ảnh
+        # 2) EXEC SP gộp — @p_MaDK=NULL OUT → SP tự sinh; @p_out OUT (lỗi nghiệp vụ)
+        p = build_params_sp_gop(hv, khoa, so_ho_so, ten, giay_to_str, nguoi)
+        named = ", ".join(f"@{n}=%s" for n, _ in p)
+        sql = ("SET XACT_ABORT ON;\n"
+               "DECLARE @out INT, @madk VARCHAR(25) = NULL;\n"
+               "EXEC dbo.usp_QuangLA_PM4_ThuNhanHS_ThemMoiCapNhat "
+               f"@p_out=@out OUTPUT, @p_MaDK=@madk OUTPUT, {named};")
+        cur.execute(sql, tuple(v for _, v in p))
+        row = cur.fetchone() or {}
+        p_out = row.get("@p_out")
+        ma_dk = row.get("@p_MaDK")
+        if p_out != 0:
+            raise ValueError("Nạp hồ sơ bị từ chối: " + OUT_LOI.get(p_out, f"SP trả mã {p_out}"))
+        if not ma_dk:
+            raise RuntimeError("SP không trả về MaDK dù @p_out=0")
+        _orphan_set(uuid, ma_dk)   # chống mồ côi nếu tool chết trước khi chốt done
+
+        # 3) Ghi ảnh hướng A (lỗi KHÔNG xóa HV — giữ '01' thiếu ảnh, BR-011)
         duong_dan_anh = None
-        chat_luong = None
-        tt_xuly, chat_luong = suy_tt_xuly(bool(jp2_bytes))
+        anh_loi = None
         if jp2_bytes:
-            folder = Path(img_path_base) / khoa["ma_kh"]
-            folder.mkdir(parents=True, exist_ok=True)
-            jp2_path = folder / f"{ma_dk}.jp2"
-            jp2_path.write_bytes(jp2_bytes)
-            duong_dan_anh = str(jp2_path)
+            try:
+                duong_dan_anh = ghi_anh_update(cur, ma_dk, khoa["ma_kh"], jp2_bytes,
+                                               img_path_base, now, nguoi)
+            except Exception as e:  # noqa: BLE001
+                anh_loi = str(e)
 
-        # 4) usp_NguoiLX_HoSo_Insert (truyền SoHoSo tự sinh)
-        p = build_params_hoso(hv, khoa, so_ho_so, duong_dan_anh, tt_xuly, chat_luong, now, nguoi)
-        sql, vals = _exec_sql(
-            p, "usp_NguoiLX_HoSo_Insert",
-            f"DECLARE @SoHoSo varchar(18)=%s; DECLARE @MaDK varchar(25)=%s;\n",
-            "@MaDK=@MaDK, @SoHoSo=@SoHoSo OUTPUT, ",
-        )
-        cur.execute(sql, tuple([so_ho_so, ma_dk] + vals))
-
-        # 5) Giấy tờ kèm theo × N (theo tick cuối — chỉ ghi dòng đã tick, TrangThai=1)
-        for gt in (giay_to or []):
-            pg = build_params_giayto(gt["ma_gt"], ma_dk, so_ho_so, gt["ten_gt"])
-            sql_gt, vals_gt = _exec_sql(pg, "usp_NguoiLXHS_GiayTo_Insert", "", "")
-            cur.execute(sql_gt, tuple(vals_gt))
-
-        _orphan_clear(uuid)
         ket_qua = {"ma_dk": ma_dk, "so_ho_so": so_ho_so, "duong_dan_anh": duong_dan_anh,
                    "so_giay_to": len(giay_to or [])}
+        if anh_loi:
+            ket_qua["anh_loi"] = anh_loi
+        _orphan_clear(uuid)
         _done_set(uuid, ket_qua)   # chốt UUID đã nạp xong → chống bấm lại tạo trùng
         return ket_qua
-    except Exception:
-        # compensation: xóa NguoiLX (cascade) + .jp2 vừa ghi, giữ pending (§10.3)
-        if ma_dk:
-            try:
-                conn.cursor().execute("EXEC dbo.usp_NguoiLX_Delete @MaDK=%s", (ma_dk,))
-            except Exception:
-                pass
-        if jp2_path and jp2_path.exists():
-            try:
-                jp2_path.unlink()
-            except OSError:
-                pass
-        _orphan_clear(uuid)
-        raise
     finally:
         try:
             cur.execute("EXEC sp_releaseapplock @Resource=%s", (khoa["ma_kh"],))
@@ -326,7 +284,7 @@ def nap_lo(items: list[dict], nap_fn, on_progress=None) -> dict:
     on_progress(da_xong, tong): gọi sau mỗi HV để UI cập nhật tiến độ (tuỳ chọn).
 
     Trả {"tong", "thanh_cong", "that_bai", "ket_qua": [{uuid, ok, ...}]}.
-    HV lỗi giữ pending (nap_fn tự compensation) + ghi dòng lỗi; lô vẫn chạy tiếp.
+    HV lỗi: SP atomic tự rollback → giữ pending + ghi dòng lỗi; lô vẫn chạy tiếp.
     """
     ket_qua: list[dict] = []
     tong = len(items)

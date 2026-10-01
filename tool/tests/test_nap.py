@@ -1,8 +1,10 @@
-"""NAP-05 (1/2) — test hàm thuần + dựng tham số SP (không chạm DB).
+"""NAP-05 — test hàm thuần + dựng tham số SP GỘP + orchestration (mock, không chạm DB).
 
-Nạp thật vào production (applock + SP + compensation) kiểm LIVE ở bước riêng (AS-003).
+Nạp thật vào production (applock + SP gộp + ghi ảnh) kiểm LIVE ở bước riêng (AS-003).
 """
 from datetime import datetime
+
+import pytest
 
 from app import nap
 
@@ -15,32 +17,27 @@ def test_sinh_so_ho_so():
     assert nap.sinh_so_ho_so(99) == "100"
 
 
-# ---- tách họ tên ----
-def test_tach_ho_ten():
+# ---- tách họ tên (IN HOA giữ dấu — AS-003) ----
+def test_tach_ho_ten_in_hoa():
     t = nap.tach_ho_ten("Nguyễn Văn An")
-    assert t["TenNLX"] == "An"
-    assert t["HoDemNLX"] == "Nguyễn Văn"
-    assert t["HoVaTen"] == "Nguyễn Văn An"
-    assert t["HoVaTenIn"] == "Nguyễn Văn An"
+    assert t["TenNLX"] == "AN"
+    assert t["HoDemNLX"] == "NGUYỄN VĂN"
+    assert t["HoVaTen"] == "NGUYỄN VĂN AN"       # IN HOA giữ dấu
+    assert t["HoVaTenIn"] == "NGUYỄN VĂN AN"
 
 
 def test_tach_ho_ten_mot_tu():
     t = nap.tach_ho_ten("An")
-    assert t["TenNLX"] == "An" and t["HoDemNLX"] == ""
+    assert t["TenNLX"] == "AN" and t["HoDemNLX"] == ""
 
 
 def test_hovatenin_cat_25_giu_dau():
     t = nap.tach_ho_ten("Nguyễn Thị Hoàng Yến Nhi Phương Thảo")
     assert len(t["HoVaTenIn"]) <= 25
-    assert "ễ" in t["HoVaTenIn"]  # còn giữ dấu, không hoa-bỏ-dấu
+    assert "Ễ" in t["HoVaTenIn"]   # còn giữ dấu (in hoa), không bỏ dấu
 
 
-# ---- suy giá trị ----
-def test_suy_tt_xuly():
-    assert nap.suy_tt_xuly(True) == ("03", 1)
-    assert nap.suy_tt_xuly(False) == ("01", None)
-
-
+# ---- suy giá trị / chuỗi giấy tờ ----
 def test_suy_ma_loai_hs():
     assert nap.suy_ma_loai_hs("A1") == 1
     assert nap.suy_ma_loai_hs("B1") == 2
@@ -52,13 +49,21 @@ def test_validate_do_dai():
     assert nap.validate_do_dai(nap.tach_ho_ten("Trần Văn B"), "012345678901") == []
 
 
-# ---- dựng tham số SP ----
+def test_dung_chuoi_giay_to():
+    assert nap.dung_chuoi_giay_to([1, 2, 3]) == "1,2,3,"
+    assert nap.dung_chuoi_giay_to([3, 1]) == "1,3,"      # sắp xếp + mỗi mã kèm dấu phẩy
+    assert nap.dung_chuoi_giay_to([]) == ""              # không giấy tờ → chuỗi rỗng
+
+
+# ---- dựng 30 tham số SP gộp ----
 _HV = {
     "ho_ten": "Nguyễn Văn An",
     "ngay_sinh": "20000101",
     "gioi_tinh": "M",
     "so_cmt": "012345678901",
-    "noi_tt": "Phường Hồng Hà, Thành phố Hà Nội",
+    "ngay_cap_cmt": "20180101",
+    "noi_cap_cmt": "Cục CS QLHC",
+    "noi_tt": "Phường Hồng Hà, Thành phố Hà Nội",   # tên xã — SP gộp BỎ QUA (NoiTT phải trống)
     "noi_tt_ma_dvhc": "00097",
     "noi_tt_ma_dvql": "01",
 }
@@ -66,43 +71,19 @@ _KHOA = {"ma_kh": "70004K26B010", "hang_gplx": "B1", "hang_dt": "B", "ma_so_gtvt
 _NOW = datetime(2026, 10, 1, 9, 0, 0)
 
 
-def test_params_nguoilx_gia_tri_mvp():
-    p = dict(nap.build_params_nguoilx(_HV, nap.tach_ho_ten(_HV["ho_ten"]), _NOW, "operator"))
-    assert len(p) == 23  # 24 tham số SP trừ @MaDK OUT
-    assert p["DonViNhanHSo"] == "70004"
-    assert p["MaQuocTich"] == "VNM"   # mã quốc tịch VN theo DM_QuocTich (FK), không phải "VN"
-    assert p["TrangThai"] == 1
-    assert p["NoiTT_MaDVHC"] == "00097" and p["NoiTT_MaDVQL"] == "01"
-    assert p["NoiCT_MaDVHC"] == "00097"  # BR-004: NoiCT = NoiTT mặc định
-    assert p["HoVaTenIn"] == "Nguyễn Văn An"
-
-
-def test_params_hoso_co_anh():
-    p = dict(nap.build_params_hoso(_HV, _KHOA, "056", r"D:\A\70004K26B010\x.jp2", "03", 1, _NOW, "op"))
-    assert len(p) == 69  # 71 tham số SP trừ @MaDK, @SoHoSo
-    assert p["MaCSDT"] == "70004" and p["MaSoGTVT"] == "70"
-    assert p["MaLoaiHs"] == 2            # B1 → ô tô
-    assert p["TT_XuLy"] == "03" and p["ChatLuongAnh"] == 1
-    assert p["GiayCNSK"] == 1 and p["TrangThai"] == 1 and p["MaHTCap"] == "CM_VN"
-    assert p["MaKhoaHoc"] == "70004K26B010" and p["HangDaoTao"] == "B"
-    assert p["NguoiThuNhanAnh"] == "op"
-
-
-def test_params_hoso_khong_anh():
-    p = dict(nap.build_params_hoso(_HV, _KHOA, "056", None, "01", None, _NOW, "op"))
-    assert p["DuongDanAnh"] is None and p["ChatLuongAnh"] is None
-    assert p["NgayThuNhanAnh"] is None and p["NguoiThuNhanAnh"] is None
-    assert p["TT_XuLy"] == "01"
-
-
-# ---- giấy tờ ----
-def test_build_params_giayto():
-    p = dict(nap.build_params_giayto(2, "70004-TEST", "056", "Bản sao CMND/hộ chiếu"))
-    assert len(p) == 5                       # đúng 5 tham số SP
-    assert p["MaGT"] == 2 and p["MaDK"] == "70004-TEST"
-    assert p["SoHoSo"] == "056"
-    assert p["TenGT"] == "Bản sao CMND/hộ chiếu"   # tên đầy đủ, giữ dấu
-    assert p["TrangThai"] == 1                # chỉ ghi dòng đã tick → luôn 1
+def test_build_params_sp_gop():
+    ten = nap.tach_ho_ten(_HV["ho_ten"])
+    p = dict(nap.build_params_sp_gop(_HV, _KHOA, "056", ten, "1,2,3,", "op"))
+    assert len(p) == 30                          # 32 tham số SP trừ @p_out + @p_MaDK
+    assert p["p_MaKH"] == "70004K26B010"
+    assert p["p_SoHoSo"] == "056"
+    assert p["p_HoVaTen"] == "NGUYỄN VĂN AN"      # IN HOA
+    assert p["p_MaQuocTich"] == "VNM"             # không "VN" (vỡ FK)
+    assert p["p_CHON_IN_GPLX"] == 2               # "Chọn in GPLX" bắt buộc
+    assert p["p_ChiTiet_TT"] == ""                # NoiTT trống — không nhét tên xã
+    assert p["p_MaDVHC_TT"] == "00097"
+    assert p["p_MaDVHC_CT"] == "00097"            # mặc định = TT khi không có CT riêng
+    assert p["p_GiayTo"] == "1,2,3,"
 
 
 # ---- nạp lô: 1 HV lỗi không hỏng cả lô (EC-071) ----
@@ -118,16 +99,16 @@ def test_nap_lo_mot_loi_khong_hong_lo():
     kq = nap.nap_lo(items, nap_fn, on_progress=lambda i, n: tien_do.append((i, n)))
 
     assert kq["tong"] == 3 and kq["thanh_cong"] == 2 and kq["that_bai"] == 1
-    assert [r["ok"] for r in kq["ket_qua"]] == [True, False, True]  # b lỗi, a/c vẫn nạp
+    assert [r["ok"] for r in kq["ket_qua"]] == [True, False, True]
     assert kq["ket_qua"][1]["loi"] == "SP lỗi giữa chừng"
-    assert tien_do == [(1, 3), (2, 3), (3, 3)]                      # tiến độ đủ từng bước
+    assert tien_do == [(1, 3), (2, 3), (3, 3)]
 
 
-# ---- vòng ghi giấy tờ trong nap_mot_hv (mock cursor, không chạm DB) ----
+# ---- orchestration nap_mot_hv (mock cursor, không chạm DB) ----
 class _FakeCursor:
-    def __init__(self):
+    def __init__(self, fetches):
         self.calls = []
-        self._fetch = [{"MaDK": "70004-TEST"}, {"m": 55}]  # MaDK OUT, rồi MAX(SoHoSo)
+        self._fetch = list(fetches)
 
     def execute(self, sql, params=None):
         self.calls.append((sql, params))
@@ -145,37 +126,61 @@ class _FakeConn:
 
 
 def _tat_staging(monkeypatch):
-    """Cô lập test khỏi staging.sqlite thật (cờ mồ côi + chống trùng UUID)."""
     monkeypatch.setattr(nap, "_orphan_set", lambda *a, **k: None)
     monkeypatch.setattr(nap, "_orphan_clear", lambda *a, **k: None)
     monkeypatch.setattr(nap, "_done_get", lambda *a, **k: None)
     monkeypatch.setattr(nap, "_done_set", lambda *a, **k: None)
 
 
-def test_nap_mot_hv_ghi_giay_to_theo_tick(monkeypatch):
-    _tat_staging(monkeypatch)
+def _ok_fetches():
+    # thứ tự fetchone: MAX(SoHoSo) → kết quả SP gộp (@p_out, @p_MaDK)
+    return [{"m": 55}, {"@p_out": 0, "@p_MaDK": "70004-TEST"}]
 
-    cur = _FakeCursor()
-    giay_to = [
-        {"ma_gt": 1, "ten_gt": "Đơn đề nghị học, sát hạch"},
-        {"ma_gt": 2, "ten_gt": "Bản sao CMND/hộ chiếu"},
-    ]
+
+def test_nap_mot_hv_khong_anh_truyen_giay_to_qua_sp(monkeypatch):
+    _tat_staging(monkeypatch)
+    cur = _FakeCursor(_ok_fetches())
+    giay_to = [{"ma_gt": 1, "ten_gt": "Đơn đề nghị"}, {"ma_gt": 2, "ten_gt": "Bản sao CMND"}]
+
     r = nap.nap_mot_hv(_FakeConn(cur), _HV, _KHOA, None, r"D:\A", "op", "uuid-1", giay_to)
 
     assert r["ma_dk"] == "70004-TEST"
-    assert r["so_ho_so"] == "056"            # MAX 55 + 1
+    assert r["so_ho_so"] == "056"               # MAX 55 + 1
     assert r["so_giay_to"] == 2
-    gt_calls = [c for c in cur.calls if "usp_NguoiLXHS_GiayTo_Insert" in c[0]]
-    assert len(gt_calls) == 2                # ghi đúng N dòng giấy tờ đã tick
-    assert any("sp_releaseapplock" in c[0] for c in cur.calls)  # luôn nhả applock
+    assert r["duong_dan_anh"] is None
+    # giấy tờ đi qua @p_GiayTo của SP gộp (KHÔNG còn usp_NguoiLXHS_GiayTo_Insert rời)
+    sp_call = [c for c in cur.calls if "ThemMoiCapNhat" in c[0]][0]
+    assert "1,2," in sp_call[1]                  # chuỗi giấy tờ nằm trong tham số
+    assert not [c for c in cur.calls if "GiayTo_Insert" in c[0]]
+    # KHÔNG UPDATE cột ảnh khi không có ảnh (giữ TT_XuLy='01')
+    assert not [c for c in cur.calls if "UPDATE NguoiLX_HoSo" in c[0]]
+    assert any("sp_releaseapplock" in c[0] for c in cur.calls)   # luôn nhả applock
 
 
-def test_nap_mot_hv_khong_giay_to(monkeypatch):
+def test_nap_mot_hv_co_anh_update_5_cot(monkeypatch, tmp_path):
     _tat_staging(monkeypatch)
-    cur = _FakeCursor()
-    r = nap.nap_mot_hv(_FakeConn(cur), _HV, _KHOA, None, r"D:\A", "op", "uuid-2")  # giay_to mặc định None
-    assert r["so_giay_to"] == 0
-    assert not [c for c in cur.calls if "usp_NguoiLXHS_GiayTo_Insert" in c[0]]
+    cur = _FakeCursor(_ok_fetches())
+
+    r = nap.nap_mot_hv(_FakeConn(cur), _HV, _KHOA, b"JP2DATA", str(tmp_path), "op", "uuid-2")
+
+    # ghi .jp2 tên = MaDK, đường dẫn tuyệt đối <base>\<MaKhoaHoc>\<MaDK>.jp2
+    jp2 = tmp_path / "70004K26B010" / "70004-TEST.jp2"
+    assert jp2.read_bytes() == b"JP2DATA"
+    assert r["duong_dan_anh"] == str(jp2)
+    # UPDATE 5 cột ảnh, nâng TT_XuLy='03' (hướng A)
+    upd = [c for c in cur.calls if "UPDATE NguoiLX_HoSo" in c[0]]
+    assert len(upd) == 1 and "TT_XuLy='03'" in upd[0][0]
+    assert upd[0][1][3] == "70004-TEST"         # WHERE MaDK
+
+
+def test_nap_mot_hv_loi_nghiep_vu_pout(monkeypatch):
+    """@p_out ≠ 0 → lỗi nghiệp vụ, raise (SP không insert, không raiserror)."""
+    _tat_staging(monkeypatch)
+    cur = _FakeCursor([{"m": 55}, {"@p_out": -2, "@p_MaDK": None}])
+
+    with pytest.raises(ValueError, match="CCCD"):
+        nap.nap_mot_hv(_FakeConn(cur), _HV, _KHOA, None, r"D:\A", "op", "uuid-3")
+    assert any("sp_releaseapplock" in c[0] for c in cur.calls)   # vẫn nhả applock
 
 
 def test_nap_mot_hv_idempotent_uuid(monkeypatch):
@@ -188,7 +193,7 @@ def test_nap_mot_hv_idempotent_uuid(monkeypatch):
         lambda uuid: {"ma_dk": "70004-CU", "so_ho_so": "056", "so_giay_to": 3,
                       "duong_dan_anh": None, "trung_uuid": True},
     )
-    cur = _FakeCursor()
+    cur = _FakeCursor([])
     r = nap.nap_mot_hv(_FakeConn(cur), _HV, _KHOA, None, r"D:\A", "op", "uuid-trung")
     assert r["ma_dk"] == "70004-CU" and r["trung_uuid"] is True
-    assert cur.calls == []   # không chạm applock/SP nào — không tạo HV mới
+    assert cur.calls == []   # không chạm applock/SP nào
