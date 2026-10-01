@@ -4,15 +4,17 @@ get_current_user: giải mã JWT → kiểm blocklist → đọc is_active + vai
 theo sub (không tin claim, để admin khóa/đổi vai trò có hiệu lực ngay).
 require_role: gác theo vai trò; admin luôn qua (admin = tất cả, §5.3).
 """
+import hmac
 from collections.abc import Callable
 from uuid import UUID
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.auth.security import decode_token
+from app.config import get_settings
 from app.db import get_db
 from app.models.user import TokenBlocklist, User
 
@@ -51,3 +53,11 @@ def require_role(*roles: str) -> Callable[..., User]:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Không đủ quyền thực hiện")
 
     return checker
+
+
+def require_tool_key(x_tool_key: str | None = Header(default=None)) -> None:
+    """Khóa máy cho endpoint nạp (TDD §4.1/§4.4): tool phải gửi X-Tool-Key khớp cấu hình.
+    So sánh hằng thời gian (hmac.compare_digest) để không lộ qua thời gian phản hồi."""
+    expected = get_settings().tool_api_key
+    if not x_tool_key or not hmac.compare_digest(x_tool_key, expected):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Thiếu hoặc sai X-Tool-Key")

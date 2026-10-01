@@ -104,7 +104,7 @@
 
 #### [HTG-02] Hàng đợi VPS + tự xóa PII 30 ngày
 
-**Trạng thái:** ⏳ Todo
+**Trạng thái:** 🔄 In Progress
 **Story:** Là hệ thống, tôi muốn lưu bản ghi thu thập vào hàng đợi và tự xóa sau 30 ngày, để tool kéo về và bảo vệ dữ liệu căn cước.
 
 **Done khi:**

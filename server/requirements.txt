@@ -5,6 +5,8 @@ gunicorn==23.0.0
 sqlalchemy==2.0.36
 psycopg[binary]==3.2.3
 pydantic-settings==2.6.1
+python-multipart==0.0.20   # upload ảnh thô multipart (task 15 — HTG-02)
+pillow==11.0.0             # validate ảnh: số điểm ảnh chống bung nén (task 15, TDD §7.4)
 
 # Auth (task 14 — HTG-01②)
 pyjwt==2.10.1
