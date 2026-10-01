@@ -83,7 +83,7 @@ export default function DangNhap() {
         </form>
 
         <div className="mt-4 rounded-lg bg-secondary/60 border border-border p-3 text-[12px] text-muted-foreground leading-relaxed">
-          <b className="text-foreground">3 vai trò</b> (theo tài khoản, mỗi người một tài khoản): nhân viên thu nhận · nhân viên nạp DB · quản trị. Không đăng nhập Google/Zalo (HTG-01).
+          <b className="text-foreground">3 vai trò</b> (theo tài khoản, mỗi người một tài khoản): nhân viên thu nhận · nhân viên nạp DB · quản trị. Không đăng nhập Google/Zalo.
         </div>
       </div>
     </div>

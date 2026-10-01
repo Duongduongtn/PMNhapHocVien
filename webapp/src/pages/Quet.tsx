@@ -100,15 +100,18 @@ export default function Quet() {
   const [uuid, setUuid] = useState<string>("");
   const [offline, setOffline] = useState(false);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Có mạng trở lại → tự gửi lại nháp còn tồn.
   useEffect(() => {
     dangKyGuiLai();
+    return () => { if (toastTimer.current) clearTimeout(toastTimer.current); };
   }, []);
 
   function baoToast(msg: string, ok: boolean) {
     setToast({ msg, ok });
-    window.setTimeout(() => setToast(null), 2800);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 2800);
   }
 
   // "Lưu & nhập hồ sơ tiếp" (CHANGES #13): gửi KHÔNG ảnh → toast → về màn chọn cách nhập.
@@ -560,6 +563,8 @@ function Preview({
   const [f, setF] = useState<CccdFields>(fields);
   const [loi, setLoi] = useState<string | null>(null);
   const [trung, setTrung] = useState<KiemTrungKq | null>(null); // THU-04 cảnh báo mềm
+  const [dangGui, setDangGui] = useState(false);
+  const guiRef = useRef(false); // chặn double-tap "Lưu & nhập hồ sơ tiếp"
 
   const set = <K extends keyof CccdFields>(k: K, v: CccdFields[K]) => setF((p) => ({ ...p, [k]: v }));
   const canhBaoTen = kiemDoDaiTen(f.hoTen);
@@ -571,11 +576,11 @@ function Preview({
       setTrung(null);
       return;
     }
-    let huy = false;
-    kiemTrungCccd(cccd)
-      .then((r) => { if (!huy) setTrung(r.trung ? r : null); })
-      .catch(() => {}); // lỗi mạng khi hỏi trùng → bỏ qua, không chặn
-    return () => { huy = true; };
+    const ac = new AbortController();
+    kiemTrungCccd(cccd, undefined, ac.signal)
+      .then((r) => setTrung(r.trung ? r : null))
+      .catch(() => {}); // lỗi mạng / abort khi đổi CCCD → bỏ qua, không chặn
+    return () => ac.abort();
   }, [f.soCccd]);
 
   function giu() {
@@ -590,11 +595,14 @@ function Preview({
   }
 
   function giuVaTiep() {
+    if (guiRef.current) return; // chặn double-tap → không tạo 2 bản ghi cùng CCCD
     const e = kiemFields(f);
     if (e) {
       setLoi(e);
       return;
     }
+    guiRef.current = true;
+    setDangGui(true);
     const id = taoUuid();
     luuNhap(tuCccd(id, f));
     onLuuVaTiep(id);
@@ -659,18 +667,20 @@ function Preview({
         <button
           type="button"
           onClick={giu}
-          className="w-full h-11 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-sm"
+          disabled={dangGui}
+          className="w-full h-11 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-sm disabled:opacity-60"
         >
           <Icon name="camera" className="w-4 h-4" /> Tiếp tục — chụp ảnh chân dung
         </button>
         <button
           type="button"
           onClick={giuVaTiep}
-          className="w-full h-11 rounded-lg border border-border bg-card text-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:bg-muted transition-colors"
+          disabled={dangGui}
+          className="w-full h-11 rounded-lg border border-border bg-card text-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:bg-muted transition-colors disabled:opacity-60"
         >
           <Icon name="send" className="w-4 h-4" /> Lưu & nhập hồ sơ tiếp
         </button>
-        <p className="text-[11px] text-muted-foreground text-center">Gửi ngay không kèm ảnh — bổ sung ảnh sau ở "Hồ sơ đã gửi".</p>
+        <p className="text-[12px] text-muted-foreground text-center">Gửi ngay không kèm ảnh — bổ sung ảnh sau ở "Hồ sơ đã gửi".</p>
       </div>
     </div>
   );

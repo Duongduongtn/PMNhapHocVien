@@ -11,7 +11,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, field_validator
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.auth.deps import require_role
@@ -165,26 +165,29 @@ def kiem_trung_cccd(
     (THU-04, CHANGES #13). Mọi nhân viên cùng CSDT, không chỉ của mình. `uuid` (tùy chọn) loại
     trừ chính hồ sơ đang gửi khi gửi lại. Không có CCCD hợp lệ → coi như không trùng."""
     so = (cccd or "").strip()
-    if not so:
+    # Từ chối sớm input không hợp lệ (CCCD = 12 chữ số) — không để chuỗi lạ/dài chạm DB.
+    if not so or len(so) > 12 or not so.isdigit():
         return KiemTrungOut(trung=False, so_luong=0)
-    q = select(HoSoThuThap).where(
+    conds = [
         HoSoThuThap.so_cccd == so,
         HoSoThuThap.trang_thai.in_(["pending", "importing"]),
-    )
+    ]
     if uuid is not None:
-        q = q.where(HoSoThuThap.uuid != uuid)
-    rows = db.scalars(q.order_by(HoSoThuThap.created_at.desc())).all()
-    if not rows:
+        conds.append(HoSoThuThap.uuid != uuid)
+    so_luong = db.scalar(select(func.count()).select_from(HoSoThuThap).where(*conds)) or 0
+    if so_luong == 0:
         return KiemTrungOut(trung=False, so_luong=0)
-    moi_nhat = rows[0]
-    nguoi = db.get(User, moi_nhat.created_by)
+    moi_nhat = db.scalars(
+        select(HoSoThuThap).where(*conds).order_by(HoSoThuThap.created_at.desc()).limit(1)
+    ).first()
+    nguoi = db.get(User, moi_nhat.created_by) if moi_nhat else None
     ten = (nguoi.ho_ten or nguoi.username) if nguoi else None
     return KiemTrungOut(
         trung=True,
-        so_luong=len(rows),
+        so_luong=so_luong,
         nguoi_gui=ten,
-        luc=moi_nhat.created_at,
-        trang_thai=moi_nhat.trang_thai,
+        luc=moi_nhat.created_at if moi_nhat else None,
+        trang_thai=moi_nhat.trang_thai if moi_nhat else None,
     )
 
 

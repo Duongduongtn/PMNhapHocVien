@@ -126,7 +126,7 @@ function TrangThaiChip({ tt }: { tt: string }) {
 // Badge hồ sơ thiếu ảnh chân dung (CHANGES #13) — gắn ở list + chi tiết, có bộ lọc riêng.
 function ThieuAnhChip() {
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-100 border border-amber-300 rounded-full px-2 py-0.5 whitespace-nowrap">
+    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-warning bg-warning/10 border border-warning/30 rounded-full px-2 py-0.5 whitespace-nowrap">
       <Icon name="image" className="w-3 h-3" /> Thiếu ảnh
     </span>
   );

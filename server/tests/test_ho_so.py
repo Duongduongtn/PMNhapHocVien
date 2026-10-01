@@ -221,3 +221,11 @@ def test_kiem_trung_bo_qua_da_nap(api, db_setup):
 def test_kiem_trung_operator_bi_chan_403(api):
     r = api.get("/api/ho-so/kiem-trung", headers=_login(api, "op1"), params={"cccd": "070200001111"})
     assert r.status_code == 403
+
+
+def test_kiem_trung_cccd_khong_hop_le_bo_qua(api):
+    # Rỗng / chữ / quá dài → từ chối sớm, không coi là trùng (không chạm DB)
+    h = _login(api, "col1")
+    for xau in ["", "   ", "abc", "07020000111x", "0702000011112222"]:
+        r = api.get("/api/ho-so/kiem-trung", headers=h, params={"cccd": xau})
+        assert r.status_code == 200 and r.json()["trung"] is False

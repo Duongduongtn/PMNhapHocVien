@@ -110,9 +110,10 @@ export interface KiemTrungKq {
   luc: string | null; // ISO
   trang_thai: string | null;
 }
-export const kiemTrungCccd = (cccd: string, uuid?: string) =>
+export const kiemTrungCccd = (cccd: string, uuid?: string, signal?: AbortSignal) =>
   fetch(`${BASE}/api/ho-so/kiem-trung?cccd=${encodeURIComponent(cccd)}${uuid ? `&uuid=${encodeURIComponent(uuid)}` : ""}`, {
     headers: authHeaders(),
+    signal,
   }).then(json<KiemTrungKq>);
 
 // THU-02 (CHANGES #12): sửa hồ sơ đã gửi khi còn chờ nạp. Đã nạp/đang nạp → server trả 409.
