@@ -92,6 +92,19 @@ class HoSoOut(BaseModel):
         )
 
 
+class KiemTrungOut(BaseModel):
+    """Kết quả soi hàng đợi CSDT xem CCCD đã có hồ sơ CHƯA NẠP chưa (THU-04, CHANGES #13).
+
+    Chỉ cảnh báo mềm ở app web — không chặn. Chốt trùng thật ở bước nạp (NAP-06, đối
+    chiếu DB SQL Server). App web không nối DB nên chỉ soi được hàng đợi (pending/importing).
+    """
+    trung: bool
+    so_luong: int
+    nguoi_gui: str | None = None   # tên người gửi bản gần nhất (collector cùng CSDT)
+    luc: datetime | None = None
+    trang_thai: str | None = None
+
+
 def _cua_minh(uuid: UUID, user: User, db: Session) -> HoSoThuThap:
     """Lấy hồ sơ của chính user. Không tồn tại hoặc không phải của mình → 404
     (không tiết lộ hồ sơ tồn tại nhưng thuộc người khác — chống IDOR)."""
@@ -139,6 +152,40 @@ def ho_so_cua_toi(user: User = Depends(require_role("collector")), db: Session =
         .order_by(HoSoThuThap.created_at.desc())
     ).all()
     return [HoSoOut.tu_model(hs) for hs in rows]
+
+
+@router.get("/kiem-trung", response_model=KiemTrungOut)
+def kiem_trung_cccd(
+    cccd: str,
+    uuid: UUID | None = None,
+    user: User = Depends(require_role("collector")),
+    db: Session = Depends(get_db),
+):
+    """Cảnh báo mềm: CCCD này đã có hồ sơ CHƯA NẠP (pending/importing) trong hàng đợi chưa
+    (THU-04, CHANGES #13). Mọi nhân viên cùng CSDT, không chỉ của mình. `uuid` (tùy chọn) loại
+    trừ chính hồ sơ đang gửi khi gửi lại. Không có CCCD hợp lệ → coi như không trùng."""
+    so = (cccd or "").strip()
+    if not so:
+        return KiemTrungOut(trung=False, so_luong=0)
+    q = select(HoSoThuThap).where(
+        HoSoThuThap.so_cccd == so,
+        HoSoThuThap.trang_thai.in_(["pending", "importing"]),
+    )
+    if uuid is not None:
+        q = q.where(HoSoThuThap.uuid != uuid)
+    rows = db.scalars(q.order_by(HoSoThuThap.created_at.desc())).all()
+    if not rows:
+        return KiemTrungOut(trung=False, so_luong=0)
+    moi_nhat = rows[0]
+    nguoi = db.get(User, moi_nhat.created_by)
+    ten = (nguoi.ho_ten or nguoi.username) if nguoi else None
+    return KiemTrungOut(
+        trung=True,
+        so_luong=len(rows),
+        nguoi_gui=ten,
+        luc=moi_nhat.created_at,
+        trang_thai=moi_nhat.trang_thai,
+    )
 
 
 @router.put("/{uuid}", response_model=HoSoOut)

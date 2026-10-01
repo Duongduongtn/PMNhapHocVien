@@ -82,7 +82,7 @@ function vnToYmd(s: string): string {
 // THU-02 — Hồ sơ nhân viên đã gửi lên VPS (GET /api/ho-so/cua-toi) + nháp còn chờ gửi (offline).
 // Bám bố cục ui-demo/src/pages/app/DaGui.tsx: lọc tab, mobile card / desktop table, modal chi tiết.
 
-type Loc = "all" | "pending" | "imported";
+type Loc = "all" | "pending" | "imported" | "no_photo";
 
 // yyyymmdd → hiển thị. Năm-only (….0000) → "yyyy". Rỗng → "—".
 function nsHienThi(s: string | null): string {
@@ -123,6 +123,15 @@ function TrangThaiChip({ tt }: { tt: string }) {
   );
 }
 
+// Badge hồ sơ thiếu ảnh chân dung (CHANGES #13) — gắn ở list + chi tiết, có bộ lọc riêng.
+function ThieuAnhChip() {
+  return (
+    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-100 border border-amber-300 rounded-full px-2 py-0.5 whitespace-nowrap">
+      <Icon name="image" className="w-3 h-3" /> Thiếu ảnh
+    </span>
+  );
+}
+
 export default function DaGui() {
   const [ds, setDs] = useState<HoSoOut[] | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
@@ -152,9 +161,16 @@ export default function DaGui() {
     void tai();
   }, []);
 
-  const rows = (ds ?? []).filter((h) => (loc === "all" || h.trang_thai === loc) && khopTim(q, h.ho_ten, h.so_cccd));
+  // Lọc "no_photo" (CHANGES #13) theo co_anh — khác trục trạng thái; các lọc khác theo trang_thai.
+  const khopLoc = (h: HoSoOut) => (loc === "no_photo" ? !h.co_anh : loc === "all" || h.trang_thai === loc);
+  const rows = (ds ?? []).filter((h) => khopLoc(h) && khopTim(q, h.ho_ten, h.so_cccd));
   const dem = (t: string) => (ds ?? []).filter((h) => h.trang_thai === t).length;
-  const rong = q.trim() ? "Không tìm thấy hồ sơ khớp." : "Chưa có hồ sơ nào ở nhóm này.";
+  const demThieuAnh = (ds ?? []).filter((h) => !h.co_anh).length;
+  const rong = q.trim()
+    ? "Không tìm thấy hồ sơ khớp."
+    : loc === "no_photo"
+      ? "Không có hồ sơ nào thiếu ảnh."
+      : "Chưa có hồ sơ nào ở nhóm này.";
 
   return (
     <div className="lg:p-6 lg:max-w-5xl lg:mx-auto">
@@ -201,6 +217,7 @@ export default function DaGui() {
                 ["all", `Tất cả (${ds.length})`],
                 ["pending", `Chờ nạp (${dem("pending")})`],
                 ["imported", `Đã nạp (${dem("imported")})`],
+                ["no_photo", `Thiếu ảnh (${demThieuAnh})`],
               ] as const
             ).map(([k, label]) => (
               <button
@@ -249,7 +266,10 @@ export default function DaGui() {
                   </div>
                   <div className="text-[11px] text-muted-foreground truncate">Gửi {guiHienThi(h.created_at)}</div>
                 </div>
-                <TrangThaiChip tt={h.trang_thai} />
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <TrangThaiChip tt={h.trang_thai} />
+                  {!h.co_anh && <ThieuAnhChip />}
+                </div>
               </button>
             ))}
             {!rows.length && <div className="px-4 py-10 text-center text-sm text-muted-foreground">{rong}</div>}
@@ -284,7 +304,10 @@ export default function DaGui() {
                     <td className="px-4 py-2 max-w-[260px] truncate">{h.noi_tt_raw || "—"}</td>
                     <td className="px-4 py-2 tabular-nums">{guiHienThi(h.created_at)}</td>
                     <td className="px-4 py-2 text-center">
-                      <TrangThaiChip tt={h.trang_thai} />
+                      <div className="flex flex-col items-center gap-1">
+                        <TrangThaiChip tt={h.trang_thai} />
+                        {!h.co_anh && <ThieuAnhChip />}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -389,7 +412,7 @@ function ChiTiet({ row, onDong, onCapNhat }: { row: HoSoOut; onDong: () => void;
             </div>
             <div className="min-w-0 flex-1">
               <div className="font-bold text-[15px]">{row.ho_ten || "(chưa có tên)"}</div>
-              <div className="mt-1"><TrangThaiChip tt={row.trang_thai} /></div>
+              <div className="mt-1 flex items-center gap-1.5 flex-wrap"><TrangThaiChip tt={row.trang_thai} />{!row.co_anh && <ThieuAnhChip />}</div>
               <div className="text-[12px] text-muted-foreground mt-2">Gửi lúc {guiHienThi(row.created_at)}</div>
             </div>
           </div>

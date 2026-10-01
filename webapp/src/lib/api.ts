@@ -102,6 +102,19 @@ export const guiAnh = (uuid: string, blob: Blob) => {
 
 export const dsDaGui = () => fetch(`${BASE}/api/ho-so/cua-toi`, { headers: authHeaders() }).then(json<HoSoOut[]>);
 
+// THU-04 (CHANGES #13): soi hàng đợi CSDT xem CCCD đã có hồ sơ CHƯA NẠP chưa — cảnh báo mềm.
+export interface KiemTrungKq {
+  trung: boolean;
+  so_luong: number;
+  nguoi_gui: string | null;
+  luc: string | null; // ISO
+  trang_thai: string | null;
+}
+export const kiemTrungCccd = (cccd: string, uuid?: string) =>
+  fetch(`${BASE}/api/ho-so/kiem-trung?cccd=${encodeURIComponent(cccd)}${uuid ? `&uuid=${encodeURIComponent(uuid)}` : ""}`, {
+    headers: authHeaders(),
+  }).then(json<KiemTrungKq>);
+
 // THU-02 (CHANGES #12): sửa hồ sơ đã gửi khi còn chờ nạp. Đã nạp/đang nạp → server trả 409.
 export type HoSoSua = Partial<Omit<HoSoGui, "uuid">>;
 export const suaHoSo = (uuid: string, body: HoSoSua) =>

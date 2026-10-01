@@ -268,6 +268,7 @@ GET  /api/ho-so/cua-toi         DS mình đã gửi
 PUT  /api/ho-so/:uuid           Sửa (khi pending)
 POST /api/ho-so/:uuid/anh       Upload ảnh thô (multipart)
 GET  /api/ho-so/:uuid/anh       Tải lại ảnh thô CỦA MÌNH (hiện thumbnail list/chi tiết — THU-02, CHANGES #12)
+GET  /api/ho-so/kiem-trung?cccd=<>  Kiểm CCCD đã có hồ sơ pending/importing trong hàng đợi CSDT — cảnh báo mềm (THU-04, CHANGES #13)
 ```
 
 ### 4.4 Nạp (tool — operator, kèm X-Tool-Key)
@@ -422,6 +423,9 @@ Admin đầu tiên tạo bằng script seed (CLI trên VPS), không mở API sel
   → auto-capture khi QR ổn định ~2 frame (500ms) → hiệu ứng (rung+đổi màu+tick)
   → parse chuỗi CCCD → màn preview 7 trường (sửa được) → chụp ảnh thô → POST /api/ho-so
 QR hỏng → nhập tay / upload ảnh CCCD đọc QR.
+Màn preview 2 lối (THU-01/THU-02, CHANGES #13):
+  [Tiếp tục → chụp ảnh → gửi → màn kết quả]
+  HOẶC [Lưu & nhập hồ sơ tiếp → gửi KHÔNG ảnh → toast "Đã gửi ✓" → về màn chọn cách nhập] (nhập liên tiếp).
 ```
 
 ### 6.2 Parse chuỗi QR CCCD (chuẩn Bộ Công an 2021)
@@ -444,6 +448,12 @@ Lọc **phía client** trên danh sách `/api/ho-so/cua-toi` đã tải (không 
 - **Khung bám QR** (THU-01): BarcodeDetector trả `cornerPoints` (4 góc QR trong khung hình) → vẽ khung khóa theo mã khi bắt trúng. Fallback qr-scanner không có tọa độ → giữ khung ngắm tĩnh.
 - **Layout mobile 1 màn** (THU-01, AppLayout): dùng `height:100%`/`100dvh` thay `100vh` (thanh URL mobile), khung camera `flex` co giãn, **bottom-nav + nút hành động chính dính đáy** (`position:sticky`/flex shrink-0), không cuộn mới thấy. Logo header là trang trí — bỏ nền/bo dáng nút.
 - **Xem lại + ảnh thật + sửa/chụp lại** (THU-02): danh sách & chi tiết "đã gửi" hiện ảnh thật qua `GET /api/ho-so/:uuid/anh` (của mình, kiểm `created_by` — chống IDOR như `_cua_minh`); modal chi tiết khi `pending` cho **Sửa** (`PUT /api/ho-so/:uuid`) + **Chụp/đổi ảnh** (`POST .../anh`); `importing`/`imported` → chỉ xem (server trả 409 nếu cố sửa).
+
+### 6.6 Nhập liên tiếp + badge/lọc thiếu ảnh + cảnh báo trùng (THU-01/THU-02/THU-04, CHANGES #13)
+*Vì sao: nhân viên nhập hàng loạt muốn gửi nhanh không bắt chụp ảnh từng hồ sơ, rồi gom các hồ sơ thiếu ảnh để chụp bù; và tránh gửi trùng một người lên hàng đợi.*
+- **Lưu & nhập hồ sơ tiếp** (THU-01/THU-02): nút thứ hai ở màn preview → gửi `POST /api/ho-so` **không kèm ảnh** (cơ chế gửi-không-ảnh + giữ nháp offline đã có) → **toast** thay màn kết quả → `setGiaiDoan("chon")` về màn chọn cách nhập. Không thêm endpoint. Thuần client `Quet.tsx`.
+- **Badge "Thiếu ảnh" + bộ lọc** (THU-02): lọc **phía client** trên `co_anh` của `/api/ho-so/cua-toi` (đã có field). Badge ở list card/table + chi tiết; thêm một lựa chọn lọc "Thiếu ảnh" cạnh tab trạng thái. Chụp bù vẫn qua nút "Thêm ảnh" khi `pending` (đã có). Không thêm endpoint. Thuần client `DaGui.tsx`.
+- **Cảnh báo trùng CCCD** (THU-04): thêm `GET /api/ho-so/kiem-trung?cccd=` (collector) → đếm hồ sơ `pending`/`importing` cùng CSDT có `so_cccd` khớp (loại trừ chính `uuid` đang gửi). >0 → trả thông tin (ai gửi, lúc nào) để app hiện **banner cảnh báo mềm** (chuẩn ⑥), **vẫn cho gửi**. Mất mạng/khi gọi lỗi → bỏ qua, không chặn. KHÔNG đối chiếu SQL Server (app web không nối DB) — chốt trùng thật ở NAP-06.
 
 ---
 
@@ -809,6 +819,7 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 | Ngày | Version | Thay đổi |
 |---|---|---|
 | 01/10/2026 | 2.1 | Sửa UX app web sau test điện thoại (CHANGES #12): §4.3 thêm `GET /api/ho-so/:uuid/anh` (collector tải ảnh của mình); §6.5 mới (màn vào không tự mở camera, khung bám QR `cornerPoints`, layout `100dvh` dính đáy, xem/sửa/chụp lại hồ sơ chờ nạp). THU-01/THU-02 hạ ⏳. |
+| 01/10/2026 | 2.2 | App web nhập liên tiếp (CHANGES #13): §6.1 +nhánh preview "Lưu & nhập hồ sơ tiếp" (gửi không ảnh→toast→màn chọn); §6.6 mới (badge/bộ lọc "Thiếu ảnh" + cảnh báo trùng); §4.3 +`GET /api/ho-so/kiem-trung` (THU-04 soi hàng đợi, cảnh báo mềm). THU-01/THU-02 hạ ⏳. |
 | 01/10/2026 | 2.0 | §7.2 ghi rõ **kéo KHÔNG khóa** (bản ghi còn sửa ở app web tới lúc nạp) → tool **kéo lại làm tươi** bản `keo_ve` trạng thái `cho` (NAP-01, CHANGES #11); không khóa-khi-kéo để tránh kẹt + job 15' lật ngược. |
 | 01/10/2026 | 1.8 | §3.2 bổ sung bảng `token_blocklist` (+ index `idx_blocklist_exp`) — §5.1 đã mô tả logout ghi jti vào blocklist nhưng schema §3.2 ghi sót; đồng bộ khi làm task 14 (HTG-01②). Xem CHANGES.md #7. |
 | 30/09/2026 | 1.0 | TDD đầu tiên — thiết kế đầy đủ từ PRD v2 (chế độ phỏng vấn 3 câu + PRD) |

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Icon } from "../components/Icon";
-import { ApiError } from "../lib/api";
+import { ApiError, kiemTrungCccd, type KiemTrungKq } from "../lib/api";
 import { kiemDoDaiTen, parseCccdQr, type CccdFields, type GioiTinh } from "../lib/qr";
 import { capNhatNhap, dsNhap, luuNhap, taoUuid, tuCccd } from "../lib/draft";
 import { dangKyGuiLai, guiMot } from "../lib/gui";
@@ -99,11 +99,32 @@ export default function Quet() {
   const [loiChon, setLoiChon] = useState<string | null>(null);
   const [uuid, setUuid] = useState<string>("");
   const [offline, setOffline] = useState(false);
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
   // Có mạng trở lại → tự gửi lại nháp còn tồn.
   useEffect(() => {
     dangKyGuiLai();
   }, []);
+
+  function baoToast(msg: string, ok: boolean) {
+    setToast({ msg, ok });
+    window.setTimeout(() => setToast(null), 2800);
+  }
+
+  // "Lưu & nhập hồ sơ tiếp" (CHANGES #13): gửi KHÔNG ảnh → toast → về màn chọn cách nhập.
+  // Về màn chọn ngay cho mượt; gửi chạy nền, báo kết quả bằng toast (mất mạng vẫn giữ nháp).
+  async function luuVaTiep(id: string) {
+    const hs = dsNhap().find((x) => x.uuid === id);
+    quetTiep();
+    if (!hs) return;
+    try {
+      await guiMot(hs);
+      baoToast("Đã gửi ✓", true);
+    } catch (err) {
+      if (err instanceof ApiError) baoToast(err.message, false);
+      else baoToast("Đã lưu — sẽ tự gửi khi có mạng", false);
+    }
+  }
 
   const batDau = useCallback((f: CccdFields) => {
     setFields(f);
@@ -153,12 +174,26 @@ export default function Quet() {
       {(giaiDoan === "preview" || giaiDoan === "anh" || giaiDoan === "ketqua") && (
         <div className="flex-1 min-h-0 overflow-y-auto p-4 lg:p-0">
           {giaiDoan === "preview" && (
-            <Preview fields={fields} onLuu={(id) => { setUuid(id); setGiaiDoan("anh"); }} onQuetLai={quetTiep} />
+            <Preview fields={fields} onLuu={(id) => { setUuid(id); setGiaiDoan("anh"); }} onLuuVaTiep={luuVaTiep} onQuetLai={quetTiep} />
           )}
           {giaiDoan === "anh" && (
             <ChupAnhGui uuid={uuid} onXong={(mangYeu) => { setOffline(mangYeu); setGiaiDoan("ketqua"); }} />
           )}
           {giaiDoan === "ketqua" && <KetQua offline={offline} onQuetTiep={quetTiep} />}
+        </div>
+      )}
+
+      {/* Toast gửi nhanh (CHANGES #13) — luồng "Lưu & nhập hồ sơ tiếp" */}
+      {toast && (
+        <div className="fixed left-1/2 -translate-x-1/2 bottom-20 lg:bottom-6 z-50 pointer-events-none">
+          <div
+            className={
+              "flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg text-sm font-semibold text-white " +
+              (toast.ok ? "bg-success" : "bg-warning")
+            }
+          >
+            <Icon name={toast.ok ? "check" : "wifiOff"} className="w-4 h-4" sw={toast.ok ? 3 : 2} /> {toast.msg}
+          </div>
         </div>
       )}
     </div>
@@ -503,12 +538,45 @@ function kiemFields(f: CccdFields): string | null {
   return null;
 }
 
-function Preview({ fields, onLuu, onQuetLai }: { fields: CccdFields; onLuu: (uuid: string) => void; onQuetLai: () => void }) {
+// ISO → "dd/mm HH:mm" (giờ máy) cho banner cảnh báo trùng.
+function lucHienThi(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function Preview({
+  fields,
+  onLuu,
+  onLuuVaTiep,
+  onQuetLai,
+}: {
+  fields: CccdFields;
+  onLuu: (uuid: string) => void;
+  onLuuVaTiep: (uuid: string) => void;
+  onQuetLai: () => void;
+}) {
   const [f, setF] = useState<CccdFields>(fields);
   const [loi, setLoi] = useState<string | null>(null);
+  const [trung, setTrung] = useState<KiemTrungKq | null>(null); // THU-04 cảnh báo mềm
 
   const set = <K extends keyof CccdFields>(k: K, v: CccdFields[K]) => setF((p) => ({ ...p, [k]: v }));
   const canhBaoTen = kiemDoDaiTen(f.hoTen);
+
+  // THU-04 (CHANGES #13): CCCD đủ 12 số → soi hàng đợi, trùng thì cảnh báo mềm (không chặn).
+  useEffect(() => {
+    const cccd = f.soCccd.trim();
+    if (!/^\d{12}$/.test(cccd)) {
+      setTrung(null);
+      return;
+    }
+    let huy = false;
+    kiemTrungCccd(cccd)
+      .then((r) => { if (!huy) setTrung(r.trung ? r : null); })
+      .catch(() => {}); // lỗi mạng khi hỏi trùng → bỏ qua, không chặn
+    return () => { huy = true; };
+  }, [f.soCccd]);
 
   function giu() {
     const e = kiemFields(f);
@@ -519,6 +587,17 @@ function Preview({ fields, onLuu, onQuetLai }: { fields: CccdFields; onLuu: (uui
     const id = taoUuid();
     luuNhap(tuCccd(id, f));
     onLuu(id);
+  }
+
+  function giuVaTiep() {
+    const e = kiemFields(f);
+    if (e) {
+      setLoi(e);
+      return;
+    }
+    const id = taoUuid();
+    luuNhap(tuCccd(id, f));
+    onLuuVaTiep(id);
   }
 
   return (
@@ -559,19 +638,40 @@ function Preview({ fields, onLuu, onQuetLai }: { fields: CccdFields; onLuu: (uui
         </div>
       )}
 
+      {trung && (
+        <div className="flex items-start gap-2 text-[12px] text-warning bg-warning/10 border border-warning/30 rounded-lg px-3 py-2">
+          <Icon name="warn" className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>
+            Căn cước này đã có hồ sơ <strong>chưa nạp</strong> trong hàng đợi
+            {trung.nguoi_gui ? ` — ${trung.nguoi_gui}` : ""}
+            {trung.luc ? ` gửi lúc ${lucHienThi(trung.luc)}` : ""}. Vẫn gửi được nếu là bổ sung/sửa.
+          </span>
+        </div>
+      )}
+
       {loi && (
         <div className="flex items-start gap-2 text-[12px] text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2">
           <Icon name="warn" className="w-4 h-4 shrink-0 mt-0.5" /> {loi}
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={giu}
-        className="w-full h-11 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-sm"
-      >
-        <Icon name="camera" className="w-4 h-4" /> Tiếp tục — chụp ảnh chân dung
-      </button>
+      <div className="space-y-2">
+        <button
+          type="button"
+          onClick={giu}
+          className="w-full h-11 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-sm"
+        >
+          <Icon name="camera" className="w-4 h-4" /> Tiếp tục — chụp ảnh chân dung
+        </button>
+        <button
+          type="button"
+          onClick={giuVaTiep}
+          className="w-full h-11 rounded-lg border border-border bg-card text-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:bg-muted transition-colors"
+        >
+          <Icon name="send" className="w-4 h-4" /> Lưu & nhập hồ sơ tiếp
+        </button>
+        <p className="text-[11px] text-muted-foreground text-center">Gửi ngay không kèm ảnh — bổ sung ảnh sau ở "Hồ sơ đã gửi".</p>
+      </div>
     </div>
   );
 }

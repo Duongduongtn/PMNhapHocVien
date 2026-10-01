@@ -179,3 +179,45 @@ def test_tai_anh_ho_so_nguoi_khac_404(api):
     api.post("/api/ho-so", headers=h1, json={"uuid": u, "ho_ten": "A"})
     api.post(f"/api/ho-so/{u}/anh", headers=h1, files={"file": ("a.jpg", _anh_bytes(), "image/jpeg")})
     assert api.get(f"/api/ho-so/{u}/anh", headers=_login(api, "col2")).status_code == 404  # IDOR chặn
+
+
+# ── Cảnh báo trùng CCCD trong hàng đợi (THU-04, CHANGES #13) ──
+def test_kiem_trung_khong_co(api):
+    r = api.get("/api/ho-so/kiem-trung", headers=_login(api, "col1"), params={"cccd": "012345678901"})
+    assert r.status_code == 200
+    assert r.json()["trung"] is False and r.json()["so_luong"] == 0
+
+
+def test_kiem_trung_thay_hang_doi_cua_nguoi_khac(api):
+    # col1 gửi CCCD X; col2 kiểm → thấy trùng (soi cả CSDT), biết tên người gửi
+    api.post("/api/ho-so", headers=_login(api, "col1"), json={"uuid": str(uuid4()), "so_cccd": "070200001111", "ho_ten": "A"})
+    r = api.get("/api/ho-so/kiem-trung", headers=_login(api, "col2"), params={"cccd": "070200001111"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["trung"] is True and body["so_luong"] == 1
+    assert body["nguoi_gui"] == "Thu nhận 1" and body["trang_thai"] == "pending"
+
+
+def test_kiem_trung_loai_tru_uuid_cua_minh(api):
+    # Gửi lại chính hồ sơ của mình (truyền uuid) → không coi là trùng
+    u = str(uuid4())
+    api.post("/api/ho-so", headers=_login(api, "col1"), json={"uuid": u, "so_cccd": "070200002222", "ho_ten": "A"})
+    r = api.get("/api/ho-so/kiem-trung", headers=_login(api, "col1"), params={"cccd": "070200002222", "uuid": u})
+    assert r.json()["trung"] is False
+
+
+def test_kiem_trung_bo_qua_da_nap(api, db_setup):
+    # Hồ sơ đã nạp (imported) không tính — chốt trùng thật ở NAP-06, không phải app web
+    db, _ = db_setup
+    u = str(uuid4())
+    api.post("/api/ho-so", headers=_login(api, "col1"), json={"uuid": u, "so_cccd": "070200003333", "ho_ten": "A"})
+    hs = db.get(HoSoThuThap, UUID(u))
+    hs.trang_thai = "imported"
+    db.commit()
+    r = api.get("/api/ho-so/kiem-trung", headers=_login(api, "col2"), params={"cccd": "070200003333"})
+    assert r.json()["trung"] is False
+
+
+def test_kiem_trung_operator_bi_chan_403(api):
+    r = api.get("/api/ho-so/kiem-trung", headers=_login(api, "op1"), params={"cccd": "070200001111"})
+    assert r.status_code == 403

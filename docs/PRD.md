@@ -49,7 +49,7 @@
 
 #### [THU-01] Quét QR căn cước + xác nhận/sửa (app web, mobile)
 
-**Trạng thái:** ✅ Done — 01/10/2026. Task 18 (quét QR + parse 6/7 + preview) + task 28 rework UX (CHANGES #12): màn vào chọn Quét/Nhập tay/Tải ảnh (không tự mở camera) · khung bám QR (`boundingBox`) · layout `100dvh` dính đáy · header logo không nút. Kiểm: build OK · Playwright 375/800/1440 (0 tràn, nav dính đáy, 0 lỗi) · review-nghiepvu 6/6 Done + 5 edge. Khung bám QR cần thẻ thật xác nhận (AS-001).
+**Trạng thái:** ⏳ Todo — yêu cầu đổi 01/10/2026 (CHANGES #13): thêm lối "Lưu & nhập hồ sơ tiếp" ở màn xác nhận (gửi không ảnh → về màn chọn cách nhập, phục vụ nhập liên tiếp). Code quét/parse/preview/khung bám cũ vẫn đúng (từng ✅ 01/10 task 18+28, CHANGES #12), chỉ thêm nút + điều hướng.
 **Story:** Là nhân viên thu nhận, tôi muốn quét QR căn cước để điền sẵn hồ sơ, để giảm gõ tay.
 
 **Steps to Complete:**
@@ -66,6 +66,7 @@
 - ✅ **Khung quét bám theo mã** khi bắt trúng (dùng 4 góc `cornerPoints` của BarcodeDetector) — không phải khung xanh tĩnh; vẫn auto-capture khi ổn định; hiệu ứng báo thành công; mọi trường sửa được. (CHANGES #12)
 - ✅ Trên điện thoại (NFR Responsive): layout **vừa một màn** (`100dvh`), khung camera co giãn, **thanh điều hướng + nút hành động chính dính đáy**, không phải cuộn để thấy nút. **Logo header không phải nút** (bỏ dáng camera bấm được). (CHANGES #12)
 - ✅ Decoder: BarcodeDetector native + fallback qr-scanner (ZXing) — tham khảo cách quét từ dự án webThanhdat; hiệu ứng thiết kế riêng.
+- ✅ **Lưu & nhập hồ sơ tiếp** (CHANGES #13): màn xác nhận có thêm nút **"Lưu & nhập hồ sơ tiếp"** bên cạnh "Tiếp tục — chụp ảnh chân dung" → gửi ngay **không kèm ảnh** (chi tiết gửi + toast ở THU-02) rồi về **màn chọn cách nhập** (Quét QR / Nhập tay / Tải ảnh) để làm hồ sơ kế tiếp. Áp cho cả quét QR lẫn nhập tay (cùng đi qua màn xác nhận).
 - ❌ Không OCR chữ trên thẻ; ảnh thẻ chỉ dùng cắt ảnh chân dung.
 
 **Edge cases:**
@@ -81,7 +82,7 @@
 
 #### [THU-02] Nhập tay + chụp ảnh + gửi VPS (app web)
 
-**Trạng thái:** ✅ Done — 01/10/2026. Task 19 (nhập tay + chụp ảnh + gửi + ô tìm) + task 29 rework UX (CHANGES #12): ảnh thật (thumbnail) ở list card + table + chi tiết · bấm hồ sơ chờ nạp → Sửa thông tin + Chụp/đổi ảnh (importing/imported chỉ xem, 409 → chuyển chỉ xem) · endpoint `GET /api/ho-so/:uuid/anh` collector · +nút "Có bản mới — Tải lại" (PWA prompt). Kiểm: server 62 test (+3) · build OK · Playwright 375/800/1440 (0 tràn, avatar + nút Sửa) · review-nghiepvu 6/6 (đã vá 2 gap: avatar table + 409 chỉ xem).
+**Trạng thái:** ⏳ Todo — yêu cầu đổi 01/10/2026 (CHANGES #13): gửi không ảnh ngay từ màn xác nhận (toast nhanh, bỏ màn kết quả ở luồng nhập liên tiếp) + badge "Thiếu ảnh" + bộ lọc hồ sơ thiếu ảnh ở "Hồ sơ đã gửi". Code gửi/ảnh/sửa/ô tìm cũ vẫn đúng (từng ✅ 01/10 task 19+29, CHANGES #12), chỉ thêm badge+lọc+lối gửi nhanh.
 **Story:** Là nhân viên thu nhận, tôi muốn nhập tay và chụp ảnh chân dung rồi gửi lên VPS, để thu thập được cả khi không quét được QR.
 
 **Steps to Complete:**
@@ -96,6 +97,8 @@
 - ✅ **Bấm hồ sơ đã gửi → xem chi tiết**; khi còn **Chờ nạp** cho **Sửa thông tin** + **Chụp/đổi ảnh** (server cho sửa lúc `pending`); khi **Đang nạp/Đã nạp** thì **chỉ xem**. (CHANGES #12)
 - ✅ **Tìm trong danh sách đã gửi** theo **tên (khớp cả có dấu lẫn không dấu)** hoặc **số CCCD**; ô tìm đặt trên đầu danh sách, màn hẹp thu gọn thành **nút kính lúp** (bấm mới bung ô nhập). (CHANGES #10)
 - ✅ Nơi thường trú lấy từ QR (hoặc nhập tay), cho sửa trước khi gửi. Nơi cư trú (tạm trú) **không nhập ở app** — tool mặc định = nơi thường trú khi nạp (BR-004 / TDD §8.1; xem CHANGES #9).
+- ✅ **Gửi nhanh không ảnh để nhập liên tiếp** (CHANGES #13): ở màn xác nhận bấm "Lưu & nhập hồ sơ tiếp" → gửi hồ sơ **không kèm ảnh** → hiện **toast "Đã gửi ✓"** (không qua màn kết quả) → về màn chọn cách nhập. Mất mạng vẫn giữ nháp, tự gửi lại khi có mạng (như cũ).
+- ✅ **Badge "Thiếu ảnh" + bộ lọc** (CHANGES #13): ở "Hồ sơ đã gửi", hồ sơ chưa có ảnh chân dung hiện **badge "Thiếu ảnh"** (list + chi tiết) và có **bộ lọc riêng gom hồ sơ thiếu ảnh** để chụp bổ sung sau (nút "Thêm ảnh" cho hồ sơ Chờ nạp đã có). Badge thông báo cho mọi trạng thái; chụp bù chỉ áp hồ sơ còn **Chờ nạp** (đã nạp phải bổ sung ảnh ở tool — QLY-05).
 - ❌ Không xóa phông/căn ảnh ở điện thoại (để tool làm).
 
 **Edge cases:**
@@ -277,6 +280,25 @@
 
 ### 🔵 SHOULD (nên có, không gấp)
 
+#### [THU-04] Cảnh báo trùng CCCD khi thu nhận (app web)
+
+**Trạng thái:** ⏳ Todo — thêm 01/10/2026 (CHANGES #13)
+**Story:** Là nhân viên thu nhận, tôi muốn được cảnh báo khi căn cước vừa nhập đã có hồ sơ chưa nạp trong hàng đợi, để tránh gửi trùng một học viên lên hệ thống.
+
+**Done khi:**
+- ✅ Khi gửi (hoặc ngay sau khi có đủ số CCCD), app hỏi VPS xem CCCD này **đã có hồ sơ `pending`/`importing` trong hàng đợi CSDT 70004** chưa (mọi nhân viên, không chỉ của mình).
+- ✅ Có trùng → **cảnh báo mềm, NỔI BẬT** (banner nền/viền/icon theo chuẩn UX ⑥) nêu rõ **ai gửi + lúc nào**; **vẫn cho gửi** (nhân viên tự quyết — có thể là cố ý bổ sung/gửi lại).
+- ✅ Không chặn cứng; chốt chặn trùng thật vẫn ở bước nạp (NAP-06, đối chiếu DB thật).
+- ❌ App web **không** đối chiếu DB thật (không kết nối SQL Server) — chỉ soi hàng đợi chưa nạp của CSDT.
+
+**Edge cases:**
+| Tình huống | Hành vi mong muốn |
+|---|---|
+| Mất mạng lúc hỏi trùng | Bỏ qua cảnh báo, vẫn cho gửi (giữ nháp như luồng offline); không chặn |
+| Gửi lại chính hồ sơ của mình (sửa/bổ sung, cùng uuid) | Không coi là trùng |
+
+> Nguồn: user 01/10/2026 (CHANGES #13) · liên quan NAP-06 · chuẩn cảnh báo ⑥
+
 #### [QLY-01] Tra cứu & sửa hồ sơ đã có
 
 **Trạng thái:** ⏳ Todo
@@ -349,6 +371,24 @@
 | UPDATE cột ảnh lỗi sau khi đã ghi file | Retry UPDATE theo `MaDK`; không tạo HV mới |
 
 > Nguồn: review TDD §10 (01/10/2026, CHANGES #5) · dùng lại NAP-04 · BR-010, BR-011 · TDD §10.3 hướng A
+
+#### [QLY-06] Mở hồ sơ khóa khác cho học viên đã có (cấp mới khác hạng, song song)
+
+**Trạng thái:** 📝 Draft — thêm 01/10/2026 (CHANGES #13); **còn nợ kiểm DB thật** trước khi chốt thiết kế. Phạm vi: **cấp mới khác hạng song song** (vd có B, học thêm A1). KHÔNG gồm **nâng hạng** (B→C/D/E — ngoài MVP, cần thâm niên/km/GPLX đã có).
+**Story:** Là nhân viên nạp DB, tôi muốn mở hồ sơ ở một khóa khác (khác hạng) cho học viên đã có trong DB, để học viên học thêm hạng mà không phải nhập lại thông tin từ đầu.
+
+**Còn nợ trước khi chốt (kiểm DB thật ở máy CSDT — chỉ đọc):**
+1. `EXEC sp_helptext 'usp_QuangLA_PM4_ThuNhanHS_ThemMoiCapNhat'` — SP tìm người cũ theo SoCMT rồi thêm hồ sơ, hay luôn tạo người mới?
+2. Dữ liệu: có người (SoCMT) mang >1 hồ sơ ở khóa khác nhau không (`GROUP BY SoCMT HAVING COUNT(DISTINCT MaKhoaHoc)>1`).
+- *SP tái dùng người cũ* → chỉ cần thêm **thao tác tool "mở hồ sơ khóa khác" từ màn Tra cứu DB** (chọn HV đã có → chọn khóa mới khác hạng → nạp đăng ký mới, giữ nguyên đăng ký cũ).
+- *SP tạo người trùng* → phải thiết kế thêm bước nối vào `NguoiLX` cũ (hỏi lại khi có kết quả kiểm).
+
+**Done khi:** *(chốt sau khi kiểm DB)*
+- ⬜ Từ HV đã có trong DB → mở đăng ký mới ở khóa khác (khác hạng, vẫn là cấp mới) mà không nhập lại thông tin cá nhân.
+- ⬜ Đăng ký cũ (khóa trước) giữ nguyên; không tạo người trùng.
+- ❌ Không làm nâng hạng (B→C/D/E) trong phạm vi này.
+
+> Nguồn: user 01/10/2026 (CHANGES #13) · NAP-06 "cùng CCCD khác khóa thì cho phép" · liên quan QLY-01/QLY-02
 
 #### [HTG-03] Bộ lọc & xóa PII thủ công trên VPS
 
@@ -476,3 +516,4 @@
 | 01/10/2026 | v2.3 — UX màn nạp (CHANGES #6): NAP-01 thêm IA 2 chế độ (Nạp/Tra cứu), tên IN HOA khi kéo, check chính tả mức A, nạp lô badge đỏ/xanh; QLY-01 tìm khóa mọi khóa (kể cả BC1); NFR ⑥ chuẩn cảnh báo inline nổi bật; NAP-06 hạ ⏳ (làm banner nổi bật) | PM |
 | 01/10/2026 | v2.4 — NAP-01 thêm AC "kéo lại làm tươi hồ sơ chưa nạp" + edge case (CHANGES #11); hạ NAP-01 ✅→⏳ Todo (yêu cầu thêm, code ①/② cũ vẫn đúng) | PM |
 | 01/10/2026 | v2.5 — sửa UX app web sau test điện thoại (CHANGES #12): THU-01 (màn vào không tự mở camera, header logo không phải nút, layout mobile dính đáy, khung bám QR) + THU-02 (ảnh thật ở list/chi tiết, xem/sửa/chụp lại hồ sơ chờ nạp); hạ THU-01 & THU-02 ✅→⏳ Todo | PM |
+| 01/10/2026 | v2.6 — app web nhập liên tiếp (CHANGES #13): THU-01/THU-02 +AC "Lưu & nhập hồ sơ tiếp" (gửi không ảnh + toast) + badge/bộ lọc "Thiếu ảnh" → hạ THU-01 & THU-02 ✅→⏳; +story **THU-04** (SHOULD) cảnh báo trùng CCCD app web (cảnh báo mềm, soi hàng đợi); +story **QLY-06** (📝 Draft) mở hồ sơ khóa khác cho HV đã có — còn nợ kiểm DB | PM |

@@ -6,7 +6,7 @@
 - **Bản HTML chuẩn:** ui-demo-options/detailed.html
 - **Stack:** Vite + React + TypeScript + Tailwind v3 (token shadcn) + react-router-dom · font Be Vietnam Pro
 - **Cổng dev:** 3021 (sổ `~/.claude/local-ports.md`)
-- **Cập nhật lần cuối:** 01/10/2026 (lượt 5 — dựng màn #13 Nạp lô + IA 2 chế độ theo CHANGES #6)
+- **Cập nhật lần cuối:** 01/10/2026 (lượt 10 — ghi quyết định UX app web nhập liên tiếp + badge/lọc thiếu ảnh + cảnh báo trùng, CHANGES #13; chưa dựng lại prototype)
 
 ## ⚠️ Prototype gộp 1 project — KIẾN TRÚC THẬT là 2 app riêng (TDD §2.4)
 
@@ -73,6 +73,9 @@ Chú thích: ✅ Xong · 🟡 Placeholder · ⬜ Chưa có route
 | /app/quet | Màn vào + camera (CHANGES #12) | **Không tự mở camera** sau đăng nhập — màn vào cho chọn **Quét QR / Nhập tay / Tải ảnh**; camera chỉ bật khi bấm Quét. **Khung bám theo QR** khi bắt trúng (4 góc `cornerPoints`), không phải khung tĩnh | 9 |
 | App web (AppLayout) | Layout mobile dính đáy + header (CHANGES #12) | `100dvh` + khung camera co giãn → **bottom-nav 3 nút + nút hành động chính dính đáy**, không cuộn mới thấy. **Logo header là trang trí** (bỏ dáng nút, tránh nhầm là camera) | 9 |
 | /app/da-gui | Ảnh thật + xem/sửa/chụp lại (CHANGES #12) | List & chi tiết hiện **ảnh chân dung thật** (`GET /api/ho-so/:uuid/anh` của mình). Modal chi tiết: hồ sơ **Chờ nạp** → **Sửa thông tin + Chụp/đổi ảnh**; **Đang/Đã nạp** → chỉ xem | 9 |
+| /app/quet | Nhập liên tiếp (CHANGES #13) | Màn preview thêm nút **"Lưu & nhập hồ sơ tiếp"** cạnh "Tiếp tục — chụp ảnh" → gửi **không ảnh** → **toast "Đã gửi ✓"** (bỏ màn kết quả) → về màn chọn cách nhập. Áp cho cả quét QR lẫn nhập tay | 10 |
+| /app/da-gui | Badge + lọc thiếu ảnh (CHANGES #13) | Hồ sơ chưa ảnh có **badge "Thiếu ảnh"** (list + chi tiết) + **bộ lọc "Thiếu ảnh"** cạnh tab trạng thái để gom chụp bù. Chụp bù qua nút "Thêm ảnh" (Chờ nạp) đã có | 10 |
+| /app/quet | Cảnh báo trùng CCCD (CHANGES #13, THU-04) | Khi gửi, nếu CCCD đã có hồ sơ **chưa nạp trong hàng đợi** → **banner cảnh báo mềm** (nêu ai gửi/lúc nào), **vẫn cho gửi**. Soi hàng đợi VPS, không soi DB thật | 10 |
 
 ## Component dùng chung
 

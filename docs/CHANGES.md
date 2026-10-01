@@ -4,6 +4,7 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 13 | 01/10/2026 | ✏️ Sửa + ➕ Thêm | `THU-01`, `THU-02`, `THU-04`, `QLY-06` | App web nhập liên tiếp: nút "Lưu & nhập hồ sơ tiếp" (gửi không ảnh + toast) + badge/lọc "Thiếu ảnh" (THU-01/02 hạ ⏳); +THU-04 cảnh báo trùng CCCD app web (SHOULD, cảnh báo mềm soi hàng đợi); +QLY-06 mở hồ sơ khóa khác cho HV đã có (📝 Draft, còn nợ kiểm DB) | ✅ | ✅ | ⬜ | 🟡 THU-01/02/04 code+test xong, chưa deploy · QLY-06 ⬜ |
 | 12 | 01/10/2026 | ✏️ Sửa | `THU-01`, `THU-02` | Sửa UX app web sau test điện thoại: màn vào không tự mở camera (chọn Quét/Nhập tay), header logo không phải nút, layout mobile dính đáy, khung bám QR; ảnh thật + xem/sửa/chụp lại hồ sơ chờ nạp (+endpoint tải ảnh của mình) | ✅ | ✅ | 🟡 ghi UX | ⬜ |
 | 11 | 01/10/2026 | ✏️ Sửa | `NAP-01` | "Kéo về từ VPS" làm tươi hồ sơ chưa nạp (collector sửa ở app web sau khi tool đã kéo → tool nhận bản mới); kéo không khóa | ✅ | ✅ | — nút có sẵn | ✅ |
 | 10 | 01/10/2026 | ✏️ Sửa | `THU-02`, `NAP-01`, `QLY-01` | Thêm ô tìm kiếm (tên khớp cả không dấu / CCCD) ở 3 chỗ: app web Hồ sơ đã gửi · tool list tải về · tool lưới khóa. Màn hẹp thu gọn nút kính lúp | ✅ | ✅ | 🟡 prototype còn | ⬜ |
@@ -18,6 +19,24 @@
 | 1 | 01/10/2026 | ✏️ Sửa | — | Đổi nơi lưu bảng ánh xạ `DM_DVHC_MAP`: GPLX_CSDT → SQLite cục bộ của tool | — | ✅ | — | ✅ (task 5) |
 
 Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên quan
+
+---
+
+## #13 — App web: nhập liên tiếp + badge thiếu ảnh + cảnh báo trùng + (Draft) nạp khác khóa · 01/10/2026
+
+- **Mã:** `THU-01`, `THU-02` (sửa) · `THU-04` (thêm, SHOULD) · `QLY-06` (thêm, 📝 Draft — còn nợ kiểm DB).
+- **Vì sao:** chủ dự án test thật nêu 4 ý — (1) nhập liên tiếp không muốn bắt chụp ảnh từng hồ sơ; (2) cần đánh dấu + gom hồ sơ thiếu ảnh để chụp bù; (3) app web nhập chưa cảnh báo trùng căn cước; (4) muốn nạp lại cùng học viên vào khóa khác, khác hạng.
+- **Chốt (hỏi từng câu, user duyệt):**
+  1. **Lưu & nhập hồ sơ tiếp** (THU-01/THU-02): màn preview (dùng cho cả quét QR lẫn nhập tay) thêm nút **"Lưu & nhập hồ sơ tiếp"** → gửi **không kèm ảnh** → **toast "Đã gửi ✓"** (bỏ màn kết quả) → về màn chọn cách nhập. *Phương án A* (toast) đã chọn, loại B (giữ màn kết quả).
+  2. **Badge "Thiếu ảnh" + bộ lọc** (THU-02): "Hồ sơ đã gửi" hiện badge cho hồ sơ chưa ảnh + bộ lọc gom hồ sơ thiếu ảnh; chụp bù qua nút "Thêm ảnh" (Chờ nạp) đã có.
+  3. **Cảnh báo trùng CCCD app web** (THU-04, SHOULD): app hỏi VPS xem CCCD đã có hồ sơ `pending`/`importing` trong hàng đợi CSDT chưa → **cảnh báo mềm, vẫn cho gửi** (*phương án A*, loại B chặn cứng / C giữ nguyên). Phạm vi: cả hàng đợi CSDT (mọi nhân viên). App web **không** soi DB thật — chốt trùng thật vẫn ở NAP-06.
+  4. **Nạp khác khóa/khác hạng** (QLY-06, 📝 Draft): phạm vi **cấp mới khác hạng song song** (có B thêm A1), *loại nâng hạng* (B→C/D/E — ngoài MVP). **Còn nợ kiểm DB thật** (chưa chốt thiết kế): SP tái dùng người cũ hay tạo người trùng.
+- **Hệ quả trạng thái:** `THU-01` & `THU-02` đang ✅ → **hạ ⏳ Todo** (đổi giao diện màn đã dựng). `THU-04` ⏳ Todo. `QLY-06` 📝 Draft.
+- **Kỹ thuật:** #1 + #2 **thuần client webapp**, không thêm endpoint. #3 thêm **1 endpoint** `GET /api/ho-so/kiem-trung?cccd=` (collector, đếm hàng đợi, loại chính uuid). Không đụng schema/tool/luồng nạp.
+- **Đã sửa:** PRD THU-01/THU-02 (Done khi + hạ ⏳) + THU-04 + QLY-06 + Changelog v2.6 · TDD §4.3 (endpoint kiểm-trùng) + §6.1 (nhánh preview) + §6.6 (mới) + Changelog v2.2.
+- **Đã code (01/10, chưa deploy):** server `GET /api/ho-so/kiem-trung` (THU-04, +5 test → server 67 pass) · `webapp/api.ts` `kiemTrungCccd` · `Quet.tsx` nút "Lưu & nhập hồ sơ tiếp" + toast + banner cảnh báo trùng (Preview) · `DaGui.tsx` badge "Thiếu ảnh" + bộ lọc. Typecheck + build + webapp 20 test pass.
+- **Còn nợ:** deploy (push → CD) để test trực quan trên máy thật · `/reviewtdd` (TDD §4.3 thêm endpoint) · `/kehoach` bổ sung (task rework THU-01/02 + task THU-04) · review giao diện trước khi đặt story ✅ · **QLY-06: chạy 2 query kiểm DB ở máy CSDT trước khi thiết kế chi tiết**.
+- **Không đụng:** schema DB/VPS · luồng nạp · tool (trừ QLY-06 sau khi chốt).
 
 ---
 
@@ -174,7 +193,7 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 > `/capnhat` đọc mục này ở Bước 0b để biết có thay đổi nào chưa ghi sổ không.
 > So bằng **danh sách mã**, không so bằng thời gian sửa file.
 
-- **Cập nhật:** 01/10/2026
-- **Số story trong PRD:** 16 (15 MUST/SHOULD + QLY-05; chưa tính NICE `QLY-04`, `THU-03`)
-- **Mã story hiện có:** `HTG-01`, `HTG-02`, `HTG-03`, `THU-01`, `THU-02`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05` (NICE: `QLY-04`, `THU-03`)
+- **Cập nhật:** 01/10/2026 (CHANGES #13)
+- **Số story trong PRD:** 18 (17 MUST/SHOULD gồm `THU-04` + `QLY-06` 📝 Draft; chưa tính NICE `QLY-04`, `THU-03`)
+- **Mã story hiện có:** `HTG-01`, `HTG-02`, `HTG-03`, `THU-01`, `THU-02`, `THU-04`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06` (NICE: `QLY-04`, `THU-03`)
 - **Mã đã nghỉ hưu:** (chưa có)
