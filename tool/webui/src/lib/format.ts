@@ -31,8 +31,9 @@ export const nghiSaiChinhTa = (hoTen: string): string => {
   if (!ten.trim()) return "";
   const lyDo: string[] = [];
   if (/\d/.test(ten)) lyDo.push("có chữ số");
-  // Chỉ cho phép chữ cái (kể cả có dấu) + khoảng trắng; ký tự khác là lạ.
-  if (/[^\p{L}\s]/u.test(ten)) lyDo.push("có ký tự lạ");
+  // Chỉ cho phép chữ cái (kể cả có dấu) + khoảng trắng + gạch nối/nháy (tên dân tộc:
+  // H'Hen Niê, Y-Bih); ký tự khác là lạ.
+  if (/[^\p{L}\s'’-]/u.test(ten)) lyDo.push("có ký tự lạ");
   if (/\s{2,}/.test(ten) || ten !== ten.trim()) lyDo.push("khoảng trắng thừa");
   // Thiếu dấu: tên có chữ cái nhưng hoàn toàn không có dấu tiếng Việt (bỏ dấu ra bằng chính nó).
   const coChu = /\p{L}/u.test(ten);

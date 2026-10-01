@@ -90,9 +90,9 @@
 - [x] Job xóa PII >30 ngày, không đụng `importing` — **mức 2** (01/10): `test_pii` 7 case (mốc 30 ngày, bỏ qua importing EC-040, xóa kèm ảnh, ghi audit).
 
 ### ✅ Checkpoint 4 — sau task 18-20 — **cổng AS-001**
-- [ ] Quét **thẻ CCCD thật** của cơ sở → parse đúng 6/7 trường.
-- [ ] **Kiểm mức 2** (unit): parse chuỗi QR 6/7 trường; ngày sinh chỉ có năm → `yyyy0000`.
-- [ ] **Kiểm mức 3** (E2E toàn tuyến): thu thập (app web) → gửi VPS → tool kéo → nạp DB → khớp app cũ.
+- [ ] Quét **thẻ CCCD thật** của cơ sở → parse đúng 6/7 trường. *(AS-001 — kiểm TAY, cần thẻ thật, §14.3)*
+- [x] **Kiểm mức 2** (unit) 01/10: webapp `qr.test.ts` 20 test (parse 6/7 trường, năm-only→yyyy0000, EC-030 độ dài tên) + tool/webui `format.test.ts` 15 test (boDau/nghiSaiChinhTa/ymdToVN, +fix tên dân tộc). Dựng vitest cho cả 2 app.
+- [⚠️] **Kiểm mức 3** 01/10: toàn tuyến VPS tự động `server/tests/test_toantuyen.py` 3 test (gửi+ảnh→kéo→sửa→kéo lại→lock→da-nap→imported; idempotent; collector 403). Nạp DB→khớp app cũ: live `test_nap_live.py` (Checkpoint 2) + **AS-003 kiểm TAY**. Browser quét thẻ thật: **AS-001 kiểm TAY**.
 
 ## Phase 3 — Quản lý hồ sơ + quản trị PII + đóng gói
 
