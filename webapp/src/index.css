@@ -1,0 +1,31 @@
+@import "@fontsource/be-vietnam-pro/400.css";
+@import "@fontsource/be-vietnam-pro/500.css";
+@import "@fontsource/be-vietnam-pro/600.css";
+@import "@fontsource/be-vietnam-pro/700.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light; }
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  background: hsl(210 40% 96%);
+  color: hsl(222 47% 11%);
+  font-family: "Be Vietnam Pro", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.field-label { font-size: 12px; font-weight: 600; color: hsl(215 16% 40%); }
+.field-input {
+  width: 100%; font-size: 14px; padding: 7px 10px; border-radius: 8px;
+  border: 1px solid hsl(214 32% 88%); background: #fff; color: hsl(222 47% 11%);
+  transition: border-color .15s, box-shadow .15s;
+}
+.field-input:focus { outline: none; border-color: hsl(222 76% 40%); box-shadow: 0 0 0 3px hsl(222 76% 40% / .15); }
+.field-input[readonly] { background: hsl(210 40% 97%); color: hsl(215 16% 35%); }
+
+::-webkit-scrollbar { height: 10px; width: 10px; }
+::-webkit-scrollbar-thumb { background: hsl(214 20% 80%); border-radius: 8px; }
