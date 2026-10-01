@@ -49,7 +49,7 @@
 
 #### [THU-01] Quét QR căn cước + xác nhận/sửa (app web, mobile)
 
-**Trạng thái:** ⏳ Todo
+**Trạng thái:** ✅ Done
 **Story:** Là nhân viên thu nhận, tôi muốn quét QR căn cước để điền sẵn hồ sơ, để giảm gõ tay.
 
 **Steps to Complete:**
