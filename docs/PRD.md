@@ -124,19 +124,26 @@
 1. Đăng nhập tool, kết nối VPS bằng API key.
 2. Kéo bản ghi `pending` về staging cục bộ (SQLite).
 3. Hiển thị danh sách kèm đầy đủ thông tin + ảnh thô (như lưới UI.png).
+4. Nạp lô vào khóa; hiển thị trạng thái từng dòng.
 
 **Done khi:**
 - ✅ Chỉ kéo bản ghi `pending`; bản `imported` không kéo lại (theo UUID).
 - ✅ Kéo lại nhiều lần không nhân đôi trong staging.
 - ✅ Tool hiển thị ảnh chân dung của từng học viên (như UI.png).
+- ✅ **Màn nạp 2 chế độ** (CHANGES #6): **Nạp hồ sơ** (dropdown khóa chỉ chưa BC1 — NAP-02) · **Tra cứu DB** (QLY-01). Ở chế độ Nạp: hàng chờ VPS gộp **1 danh sách**, lọc **"Cần xử lý" (⚪ chờ + 🔴 lỗi, lỗi đẩy lên đầu) / "Đã nạp" (🟢)**.
+- ✅ **Tên học viên hiển thị IN HOA giữ dấu** ngay khi kéo về (khớp cách ghi DB).
+- ✅ **Cảnh báo "sai chính tả" mức A:** tô dấu hiệu khi tên **thiếu dấu tiếng Việt / có số/ký tự lạ / khoảng trắng thừa** (không dùng từ điển tên — tránh báo nhầm); cảnh báo mềm, nhân viên tự sửa.
+- ✅ **Nạp lô:** HV lỗi (trùng CCCD cùng khóa / thiếu dữ liệu…) **tô đỏ + nêu rõ lý do**; HV nạp được **tô xanh (kèm Số hồ sơ)**; HV khác trong lô vẫn nạp (EC-071).
 - ❌ Không kéo bản ghi đã nạp/đã xóa.
 
 **Edge cases:**
 | Tình huống | Hành vi mong muốn |
 |---|---|
 | VPS/tunnel down khi kéo | Tool vẫn xử lý bản ghi đã kéo (staging); báo lỗi, cho thử lại |
+| Nạp lô, vài HV lỗi | Dòng lỗi 🔴 + lý do, dòng xong 🟢; lô vẫn chạy hết (EC-071) |
+| Tên thiếu dấu / ký tự lạ (từ QR hỏng hoặc gõ tay) | Cảnh báo mức A, cho sửa; không chặn cứng |
 
-> Nguồn: CAP-004 · BR-015 · EC-062
+> Nguồn: CAP-004 · BR-015 · EC-062 · EC-071 · CHANGES #6
 
 #### [NAP-02] Chọn mô tô/ô tô + khóa chưa lập BC1
 
@@ -229,7 +236,7 @@
 
 #### [NAP-06] Kiểm trùng CCCD trong khóa
 
-**Trạng thái:** ✅ Done — 01/10/2026: (1) kiểm sớm UI `GET /local/kiem-trung-cccd` cảnh báo khi nhập CCCD; (2) **chốt chặn cuối server-side** trong `nap_mot_hv` (COUNT trùng CMT trong applock theo khóa, trước EXEC SP) — vì SP gộp KHÔNG bắt trùng khi nạp mới (`lx.MaDK <> @p_MaDK` với NULL → UNKNOWN). Test live `test_e_trung_cccd_cung_khoa` + 4 ca khác pass 5/5; verify production sạch.
+**Trạng thái:** ✅ Done — 01/10/2026: kiểm sớm `GET /local/kiem-trung-cccd` + chốt chặn server-side trong `nap_mot_hv`/applock (SP không bắt trùng khi nạp mới); test live 5/5. Cảnh báo trùng đã nâng thành **banner nổi bật (nền/viền/icon) nêu rõ nguyên nhân** (CCCD + Số hồ sơ) theo chuẩn UX ⑥ — verify Playwright 375/1440.
 **Story:** Là nhân viên nạp DB, tôi muốn được cảnh báo khi CCCD đã có trong khóa, để không tạo hồ sơ trùng.
 
 **Done khi:**
@@ -267,9 +274,9 @@
 **Story:** Là nhân viên nạp DB, tôi muốn tra cứu và sửa hồ sơ học viên đã có trong DB, để thay phần lớn thao tác của app cũ.
 
 **Done khi:**
-- ✅ Lưới học viên theo khóa (`usp_NguoiLX_Select_By_MaKH`) + tìm theo tên/CCCD/số hồ sơ (`usp_NguoiLX_HoSo_Search`).
+- ✅ **Chế độ "Tra cứu DB"** (CHANGES #6): **tìm khóa theo tên khóa hoặc mã khóa — MỌI khóa, kể cả đã lập BC1** (khác dropdown nạp của NAP-02 vốn ẩn khóa BC1). Chọn khóa → lưới học viên theo khóa (`usp_NguoiLX_Select_By_MaKH`) + tìm theo tên/CCCD/số hồ sơ (`usp_NguoiLX_HoSo_Search`).
 - ✅ Mở hồ sơ để sửa (`usp_NguoiLX_HoSo_Get_Sua_HS`), sửa thông tin/ảnh/địa chỉ qua `usp_NguoiLX_Update`/`usp_NguoiLX_HoSo_Update`.
-- ✅ Chặn sửa khi khóa đã lập BC1.
+- ✅ Chặn sửa khi khóa đã lập BC1 (badge 🔒 "Đã BC1" — chỉ xem); khóa chưa BC1 sửa được.
 - ❌ Không kết xuất báo cáo (NICE).
 
 **Edge cases:**
@@ -395,6 +402,7 @@
 - **Performance:** app web thao tác < 2s; API VPS < 500 ms (p95); xóa phông + xuất `.jp2` < 5s/ảnh; nạp 1 HV < 2s.
 - **Security:** HTTPS toàn bộ; token/JWT + API key; SQL login riêng (không `sa`); PII căn cước giữ tối đa 30 ngày rồi tự xóa; không log nội dung CCCD; chặn IDOR; nạp DB chỉ ở tool (app web không có endpoint nạp).
 - **Responsive:** Both. App web **mobile-first, giao diện như app mobile thật** khi dùng trên điện thoại: điều hướng dạng bottom nav/tab, thao tác chạm (nút to, vuốt), **ẩn hoặc thu gọn** các thành phần không cần trên mobile — KHÔNG phải giao diện desktop bị co nhỏ. Bản desktop của app web mới hiển thị đầy đủ dạng bảng/nhiều cột. Tool UI desktop (localhost).
+- **Chuẩn hiển thị cảnh báo (CHANGES #6):** mọi cảnh báo/lỗi khi nạp (trùng CCCD, sai chính tả tên, thiếu ảnh, lỗi nạp lô) phải **inline (không hộp thoại modal), NỔI BẬT** (banner có nền + viền + icon, không chỉ dòng chữ nhỏ) và **nêu rõ NGUYÊN NHÂN cụ thể** (vd "CCCD 070… đã có ở Số hồ sơ 014 trong khóa này"). Trạng thái nạp lô dùng màu + icon + chữ (⚪ chờ / 🔴 lỗi / 🟢 xong) — **không chỉ dựa màu** (phủ người mù màu).
 - **Concurrency:** ~10 nhân viên thu nhận đồng thời; 1–2 tool; đầu khóa ~60 bản ghi/đợt; sinh Số hồ sơ có khóa tuần tự.
 - **Uptime:** VPS ~99% (nội bộ, không SLA gắt); tool phụ thuộc máy DB.
 
@@ -456,3 +464,4 @@
 | 30/09/2026 | v2 — sửa sau review: số lượng user; khung ảnh 3:4 grab + nền trắng + xuất 353×471; Done NAP-05 khớp trường cụ thể; giấy tờ theo tick cuối; edge đồng thời (2 tool/double-click) + tên dài; metric ≥80%; +4 giả định; QR 6/7 trường | PM |
 | 01/10/2026 | v2.1 — chốt 4 ô [CHƯA CHỐT]: ⑧ baseline ~100 HV/khóa & ~3 phút/HV; ⑨ budget (VPS/domain có sẵn, không phát sinh) · timeline (không deadline, giao tăng dần) · team size (1 người, tuần tự) | PM |
 | 01/10/2026 | v2.2 — sau review TDD §10 (CHANGES #5): NAP-05 đổi tiêu đề "3 SP"→"1 SP gộp app cũ" + nới ❌ cho UPDATE 5 cột ảnh (hướng A); thêm story **QLY-05** Nạp/thay ảnh cho HV đã có (làm sau NAP-05) | PM |
+| 01/10/2026 | v2.3 — UX màn nạp (CHANGES #6): NAP-01 thêm IA 2 chế độ (Nạp/Tra cứu), tên IN HOA khi kéo, check chính tả mức A, nạp lô badge đỏ/xanh; QLY-01 tìm khóa mọi khóa (kể cả BC1); NFR ⑥ chuẩn cảnh báo inline nổi bật; NAP-06 hạ ⏳ (làm banner nổi bật) | PM |

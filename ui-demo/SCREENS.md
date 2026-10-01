@@ -38,6 +38,7 @@ Prototype là tham chiếu **style/layout**, không phải scaffold thật.
 | 10 | Đổi khóa + di chuyển ảnh | QLY-02 | `/tool/nap` (drawer → dialog Đổi khóa) | ✅ Xong | 4 |
 | 11 | Xóa học viên + xóa mềm ảnh | QLY-03 | `/tool/nap` (drawer → dialog Xóa) | ✅ Xong | 4 |
 | 12 | Nạp/thay ảnh cho HV đã có | QLY-05 | `/tool/nap` (lọc tình trạng ảnh + drawer → dialog Nạp/thay ảnh) | ⬜ Chưa có route | — |
+| 13 | Nạp lô + IA 2 chế độ (hàng chờ VPS badge ⚪🔴🟢) | NAP-01 | `/tool/nap` (chế độ Nạp hồ sơ / Tra cứu DB) | ⬜ Chưa có route (Phase 2) | — |
 | — | Hàng đợi VPS + xóa PII 30 ngày | HTG-02 | (backend, không có UI) | ⬜ Không dựng | — |
 | — | Kết xuất Excel (NICE) | QLY-04 | (mới có nút, chưa luồng) | ⬜ NICE — sau | — |
 | — | Offline app web (NICE) | THU-03 | — | ⬜ NICE — sau | — |
@@ -64,6 +65,9 @@ Chú thích: ✅ Xong · 🟡 Placeholder · ⬜ Chưa có route
 | /admin/ho-so | Xóa PII | Bảng + checkbox chọn nhiều + lọc trạng thái/khoảng ngày; xóa tay → dialog xác nhận (không khôi phục, BR-016) | 3 |
 | /app/tai-khoan | Bố cục | Thẻ người dùng + thông tin tài khoản + Đổi mật khẩu + Đăng xuất | 3 |
 | /tool/nap (tab DB) | QLY-01/02/03 | Bấm dòng HV → drawer Xem/Sửa bên phải (chặn sửa nếu BC1, BR-012); trong drawer: Đổi khóa (dialog chọn khóa cùng hạng, BR-013) + Xóa (dialog xác nhận, xóa mềm ảnh, BR-014) | 4 |
+| /tool/nap | IA 2 chế độ (CHANGES #6) | Thanh chế độ **Nạp hồ sơ** (dropdown khóa **chỉ chưa BC1**) / **Tra cứu DB** (tìm khóa theo tên/mã **mọi khóa, kể cả BC1** — khóa 🔒 BC1 chỉ xem). Tách vì luật BC1 ngược nhau | 6 |
+| /tool/nap (chế độ Nạp) | Trạng thái nạp lô (CHANGES #6) | 1 danh sách hàng chờ, lọc **Cần xử lý** (⚪ chờ + 🔴 lỗi, lỗi lên đầu) / **Đã nạp** (🟢). Nạp lô → dòng đổi realtime; "Đã nạp" là xác nhận tạm, chỗ ở thật là tab Tra cứu DB | 6 |
+| /tool/nap | Chuẩn cảnh báo (CHANGES #6) | Inline **nổi bật** (banner nền/viền/icon) + **nêu rõ nguyên nhân**, KHÔNG modal. Trạng thái dùng màu + icon + chữ (phủ mù màu) | 6 |
 
 ## Component dùng chung
 

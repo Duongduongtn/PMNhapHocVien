@@ -268,9 +268,16 @@ export default function NapHoSo() {
               placeholder="VD: 070202008455"
             />
             {trungCccd.trung && (
-              <p className="mt-1 flex items-center gap-1.5 text-[12px] text-destructive">
-                <Icon name="warn" className="w-3.5 h-3.5" /> CCCD này đã có trong khóa (Số hồ sơ {trungCccd.so_ho_so}) — không nạp trùng.
-              </p>
+              <div
+                role="alert"
+                className="mt-2 flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-[13px] font-medium text-destructive"
+              >
+                <Icon name="warn" className="mt-0.5 w-4 h-4 shrink-0" />
+                <span>
+                  <b>Trùng CCCD trong khóa:</b> số {soCmt.trim()} đã có học viên ở{" "}
+                  <b>Số hồ sơ {trungCccd.so_ho_so}</b> của khóa này — không thể nạp trùng. Kiểm lại CCCD hoặc chọn khóa khác.
+                </span>
+              </div>
             )}
           </div>
         </div>
