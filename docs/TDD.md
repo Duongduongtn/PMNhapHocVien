@@ -288,9 +288,13 @@ DELETE /api/admin/ho-so/:uuid      Xóa thủ công (bản ghi + ảnh thô)
 
 ### 4.6 Tool local (localhost — không ra internet)
 
-> Mọi endpoint `/local/*` **buộc kèm token operator đã đăng nhập** (không mở trống dù chạy localhost — máy DB có thể nhiều tài khoản Windows / tiến trình khác).
+> Mọi endpoint `/local/*` nghiệp vụ **buộc kèm session token cục bộ của tool** (xem §5.5) — không mở trống dù chạy localhost (máy DB có thể nhiều tài khoản Windows / tiến trình khác).
+> **Ngoại lệ (A1, task 17):** `/local/config*` và `/local/auth/*` **KHÔNG** gác token — config là bước mồi đặt URL VPS (chưa có URL thì không đăng nhập được), auth là cửa đăng nhập.
 
 ```
+POST /local/auth/login               Đăng nhập (tool gọi VPS thay mặt) → session token cục bộ   [HTG-01③]
+GET  /local/auth/me                  Thông tin phiên hiện tại                                  [HTG-01③]
+POST /local/auth/logout              Thu hồi session cục bộ                                    [HTG-01③]
 GET  /local/config                   Đọc cấu hình hiện tại (che password)                     [HTG-01]
 PUT  /local/config                   Lưu cấu hình (SQL Server + URL VPS + API key), mã hóa cục bộ [HTG-01]
 POST /local/config/test              Kiểm tra kết nối: thử nối SQL Server + ping VPS           [HTG-01]
@@ -380,6 +384,28 @@ Nhóm endpoint                         collector        operator   admin
 
 ### 5.4 Khởi tạo tài khoản đầu tiên
 Admin đầu tiên tạo bằng script seed (CLI trên VPS), không mở API self-register.
+
+### 5.5 Xác thực tool cho `/local/*` — session cục bộ (HTG-01③, option A)
+
+> **Phục vụ:** `HTG-01③`. Quyết định & lý do loại B/C: `TDD-decisions.md §4a`.
+
+*Vì sao không verify JWT ở tool: JWT do VPS ký (`jwt_secret` + user ở PostgreSQL); tool localhost chỉ nối SQL Server, không xác thực JWT đó được. Nên tool đăng nhập THAY MẶT rồi phát session riêng.*
+
+```
+Đăng nhập tool:
+  UI tool → POST /local/auth/login (username, password)
+    → backend tool đọc vps_url từ config → POST {vps_url}/api/auth/login
+       ├─ VPS 200 + vai_tro ∈ {operator, admin} → phát session_token cục bộ (in-memory) → trả UI
+       ├─ VPS 200 + vai_tro = collector         → 403 (không nạp DB)
+       ├─ VPS 401                                → 401 (sai tài khoản)
+       ├─ vps_url rỗng (chưa cấu hình)           → 400
+       └─ VPS lỗi mạng / status ngoài {200,401}  → 502
+  UI giữ session_token → gửi `Authorization: Bearer <token>` cho /local/* nghiệp vụ.
+```
+
+- **Gác quyền:** mọi `/local/*` nghiệp vụ (khóa học, DVHC, ảnh, nạp, tra cứu) qua `require_session`. **Miễn** `/local/config*` (bước mồi đặt URL VPS — A1) và `/local/auth/*` (cửa đăng nhập).
+- **Session store:** in-memory trong tiến trình tool (1 máy, 1 người). Tool khởi động lại → đăng nhập lại. `logout` xóa token khỏi store.
+- **Còn mở:** 1 hay nhiều phiên đồng thời — hiện cho n phiên; chốt sau khi có yêu cầu (xem `TDD-decisions.md §4a`).
 
 ---
 
@@ -777,3 +803,4 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 | 01/10/2026 | 1.7 | UX màn nạp (CHANGES #6): §11.1 QLY-01 thêm "tìm khóa mọi khóa kể cả BC1" (chế độ Tra cứu DB); §10.4 thêm hiển thị IN HOA khi kéo + check chính tả mức A + nạp lô badge ⚪🔴🟢. |
 | 01/10/2026 | 1.6 | Thêm §11.5 Nạp/thay ảnh cho HV đã có (QLY-05) — dùng lại hướng A §10.3, làm sau NAP-05. Xem CHANGES.md #5. |
 | 01/10/2026 | 1.5 | Sửa sau review TDD (đọc thân SP + verify DB thật): **SP không ghi ảnh** → thêm bước UPDATE 5 cột ảnh (hướng A) nâng `TT_XuLy` `01`→`03`, chưa ảnh giữ `01` (§10.1, §10.1b, §10.3); chốt `@p_MaDK=NULL`→SP sinh (OUTPUT), `SoHoSo` caller truyền, SP tự tách họ tên; xử lý mã lỗi `@p_out` (-1..-4, SP không raiserror) + `SET XACT_ABORT ON`; sửa `GiayCNSK` (theo giấy 3) + `MaLoaiHs` (thêm case 3) + tên tham số `IMG_PATH_CSDT`. Biên bản `docs/tdd-review-01-10-2026.md`. |
+| 01/10/2026 | 1.9 | Xác thực tool cho `/local/*` (task 17, HTG-01③): thêm §5.5 + TDD-decisions §4a — option A (tool gọi VPS `/api/auth/login` thay mặt → phát session cục bộ; collector 403), A1 miễn token `/local/config*` + `/local/auth/*`; §4.2/§4.6 thêm endpoint `/local/auth/*`. Còn mở: 1 hay n phiên. Xem CHANGES.md #8. |

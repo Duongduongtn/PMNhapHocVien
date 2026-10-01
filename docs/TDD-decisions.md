@@ -32,6 +32,16 @@
 - **Đánh đổi:** tự quản token thay vì dùng dịch vụ auth ngoài — chấp nhận, quy mô nhỏ.
 - Nguồn: PRD F1 (HTG-01), BR-020, OG-001/002.
 
+### 4a. Cách tool xác thực người dùng cho `/local/*` (chốt 01/10/2026, task 17 — option A)
+
+- **Đã chốt:** Tool **KHÔNG tự verify JWT** của VPS. Khi đăng nhập, backend tool gọi VPS `POST /api/auth/login` **thay mặt** → xác thực tài khoản + vai trò → rồi **tự phát một session token cục bộ** (in-memory) cho các endpoint `/local/*`. Chỉ `operator`/`admin` dùng được tool; `collector` đăng nhập tool → **403** (không nạp DB).
+- **Vì sao:** JWT do VPS ký bằng `jwt_secret` + user nằm ở PostgreSQL trên VPS; tool chạy localhost chỉ nối SQL Server, không có cách xác thực JWT đó theo `get_current_user` của server. Phát session cục bộ giúp tool **vẫn nạp được khi VPS chập chờn** (chỉ cần VPS online lúc đăng nhập) — đúng tinh thần "nạp DB chạy local".
+- **Đánh đổi:** session cục bộ không đồng bộ vòng đời với JWT VPS; tool khởi động lại thì đăng nhập lại (in-memory). Chấp nhận — tool 1 máy, 1 người.
+- **A1 — miễn token cho `/local/config*` và `/local/auth/*`:** màn Cấu hình là **bước mồi** đặt URL VPS; nếu gác token thì không đăng nhập được (phải đọc config để biết URL VPS, mà đọc config lại cần token → vòng lặp). Config chỉ là thiết lập kết nối cục bộ, chưa chạm dữ liệu học viên. Mọi `/local/*` nghiệp vụ khác vẫn buộc session.
+- **Đã cân nhắc & loại:** (B) tool chia sẻ `jwt_secret` verify offline — loại vì không thu hồi/khóa tài khoản tức thì (không đọc được `is_active`/blocklist) + phải bê secret sang máy tool; (C) mỗi request `/local/*` gọi VPS `/api/auth/me` — loại vì buộc VPS online suốt, VPS sập là tool nạp cũng chết.
+- **Còn mở (chưa chốt):** tool cho **1 hay nhiều phiên** đăng nhập đồng thời? Hiện code cho **n phiên** (dict session không giới hạn). Chưa có yêu cầu nghiệp vụ → để mở; khi cần siết (vd 1 máy chỉ 1 phiên) thì `/capnhat` chốt sau.
+- Nguồn: PRD HTG-01 Done khi (app web + tool đều bắt đăng nhập), TDD §5.3 (ma trận quyền), task 17.
+
 ## 5. Nơi lưu bảng ánh xạ DM_DVHC_MAP (đổi 01/10/2026)
 
 - **Đã chốt (01/10/2026):** Bảng ánh xạ nằm ở **SQLite cục bộ của tool** (`staging.sqlite`), **không** trong `GPLX_CSDT`. Tool đóng gói sẵn dataset `vietnamadminunits` (CSV tĩnh); lần chạy đầu / thao tác **"Đồng bộ danh mục"** → đọc `DM_DVHC (TrangThai=1)` của máy đích (chỉ đọc) + dataset → tự dựng bảng tra cứu, nối theo TÊN.
