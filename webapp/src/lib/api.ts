@@ -101,3 +101,21 @@ export const guiAnh = (uuid: string, blob: Blob) => {
 };
 
 export const dsDaGui = () => fetch(`${BASE}/api/ho-so/cua-toi`, { headers: authHeaders() }).then(json<HoSoOut[]>);
+
+// THU-02 (CHANGES #12): sửa hồ sơ đã gửi khi còn chờ nạp. Đã nạp/đang nạp → server trả 409.
+export type HoSoSua = Partial<Omit<HoSoGui, "uuid">>;
+export const suaHoSo = (uuid: string, body: HoSoSua) =>
+  fetch(`${BASE}/api/ho-so/${uuid}`, {
+    method: "PUT",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(body),
+  }).then(json<HoSoOut>);
+
+// Tải lại ảnh chân dung CỦA MÌNH để hiện thumbnail. Cần Bearer → fetch blob → objectURL.
+// Chưa có ảnh / không phải của mình (404) → null (UI hiện placeholder).
+export const taiAnhCuaToi = async (uuid: string): Promise<string | null> => {
+  const r = await fetch(`${BASE}/api/ho-so/${uuid}/anh`, { headers: authHeaders() });
+  if (r.status === 404) return null;
+  if (!r.ok) throw new ApiError(r.status, `${r.status} ${r.statusText}`);
+  return URL.createObjectURL(await r.blob());
+};

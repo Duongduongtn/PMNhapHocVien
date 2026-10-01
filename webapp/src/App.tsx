@@ -1,5 +1,6 @@
 import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import AppLayout from "./components/AppLayout";
+import CapNhatApp from "./components/CapNhatApp";
 import DangNhap from "./pages/DangNhap";
 import Quet from "./pages/Quet";
 import DaGui from "./pages/DaGui";
@@ -16,6 +17,7 @@ function RequireAuth() {
 export default function App() {
   return (
     <AuthProvider>
+      <CapNhatApp />
       <Routes>
         <Route path="/dang-nhap" element={<DangNhap />} />
         <Route element={<RequireAuth />}>

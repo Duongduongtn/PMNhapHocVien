@@ -81,7 +81,7 @@
 
 #### [THU-02] Nhập tay + chụp ảnh + gửi VPS (app web)
 
-**Trạng thái:** ⏳ Todo — sửa UX sau test điện thoại (CHANGES #12): hiện ảnh thật ở list/chi tiết + cho xem lại/sửa/chụp lại hồ sơ còn chờ nạp. Code gửi/offline/ô tìm cũ vẫn đúng, chỉ bổ sung xem-lại + ảnh thật.
+**Trạng thái:** ✅ Done — 01/10/2026. Task 19 (nhập tay + chụp ảnh + gửi + ô tìm) + task 29 rework UX (CHANGES #12): ảnh thật (thumbnail) ở list card + table + chi tiết · bấm hồ sơ chờ nạp → Sửa thông tin + Chụp/đổi ảnh (importing/imported chỉ xem, 409 → chuyển chỉ xem) · endpoint `GET /api/ho-so/:uuid/anh` collector · +nút "Có bản mới — Tải lại" (PWA prompt). Kiểm: server 62 test (+3) · build OK · Playwright 375/800/1440 (0 tràn, avatar + nút Sửa) · review-nghiepvu 6/6 (đã vá 2 gap: avatar table + 409 chỉ xem).
 **Story:** Là nhân viên thu nhận, tôi muốn nhập tay và chụp ảnh chân dung rồi gửi lên VPS, để thu thập được cả khi không quét được QR.
 
 **Steps to Complete:**

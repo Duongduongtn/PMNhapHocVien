@@ -5,9 +5,11 @@ còn pending, upload ảnh thô. Quyền sở hữu kiểm ở server (created_b
 chặn IDOR (OG-001): không dựa vào sự khó đoán của uuid.
 """
 from datetime import date, datetime
+from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, status
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -167,3 +169,18 @@ async def upload_anh(uuid: UUID, file: UploadFile, user: User = Depends(require_
     db.commit()
     db.refresh(hs)
     return HoSoOut.tu_model(hs)
+
+
+@router.get("/{uuid}/anh")
+def tai_anh(uuid: UUID, user: User = Depends(require_role("collector")), db: Session = Depends(get_db)):
+    """Tải lại ảnh thô CỦA MÌNH để hiện thumbnail list/chi tiết (THU-02, CHANGES #12).
+
+    Kiểm quyền sở hữu (`created_by`) như `_cua_minh` — chống IDOR (OG-001):
+    không tải được ảnh của hồ sơ người khác dù biết uuid."""
+    hs = _cua_minh(uuid, user, db)
+    if not hs.anh_tho_path:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Hồ sơ chưa có ảnh")
+    duong_dan = Path(hs.anh_tho_path)
+    if not duong_dan.is_file():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Tệp ảnh không còn trên máy chủ")
+    return FileResponse(duong_dan)

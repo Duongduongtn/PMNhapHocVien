@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: "autoUpdate",
+      registerType: "prompt", // hiện banner "Có bản mới — Tải lại" (CHANGES #12) thay vì tự reload ngầm
       manifest: {
         name: "Thu nhận hồ sơ học viên",
         short_name: "Thu nhận HS",

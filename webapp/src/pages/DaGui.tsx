@@ -1,9 +1,83 @@
 import { useEffect, useState } from "react";
 import { Icon } from "../components/Icon";
-import { ApiError, dsDaGui, type HoSoOut } from "../lib/api";
+import { ApiError, dsDaGui, guiAnh, suaHoSo, taiAnhCuaToi, type HoSoOut, type HoSoSua } from "../lib/api";
 import { dsNhap } from "../lib/draft";
 import { dangKyGuiLai, guiLaiTatCa } from "../lib/gui";
 import { khopTim } from "../lib/text";
+
+// Thumbnail ảnh chân dung thật (tải của mình). Chưa có ảnh/không tải được → placeholder.
+function AnhThumb({ uuid, coAnh, size = "sm" }: { uuid: string; coAnh: boolean; size?: "xs" | "sm" | "lg" }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!coAnh) {
+      setUrl(null);
+      return;
+    }
+    let huy = false;
+    let u: string | null = null;
+    taiAnhCuaToi(uuid)
+      .then((x) => {
+        if (huy) {
+          if (x) URL.revokeObjectURL(x);
+          return;
+        }
+        u = x;
+        setUrl(x);
+      })
+      .catch(() => {});
+    return () => {
+      huy = true;
+      if (u) URL.revokeObjectURL(u);
+    };
+  }, [uuid, coAnh]);
+  const khung = size === "lg" ? "w-20 aspect-[3/4] rounded-lg" : size === "xs" ? "w-8 h-8 rounded-md" : "w-11 h-11 rounded-lg";
+  const ico = size === "lg" ? "w-10 h-10" : size === "xs" ? "w-4 h-4" : "w-6 h-6";
+  if (url) return <img src={url} alt="Ảnh chân dung" className={`${khung} object-cover shrink-0 border border-border`} />;
+  return (
+    <span className={`${khung} inline-flex items-center justify-center shrink-0 bg-slate-200 text-slate-400`}>
+      <Icon name="user" className={ico} sw={size === "lg" ? 1.5 : 2} />
+    </span>
+  );
+}
+
+// Nén ảnh chụp lại về JPEG (cạnh dài ≤ maxCanh) — nhẹ cho upload, server giới hạn 8 MB.
+function nenAnh(file: File, maxCanh: number, chatLuong: number): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let w = img.naturalWidth;
+      let h = img.naturalHeight;
+      const canh = Math.max(w, h);
+      if (canh > maxCanh) {
+        const r = maxCanh / canh;
+        w = Math.round(w * r);
+        h = Math.round(h * r);
+      }
+      const c = document.createElement("canvas");
+      c.width = w;
+      c.height = h;
+      const ctx = c.getContext("2d");
+      if (!ctx) return reject(new Error("Không dựng được canvas"));
+      ctx.drawImage(img, 0, 0, w, h);
+      c.toBlob((b) => (b ? resolve(b) : reject(new Error("Không nén được ảnh"))), "image/jpeg", chatLuong);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Không đọc được ảnh"));
+    };
+    img.src = url;
+  });
+}
+
+// dd/mm/yyyy | yyyy → yyyymmdd | yyyy0000 (lưu DB). Rỗng/sai → giữ nguyên chuỗi (server validate).
+function vnToYmd(s: string): string {
+  const t = s.trim();
+  if (/^\d{4}$/.test(t)) return `${t}0000`;
+  const m = t.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return m ? `${m[3]}${m[2]}${m[1]}` : t;
+}
 
 // THU-02 — Hồ sơ nhân viên đã gửi lên VPS (GET /api/ho-so/cua-toi) + nháp còn chờ gửi (offline).
 // Bám bố cục ui-demo/src/pages/app/DaGui.tsx: lọc tab, mobile card / desktop table, modal chi tiết.
@@ -167,9 +241,7 @@ export default function DaGui() {
                 onClick={() => setSel(h)}
                 className="w-full text-left flex items-center gap-3 px-4 py-3 hover:bg-muted/60 transition-colors"
               >
-                <span className="inline-flex w-11 h-11 rounded-lg items-center justify-center shrink-0 bg-slate-200 text-slate-500">
-                  <Icon name="user" className="w-6 h-6" />
-                </span>
+                <AnhThumb uuid={h.uuid} coAnh={h.co_anh} />
                 <div className="min-w-0 flex-1">
                   <div className="font-semibold text-[14px] truncate">{h.ho_ten || "(chưa có tên)"}</div>
                   <div className="text-[12px] text-muted-foreground truncate">
@@ -200,7 +272,12 @@ export default function DaGui() {
               <tbody>
                 {rows.map((h) => (
                   <tr key={h.uuid} onClick={() => setSel(h)} className="border-t border-border cursor-pointer hover:bg-muted/60 transition-colors">
-                    <td className="px-4 py-2 font-semibold">{h.ho_ten || "(chưa có tên)"}</td>
+                    <td className="px-4 py-2 font-semibold">
+                      <div className="flex items-center gap-2.5">
+                        <AnhThumb uuid={h.uuid} coAnh={h.co_anh} size="xs" />
+                        <span>{h.ho_ten || "(chưa có tên)"}</span>
+                      </div>
+                    </td>
                     <td className="px-4 py-2">{gioiTinhHienThi(h.gioi_tinh)}</td>
                     <td className="px-4 py-2 tabular-nums">{h.so_cccd || "—"}</td>
                     <td className="px-4 py-2 tabular-nums">{nsHienThi(h.ngay_sinh)}</td>
@@ -218,57 +295,179 @@ export default function DaGui() {
         </>
       )}
 
-      {/* CHI TIẾT (modal) */}
-      {sel && (
-        <div
-          className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-0 sm:p-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setSel(null);
-          }}
-        >
-          <div className="bg-card w-full sm:max-w-md rounded-t-2xl sm:rounded-xl shadow-2xl max-h-[92vh] flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
-              <h3 className="font-bold text-sm">Chi tiết hồ sơ đã gửi</h3>
-              <button onClick={() => setSel(null)} aria-label="Đóng" className="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center transition-colors">
-                <Icon name="x" className="w-5 h-5" />
-              </button>
+      {/* CHI TIẾT (modal) — xem; còn Chờ nạp thì sửa/chụp lại (CHANGES #12) */}
+      {sel && <ChiTiet row={sel} onDong={() => setSel(null)} onCapNhat={(moi) => { setSel(moi); void tai(); }} />}
+    </div>
+  );
+}
+
+function ChiTiet({ row, onDong, onCapNhat }: { row: HoSoOut; onDong: () => void; onCapNhat: (moi: HoSoOut) => void }) {
+  const suaDuoc = row.trang_thai === "pending"; // server chỉ cho sửa khi pending
+  const [che, setChe] = useState<"xem" | "sua">("xem");
+  const [f, setF] = useState<HoSoSua>({});
+  const [luu, setLuu] = useState(false);
+  const [loi, setLoi] = useState<string | null>(null);
+
+  // 409 = tool đã khóa hồ sơ (importing) sau khi mở → báo + chuyển về chỉ xem (CHANGES #12, EC).
+  function baoLoi(e: unknown, macDinh: string) {
+    if (e instanceof ApiError) {
+      setLoi(e.message);
+      if (e.status === 409) {
+        setChe("xem");
+        onCapNhat({ ...row, trang_thai: "importing" });
+      }
+    } else {
+      setLoi(macDinh);
+    }
+  }
+
+  function moSua() {
+    setF({
+      ho_ten: row.ho_ten,
+      so_cccd: row.so_cccd,
+      so_cmnd_cu: row.so_cmnd_cu,
+      gioi_tinh: row.gioi_tinh,
+      ngay_sinh: row.ngay_sinh,
+      noi_tt_raw: row.noi_tt_raw,
+    });
+    setLoi(null);
+    setChe("sua");
+  }
+
+  async function doiAnh(file: File) {
+    setLoi(null);
+    setLuu(true);
+    try {
+      const blob = await nenAnh(file, 1600, 0.85);
+      const moi = await guiAnh(row.uuid, blob);
+      onCapNhat(moi);
+    } catch (e) {
+      baoLoi(e, "Không đổi được ảnh. Thử lại.");
+    } finally {
+      setLuu(false);
+    }
+  }
+
+  async function luuSua() {
+    setLoi(null);
+    setLuu(true);
+    try {
+      // f.ngay_sinh đã là yyyymmdd (khởi tạo từ row + ô nhập đã vnToYmd ở onChange).
+      const moi = await suaHoSo(row.uuid, f);
+      onCapNhat(moi);
+      setChe("xem");
+    } catch (e) {
+      baoLoi(e, "Không lưu được. Kiểm tra mạng rồi thử lại.");
+    } finally {
+      setLuu(false);
+    }
+  }
+
+  const set = <K extends keyof HoSoSua>(k: K, v: HoSoSua[K]) => setF((p) => ({ ...p, [k]: v }));
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={(e) => { if (e.target === e.currentTarget) onDong(); }}>
+      <div className="bg-card w-full sm:max-w-md rounded-t-2xl sm:rounded-xl shadow-2xl max-h-[92vh] flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
+          <h3 className="font-bold text-sm">{che === "sua" ? "Sửa hồ sơ" : "Chi tiết hồ sơ đã gửi"}</h3>
+          <button onClick={onDong} aria-label="Đóng" className="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center transition-colors">
+            <Icon name="x" className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="p-5 overflow-y-auto">
+          <div className="flex items-start gap-4">
+            <div className="relative shrink-0">
+              <AnhThumb uuid={row.uuid} coAnh={row.co_anh} size="lg" />
+              {suaDuoc && (
+                <label className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 text-[10px] bg-primary text-primary-foreground px-2 py-0.5 rounded-full cursor-pointer hover:brightness-110 whitespace-nowrap">
+                  {row.co_anh ? "Đổi ảnh" : "Thêm ảnh"}
+                  <input type="file" accept="image/*" capture="user" className="hidden" disabled={luu}
+                    onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) void doiAnh(file); }} />
+                </label>
+              )}
             </div>
-            <div className="p-5 overflow-y-auto">
-              <div className="flex items-start gap-4">
-                <div className="w-20 aspect-[3/4] rounded-lg bg-slate-100 border border-border flex items-center justify-center shrink-0 text-slate-300">
-                  <Icon name="user" className="w-10 h-10" sw={1.5} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="font-bold text-[15px]">{sel.ho_ten || "(chưa có tên)"}</div>
-                  <div className="mt-1">
-                    <TrangThaiChip tt={sel.trang_thai} />
-                  </div>
-                  <div className="text-[12px] text-muted-foreground mt-2">Gửi lúc {guiHienThi(sel.created_at)}</div>
-                  <div className="text-[12px] text-muted-foreground mt-0.5">{sel.co_anh ? "Có ảnh chân dung" : "Chưa có ảnh"}</div>
-                </div>
-              </div>
-              <div className="mt-4 space-y-2.5">
-                {(
-                  [
-                    ["Số CCCD", sel.so_cccd || "—"],
-                    ["Số CMND cũ", sel.so_cmnd_cu || "—"],
-                    ["Giới tính", gioiTinhHienThi(sel.gioi_tinh)],
-                    ["Ngày sinh", nsHienThi(sel.ngay_sinh)],
-                    ["Nơi thường trú", sel.noi_tt_raw || "—"],
-                    ...(sel.ma_dk ? ([["Mã đăng ký", sel.ma_dk]] as [string, string][]) : []),
-                  ] as [string, string][]
-                ).map(([k, v]) => (
-                  <div key={k} className="flex justify-between gap-3 text-[13px] border-b border-border pb-2 last:border-0">
-                    <span className="text-muted-foreground shrink-0">{k}</span>
-                    <span className="font-medium text-right break-words">{v}</span>
-                  </div>
-                ))}
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-3">Căn khung 3:4, xóa phông và xuất .jp2 do tool nạp thực hiện (NAP-04).</p>
+            <div className="min-w-0 flex-1">
+              <div className="font-bold text-[15px]">{row.ho_ten || "(chưa có tên)"}</div>
+              <div className="mt-1"><TrangThaiChip tt={row.trang_thai} /></div>
+              <div className="text-[12px] text-muted-foreground mt-2">Gửi lúc {guiHienThi(row.created_at)}</div>
             </div>
           </div>
+
+          {loi && (
+            <div className="mt-3 flex items-start gap-2 text-[12px] text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2">
+              <Icon name="warn" className="w-4 h-4 shrink-0 mt-0.5" /> {loi}
+            </div>
+          )}
+
+          {che === "sua" ? (
+            <div className="mt-4 space-y-3">
+              <OSua label="Họ và tên" value={f.ho_ten ?? ""} onChange={(v) => set("ho_ten", v)} />
+              <OSua label="Số CCCD" value={f.so_cccd ?? ""} onChange={(v) => set("so_cccd", v)} inputMode="numeric" />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="field-label">Ngày sinh</label>
+                  <input className="field-input mt-1" value={nsHienThi(f.ngay_sinh ?? null) === "—" ? "" : nsHienThi(f.ngay_sinh ?? null)} placeholder="dd/mm/yyyy" onChange={(e) => set("ngay_sinh", vnToYmd(e.target.value))} />
+                </div>
+                <div>
+                  <label className="field-label">Giới tính</label>
+                  <select className="field-input mt-1" value={f.gioi_tinh ?? "M"} onChange={(e) => set("gioi_tinh", e.target.value)}>
+                    <option value="M">Nam</option>
+                    <option value="F">Nữ</option>
+                  </select>
+                </div>
+              </div>
+              <OSua label="Nơi thường trú" value={f.noi_tt_raw ?? ""} onChange={(v) => set("noi_tt_raw", v)} />
+            </div>
+          ) : (
+            <div className="mt-4 space-y-2.5">
+              {(
+                [
+                  ["Số CCCD", row.so_cccd || "—"],
+                  ["Số CMND cũ", row.so_cmnd_cu || "—"],
+                  ["Giới tính", gioiTinhHienThi(row.gioi_tinh)],
+                  ["Ngày sinh", nsHienThi(row.ngay_sinh)],
+                  ["Nơi thường trú", row.noi_tt_raw || "—"],
+                  ...(row.ma_dk ? ([["Mã đăng ký", row.ma_dk]] as [string, string][]) : []),
+                ] as [string, string][]
+              ).map(([k, v]) => (
+                <div key={k} className="flex justify-between gap-3 text-[13px] border-b border-border pb-2 last:border-0">
+                  <span className="text-muted-foreground shrink-0">{k}</span>
+                  <span className="font-medium text-right break-words">{v}</span>
+                </div>
+              ))}
+              {!suaDuoc && <p className="text-[11px] text-muted-foreground mt-1">Hồ sơ đã vào nạp — chỉ xem, không sửa được.</p>}
+            </div>
+          )}
         </div>
-      )}
+
+        <div className="p-3 border-t border-border shrink-0 flex items-center gap-2">
+          {che === "sua" ? (
+            <>
+              <button onClick={() => setChe("xem")} disabled={luu} className="h-10 px-4 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Hủy</button>
+              <button onClick={() => void luuSua()} disabled={luu} className="ml-auto h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition-all shadow-sm flex items-center gap-2 disabled:opacity-60">
+                <Icon name={luu ? "refresh" : "check"} className={"w-4 h-4" + (luu ? " animate-spin" : "")} sw={3} /> {luu ? "Đang lưu…" : "Lưu"}
+              </button>
+            </>
+          ) : suaDuoc ? (
+            <>
+              <button onClick={moSua} className="inline-flex items-center gap-1.5 h-10 px-3 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors"><Icon name="edit" className="w-4 h-4" /> Sửa thông tin</button>
+              <button onClick={onDong} className="ml-auto h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition-all shadow-sm">Đóng</button>
+            </>
+          ) : (
+            <button onClick={onDong} className="ml-auto h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition-all shadow-sm">Đóng</button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function OSua({ label, value, onChange, inputMode }: { label: string; value: string; onChange: (v: string) => void; inputMode?: "text" | "numeric" }) {
+  return (
+    <div>
+      <label className="field-label">{label}</label>
+      <input className="field-input mt-1" value={value} inputMode={inputMode} onChange={(e) => onChange(e.target.value)} />
     </div>
   );
 }

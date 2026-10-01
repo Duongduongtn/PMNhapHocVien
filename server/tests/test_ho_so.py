@@ -152,3 +152,30 @@ def test_upload_ho_so_nguoi_khac_404(api):
     api.post("/api/ho-so", headers=_login(api, "col1"), json={"uuid": u, "ho_ten": "A"})
     r = api.post(f"/api/ho-so/{u}/anh", headers=_login(api, "col2"), files={"file": ("a.jpg", _anh_bytes(), "image/jpeg")})
     assert r.status_code == 404
+
+
+# ── Tải lại ảnh của mình (THU-02, CHANGES #12) ──
+def test_tai_anh_cua_minh_ok(api):
+    h = _login(api, "col1")
+    u = str(uuid4())
+    api.post("/api/ho-so", headers=h, json={"uuid": u, "ho_ten": "A"})
+    api.post(f"/api/ho-so/{u}/anh", headers=h, files={"file": ("a.jpg", _anh_bytes("JPEG"), "image/jpeg")})
+    r = api.get(f"/api/ho-so/{u}/anh", headers=h)
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("image/")
+    assert r.content[:3] == b"\xff\xd8\xff"
+
+
+def test_tai_anh_chua_co_404(api):
+    h = _login(api, "col1")
+    u = str(uuid4())
+    api.post("/api/ho-so", headers=h, json={"uuid": u, "ho_ten": "A"})  # chưa upload ảnh
+    assert api.get(f"/api/ho-so/{u}/anh", headers=h).status_code == 404
+
+
+def test_tai_anh_ho_so_nguoi_khac_404(api):
+    u = str(uuid4())
+    h1 = _login(api, "col1")
+    api.post("/api/ho-so", headers=h1, json={"uuid": u, "ho_ten": "A"})
+    api.post(f"/api/ho-so/{u}/anh", headers=h1, files={"file": ("a.jpg", _anh_bytes(), "image/jpeg")})
+    assert api.get(f"/api/ho-so/{u}/anh", headers=_login(api, "col2")).status_code == 404  # IDOR chặn
