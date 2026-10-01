@@ -186,7 +186,7 @@
 
 **Done khi:**
 - ✅ File `.jp2` (JPEG 2000) **tỷ lệ 3:4, nền trắng, RGB**; kích thước **353×471 (~48 KB, khớp cụm phổ biến nhất của app cũ)** — hoặc 480×640 nếu chọn nét hơn; mở được bằng app cũ.
-- ✅ Ghi file tại `<IMG_PATH_CSDT>\<MaKhoaHoc>\70004-<yyyyMMddHHmmssfff>.jp2`; DB lưu `DuongDanAnh`, `ChatLuongAnh=1`.
+- ✅ Ghi file tại `<IMG_PATH_CSDT>\<MaKhoaHoc>\<MaDK>.jp2` (**dùng lại `MaDK` do SP trả về**, không sinh timestamp mới — verify 39.648 HV khớp 100%, TDD §9.2); DB lưu `DuongDanAnh`, `ChatLuongAnh=1`.
 - ✅ `IMG_PATH_CSDT` đọc từ `QTHT_ThamSoHT`, không hard-code.
 - ❌ Không xử lý ảnh ở điện thoại.
 
