@@ -4,10 +4,12 @@ Tool kéo bản ghi pending về, KHÓA (pending→importing) bằng compare-and
 trong 1 UPDATE để hai tool không nạp trùng một người, nạp xong đánh dấu imported
 (kèm ma_dk) hoặc mở khóa khi lỗi.
 """
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
@@ -32,6 +34,7 @@ class KeoOut(BaseModel):
     ngay_sinh: str | None
     gioi_tinh: str | None
     noi_tt_raw: str | None
+    ngay_cap_cccd: date | None
     noi_cap_cccd: str | None
     co_anh: bool
     created_at: datetime
@@ -68,12 +71,31 @@ def keo(
             ngay_sinh=hs.ngay_sinh,
             gioi_tinh=hs.gioi_tinh,
             noi_tt_raw=hs.noi_tt_raw,
+            ngay_cap_cccd=hs.ngay_cap_cccd,
             noi_cap_cccd=hs.noi_cap_cccd,
             co_anh=hs.anh_tho_path is not None,
             created_at=hs.created_at,
         )
         for hs in rows
     ]
+
+
+@router.get("/{uuid}/anh")
+def tai_anh(uuid: UUID, _op: User = Depends(require_role("operator")), db: Session = Depends(get_db)):
+    """Tải ảnh thô của 1 hồ sơ về tool để hiển thị + xử lý thành .jp2 (NAP-01/NAP-04).
+
+    Trả file ảnh gốc (JPEG/PNG). Không có hồ sơ hoặc chưa có ảnh → 404.
+    File đã mất trên đĩa (đã xóa PII) → 404.
+    """
+    hs = db.get(HoSoThuThap, uuid)
+    if hs is None or hs.trang_thai == "deleted":
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy hồ sơ")
+    if not hs.anh_tho_path:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Hồ sơ chưa có ảnh")
+    duong_dan = Path(hs.anh_tho_path)
+    if not duong_dan.is_file():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Tệp ảnh không còn trên máy chủ")
+    return FileResponse(duong_dan)
 
 
 @router.post("/{uuid}/lock", status_code=status.HTTP_200_OK)

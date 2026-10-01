@@ -13,6 +13,7 @@ SP gộp tự lo: MaLoaiHs, MaCSDT, MaSoGTVT, MaHTCap, GiayCNSK, tách họ tên
 Tool chỉ UPDATE thẳng 5 cột ẢNH (ngoại lệ ❌ PRD, CHANGES #5) — SP không ghi ảnh.
 """
 from __future__ import annotations
+import re
 import sqlite3
 from datetime import datetime
 from pathlib import Path
@@ -193,6 +194,93 @@ def _done_set(uuid: str, r: dict) -> None:
             "INSERT OR IGNORE INTO nap_xong (uuid, ma_dk, so_ho_so, so_giay_to, duong_dan_anh) "
             "VALUES (?,?,?,?,?)",
             (uuid, r["ma_dk"], r["so_ho_so"], r.get("so_giay_to", 0), r.get("duong_dan_anh")),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+# ---- Hàng kéo về từ VPS (staging keo_ve) — NAP-01 ---------------------------
+# Lưu METADATA hàng đợi kéo từ VPS (không lưu ảnh thô xuống đĩa — tránh để PII căn
+# cước nằm lại máy tool; ảnh tải theo yêu cầu khi mở từng HV). Dedup theo uuid để
+# kéo nhiều lần không nhân đôi (Done NAP-01). trang_thai cục bộ: 'cho'/'loi'/'xong'.
+_KEO_DDL = (
+    "CREATE TABLE IF NOT EXISTS keo_ve ("
+    "uuid TEXT PRIMARY KEY, so_cccd TEXT, so_cmnd_cu TEXT, ho_ten TEXT, "
+    "ngay_sinh TEXT, gioi_tinh TEXT, noi_tt_raw TEXT, ngay_cap TEXT, "
+    "noi_cap_cccd TEXT, co_anh INT DEFAULT 0, created_at TEXT, "
+    "trang_thai TEXT DEFAULT 'cho', loi TEXT, ma_dk TEXT, so_ho_so TEXT)"
+)
+_KEO_COLS = ("uuid", "so_cccd", "so_cmnd_cu", "ho_ten", "ngay_sinh", "gioi_tinh",
+             "noi_tt_raw", "ngay_cap", "noi_cap_cccd", "co_anh", "created_at",
+             "trang_thai", "loi", "ma_dk", "so_ho_so")
+
+
+def iso_to_yyyymmdd(gia_tri: str | None) -> str:
+    """Ngày cấp CCCD ISO 'yyyy-mm-dd' (cột VPS DATE) → 'yyyymmdd' (SP cần varchar(8),
+    convert style 112). Rỗng/không đủ 8 số → '' (nạp thiếu ngày cấp, không chặn)."""
+    so = re.sub(r"\D", "", gia_tri or "")
+    return so[:8] if len(so) >= 8 else ""
+
+
+def _keo_conn() -> sqlite3.Connection:
+    ORPHAN_DB.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(ORPHAN_DB))
+    conn.execute(_KEO_DDL)
+    return conn
+
+
+def keo_ve_upsert(rows: list[dict]) -> int:
+    """Ghi các bản ghi kéo từ VPS vào staging, dedup theo uuid (INSERT OR IGNORE —
+    bản đã có GIỮ nguyên trạng thái cục bộ, không ghi đè). Trả số bản ghi MỚI thêm.
+
+    Mỗi row là KeoOut của VPS: uuid, so_cccd, so_cmnd_cu, ho_ten, ngay_sinh, gioi_tinh,
+    noi_tt_raw, ngay_cap_cccd (ISO), noi_cap_cccd, co_anh, created_at.
+    """
+    conn = _keo_conn()
+    try:
+        moi = 0
+        for r in rows:
+            cur = conn.execute(
+                "INSERT OR IGNORE INTO keo_ve "
+                "(uuid, so_cccd, so_cmnd_cu, ho_ten, ngay_sinh, gioi_tinh, noi_tt_raw, "
+                " ngay_cap, noi_cap_cccd, co_anh, created_at, trang_thai) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?, 'cho')",
+                (
+                    str(r.get("uuid")), r.get("so_cccd"), r.get("so_cmnd_cu"),
+                    r.get("ho_ten"), r.get("ngay_sinh"), r.get("gioi_tinh"),
+                    r.get("noi_tt_raw"), iso_to_yyyymmdd(r.get("ngay_cap_cccd")),
+                    r.get("noi_cap_cccd"), 1 if r.get("co_anh") else 0,
+                    str(r.get("created_at") or ""),
+                ),
+            )
+            moi += cur.rowcount
+        conn.commit()
+        return moi
+    finally:
+        conn.close()
+
+
+def keo_ve_danh_sach() -> list[dict]:
+    """Toàn bộ hàng đã kéo về (lọc/sắp xếp để UI lo — CHANGES #6). Cũ trước cho ổn định."""
+    conn = _keo_conn()
+    try:
+        rows = conn.execute(
+            f"SELECT {', '.join(_KEO_COLS)} FROM keo_ve ORDER BY created_at ASC, uuid ASC"
+        ).fetchall()
+    finally:
+        conn.close()
+    return [dict(zip(_KEO_COLS, row)) for row in rows]
+
+
+def keo_ve_cap_nhat(uuid: str, *, trang_thai: str, loi: str | None = None,
+                    ma_dk: str | None = None, so_ho_so: str | None = None) -> None:
+    """Cập nhật trạng thái cục bộ 1 bản ghi sau khi nạp (xong/lỗi)."""
+    conn = _keo_conn()
+    try:
+        conn.execute(
+            "UPDATE keo_ve SET trang_thai=?, loi=?, ma_dk=?, so_ho_so=? WHERE uuid=?",
+            (trang_thai, loi, ma_dk, so_ho_so, str(uuid)),
         )
         conn.commit()
     finally:

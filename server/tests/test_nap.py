@@ -3,13 +3,28 @@
 Phủ: X-Tool-Key bắt buộc, chặn vai trò, kéo pending, lock CAS nguyên tử
 (hai lần lock → lần sau 409), da-nap + ma_dk, unlock, imported không kéo lại.
 """
+import io
 from uuid import uuid4
 
+import pytest
+from PIL import Image
 from fastapi.testclient import TestClient
 
 from app.config import get_settings
 
 TOOL_KEY = get_settings().tool_api_key
+
+
+@pytest.fixture(autouse=True)
+def _anh_tmp_dir(tmp_path, monkeypatch):
+    """Ghi ảnh thô vào thư mục tạm của test, không đụng anh_tho_dir thật."""
+    monkeypatch.setattr(get_settings(), "anh_tho_dir", str(tmp_path / "anh-tho"))
+
+
+def _anh_bytes(fmt: str = "JPEG", size=(20, 20)) -> bytes:
+    buf = io.BytesIO()
+    Image.new("RGB", size, (200, 180, 160)).save(buf, fmt)
+    return buf.getvalue()
 
 
 def _login(api: TestClient, username: str) -> dict:
@@ -122,3 +137,44 @@ def test_unlock_khi_pending_409(api):
     u = _gui_pending(api)  # chưa importing
     r = api.post(f"/api/nap/{u}/unlock", headers=_op_headers(api))
     assert r.status_code == 409
+
+
+# ── Kéo trả ngày cấp CCCD (NAP-01: SP cần @p_NgayCap) ──
+def test_keo_tra_ngay_cap_cccd(api):
+    u = str(uuid4())
+    api.post("/api/ho-so", headers=_login(api, "col1"),
+             json={"uuid": u, "ho_ten": "A", "ngay_cap_cccd": "2021-03-10"})
+    r = api.get("/api/nap/keo", headers=_op_headers(api))
+    dong = next(x for x in r.json() if x["uuid"] == u)
+    assert dong["ngay_cap_cccd"] == "2021-03-10"  # ISO; tool đổi sang yyyymmdd khi nạp
+
+
+# ── Tải ảnh thô (NAP-01: tool cần ảnh để hiển thị + xử lý .jp2) ──
+def test_tai_anh_khi_co_anh(api):
+    u = _gui_pending(api)
+    api.post(f"/api/ho-so/{u}/anh", headers=_login(api, "col1"),
+             files={"file": ("a.jpg", _anh_bytes("JPEG"), "image/jpeg")})
+    r = api.get(f"/api/nap/{u}/anh", headers=_op_headers(api))
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("image/")
+    assert r.content[:3] == b"\xff\xd8\xff"  # đúng JPEG đã lưu
+
+
+def test_tai_anh_chua_co_404(api):
+    u = _gui_pending(api)  # chưa upload ảnh
+    assert api.get(f"/api/nap/{u}/anh", headers=_op_headers(api)).status_code == 404
+
+
+def test_tai_anh_khong_ton_tai_404(api):
+    assert api.get(f"/api/nap/{uuid4()}/anh", headers=_op_headers(api)).status_code == 404
+
+
+def test_tai_anh_thieu_tool_key_401(api):
+    u = _gui_pending(api)
+    assert api.get(f"/api/nap/{u}/anh", headers=_login(api, "op1")).status_code == 401
+
+
+def test_tai_anh_collector_403(api):
+    u = _gui_pending(api)
+    r = api.get(f"/api/nap/{u}/anh", headers={**_login(api, "col1"), "X-Tool-Key": TOOL_KEY})
+    assert r.status_code == 403

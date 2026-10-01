@@ -30,6 +30,7 @@ class Phien:
     username: str
     ho_ten: str | None
     vai_tro: str
+    vps_token: str | None = None   # JWT do VPS phát (gọi /api/nap/* thay mặt operator)
 
 
 # token cục bộ → phiên. In-memory, reset khi tool khởi động lại.
@@ -64,7 +65,12 @@ def dang_nhap_qua_vps(username: str, password: str) -> tuple[str, Phien]:
     if vai_tro not in VAI_TRO_DUNG_TOOL:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Tài khoản không có quyền nạp DB (cần nhân viên nạp hoặc quản trị).")
 
-    phien = Phien(username=data.get("username", username), ho_ten=data.get("ho_ten"), vai_tro=vai_tro)
+    phien = Phien(
+        username=data.get("username", username),
+        ho_ten=data.get("ho_ten"),
+        vai_tro=vai_tro,
+        vps_token=data.get("access_token"),   # giữ để gọi /api/nap/* (kéo/lock/da-nap)
+    )
     token = secrets.token_urlsafe(32)
     _phien_theo_token[token] = phien
     return token, phien
