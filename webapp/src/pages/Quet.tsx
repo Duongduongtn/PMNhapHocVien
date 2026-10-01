@@ -12,21 +12,32 @@ import { dangKyGuiLai, guiMot } from "../lib/gui";
 // Cách quét (BarcodeDetector→qr-scanner, auto-capture 2 frame) tham khảo webThanhdat — memory ref-quet-qr-cccd.
 
 // ---- Decoder cascade: BarcodeDetector native → qr-scanner (ZXing) ----
+// Hộp (box) = vị trí mã QR trong khung hình (px canvas) để vẽ khung bám (THU-01, CHANGES #12).
+// BarcodeDetector trả boundingBox; qr-scanner không có → box = null (dùng khung ngắm tĩnh).
 interface DetectedBarcode {
   rawValue: string;
+  boundingBox?: { x: number; y: number; width: number; height: number };
 }
 interface BarcodeDetectorLike {
   detect(src: CanvasImageSource): Promise<DetectedBarcode[]>;
 }
 type BarcodeDetectorCtor = new (opts: { formats: string[] }) => BarcodeDetectorLike;
 
-async function decodeTuCanvas(canvas: HTMLCanvasElement, detector: { cur: BarcodeDetectorLike | null }): Promise<string | null> {
+type Box = { x: number; y: number; w: number; h: number };
+type KetQuaGiaiMa = { raw: string; box: Box | null };
+
+async function decodeTuCanvas(
+  canvas: HTMLCanvasElement,
+  detector: { cur: BarcodeDetectorLike | null },
+): Promise<KetQuaGiaiMa | null> {
   const Ctor = (globalThis as { BarcodeDetector?: BarcodeDetectorCtor }).BarcodeDetector;
   if (Ctor) {
     try {
       if (!detector.cur) detector.cur = new Ctor({ formats: ["qr_code"] });
       const res = await detector.cur.detect(canvas);
-      return res.length > 0 ? res[0].rawValue : null;
+      if (res.length === 0) return null;
+      const b = res[0].boundingBox;
+      return { raw: res[0].rawValue, box: b ? { x: b.x, y: b.y, w: b.width, h: b.height } : null };
     } catch {
       // trình duyệt báo lỗi → rơi xuống qr-scanner
     }
@@ -34,7 +45,7 @@ async function decodeTuCanvas(canvas: HTMLCanvasElement, detector: { cur: Barcod
   try {
     const QrScanner = (await import("qr-scanner")).default;
     const r = await QrScanner.scanImage(canvas, { returnDetailedScanResult: true });
-    return r.data;
+    return { raw: r.data, box: null };
   } catch {
     return null;
   }
@@ -78,12 +89,14 @@ const FIELDS_RONG: CccdFields = {
   ngayCap: "",
 };
 
-type GiaiDoan = "quet" | "preview" | "anh" | "ketqua";
+type GiaiDoan = "chon" | "quet" | "preview" | "anh" | "ketqua";
 
 export default function Quet() {
-  const [giaiDoan, setGiaiDoan] = useState<GiaiDoan>("quet");
+  // Màn vào = "chon" (KHÔNG tự mở camera — CHANGES #12). Camera chỉ bật khi vào "quet".
+  const [giaiDoan, setGiaiDoan] = useState<GiaiDoan>("chon");
   const [fields, setFields] = useState<CccdFields>(FIELDS_RONG);
   const [loiQuet, setLoiQuet] = useState<string | null>(null);
+  const [loiChon, setLoiChon] = useState<string | null>(null);
   const [uuid, setUuid] = useState<string>("");
   const [offline, setOffline] = useState(false);
 
@@ -109,32 +122,107 @@ export default function Quet() {
     setUuid("");
     setOffline(false);
     setLoiQuet(null);
-    setGiaiDoan("quet");
+    setLoiChon(null);
+    setGiaiDoan("chon");
+  }
+
+  // Tải ảnh CCCD từ máy → đọc QR (dùng ở màn vào, không cần bật camera).
+  async function docAnhFile(file: File) {
+    setLoiChon(null);
+    const raw = await decodeTuFile(file);
+    if (!raw) {
+      setLoiChon("Không đọc được mã QR trong ảnh. Thử ảnh rõ nét hơn hoặc nhập tay.");
+      return;
+    }
+    const r = parseCccdQr(raw);
+    if (!r.ok) {
+      setLoiChon(r.message);
+      return;
+    }
+    batDau(r.data);
   }
 
   return (
-    <div className="p-4 lg:p-6 lg:max-w-md lg:mx-auto">
-      {giaiDoan === "quet" && <KhungQuet onQuet={batDau} onNhapTay={nhapTay} loi={loiQuet} setLoi={setLoiQuet} />}
-      {giaiDoan === "preview" && (
-        <Preview
-          fields={fields}
-          onLuu={(id) => {
-            setUuid(id);
-            setGiaiDoan("anh");
-          }}
-          onQuetLai={quetTiep}
-        />
+    <div className="h-full flex flex-col lg:h-auto lg:p-6 lg:max-w-md lg:mx-auto">
+      {giaiDoan === "chon" && (
+        <ChonCach onQuet={() => { setLoiChon(null); setGiaiDoan("quet"); }} onNhapTay={nhapTay} onAnhFile={docAnhFile} loi={loiChon} />
       )}
-      {giaiDoan === "anh" && (
-        <ChupAnhGui
-          uuid={uuid}
-          onXong={(mangYeu) => {
-            setOffline(mangYeu);
-            setGiaiDoan("ketqua");
-          }}
-        />
+      {giaiDoan === "quet" && (
+        <KhungQuet onQuet={batDau} onNhapTay={nhapTay} onQuayLai={() => setGiaiDoan("chon")} loi={loiQuet} setLoi={setLoiQuet} />
       )}
-      {giaiDoan === "ketqua" && <KetQua offline={offline} onQuetTiep={quetTiep} />}
+      {(giaiDoan === "preview" || giaiDoan === "anh" || giaiDoan === "ketqua") && (
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 lg:p-0">
+          {giaiDoan === "preview" && (
+            <Preview fields={fields} onLuu={(id) => { setUuid(id); setGiaiDoan("anh"); }} onQuetLai={quetTiep} />
+          )}
+          {giaiDoan === "anh" && (
+            <ChupAnhGui uuid={uuid} onXong={(mangYeu) => { setOffline(mangYeu); setGiaiDoan("ketqua"); }} />
+          )}
+          {giaiDoan === "ketqua" && <KetQua offline={offline} onQuetTiep={quetTiep} />}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------- Màn vào: chọn cách nhập (không tự mở camera) ----------
+function ChonCach({
+  onQuet,
+  onNhapTay,
+  onAnhFile,
+  loi,
+}: {
+  onQuet: () => void;
+  onNhapTay: () => void;
+  onAnhFile: (f: File) => void | Promise<void>;
+  loi: string | null;
+}) {
+  return (
+    <div className="flex-1 min-h-0 flex flex-col p-4">
+      <div className="text-center mt-3">
+        <h2 className="text-lg font-bold">Thu nhận hồ sơ học viên</h2>
+        <p className="text-[13px] text-muted-foreground mt-1">Chọn cách nhập hồ sơ căn cước</p>
+      </div>
+
+      {loi && (
+        <div className="mt-4 flex items-start gap-2 text-[12px] text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2">
+          <Icon name="warn" className="w-4 h-4 shrink-0 mt-0.5" /> {loi}
+        </div>
+      )}
+
+      <div className="flex-1" />
+
+      <div className="space-y-2.5">
+        <button
+          type="button"
+          onClick={onQuet}
+          className="w-full h-14 rounded-xl bg-primary text-primary-foreground font-bold text-[15px] flex items-center justify-center gap-2.5 hover:brightness-110 transition-all shadow-sm"
+        >
+          <Icon name="scan" className="w-5 h-5" /> Quét QR CCCD
+        </button>
+        <button
+          type="button"
+          onClick={onNhapTay}
+          className="w-full h-14 rounded-xl border border-border bg-card text-foreground font-semibold text-[15px] flex items-center justify-center gap-2.5 hover:bg-muted transition-colors"
+        >
+          <Icon name="edit" className="w-5 h-5" /> Nhập tay
+        </button>
+        <label className="w-full py-2 text-[13px] text-primary font-medium flex items-center justify-center gap-1.5 cursor-pointer hover:underline">
+          <Icon name="image" className="w-4 h-4" /> Tải ảnh CCCD (đọc QR từ ảnh)
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (f) void onAnhFile(f);
+            }}
+          />
+        </label>
+      </div>
+
+      <div className="flex-1" />
     </div>
   );
 }
@@ -143,16 +231,19 @@ export default function Quet() {
 function KhungQuet({
   onQuet,
   onNhapTay,
+  onQuayLai,
   loi,
   setLoi,
 }: {
   onQuet: (f: CccdFields) => void;
   onNhapTay: () => void;
+  onQuayLai: () => void;
   loi: string | null;
   setLoi: (s: string | null) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const camRef = useRef<HTMLDivElement | null>(null); // khung hiển thị camera — để quy đổi vị trí QR
   const streamRef = useRef<MediaStream | null>(null);
   const loopRef = useRef<number | null>(null);
   const detectorRef = useRef<{ cur: BarcodeDetectorLike | null }>({ cur: null });
@@ -164,6 +255,7 @@ function KhungQuet({
   const [coTorch, setCoTorch] = useState(false);
   const [torchBat, setTorchBat] = useState(false);
   const [thanhCong, setThanhCong] = useState(false);
+  const [box, setBox] = useState<Box | null>(null); // khung bám theo QR (px trong khung camera)
 
   const dungCamera = useCallback(() => {
     if (loopRef.current !== null) {
@@ -200,10 +292,22 @@ function KhungQuet({
         const ctx = c.getContext("2d");
         if (!ctx) return;
         ctx.drawImage(v, 0, 0, c.width, c.height);
-        const raw = await decodeTuCanvas(c, detectorRef.current);
-        if (!raw) {
+        const d = await decodeTuCanvas(c, detectorRef.current);
+        if (!d) {
           stableRef.current = { raw: null, dem: 0 };
+          setBox(null);
           return;
+        }
+        const raw = d.raw;
+        // Khung bám: quy đổi vị trí QR (px canvas) → px khung hiển thị (video object-cover).
+        const cont = camRef.current;
+        if (cont && d.box) {
+          const cw = cont.clientWidth, ch = cont.clientHeight, vw = c.width, vh = c.height;
+          const scale = Math.max(cw / vw, ch / vh);
+          const ox = (cw - vw * scale) / 2, oy = (ch - vh * scale) / 2;
+          setBox({ x: d.box.x * scale + ox, y: d.box.y * scale + oy, w: d.box.w * scale, h: d.box.h * scale });
+        } else {
+          setBox(null);
         }
         const st = stableRef.current;
         if (raw === st.raw) st.dem += 1;
@@ -298,13 +402,18 @@ function KhungQuet({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="text-center">
-        <h2 className="text-base font-bold">Quét căn cước</h2>
-        <p className="text-[12px] text-muted-foreground mt-0.5">Đưa mặt trước CCCD gắn chip vào khung — tự nhận, không cần bấm</p>
+    <div className="flex-1 min-h-0 flex flex-col p-4 gap-3">
+      <div className="flex items-center gap-2 shrink-0">
+        <button type="button" onClick={onQuayLai} aria-label="Quay lại" className="w-9 h-9 -ml-1 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors">
+          <Icon name="chevronLeft" className="w-5 h-5" />
+        </button>
+        <div>
+          <h2 className="text-base font-bold leading-tight">Quét căn cước</h2>
+          <p className="text-[11px] text-muted-foreground leading-tight">Đưa mặt trước CCCD vào khung — tự nhận</p>
+        </div>
       </div>
 
-      <div className="relative bg-slate-950 aspect-[3/4] rounded-xl overflow-hidden flex items-center justify-center">
+      <div ref={camRef} className="relative flex-1 min-h-0 bg-slate-950 rounded-xl overflow-hidden flex items-center justify-center">
         {loiCamera ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center">
             <Icon name="warn" className="w-8 h-8 text-warning" />
@@ -313,16 +422,28 @@ function KhungQuet({
         ) : (
           <>
             <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" muted playsInline />
-            {/* khung ngắm góc xanh */}
-            <div className="relative w-[70%] aspect-square pointer-events-none">
-              <span className="absolute -top-0.5 -left-0.5 w-8 h-8 border-t-4 border-l-4 border-success rounded-tl-lg" />
-              <span className="absolute -top-0.5 -right-0.5 w-8 h-8 border-t-4 border-r-4 border-success rounded-tr-lg" />
-              <span className="absolute -bottom-0.5 -left-0.5 w-8 h-8 border-b-4 border-l-4 border-success rounded-bl-lg" />
-              <span className="absolute -bottom-0.5 -right-0.5 w-8 h-8 border-b-4 border-r-4 border-success rounded-br-lg" />
-              {!thanhCong && (
-                <div className="absolute left-2 right-2 h-0.5 bg-success/80 shadow-[0_0_12px_2px] shadow-success animate-pulse" style={{ top: "60%" }} />
+            {/* khung ngắm góc xanh (hướng dẫn) */}
+            <div className="relative w-[64%] aspect-square pointer-events-none">
+              <span className="absolute -top-0.5 -left-0.5 w-8 h-8 border-t-4 border-l-4 border-white/70 rounded-tl-lg" />
+              <span className="absolute -top-0.5 -right-0.5 w-8 h-8 border-t-4 border-r-4 border-white/70 rounded-tr-lg" />
+              <span className="absolute -bottom-0.5 -left-0.5 w-8 h-8 border-b-4 border-l-4 border-white/70 rounded-bl-lg" />
+              <span className="absolute -bottom-0.5 -right-0.5 w-8 h-8 border-b-4 border-r-4 border-white/70 rounded-br-lg" />
+              {!thanhCong && !box && (
+                <div className="absolute left-2 right-2 h-0.5 bg-white/80 shadow-[0_0_12px_2px] shadow-white/50 animate-pulse" style={{ top: "60%" }} />
               )}
             </div>
+            {/* khung BÁM theo QR khi phát hiện (CHANGES #12) */}
+            {box && !thanhCong && (
+              <div
+                className="absolute pointer-events-none border-[3px] border-amber-400 rounded-md transition-all duration-100"
+                style={{ left: box.x, top: box.y, width: box.w, height: box.h, boxShadow: "0 0 0 3px rgba(251,191,36,.28)" }}
+              >
+                <span className="absolute -top-1 -left-1 w-3.5 h-3.5 border-t-[3px] border-l-[3px] border-amber-400" />
+                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 border-t-[3px] border-r-[3px] border-amber-400" />
+                <span className="absolute -bottom-1 -left-1 w-3.5 h-3.5 border-b-[3px] border-l-[3px] border-amber-400" />
+                <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 border-b-[3px] border-r-[3px] border-amber-400" />
+              </div>
+            )}
             {coTorch && (
               <button
                 type="button"
@@ -333,7 +454,6 @@ function KhungQuet({
                 <Icon name="torch" className="w-5 h-5" />
               </button>
             )}
-            <div className="absolute bottom-3 left-3 text-[11px] text-white/70">Đưa mặt trước CCCD vào khung</div>
             {/* hiệu ứng quét thành công */}
             {thanhCong && (
               <>
@@ -349,12 +469,12 @@ function KhungQuet({
       <canvas ref={canvasRef} className="hidden" />
 
       {loi && (
-        <div className="flex items-start gap-2 text-[12px] text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2">
+        <div className="shrink-0 flex items-start gap-2 text-[12px] text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2">
           <Icon name="warn" className="w-4 h-4 shrink-0 mt-0.5" /> {loi}
         </div>
       )}
 
-      <div className="space-y-2">
+      <div className="shrink-0 space-y-2">
         <label className="w-full h-11 rounded-lg border border-border bg-secondary text-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:bg-muted transition-colors cursor-pointer">
           <Icon name="image" className="w-4 h-4" /> Tải ảnh CCCD (đọc QR từ ảnh)
           <input type="file" accept="image/*" className="hidden" onChange={chonAnh} />

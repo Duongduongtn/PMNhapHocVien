@@ -25,8 +25,8 @@ export default function AppLayout() {
   const tenHienThi = user?.ho_ten || user?.username || "—";
   const nhanVaiTro = user ? (NHAN_VAI_TRO[user.vai_tro] ?? user.vai_tro) : "";
   return (
-    <div className="min-h-screen bg-slate-200 lg:bg-[hsl(210_40%_96%)]">
-      <div className="mx-auto w-full max-w-[440px] lg:max-w-[1180px] min-h-screen lg:min-h-0 lg:py-6 flex flex-col lg:flex-row">
+    <div className="min-h-[100dvh] bg-slate-200 lg:bg-[hsl(210_40%_96%)]">
+      <div className="mx-auto w-full max-w-[440px] lg:max-w-[1180px] h-[100dvh] lg:h-auto lg:min-h-0 lg:py-6 flex flex-col lg:flex-row">
         {/* SIDEBAR — chỉ desktop */}
         <aside className="hidden lg:flex flex-col w-60 shrink-0 bg-card border border-border rounded-l-xl">
           <div className="px-4 py-4 flex items-center gap-2 border-b border-border">
@@ -46,16 +46,16 @@ export default function AppLayout() {
 
         {/* CỘT NỘI DUNG */}
         <div className="flex-1 min-w-0 bg-background flex flex-col shadow-xl lg:shadow-none lg:bg-card lg:border lg:border-l-0 lg:border-border lg:rounded-r-xl lg:overflow-hidden">
-          {/* Header — chỉ mobile */}
+          {/* Header — chỉ mobile. Logo là chữ, KHÔNG phải nút (không gây nhầm là camera). */}
           <header className="lg:hidden bg-primary text-primary-foreground px-4 pt-3 pb-3 flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center"><Icon name="scan" className="w-5 h-5" /></div>
-              <div><div className="text-sm font-semibold leading-tight">Thu nhận hồ sơ</div><div className="text-[11px] text-white/70 leading-tight">CSDT 70004</div></div>
+            <div>
+              <div className="text-sm font-semibold leading-tight">Thu nhận hồ sơ</div>
+              <div className="text-[11px] text-white/70 leading-tight">CSDT 70004</div>
             </div>
             <span className="text-[11px] bg-white/15 rounded-full px-2 py-1 max-w-[45%] truncate">{tenHienThi}</span>
           </header>
 
-          <main className="flex-1 overflow-y-auto">
+          <main className="flex-1 min-h-0 overflow-y-auto">
             <Outlet />
           </main>
 

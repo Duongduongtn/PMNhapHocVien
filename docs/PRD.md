@@ -49,7 +49,7 @@
 
 #### [THU-01] Quét QR căn cước + xác nhận/sửa (app web, mobile)
 
-**Trạng thái:** ⏳ Todo — sửa UX sau test điện thoại (CHANGES #12): màn vào không tự mở camera, header logo không phải nút, layout mobile dính đáy, hiệu ứng khung bám QR. Code quét/parse cũ vẫn đúng, chỉ dựng lại phần vào + khung.
+**Trạng thái:** ✅ Done — 01/10/2026. Task 18 (quét QR + parse 6/7 + preview) + task 28 rework UX (CHANGES #12): màn vào chọn Quét/Nhập tay/Tải ảnh (không tự mở camera) · khung bám QR (`boundingBox`) · layout `100dvh` dính đáy · header logo không nút. Kiểm: build OK · Playwright 375/800/1440 (0 tràn, nav dính đáy, 0 lỗi) · review-nghiepvu 6/6 Done + 5 edge. Khung bám QR cần thẻ thật xác nhận (AS-001).
 **Story:** Là nhân viên thu nhận, tôi muốn quét QR căn cước để điền sẵn hồ sơ, để giảm gõ tay.
 
 **Steps to Complete:**
