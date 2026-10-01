@@ -90,6 +90,7 @@
 **Done khi:**
 - ✅ Gửi thành công → bản ghi có UUID, trạng thái `pending` trên VPS.
 - ✅ Xem lại được danh sách bản ghi mình đã gửi.
+- ✅ **Tìm trong danh sách đã gửi** theo **tên (khớp cả có dấu lẫn không dấu)** hoặc **số CCCD**; ô tìm đặt trên đầu danh sách, màn hẹp thu gọn thành **nút kính lúp** (bấm mới bung ô nhập). (CHANGES #10)
 - ✅ Nơi thường trú lấy từ QR (hoặc nhập tay), cho sửa trước khi gửi. Nơi cư trú (tạm trú) **không nhập ở app** — tool mặc định = nơi thường trú khi nạp (BR-004 / TDD §8.1; xem CHANGES #9).
 - ❌ Không xóa phông/căn ảnh ở điện thoại (để tool làm).
 
@@ -131,6 +132,7 @@
 - ✅ Kéo lại nhiều lần không nhân đôi trong staging.
 - ✅ Tool hiển thị ảnh chân dung của từng học viên (như UI.png).
 - ✅ **Màn nạp 2 chế độ** (CHANGES #6): **Nạp hồ sơ** (dropdown khóa chỉ chưa BC1 — NAP-02) · **Tra cứu DB** (QLY-01). Ở chế độ Nạp: hàng chờ VPS gộp **1 danh sách**, lọc **"Cần xử lý" (⚪ chờ + 🔴 lỗi, lỗi đẩy lên đầu) / "Đã nạp" (🟢)**.
+- ✅ **Tìm trong list tải về** (hàng chờ VPS, chế độ Nạp hồ sơ) theo **tên (khớp cả có dấu lẫn không dấu)** hoặc **số CCCD**; ô tìm đặt trên đầu danh sách, màn hẹp thu gọn thành **nút kính lúp**. (CHANGES #10)
 - ✅ **Tên học viên hiển thị IN HOA giữ dấu** ngay khi kéo về (khớp cách ghi DB).
 - ✅ **Cảnh báo "sai chính tả" mức A:** tô dấu hiệu khi tên **thiếu dấu tiếng Việt / có số/ký tự lạ / khoảng trắng thừa** (không dùng từ điển tên — tránh báo nhầm); cảnh báo mềm, nhân viên tự sửa.
 - ✅ **Nạp lô:** HV lỗi (trùng CCCD cùng khóa / thiếu dữ liệu…) **tô đỏ + nêu rõ lý do**; HV nạp được **tô xanh (kèm Số hồ sơ)**; HV khác trong lô vẫn nạp (EC-071).
@@ -274,7 +276,7 @@
 **Story:** Là nhân viên nạp DB, tôi muốn tra cứu và sửa hồ sơ học viên đã có trong DB, để thay phần lớn thao tác của app cũ.
 
 **Done khi:**
-- ✅ **Chế độ "Tra cứu DB"** (CHANGES #6): **tìm khóa theo tên khóa hoặc mã khóa — MỌI khóa, kể cả đã lập BC1** (khác dropdown nạp của NAP-02 vốn ẩn khóa BC1). Chọn khóa → lưới học viên theo khóa (`usp_NguoiLX_Select_By_MaKH`) + tìm theo tên/CCCD/số hồ sơ (`usp_NguoiLX_HoSo_Search`).
+- ✅ **Chế độ "Tra cứu DB"** (CHANGES #6): **tìm khóa theo tên khóa hoặc mã khóa — MỌI khóa, kể cả đã lập BC1** (khác dropdown nạp của NAP-02 vốn ẩn khóa BC1). Chọn khóa → lưới học viên theo khóa (`usp_NguoiLX_Select_By_MaKH`) + tìm theo **tên (khớp cả có dấu lẫn không dấu)**/CCCD/số hồ sơ (`usp_NguoiLX_HoSo_Search`); ô tìm đặt trên đầu lưới, màn hẹp thu gọn thành **nút kính lúp**. (CHANGES #10)
 - ✅ Mở hồ sơ để sửa (`usp_NguoiLX_HoSo_Get_Sua_HS`), sửa thông tin/ảnh/địa chỉ qua `usp_NguoiLX_Update`/`usp_NguoiLX_HoSo_Update`.
 - ✅ Chặn sửa khi khóa đã lập BC1 (badge 🔒 "Đã BC1" — chỉ xem); khóa chưa BC1 sửa được.
 - ❌ Không kết xuất báo cáo (NICE).

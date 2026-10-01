@@ -4,6 +4,7 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 10 | 01/10/2026 | ✏️ Sửa | `THU-02`, `NAP-01`, `QLY-01` | Thêm ô tìm kiếm (tên khớp cả không dấu / CCCD) ở 3 chỗ: app web Hồ sơ đã gửi · tool list tải về · tool lưới khóa. Màn hẹp thu gọn nút kính lúp | ✅ | ✅ | 🟡 prototype còn | ⬜ |
 | 9 | 01/10/2026 | ✏️ Sửa | `THU-02` | Bỏ ô "nhập nơi cư trú khác" ở app thu nhận — chỉ thu nơi thường trú; cư trú để tool mặc định = thường trú (phương án A, không đổi schema) | ✅ | — đã khớp | ✅ demo | ⬜ THU-02 (P2) |
 | 8 | 01/10/2026 | ✏️ Sửa | `HTG-01` | Chốt cách tool xác thực `/local/*` (task 17): option A (tool gọi VPS thay mặt → session cục bộ; collector 403) + A1 miễn token `/local/config*`+`/local/auth/*`. Còn mở: 1 hay n phiên | — | ✅ | — | ✅ task 17 |
 | 7 | 01/10/2026 | ✏️ Sửa | `HTG-01` | TDD §3.2 ghi sót bảng `token_blocklist` (logout thu hồi phiên §5.1) — đồng bộ khi làm task 14 | — | ✅ | — | ✅ task 14 |
@@ -15,6 +16,20 @@
 | 1 | 01/10/2026 | ✏️ Sửa | — | Đổi nơi lưu bảng ánh xạ `DM_DVHC_MAP`: GPLX_CSDT → SQLite cục bộ của tool | — | ✅ | — | ✅ (task 5) |
 
 Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên quan
+
+---
+
+## #10 — Thêm tìm kiếm (tên không dấu + CCCD) ở tool & app web · 01/10/2026
+
+- **Mã:** `THU-02`, `NAP-01`, `QLY-01`. Thêm tính năng trong màn có sẵn, không thêm story mới.
+- **Vì sao:** Chủ dự án muốn tra nhanh học viên bằng tên (gõ không dấu cũng ra) hoặc số CCCD, ở cả tool lẫn app web. Trước đó: app web chỉ lọc theo trạng thái (không tìm); tool list tải về chưa có ô tìm; QLY-01 có tìm tên/CCCD nhưng chưa nêu "khớp không dấu".
+- **Chốt (phương án A, đổi từ B):** ô tìm ở **3 chỗ** — (1) app web `Hồ sơ đã gửi`, (2) tool `list tải về` (chế độ Nạp hồ sơ), (3) tool `lưới khóa` (Tra cứu DB). Khớp theo **tên (chuẩn hóa bỏ dấu cả hai vế) hoặc số CCCD**. UX: ô tìm **đầu danh sách/lưới**; **màn hẹp thu gọn thành nút kính lúp** (bấm mới bung).
+  - *Diễn biến:* hỏi phạm vi → chủ dự án chốt **B** (chỉ tool) → đổi ý ngay sau đó sang **A** (cả app web). Theo A.
+- **Hệ quả trạng thái:** `THU-02` đang ✅ → **hạ ⏳ Todo** (yêu cầu đổi, phải thêm ô tìm; code gửi cũ vẫn đúng nhưng story quay lại hàng đợi). `NAP-01`, `QLY-01` đang ⏳ → chỉ thêm AC.
+- **Kỹ thuật:** app web + tool list tải về lọc **phía client** trên dữ liệu đã tải (không thêm endpoint); QLY-01 lưới khóa tìm qua SP `usp_NguoiLX_HoSo_Search` (collation không phân biệt dấu hoặc chuẩn hóa tương tự). Bỏ dấu = normalize NFD + xóa dấu kết hợp.
+- **Đã sửa:** PRD `THU-02`/`NAP-01`/`QLY-01` (Done khi + hạ trạng thái THU-02) · TDD §6.4 (mới) + §11.1 (note tìm) · `SCREENS.md` (quyết định UX lượt 7).
+- **Còn nợ:** code 3 ô tìm (THU-02 app web, NAP-01 tool, QLY-01 tool) · cập nhật prototype ui-demo cho 3 màn (hoặc dựng trong lúc build màn thật).
+- **Không đụng:** schema DB/VPS (tìm client-side hoặc qua SP sẵn có) · BUILD-PLAN số task (THU-02 task 19, NAP-01 task 20, QLY-01 task 22 — chỉ thêm việc trong task, `/kehoach` bổ sung nếu muốn ghi rõ).
 
 ---
 

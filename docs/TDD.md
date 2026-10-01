@@ -434,6 +434,9 @@ Tách `|`, **6 hoặc 7 trường**: `CCCD(12) | [CMND cũ(9)] | Họ tên | Ng�
 - `uuid` sinh ở client; POST gửi kèm. Mất mạng → giữ nháp (IndexedDB/localStorage), gửi lại cùng uuid (idempotent) khi có mạng.
 - Ảnh thô: JPEG, upload riêng `POST /api/ho-so/:uuid/anh`.
 
+### 6.4 Tìm trong "Hồ sơ đã gửi" (THU-02, CHANGES #10)
+Lọc **phía client** trên danh sách `/api/ho-so/cua-toi` đã tải (không thêm endpoint). Khớp theo **tên hoặc số CCCD**; tên **chuẩn hóa bỏ dấu cả hai vế** (NFD + xóa dấu kết hợp) để gõ không dấu vẫn ra. Ô tìm đặt **đầu danh sách**; màn hẹp thu gọn thành **nút kính lúp**.
+
 ---
 
 ## 7. Hàng đợi thu thập & vòng đời bản ghi (VPS)
@@ -641,6 +644,8 @@ Collector(App web)  VPS(FastAPI/PG)   Operator(Tool)   SQL Server GPLX_CSDT   �
 
 ### 11.1 Tra cứu/sửa (QLY-01)
 **Chế độ "Tra cứu DB" (CHANGES #6):** tìm khóa theo **tên/mã, MỌI khóa kể cả đã BC1** (SELECT `KhoaHoc` lọc theo tên/mã, **KHÔNG** lọc `BaoCaoI` — khác dropdown nạp của NAP-02). Chọn khóa → lưới theo khóa (`usp_NguoiLX_Select_By_MaKH`) + tìm (`usp_NguoiLX_HoSo_Search`) → mở sửa (`usp_NguoiLX_HoSo_Get_Sua_HS`) → `usp_NguoiLX_Update`/`usp_NguoiLX_HoSo_Update`. Khóa đã BC1 → badge 🔒, chặn sửa (BR-012), chỉ xem.
+
+**Tìm trong lưới học viên (CHANGES #10):** khớp theo **tên hoặc số CCCD**; tên **chuẩn hóa bỏ dấu cả hai vế** (NFD + xóa dấu kết hợp) để gõ không dấu vẫn ra. QLY-01 tìm qua SP `usp_NguoiLX_HoSo_Search` (collation không phân biệt dấu, hoặc chuẩn hóa tương tự); NAP-01 (list tải về, hàng chờ VPS) lọc phía client trên staging SQLite đã kéo. UI chung: ô tìm đặt **đầu danh sách/lưới**; màn hẹp thu gọn thành **nút kính lúp** (bấm mới bung ô nhập).
 
 ### 11.2 Đổi khóa (QLY-02) — vòng đời file ảnh
 ```

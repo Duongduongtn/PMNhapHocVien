@@ -3,6 +3,7 @@ import { Icon } from "../components/Icon";
 import { ApiError, dsDaGui, type HoSoOut } from "../lib/api";
 import { dsNhap } from "../lib/draft";
 import { dangKyGuiLai, guiLaiTatCa } from "../lib/gui";
+import { khopTim } from "../lib/text";
 
 // THU-02 — Hồ sơ nhân viên đã gửi lên VPS (GET /api/ho-so/cua-toi) + nháp còn chờ gửi (offline).
 // Bám bố cục ui-demo/src/pages/app/DaGui.tsx: lọc tab, mobile card / desktop table, modal chi tiết.
@@ -54,6 +55,8 @@ export default function DaGui() {
   const [loc, setLoc] = useState<Loc>("all");
   const [sel, setSel] = useState<HoSoOut | null>(null);
   const [soNhap, setSoNhap] = useState(0);
+  const [q, setQ] = useState("");
+  const [moTim, setMoTim] = useState(false);
 
   async function tai() {
     setLoi(null);
@@ -75,14 +78,41 @@ export default function DaGui() {
     void tai();
   }, []);
 
-  const rows = (ds ?? []).filter((h) => loc === "all" || h.trang_thai === loc);
+  const rows = (ds ?? []).filter((h) => (loc === "all" || h.trang_thai === loc) && khopTim(q, h.ho_ten, h.so_cccd));
   const dem = (t: string) => (ds ?? []).filter((h) => h.trang_thai === t).length;
+  const rong = q.trim() ? "Không tìm thấy hồ sơ khớp." : "Chưa có hồ sơ nào ở nhóm này.";
 
   return (
     <div className="lg:p-6 lg:max-w-5xl lg:mx-auto">
       <div className="p-4 lg:p-0 lg:mb-4">
-        <h2 className="text-base font-bold">Hồ sơ tôi đã gửi</h2>
+        <div className="flex items-start gap-2">
+          <h2 className="text-base font-bold">Hồ sơ tôi đã gửi</h2>
+          {/* Tìm kiếm — desktop hiện ô, mobile thu gọn nút kính lúp */}
+          <div className="hidden lg:block ml-auto relative w-64 shrink-0">
+            <Icon name="search" className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input className="field-input pl-9" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm tên hoặc số CCCD" aria-label="Tìm hồ sơ" />
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setMoTim((v) => !v);
+              if (moTim) setQ("");
+            }}
+            aria-label={moTim ? "Đóng tìm kiếm" : "Tìm kiếm"}
+            className="lg:hidden ml-auto w-10 h-10 rounded-lg border border-border flex items-center justify-center shrink-0 text-muted-foreground hover:bg-muted transition-colors"
+          >
+            <Icon name={moTim ? "x" : "search"} className="w-5 h-5" />
+          </button>
+        </div>
         <p className="text-[12px] text-muted-foreground mt-0.5">Học viên bạn đã quét/gửi lên hệ thống. Bấm để xem chi tiết.</p>
+
+        {/* Ô tìm bung ra ở mobile */}
+        {moTim && (
+          <div className="lg:hidden mt-2 relative">
+            <Icon name="search" className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input autoFocus className="field-input pl-9" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm tên (gõ không dấu cũng được) hoặc số CCCD" aria-label="Tìm hồ sơ" />
+          </div>
+        )}
 
         {soNhap > 0 && (
           <div className="mt-3 flex items-center gap-2 text-[12px] text-warning bg-warning/10 border border-warning/30 rounded-lg px-3 py-2">
@@ -150,7 +180,7 @@ export default function DaGui() {
                 <TrangThaiChip tt={h.trang_thai} />
               </button>
             ))}
-            {!rows.length && <div className="px-4 py-10 text-center text-sm text-muted-foreground">Chưa có hồ sơ nào ở nhóm này.</div>}
+            {!rows.length && <div className="px-4 py-10 text-center text-sm text-muted-foreground">{rong}</div>}
           </div>
 
           {/* DESKTOP: table */}
@@ -183,7 +213,7 @@ export default function DaGui() {
                 ))}
               </tbody>
             </table>
-            {!rows.length && <div className="px-4 py-10 text-center text-sm text-muted-foreground">Chưa có hồ sơ nào ở nhóm này.</div>}
+            {!rows.length && <div className="px-4 py-10 text-center text-sm text-muted-foreground">{rong}</div>}
           </div>
         </>
       )}
