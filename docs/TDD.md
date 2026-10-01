@@ -179,6 +179,16 @@ CREATE TABLE audit_log (
 );
 
 -- ────────────────────────────────────────────
+-- TOKEN BLOCKLIST (logout thu hồi phiên — xem §5.1)
+-- jti token đã đăng xuất, giữ tới khi token hết hạn (exp) rồi dọn.
+-- ────────────────────────────────────────────
+CREATE TABLE token_blocklist (
+  jti        UUID PRIMARY KEY,
+  exp        TIMESTAMPTZ NOT NULL,                 -- hết hạn gốc của token → tới đây dọn được
+  revoked_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ────────────────────────────────────────────
 -- INDEXES
 -- ────────────────────────────────────────────
 CREATE INDEX idx_hstt_trangthai ON ho_so_thu_thap(trang_thai);
@@ -186,6 +196,7 @@ CREATE INDEX idx_hstt_pending_time ON ho_so_thu_thap(created_at) WHERE trang_tha
 CREATE INDEX idx_hstt_cccd ON ho_so_thu_thap(so_cccd);
 CREATE INDEX idx_hstt_creator ON ho_so_thu_thap(created_by);   -- lọc /api/ho-so/cua-toi theo collector
 CREATE INDEX idx_audit_created ON audit_log(created_at);
+CREATE INDEX idx_blocklist_exp ON token_blocklist(exp);         -- job dọn token hết hạn
 ```
 
 ### 3.3 Bảng tra cứu DVHC — SQLite CỤC BỘ của tool (KHÔNG trong GPLX_CSDT)
@@ -757,6 +768,7 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 |---|---|---|
+| 01/10/2026 | 1.8 | §3.2 bổ sung bảng `token_blocklist` (+ index `idx_blocklist_exp`) — §5.1 đã mô tả logout ghi jti vào blocklist nhưng schema §3.2 ghi sót; đồng bộ khi làm task 14 (HTG-01②). Xem CHANGES.md #7. |
 | 30/09/2026 | 1.0 | TDD đầu tiên — thiết kế đầy đủ từ PRD v2 (chế độ phỏng vấn 3 câu + PRD) |
 | 30/09/2026 | 1.2 | Verify DB thật: `TT_XuLy` phụ thuộc ảnh (có ảnh→`03`, chưa ảnh→`01`), `ChatLuongAnh`=1/NULL theo ảnh; `TrangThai`=1 không đổi theo ảnh (§10.2). |
 | 30/09/2026 | 1.1 | Sửa sau review TDD: chống trùng SoHoSo bằng `sp_getapplock` (§10); dọn `NguoiLX` mồ côi; tách họ tên + validate độ dài cột; màn Cấu hình + endpoint `/local/config*`; kiểm `is_active`/vai trò mỗi request + blocklist logout; IDOR theo `created_by`; validate ảnh upload; bỏ `duplicate` khỏi enum; timeout khóa 15'; sửa chuẩn hóa tiền tố DVHC; rembg warm-up; +3 sơ đồ (sequence, ma trận quyền, state machine); +index; +ghi chú bảo mật |
