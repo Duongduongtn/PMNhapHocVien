@@ -62,8 +62,9 @@ jobs:
           command_timeout: 10m
           script: |
             set -e
-            # Empty isolated docker config: anonymous pull of PUBLIC images, avoid stale ghcr cred (trap 4).
+            # Empty isolated docker config each run: anonymous pull of PUBLIC images, no stale ghcr cred (trap 4/17).
             export DOCKER_CONFIG=/tmp/pmnhap-docker
+            rm -rf "$DOCKER_CONFIG"
             mkdir -p "$DOCKER_CONFIG"
             cd "${{ secrets.VPS_APP_PATH }}"
             export IMAGE_TAG_API=${{ env.IMG_API }}:${{ github.sha }}
