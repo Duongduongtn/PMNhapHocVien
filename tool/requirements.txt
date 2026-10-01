@@ -7,7 +7,7 @@ pytest>=8.0,<9.0
 httpx>=0.27,<1.0
 cryptography>=43        # mã hóa config cục bộ (HTG-01, task 4)
 pymssql>=2.3            # nối SQL Server qua SP (task 4+)
-
-# Thêm ở các task sau (cài khi tới):
-# Pillow>=10.4          # xuất .jp2               (NAP-04, task 8)
-# rembg>=2.0            # xóa phông nền trắng     (NAP-04, task 8)
+Pillow>=10.4            # căn/xuất ảnh .jp2 (JPEG 2000)   (NAP-04, task 8)
+rembg>=2.0             # xóa phông → nền trắng (u2net)   (NAP-04, task 8)
+onnxruntime>=1.17      # backend cho rembg               (NAP-04, task 8)
+python-multipart>=0.0.9 # nhận upload ảnh (POST /local/anh/xu-ly) (NAP-04)

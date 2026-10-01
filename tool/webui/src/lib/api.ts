@@ -83,3 +83,18 @@ export const mapDiaChi = (dc: { tinh: string; huyen: string; xa: string }) =>
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(dc),
   }).then(json<MapKetQua>);
+
+export interface AnhKetQua {
+  preview: string; // data URL PNG (xem trước)
+  jp2_b64: string; // .jp2 base64 — NAP-05 dùng để ghi file
+  w: number;
+  h: number;
+}
+
+export const xuLyAnh = (file: File, box: string, xoaPhong: boolean) => {
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("box", box);
+  fd.append("xoa_phong", String(xoaPhong));
+  return fetch(`${BASE}/local/anh/xu-ly`, { method: "POST", body: fd }).then(json<AnhKetQua>);
+};

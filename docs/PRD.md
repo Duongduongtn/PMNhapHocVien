@@ -176,7 +176,7 @@
 
 #### [NAP-04] Căn ảnh + xóa phông trắng + xuất .jp2
 
-**Trạng thái:** ⏳ Todo
+**Trạng thái:** ⚠️ Partial — xử lý ảnh (crop 3:4 + rembg nền trắng + `.jp2` 353×471 RGB) đã verify; CÒN: mở thử `.jp2` bằng app cũ thật (1c) — kiểm tay 1 lần khi triển khai
 **Story:** Là nhân viên nạp DB, tôi muốn căn khung chân dung, xóa phông thành nền trắng và xuất `.jp2`, để ảnh đúng chuẩn app cũ.
 
 **Steps to Complete:**

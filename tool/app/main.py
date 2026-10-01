@@ -7,9 +7,13 @@ xử lý ảnh, nạp) được thêm ở các task sau theo docs/BUILD-PLAN.md.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+import os
+import threading
+
 from app.routers import config as config_router
 from app.routers import khoahoc as khoahoc_router
 from app.routers import dvhc as dvhc_router
+from app.routers import anh as anh_router
 
 app = FastAPI(
     title="Tool nạp DB — Thu nhận hồ sơ học viên",
@@ -32,6 +36,23 @@ app.add_middleware(
 app.include_router(config_router.router)
 app.include_router(khoahoc_router.router)
 app.include_router(dvhc_router.router)
+app.include_router(anh_router.router)
+
+
+@app.on_event("startup")
+def _warmup_rembg() -> None:
+    """Nạp sẵn model rembg ở thread nền (§9.2) — không chặn khởi động, không gãy nếu lỗi."""
+    if os.environ.get("TOOL_SKIP_WARMUP") == "1":
+        return
+    from app import image
+
+    def _run():
+        try:
+            image.warmup()
+        except Exception:
+            pass  # offline/thiếu model → để lần xử lý ảnh đầu tự nạp (chậm hơn)
+
+    threading.Thread(target=_run, daemon=True).start()
 
 
 @app.get("/health")

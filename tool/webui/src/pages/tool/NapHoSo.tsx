@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Icon } from "../../components/Icon";
 import AddressCombo from "../../components/AddressCombo";
+import AnhModal from "../../components/AnhModal";
 import { getKhoaHoc, type KhoaHoc, type LoaiXe } from "../../lib/api";
 
 // NAP-02: chọn Mô tô/Ô tô + khóa chưa lập BC1, suy hạng/MaLoaiHs theo khóa.
@@ -11,6 +12,7 @@ export default function NapHoSo() {
   const [maKh, setMaKh] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string>("");
+  const [anhOpen, setAnhOpen] = useState(false);
 
   useEffect(() => {
     let huy = false;
@@ -111,10 +113,28 @@ export default function NapHoSo() {
         <AddressCombo />
       </div>
 
-      {/* Phần còn lại của màn Nạp dựng ở task sau (NAP-01/04/05/06) */}
-      <div className="mx-4 mb-4 rounded-lg border border-dashed border-border bg-muted/30 px-4 py-8 text-center text-[13px] text-muted-foreground">
-        Danh sách học viên · Thông tin cá nhân · Ảnh — dựng ở các bước tiếp theo (NAP-01, NAP-04…NAP-06).
+      {/* NAP-04: ảnh chân dung */}
+      <div className="mx-4 mb-4 rounded-lg border border-border bg-card p-4 flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Icon name="file" className="w-4 h-4 text-primary" />
+          <span className="text-sm font-bold">Ảnh chân dung</span>
+          <span className="text-[11px] font-semibold text-primary bg-primary/10 rounded-full px-2 py-0.5">NAP-04</span>
+        </div>
+        <span className="text-[12px] text-muted-foreground">Căn 3:4, xóa phông nền trắng, xuất .jp2 353×471.</span>
+        <button
+          onClick={() => setAnhOpen(true)}
+          className="ml-auto inline-flex items-center gap-2 h-9 px-4 rounded-lg border border-primary text-primary font-semibold text-sm hover:bg-primary/5 transition-colors"
+        >
+          <Icon name="file" className="w-4 h-4" /> Mở trình chỉnh ảnh
+        </button>
       </div>
+
+      {/* Phần còn lại của màn Nạp dựng ở task sau (NAP-01/05/06) */}
+      <div className="mx-4 mb-4 rounded-lg border border-dashed border-border bg-muted/30 px-4 py-8 text-center text-[13px] text-muted-foreground">
+        Danh sách học viên · Thông tin cá nhân · ghép Nạp — dựng ở các bước tiếp theo (NAP-01, NAP-05, NAP-06).
+      </div>
+
+      {anhOpen && <AnhModal onDong={() => setAnhOpen(false)} />}
     </div>
   );
 }
