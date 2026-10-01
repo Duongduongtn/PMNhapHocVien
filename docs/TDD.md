@@ -267,6 +267,7 @@ POST /api/ho-so                 Gửi hồ sơ mới (uuid client-gen, idempoten
 GET  /api/ho-so/cua-toi         DS mình đã gửi
 PUT  /api/ho-so/:uuid           Sửa (khi pending)
 POST /api/ho-so/:uuid/anh       Upload ảnh thô (multipart)
+GET  /api/ho-so/:uuid/anh       Tải lại ảnh thô CỦA MÌNH (hiện thumbnail list/chi tiết — THU-02, CHANGES #12)
 ```
 
 ### 4.4 Nạp (tool — operator, kèm X-Tool-Key)
@@ -436,6 +437,13 @@ Tách `|`, **6 hoặc 7 trường**: `CCCD(12) | [CMND cũ(9)] | Họ tên | Ng�
 
 ### 6.4 Tìm trong "Hồ sơ đã gửi" (THU-02, CHANGES #10)
 Lọc **phía client** trên danh sách `/api/ho-so/cua-toi` đã tải (không thêm endpoint). Khớp theo **tên hoặc số CCCD**; tên **chuẩn hóa bỏ dấu cả hai vế** (NFD + xóa dấu kết hợp) để gõ không dấu vẫn ra. Ô tìm đặt **đầu danh sách**; màn hẹp thu gọn thành **nút kính lúp**.
+
+### 6.5 UX app web sau test điện thoại (THU-01/THU-02, CHANGES #12)
+*Vì sao: test thật trên điện thoại lộ ra camera tự mở gây giật, nút tụt khỏi tầm nhìn, không xem lại được hồ sơ đã gửi.*
+- **Màn vào không tự mở camera** (THU-01): landing cho chọn Quét QR / Nhập tay / Tải ảnh; `getUserMedia` chỉ gọi khi bấm Quét (đỡ xin quyền đột ngột + hao pin).
+- **Khung bám QR** (THU-01): BarcodeDetector trả `cornerPoints` (4 góc QR trong khung hình) → vẽ khung khóa theo mã khi bắt trúng. Fallback qr-scanner không có tọa độ → giữ khung ngắm tĩnh.
+- **Layout mobile 1 màn** (THU-01, AppLayout): dùng `height:100%`/`100dvh` thay `100vh` (thanh URL mobile), khung camera `flex` co giãn, **bottom-nav + nút hành động chính dính đáy** (`position:sticky`/flex shrink-0), không cuộn mới thấy. Logo header là trang trí — bỏ nền/bo dáng nút.
+- **Xem lại + ảnh thật + sửa/chụp lại** (THU-02): danh sách & chi tiết "đã gửi" hiện ảnh thật qua `GET /api/ho-so/:uuid/anh` (của mình, kiểm `created_by` — chống IDOR như `_cua_minh`); modal chi tiết khi `pending` cho **Sửa** (`PUT /api/ho-so/:uuid`) + **Chụp/đổi ảnh** (`POST .../anh`); `importing`/`imported` → chỉ xem (server trả 409 nếu cố sửa).
 
 ---
 
@@ -800,6 +808,7 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 |---|---|---|
+| 01/10/2026 | 2.1 | Sửa UX app web sau test điện thoại (CHANGES #12): §4.3 thêm `GET /api/ho-so/:uuid/anh` (collector tải ảnh của mình); §6.5 mới (màn vào không tự mở camera, khung bám QR `cornerPoints`, layout `100dvh` dính đáy, xem/sửa/chụp lại hồ sơ chờ nạp). THU-01/THU-02 hạ ⏳. |
 | 01/10/2026 | 2.0 | §7.2 ghi rõ **kéo KHÔNG khóa** (bản ghi còn sửa ở app web tới lúc nạp) → tool **kéo lại làm tươi** bản `keo_ve` trạng thái `cho` (NAP-01, CHANGES #11); không khóa-khi-kéo để tránh kẹt + job 15' lật ngược. |
 | 01/10/2026 | 1.8 | §3.2 bổ sung bảng `token_blocklist` (+ index `idx_blocklist_exp`) — §5.1 đã mô tả logout ghi jti vào blocklist nhưng schema §3.2 ghi sót; đồng bộ khi làm task 14 (HTG-01②). Xem CHANGES.md #7. |
 | 30/09/2026 | 1.0 | TDD đầu tiên — thiết kế đầy đủ từ PRD v2 (chế độ phỏng vấn 3 câu + PRD) |

@@ -49,21 +49,22 @@
 
 #### [THU-01] Quét QR căn cước + xác nhận/sửa (app web, mobile)
 
-**Trạng thái:** ✅ Done
+**Trạng thái:** ⏳ Todo — sửa UX sau test điện thoại (CHANGES #12): màn vào không tự mở camera, header logo không phải nút, layout mobile dính đáy, hiệu ứng khung bám QR. Code quét/parse cũ vẫn đúng, chỉ dựng lại phần vào + khung.
 **Story:** Là nhân viên thu nhận, tôi muốn quét QR căn cước để điền sẵn hồ sơ, để giảm gõ tay.
 
 **Steps to Complete:**
-1. Mở app web, bật **camera sau** (`facingMode: {ideal:'environment'}`, ~1080p); best-effort `focusMode: continuous` + zoom 2x + nút đèn flash (torch).
-2. Đưa **mặt trước** CCCD gắn chip (QR ở góc trên phải) vào khung; tùy chọn nhận diện viền thẻ (jscanify + OpenCV.js) vẽ khung 4 cạnh; tự giải mã liên tục, không cần bấm chụp.
+1. Mở app web → **màn vào** cho chọn: **Quét QR CCCD** / **Nhập tay** / **Tải ảnh CCCD**. Camera **chỉ bật khi bấm "Quét QR"** (không tự mở sau đăng nhập — CHANGES #12).
+2. Bấm Quét → bật **camera sau** (`facingMode: {ideal:'environment'}`, ~1080p); best-effort `focusMode: continuous` + zoom 2x + nút đèn flash (torch). Tự giải mã liên tục, không cần bấm chụp.
 3. Giải mã bằng **BarcodeDetector API** (native, nhanh) → fallback **qr-scanner (ZXing)** khi trình duyệt không hỗ trợ; **auto-capture** khi kết quả ổn định ~2 frame (~500ms).
 4. Quét được → **hiệu ứng quét OK** (app tự thiết kế riêng: rung + đổi màu + tick ✓) rồi hiện màn preview.
 5. Parse chuỗi QR (chuẩn Bộ Công an 2021) → hiện các trường **cho sửa** trước khi giữ.
 
 **Done khi:**
+- ✅ **Màn vào không tự mở camera** — cho chọn Quét QR / Nhập tay / Tải ảnh; camera bật khi bấm Quét (CHANGES #12).
 - ✅ Quét mặt trước CCCD gắn chip hợp lệ → điền đúng: CCCD (12 số), [CMND cũ 9 số nếu có], họ tên, ngày sinh (ddMMyyyy → lưu yyyymmdd), giới tính (Nam/Nữ), nơi thường trú, ngày cấp.
 - ✅ Chuỗi QR **6 hoặc 7 trường** (tách `|`, CMND cũ tùy có) đều parse được; sai định dạng → báo lỗi rõ (số trường / CCCD ≠ 12 số...).
-- ✅ Có khung ngắm + auto-capture khi ổn định; hiệu ứng báo quét thành công; mọi trường sửa được.
-- ✅ Trên điện thoại: giao diện dạng app mobile (theo NFR Responsive).
+- ✅ **Khung quét bám theo mã** khi bắt trúng (dùng 4 góc `cornerPoints` của BarcodeDetector) — không phải khung xanh tĩnh; vẫn auto-capture khi ổn định; hiệu ứng báo thành công; mọi trường sửa được. (CHANGES #12)
+- ✅ Trên điện thoại (NFR Responsive): layout **vừa một màn** (`100dvh`), khung camera co giãn, **thanh điều hướng + nút hành động chính dính đáy**, không phải cuộn để thấy nút. **Logo header không phải nút** (bỏ dáng camera bấm được). (CHANGES #12)
 - ✅ Decoder: BarcodeDetector native + fallback qr-scanner (ZXing) — tham khảo cách quét từ dự án webThanhdat; hiệu ứng thiết kế riêng.
 - ❌ Không OCR chữ trên thẻ; ảnh thẻ chỉ dùng cắt ảnh chân dung.
 
@@ -71,6 +72,7 @@
 | Tình huống | Hành vi mong muốn |
 |---|---|
 | QR mờ/không đọc được | Fallback: đọc QR từ **ảnh CCCD tải lên/chụp sẵn**, hoặc **nhập tay** (THU-02) |
+| Trình duyệt không trả `cornerPoints` (qr-scanner fallback) | Dùng khung ngắm tĩnh + hiệu ứng vạch quét; không chặn |
 | Camera bị chặn quyền / đang bận / thiếu HTTPS | Báo lỗi cụ thể theo từng ca + gợi ý nhập tay |
 | Chuỗi QR sai số trường / CCCD ≠ 12 số | Báo lỗi rõ, không tự điền bừa |
 | CCCD ghi ngày sinh chỉ có năm | Lưu yyyy0000, cho nạp |
@@ -79,7 +81,7 @@
 
 #### [THU-02] Nhập tay + chụp ảnh + gửi VPS (app web)
 
-**Trạng thái:** ✅ Done
+**Trạng thái:** ⏳ Todo — sửa UX sau test điện thoại (CHANGES #12): hiện ảnh thật ở list/chi tiết + cho xem lại/sửa/chụp lại hồ sơ còn chờ nạp. Code gửi/offline/ô tìm cũ vẫn đúng, chỉ bổ sung xem-lại + ảnh thật.
 **Story:** Là nhân viên thu nhận, tôi muốn nhập tay và chụp ảnh chân dung rồi gửi lên VPS, để thu thập được cả khi không quét được QR.
 
 **Steps to Complete:**
@@ -90,6 +92,8 @@
 **Done khi:**
 - ✅ Gửi thành công → bản ghi có UUID, trạng thái `pending` trên VPS.
 - ✅ Xem lại được danh sách bản ghi mình đã gửi.
+- ✅ **Hiện ảnh chân dung thật** (thumbnail) ở danh sách + chi tiết hồ sơ đã gửi (không còn icon xám) — nhân viên tải lại ảnh của **chính mình** qua endpoint mới (TDD §4.3). (CHANGES #12)
+- ✅ **Bấm hồ sơ đã gửi → xem chi tiết**; khi còn **Chờ nạp** cho **Sửa thông tin** + **Chụp/đổi ảnh** (server cho sửa lúc `pending`); khi **Đang nạp/Đã nạp** thì **chỉ xem**. (CHANGES #12)
 - ✅ **Tìm trong danh sách đã gửi** theo **tên (khớp cả có dấu lẫn không dấu)** hoặc **số CCCD**; ô tìm đặt trên đầu danh sách, màn hẹp thu gọn thành **nút kính lúp** (bấm mới bung ô nhập). (CHANGES #10)
 - ✅ Nơi thường trú lấy từ QR (hoặc nhập tay), cho sửa trước khi gửi. Nơi cư trú (tạm trú) **không nhập ở app** — tool mặc định = nơi thường trú khi nạp (BR-004 / TDD §8.1; xem CHANGES #9).
 - ❌ Không xóa phông/căn ảnh ở điện thoại (để tool làm).
@@ -98,6 +102,7 @@
 | Tình huống | Hành vi mong muốn |
 |---|---|
 | Mất mạng khi gửi | Giữ nháp, gửi lại tự động khi có mạng; idempotent theo UUID (không tạo 2 bản ghi) |
+| Sửa/chụp lại hồ sơ vừa bị tool khóa (`importing`) | Server trả 409 → báo "hồ sơ đã vào nạp, không sửa được", chuyển về chỉ xem |
 | Nhập thiếu trường bắt buộc (SoCMT) | Cảnh báo, chưa cho gửi |
 | Họ tên/địa chỉ vượt độ dài cột DB (HoVaTen ≤50, HoDemNLX ≤30, TenNLX ≤20, HoVaTenIn ≤25) | Cảnh báo + cho sửa/cắt trước khi nạp, giữ dấu tiếng Việt; không để SP lỗi |
 
@@ -470,3 +475,4 @@
 | 01/10/2026 | v2.2 — sau review TDD §10 (CHANGES #5): NAP-05 đổi tiêu đề "3 SP"→"1 SP gộp app cũ" + nới ❌ cho UPDATE 5 cột ảnh (hướng A); thêm story **QLY-05** Nạp/thay ảnh cho HV đã có (làm sau NAP-05) | PM |
 | 01/10/2026 | v2.3 — UX màn nạp (CHANGES #6): NAP-01 thêm IA 2 chế độ (Nạp/Tra cứu), tên IN HOA khi kéo, check chính tả mức A, nạp lô badge đỏ/xanh; QLY-01 tìm khóa mọi khóa (kể cả BC1); NFR ⑥ chuẩn cảnh báo inline nổi bật; NAP-06 hạ ⏳ (làm banner nổi bật) | PM |
 | 01/10/2026 | v2.4 — NAP-01 thêm AC "kéo lại làm tươi hồ sơ chưa nạp" + edge case (CHANGES #11); hạ NAP-01 ✅→⏳ Todo (yêu cầu thêm, code ①/② cũ vẫn đúng) | PM |
+| 01/10/2026 | v2.5 — sửa UX app web sau test điện thoại (CHANGES #12): THU-01 (màn vào không tự mở camera, header logo không phải nút, layout mobile dính đáy, khung bám QR) + THU-02 (ảnh thật ở list/chi tiết, xem/sửa/chụp lại hồ sơ chờ nạp); hạ THU-01 & THU-02 ✅→⏳ Todo | PM |

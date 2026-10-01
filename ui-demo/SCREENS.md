@@ -70,6 +70,9 @@ Chú thích: ✅ Xong · 🟡 Placeholder · ⬜ Chưa có route
 | /tool/nap | Chuẩn cảnh báo (CHANGES #6) | Inline **nổi bật** (banner nền/viền/icon) + **nêu rõ nguyên nhân**, KHÔNG modal. Trạng thái dùng màu + icon + chữ (phủ mù màu) | 6 |
 | /tool/nap · /app/da-gui | Ô tìm kiếm (CHANGES #10) | Tìm theo **tên (khớp cả không dấu)** hoặc **CCCD**. Đặt **đầu danh sách/lưới**: tool list tải về (chế độ Nạp), tool lưới khóa (Tra cứu DB), app web Hồ sơ đã gửi. **Màn hẹp thu gọn thành nút kính lúp** (bấm mới bung ô nhập). App web KHÔNG nằm trong B cũ — chốt lại A (cả 3 chỗ) | 7 |
 | /tool/nap (chế độ Nạp) | Kéo lại làm tươi (CHANGES #11) | Bấm "Kéo về từ VPS" lần nữa **cập nhật** hồ sơ còn **chờ nạp** (collector sửa ở app web sau khi đã kéo → nhận bản mới); giữ nguyên bản đã nạp/đã lỗi. Báo số hồ sơ vừa làm tươi | 8 |
+| /app/quet | Màn vào + camera (CHANGES #12) | **Không tự mở camera** sau đăng nhập — màn vào cho chọn **Quét QR / Nhập tay / Tải ảnh**; camera chỉ bật khi bấm Quét. **Khung bám theo QR** khi bắt trúng (4 góc `cornerPoints`), không phải khung tĩnh | 9 |
+| App web (AppLayout) | Layout mobile dính đáy + header (CHANGES #12) | `100dvh` + khung camera co giãn → **bottom-nav 3 nút + nút hành động chính dính đáy**, không cuộn mới thấy. **Logo header là trang trí** (bỏ dáng nút, tránh nhầm là camera) | 9 |
+| /app/da-gui | Ảnh thật + xem/sửa/chụp lại (CHANGES #12) | List & chi tiết hiện **ảnh chân dung thật** (`GET /api/ho-so/:uuid/anh` của mình). Modal chi tiết: hồ sơ **Chờ nạp** → **Sửa thông tin + Chụp/đổi ảnh**; **Đang/Đã nạp** → chỉ xem | 9 |
 
 ## Component dùng chung
 

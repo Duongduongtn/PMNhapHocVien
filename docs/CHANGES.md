@@ -4,6 +4,7 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 12 | 01/10/2026 | ✏️ Sửa | `THU-01`, `THU-02` | Sửa UX app web sau test điện thoại: màn vào không tự mở camera (chọn Quét/Nhập tay), header logo không phải nút, layout mobile dính đáy, khung bám QR; ảnh thật + xem/sửa/chụp lại hồ sơ chờ nạp (+endpoint tải ảnh của mình) | ✅ | ✅ | 🟡 ghi UX | ⬜ |
 | 11 | 01/10/2026 | ✏️ Sửa | `NAP-01` | "Kéo về từ VPS" làm tươi hồ sơ chưa nạp (collector sửa ở app web sau khi tool đã kéo → tool nhận bản mới); kéo không khóa | ✅ | ✅ | — nút có sẵn | ✅ |
 | 10 | 01/10/2026 | ✏️ Sửa | `THU-02`, `NAP-01`, `QLY-01` | Thêm ô tìm kiếm (tên khớp cả không dấu / CCCD) ở 3 chỗ: app web Hồ sơ đã gửi · tool list tải về · tool lưới khóa. Màn hẹp thu gọn nút kính lúp | ✅ | ✅ | 🟡 prototype còn | ⬜ |
 | 9 | 01/10/2026 | ✏️ Sửa | `THU-02` | Bỏ ô "nhập nơi cư trú khác" ở app thu nhận — chỉ thu nơi thường trú; cư trú để tool mặc định = thường trú (phương án A, không đổi schema) | ✅ | — đã khớp | ✅ demo | ⬜ THU-02 (P2) |
@@ -17,6 +18,25 @@
 | 1 | 01/10/2026 | ✏️ Sửa | — | Đổi nơi lưu bảng ánh xạ `DM_DVHC_MAP`: GPLX_CSDT → SQLite cục bộ của tool | — | ✅ | — | ✅ (task 5) |
 
 Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên quan
+
+---
+
+## #12 — Sửa UX app web sau test điện thoại thật (THU-01/THU-02) · 01/10/2026
+
+- **Mã:** `THU-01`, `THU-02`. Sửa giao diện/luồng, không thêm story mới.
+- **Vì sao:** deploy app web lên VPS (`nhaphocvien.trungtamthanhdat.com`) test trên điện thoại thật, chủ dự án thấy 6 điểm UX chưa tốt. Wireframe đã duyệt trước khi ghi sổ.
+- **Chốt (6 điểm):**
+  1. **Màn vào không tự mở camera** (THU-01) — cho chọn **Quét QR / Nhập tay / Tải ảnh CCCD**; camera chỉ bật khi bấm Quét.
+  2. **Header logo không phải nút** (AppLayout) — bỏ nền/bo dáng nút để không nhầm là camera.
+  3. **Hiện ảnh thật** (THU-02) — thumbnail ở list + chi tiết "đã gửi" thay icon xám; cần endpoint collector tải ảnh của mình.
+  4. **Xem/sửa/chụp lại** (THU-02) — bấm hồ sơ đã gửi → chi tiết; còn **Chờ nạp** cho Sửa thông tin + Chụp/đổi ảnh; **Đang/Đã nạp** chỉ xem.
+  5. **Layout mobile dính đáy** (THU-01/AppLayout) — `100dvh` + khung camera co giãn + bottom-nav & nút chính dính đáy, không cuộn mới thấy.
+  6. **Khung bám QR** (THU-01) — dùng 4 góc `cornerPoints` của BarcodeDetector vẽ khung khóa theo mã, thay khung xanh tĩnh.
+- **Hệ quả trạng thái:** `THU-01` & `THU-02` đang ✅ → **hạ ⏳ Todo** (đổi giao diện). Code quét/parse/gửi/offline/ô tìm cũ vẫn đúng, chỉ dựng lại phần vào + xem lại + ảnh.
+- **Kỹ thuật:** thêm **1 endpoint** `GET /api/ho-so/:uuid/anh` (collector, kiểm `created_by` chống IDOR). Sửa/đổi ảnh dùng `PUT /api/ho-so/:uuid` + `POST .../anh` (server đã cho khi `pending`). Khung bám QR dùng `cornerPoints` (fallback qr-scanner không có → khung tĩnh).
+- **Đã sửa:** PRD `THU-01`/`THU-02` (Done + Steps + Edge + hạ ⏳) + Changelog v2.5 · TDD §4.3 (endpoint) + §6.5 (mới) + Changelog v2.1 · SCREENS.md (3 quyết định UX lượt 9).
+- **Còn nợ:** code webapp (Quet.tsx, DaGui.tsx, AppLayout.tsx, api.ts) + server (`GET .../anh` collector + test) · `/kehoach` bổ sung task rework (task 18/19 đã [x]) · cập nhật prototype ui-demo nếu muốn.
+- **Không đụng:** schema DB/VPS · tool · luồng nạp.
 
 ---
 
