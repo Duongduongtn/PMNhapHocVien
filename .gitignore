@@ -3,6 +3,8 @@
 DBcu/
 # UI.png: ảnh màn app cũ, có thể lộ HV thật
 UI.png
+# Screenshot_*.png: ảnh chụp app cũ gửi vào để đối chiếu — lộ tên/CCCD/địa chỉ HV thật
+Screenshot_*.png
 # bangiaoprompt.md: file bàn giao tạm (/bangiao sinh lại), chứa thông số kết nối
 bangiaoprompt.md
 # anh-kiem/: ảnh kiểm Playwright
