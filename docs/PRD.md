@@ -198,9 +198,9 @@
 
 > Nguồn: CAP-007 · BR-010, BR-019 · EC-022, EC-041
 
-#### [NAP-05] Sinh Số hồ sơ + nạp DB qua 3 SP + giấy tờ
+#### [NAP-05] Sinh Số hồ sơ + nạp DB qua 1 SP gộp app cũ + giấy tờ
 
-**Trạng thái:** ⏳ Todo — thiết kế nạp đổi 01/10/2026 (CHANGES.md #4): chuyển 3 SP rời → 1 SP gộp app cũ (AS-003 phát hiện 3 SP rời lệch app cũ 5 field, không set được CHON_IN_GPLX). Code task 9+10 cũ (843819a) phải làm lại. Phần tái dùng được: form nhập tay, checklist giấy tờ, route skeleton, logic SoHoSo/tách tên.
+**Trạng thái:** 🔄 In Progress — code lại trên 1 SP gộp app cũ hướng A (CHANGES #4/#5); task 9 (orchestration `nap.py`) + AS-003 trước, task 10 (route+UI) sau.
 **Story:** Là nhân viên nạp DB, tôi muốn nạp học viên vào khóa qua stored procedure có sẵn, để hồ sơ hiện đúng trên app cũ.
 
 **Steps to Complete:**
@@ -214,7 +214,7 @@
 - ✅ **Giá trị khớp app cũ (verify AS-003 01/10/2026):** `HoVaTen`/`HoVaTenIn` **IN HOA giữ dấu**; `MaQuocTich=VNM` (không "VN" — vỡ FK); `NoiTT`/`NoiCT` **trống**, địa chỉ hành chính lấy từ mã DVHC, ô Chi tiết riêng (không nhét tên xã vào NoiTT gây lặp); `DonViHocLX=NULL`; `CHON_IN_GPLX=2`.
 - ✅ Giấy tờ mặc định nộp đủ theo `DM_LoaiHSo_GiayTo` (hạng B/A → 3 giấy tờ), `TenGT` lấy đầy đủ từ `DM_GiayTo`; **ghi theo trạng thái tick cuối của người dùng** (bỏ tick được và được tôn trọng khi nạp, không auto ghi đè về "đủ").
 - ✅ Nạp trong transaction; lỗi giữa chừng → rollback, giữ `pending`.
-- ❌ Không INSERT/UPDATE bảng trực tiếp (chỉ qua SP).
+- ❌ Không INSERT/UPDATE bảng trực tiếp cho dữ liệu hồ sơ (chỉ qua SP gộp). **Ngoại lệ (01/10/2026, CHANGES #5):** được UPDATE thẳng 5 cột ảnh `NguoiLX_HoSo` (`DuongDanAnh`, `ChatLuongAnh`, `TT_XuLy`, `NgayThuNhanAnh`, `NguoiThuNhanAnh`) sau khi ghi `.jp2` — vì SP gộp không ghi ảnh (hướng A, TDD §10.3).
 
 **Edge cases:**
 | Tình huống | Hành vi mong muốn |
@@ -307,6 +307,32 @@
 - ❌ Không xóa cứng file ảnh.
 
 > Nguồn: CAP-012 · BR-014 · EC-021
+
+#### [QLY-05] Nạp/thay ảnh cho học viên đã có
+
+**Trạng thái:** ⏳ Todo — thêm 01/10/2026 (CHANGES #5), làm SAU NAP-05
+**Story:** Là nhân viên nạp DB, tôi muốn bổ sung ảnh cho học viên đã nạp hồ sơ nhưng chưa có ảnh, hoặc thay ảnh mới cho học viên đã có ảnh, để hoàn tất/chuẩn hóa hồ sơ mà không phải nhập lại từ đầu.
+
+**Steps to Complete:**
+1. Trên màn tra cứu/quản lý HV, lọc học viên theo tình trạng ảnh (chưa có ảnh `TT_XuLy='01'` / đã có ảnh `'03'`).
+2. Chọn HV → căn ảnh + xóa phông + xuất `.jp2` (dùng lại luồng NAP-04).
+3. Ghi `.jp2` theo `MaDK` (ghi đè nếu đã có) + UPDATE 5 cột ảnh `NguoiLX_HoSo`, nâng/giữ `TT_XuLy='03'` (hướng A, TDD §10.3).
+
+**Done khi:**
+- ✅ Màn tra cứu có bộ lọc theo tình trạng ảnh; hiện đúng danh sách HV chưa ảnh / đã có ảnh.
+- ✅ Bổ sung ảnh (HV `'01'`): `.jp2` ghi tại `<IMG_PATH_CSDT>\<MaKhoaHoc>\<MaDK>.jp2`; `DuongDanAnh`/`ChatLuongAnh=1`/`TT_XuLy='03'`/`NgayThuNhanAnh` cập nhật; mở app cũ thấy ảnh.
+- ✅ Thay ảnh (HV `'03'`): ghi đè đúng file `.jp2` cùng tên; cập nhật lại `DuongDanAnh`/`ChatLuongAnh`/`NgayThuNhanAnh`; có cảnh báo trước khi ghi đè ảnh cũ.
+- ✅ Dùng lại đúng luồng xử lý ảnh NAP-04 (crop 3:4 + nền trắng + 353×471).
+- ❌ Không tạo bản ghi HV mới (chỉ cập nhật HV đã có).
+
+**Edge cases:**
+| Tình huống | Hành vi mong muốn |
+|---|---|
+| App cũ đang mở/khóa file `.jp2` của HV đó | Báo không ghi được file đang bị khóa, yêu cầu đóng app cũ rồi thử lại |
+| Ghi `.jp2` lỗi | Giữ nguyên trạng thái ảnh cũ (`'01'` hoặc file cũ), báo lỗi, cho thử lại |
+| UPDATE cột ảnh lỗi sau khi đã ghi file | Retry UPDATE theo `MaDK`; không tạo HV mới |
+
+> Nguồn: review TDD §10 (01/10/2026, CHANGES #5) · dùng lại NAP-04 · BR-010, BR-011 · TDD §10.3 hướng A
 
 #### [HTG-03] Bộ lọc & xóa PII thủ công trên VPS
 
@@ -429,3 +455,4 @@
 | 30/09/2026 | v1 — draft đầu tiên (từ tài liệu BA, chế độ B) | BA/PM |
 | 30/09/2026 | v2 — sửa sau review: số lượng user; khung ảnh 3:4 grab + nền trắng + xuất 353×471; Done NAP-05 khớp trường cụ thể; giấy tờ theo tick cuối; edge đồng thời (2 tool/double-click) + tên dài; metric ≥80%; +4 giả định; QR 6/7 trường | PM |
 | 01/10/2026 | v2.1 — chốt 4 ô [CHƯA CHỐT]: ⑧ baseline ~100 HV/khóa & ~3 phút/HV; ⑨ budget (VPS/domain có sẵn, không phát sinh) · timeline (không deadline, giao tăng dần) · team size (1 người, tuần tự) | PM |
+| 01/10/2026 | v2.2 — sau review TDD §10 (CHANGES #5): NAP-05 đổi tiêu đề "3 SP"→"1 SP gộp app cũ" + nới ❌ cho UPDATE 5 cột ảnh (hướng A); thêm story **QLY-05** Nạp/thay ảnh cho HV đã có (làm sau NAP-05) | PM |

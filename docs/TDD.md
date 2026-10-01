@@ -504,13 +504,20 @@ Chọn loại (mô tô/ô tô) → khóa chưa BC1 → nhập/chọn HV → map 
   → kiểm trùng CCCD trong khóa (BR-005) → khóa bản ghi VPS (lock: pending→importing)
   → sp_getapplock(@Resource = MaKhoaHoc, @LockMode='Exclusive')   ◀── chặn tranh SoHoSo cả 2 máy [PH-3.1]
      → SoHoSo = RIGHT('000' + (MAX(SoHoSo theo khóa)+1), 3)        (đọc MAX trong applock)
-     → EXEC usp_QuangLA_PM4_ThuNhanHS_ThemMoiCapNhat               ◀── 1 SP gộp app cũ, atomic (SP tự transaction)
-         32 tham số @p_* khớp 1:1 form "Thu nhận HS": MaKH, MaHangGPLX, HangDaoTao, MaDK, SoHoSo,
-         HoVaTen, HoVaTenIn (IN HOA), NgaySinh, GioiTinh, MaQuocTich(=VNM), SoCMT, NgayCap, NoiCap,
-         MaDVHC_TT + ChiTiet_TT, MaDVHC_CT + ChiTiet_CT, SoNamLX, SoKmLX, GiayTo (danh sách MaGT),
-         GPLX đã có…, GhiChu, SO_CMND_CU, CHON_IN_GPLX(=2) → @p_out trả MaDK/kết quả
-         → SP ghi NguoiLX + NguoiLX_HoSo + giấy tờ + CHON_IN_GPLX trong MỘT lần
-     → ghi file .jp2 (tên = MaDK) vào <IMG_PATH từ QTHT_ThamSoHT>\<MaKhoaHoc>\
+     → EXEC usp_QuangLA_PM4_ThuNhanHS_ThemMoiCapNhat  @p_MaDK=NULL OUTPUT, @p_SoHoSo=<SoHoSo>, …
+         ◀── 1 SP gộp app cũ, atomic (SP tự transaction). @p_MaDK=NULL → SP TỰ SINH MaDK
+         (dạng 70004-<yyyyMMddHHmmssfff>, hàm CreateNewMaDK) trả về qua OUTPUT.
+         32 tham số @p_* khớp 1:1 form "Thu nhận HS": MaKH, MaHangGPLX, HangDaoTao, SoHoSo,
+         HoVaTen (IN HOA — SP TỰ TÁCH Ho/Ten), HoVaTenIn, NgaySinh, GioiTinh, MaQuocTich(=VNM),
+         SoCMT, NgayCap, NoiCap, MaDVHC_TT + ChiTiet_TT, MaDVHC_CT + ChiTiet_CT, SoNamLX, SoKmLX,
+         GiayTo (danh sách MaGT), GPLX đã có…, GhiChu, SO_CMND_CU, CHON_IN_GPLX(=2)
+         → SP ghi NguoiLX + NguoiLX_HoSo (TT_XuLy='01', CHƯA ảnh) + giấy tờ trong MỘT lần
+         → @p_out: 0=OK · -1 trùng SoHoSo · -2 trùng CMT · -3 thiếu thâm niên · -4 thiếu km
+           (SP KHÔNG raiserror → tool PHẢI đọc @p_out; ≠0 → SP không insert → báo lỗi, giữ pending)
+     → CÓ ảnh:  ghi file .jp2 (tên = MaDK) vào <IMG_PATH_CSDT từ QTHT_ThamSoHT>\<MaKhoaHoc>\
+                → UPDATE NguoiLX_HoSo SET DuongDanAnh=<đường dẫn TUYỆT ĐỐI .jp2>, ChatLuongAnh=1,
+                  TT_XuLy='03', NgayThuNhanAnh=getdate(), NguoiThuNhanAnh='' WHERE MaDK   ◀── hướng A
+       CHƯA ảnh: bỏ 2 bước trên → giữ TT_XuLy='01', DuongDanAnh NULL (BR-011; bổ sung ảnh sau)
   → sp_releaseapplock(@Resource = MaKhoaHoc)
   → VPS: da_nap (ma_dk)
 ```
@@ -519,9 +526,12 @@ Chọn loại (mô tô/ô tô) → khóa chưa BC1 → nhập/chọn HV → map 
 > điều 3 SP rời (`usp_NguoiLX_Insert`+`HoSo_Insert`+`GiayTo_Insert`) không đạt được vì **không có
 > tham số `CHON_IN_GPLX`** và ghi lệch nhiều field (AS-003 01/10/2026, xem CHANGES #4). SP atomic
 > trong một lần → **bỏ compensation 3 bước thủ công** (§10.3).
-> **Cần chốt khi implement (đọc thân SP):** SP tự sinh `MaDK`/`SoHoSo` hay caller truyền (SP có
-> `@p_MaDK`, `@p_SoHoSo` + tham chiếu `CreateNewMaDK`); cách SP ghi `DuongDanAnh` (không nằm trong
-> 32 tham số — nhiều khả năng SP tự dựng từ `MaDK`+config) → quyết thứ tự ghi .jp2 vs gọi SP.
+> **Đã đọc thân SP (01/10/2026) — chốt:** caller truyền `@p_MaDK=NULL` → SP tự sinh `MaDK`
+> (`70004-<yyyyMMddHHmmssfff>`, hàm `CreateNewMaDK`) và trả qua OUTPUT; `@p_SoHoSo` **caller truyền**
+> (SP không sinh). **SP KHÔNG ghi ảnh** — không có cột `DuongDanAnh`/`ChatLuongAnh`/`TT_XuLy='03'`
+> trong thân; set `TT_XuLy='01'` lúc tạo (vì `KIEM_TRA_ANH='fpt@'` ≠ `'fpt@123'`). → tool ghi `.jp2`
+> rồi **UPDATE 5 cột ảnh thẳng** `NguoiLX_HoSo` nâng `'03'` (hướng A, CHANGES #5); chưa ảnh giữ `'01'`.
+> SP cũng **tự tách họ tên** từ `@p_HoVaTen` (tool không truyền `HoDem`/`Ten` riêng).
 > `sp_getapplock`/`sp_releaseapplock` giữ theo `MaKhoaHoc` (session-scoped) để `SoHoSo` (không UNIQUE)
 > không trùng khi 2 máy nạp cùng khóa (EC-011).
 
@@ -540,22 +550,25 @@ Collector(App web)  VPS(FastAPI/PG)   Operator(Tool)   SQL Server GPLX_CSDT   �
      │                   │                 │◀───── ok ─────────│                  │
 7    │                   │       sp_getapplock(MaKhoaHoc) ─────▶│   ◀── [PH-3.1]  │
      │                   │       SoHoSo = MAX+1 (trong applock) ▶│                 │
-     │                   │       EXEC usp_QuangLA_PM4_ThuNhanHS_ThemMoiCapNhat ▶│ →MaDK (@p_out) │
-     │                   │         (NguoiLX + HoSo + giấy tờ + CHON_IN_GPLX, atomic)│              │
-     │                   │       ghi .jp2 (tên = MaDK) ─────────┼────────────────▶│
+     │                   │       EXEC …ThemMoiCapNhat (@p_MaDK=NULL OUT) ▶│ →MaDK, @p_out │
+     │                   │         (NguoiLX + HoSo[TT_XuLy='01'] + giấy tờ, atomic)│             │
+     │                   │       @p_out≠0 → lỗi nghiệp vụ, KHÔNG ghi ảnh, giữ pending           │
+     │                   │       [có ảnh] ghi .jp2 (tên=MaDK) ──┼────────────────▶│
+     │                   │       [có ảnh] UPDATE HoSo: ảnh + TT_XuLy='03' ▶│ ◀── hướng A │
      │                   │       sp_releaseapplock ────────────▶│                 │
-     │                   │       ⚠ SP lỗi → SP tự rollback (atomic); chỉ xóa .jp2 nếu đã ghi; giữ pending │
+     │                   │       ⚠ SP lỗi → tự rollback (tool SET XACT_ABORT ON); .jp2 lỗi → giữ '01' (chưa ảnh); UPDATE lỗi → retry │
 8    │           POST /:uuid/da-nap(+MaDK) ◀│                   │                  │
      │           imported ─────────────────▶│ xóa staging + ảnh thô               │
 ```
 
 ### 10.2 Giá trị suy ra (verify DB thật)
-- `MaLoaiHs`: hạng khóa `A*`→1 (mô tô), `B/C/D/E/F`→2 (ô tô).
-- `MaHTCap=CM_VN`, `Transfer_flag=0`, `GiayCNSK=1`, `MaCSDT=70004`, `MaSoGTVT=70` (từ khóa).
-- **`TT_XuLy` phụ thuộc ẢNH (verify DB thật 30/09/2026):** có ảnh → `TT_XuLy='03'` + `ChatLuongAnh=1` (+ `NgayThuNhanAnh`,`NguoiThuNhanAnh`); **chưa có ảnh → `TT_XuLy='01'`, `ChatLuongAnh=NULL`, không ghi `DuongDanAnh`** (BR-011 cho nạp thiếu ảnh). Bằng chứng: khóa `70004K26B010` 55/55 HV đều `03`+ảnh; toàn bảng `01` chỉ xuất hiện khi không ảnh (93 bản), `03` chỉ khi có ảnh (2.256 bản). Khi bổ sung ảnh sau (đổi khóa/sửa) → nâng `01`→`03`.
+- `MaLoaiHs` (SP tự tính): `HangDT` chứa `'-'` (nâng hạng) → **3**; `HangGPLX` chứa `'A'` → **1** (mô tô); còn lại → **2** (ô tô).
+- `MaHTCap=CM_VN`, `Transfer_flag=0`, `MaCSDT=70004`, `MaSoGTVT=70` (SP tự tính từ khóa).
+- `GiayCNSK`: SP set **1 chỉ khi** `@p_GiayTo` chứa `'3,'` (giấy khám sức khỏe, MaGT=3); bỏ tick giấy 3 → **0** (không phải hằng số).
+- **`TT_XuLy` (SP luôn set `'01'` lúc tạo — xác nhận thân SP + `KIEM_TRA_ANH='fpt@'`; tool nâng `'03'` ở bước UPDATE ảnh, hướng A):** có ảnh → `TT_XuLy='03'` + `ChatLuongAnh=1` (+ `NgayThuNhanAnh`,`NguoiThuNhanAnh`); **chưa có ảnh → `TT_XuLy='01'`, `ChatLuongAnh=NULL`, không ghi `DuongDanAnh`** (BR-011 cho nạp thiếu ảnh). Bằng chứng: khóa `70004K26B010` 55/55 HV đều `03`+ảnh; toàn bảng `01` chỉ xuất hiện khi không ảnh (93 bản), `03` chỉ khi có ảnh (2.256 bản). Khi bổ sung ảnh sau (đổi khóa/sửa) → nâng `01`→`03`.
 - **`TrangThai=1` khi tạo — KHÔNG đổi theo ảnh** (=0 chỉ khi vô hiệu hóa về sau).
 - Giấy tờ: theo **trạng thái tick cuối** của user (mặc định đủ 3, bỏ tick được — BR-009/5.1); truyền danh sách `MaGT` đã tick qua `@p_GiayTo`; `TenGT` đầy đủ từ `DM_GiayTo` (SP tự lo hoặc tra khi dựng @p_GiayTo).
-- **Tách họ tên (EC-030):** app web lưu `ho_ten` một chuỗi; tool tách khi nạp — `TenNLX` = **từ cuối**, `HoDemNLX` = **phần còn lại**, `HoVaTen` = tên đầy đủ. **TẤT CẢ IN HOA GIỮ DẤU** ("NGUYỄN VĂN AN") — verify AS-003: 55/55 HV khóa B-K149 `HoVaTen` in hoa. **`HoVaTenIn` = `HoVaTen` cắt ≤25, cũng IN HOA giữ dấu** (39.752/39.778 = 99,93% `HoVaTenIn` ≡ `HoVaTen`) — **KHÔNG bỏ dấu**. Trước nạp kiểm độ dài từng cột (≤50/30/20/25); vượt → cảnh báo cho cắt tay.
+- **Tách họ tên (EC-030):** app web lưu `ho_ten` một chuỗi; **SP TỰ TÁCH** khi nạp (tool chỉ truyền `@p_HoVaTen` đầy đủ + `@p_HoVaTenIn`; tool tách chỉ để KIỂM ĐỘ DÀI từng cột, KHÔNG truyền `HoDem`/`Ten` riêng — SP không có tham số đó). SP tách: `TenNLX` = **từ cuối**, `HoDemNLX` = **phần còn lại**, `HoVaTen` = tên đầy đủ. **TẤT CẢ IN HOA GIỮ DẤU** ("NGUYỄN VĂN AN") — verify AS-003: 55/55 HV khóa B-K149 `HoVaTen` in hoa. **`HoVaTenIn` = `HoVaTen` cắt ≤25, cũng IN HOA giữ dấu** (39.752/39.778 = 99,93% `HoVaTenIn` ≡ `HoVaTen`) — **KHÔNG bỏ dấu**. Trước nạp kiểm độ dài từng cột (≤50/30/20/25); vượt → cảnh báo cho cắt tay.
 - **Field map khớp app cũ (verify AS-003 01/10/2026, khóa B-K149):**
   - `MaQuocTich = 'VNM'` (chuẩn ISO alpha-3 = `DM_QuocTich.Ma`; **"VN" vỡ `FK_NguoiLX_DM_QuocTich`**).
   - `NoiTT`/`NoiCT` = **chi tiết địa chỉ (số nhà/thôn), mặc định TRỐNG** — 55/55 HV thật để trống; địa chỉ hành chính nằm ở `NoiTT_MaDVHC`/`NoiTT_MaDVQL` (2 cấp: xã + tỉnh). **KHÔNG nhét tên xã vào `NoiTT`** (gây app hiển thị lặp Địa chỉ + Chi tiết). Tương ứng `@p_MaDVHC_TT`+`@p_ChiTiet_TT` (và `_CT`).
@@ -563,10 +576,12 @@ Collector(App web)  VPS(FastAPI/PG)   Operator(Tool)   SQL Server GPLX_CSDT   �
   - `CHON_IN_GPLX = 2` (55/55 thật = 2; "Chọn in GPLX" bắt buộc; chỉ SP gộp set được — cột default 0).
 
 ### 10.3 Ca lỗi / concurrency (đổi 01/10/2026 — SP gộp atomic)
-- **SP gộp tự transaction → KHÔNG cần compensation 3 bước:** `usp_QuangLA_PM4_ThuNhanHS_ThemMoiCapNhat` ghi NguoiLX + NguoiLX_HoSo + giấy tờ trong một SP; SP lỗi thì SP tự rollback → không để lại bản ghi nửa vời. (Khác hẳn 3 SP rời cũ, mỗi SP tự commit nên phải bù trừ tay — đã bỏ.)
-- **Chỉ còn lo file `.jp2` lệch bản ghi:**
-  - Ghi `.jp2` **trước** khi gọi SP (cần đường dẫn truyền vào) → SP lỗi thì xóa `.jp2` vừa ghi.
-  - Ghi `.jp2` **sau** SP (dùng `MaDK` SP trả) → ghi file lỗi thì bản ghi đã có nhưng thiếu ảnh → xóa qua `usp_NguoiLX_Delete` (cascade) hoặc cho retry ghi file. **Thứ tự chốt khi đọc thân SP** (§10.1): SP có tự dựng `DuongDanAnh` từ `MaDK` không.
+- **SP gộp tự transaction → KHÔNG cần compensation 3 bước:** `usp_QuangLA_PM4_ThuNhanHS_ThemMoiCapNhat` ghi NguoiLX + NguoiLX_HoSo + giấy tờ trong một SP; SP lỗi thì SP tự rollback → không để lại bản ghi nửa vời. (Khác hẳn 3 SP rời cũ, mỗi SP tự commit nên phải bù trừ tay — đã bỏ.) **⚠ SP dùng `IF @@error<>0 ROLLBACK` (không TRY/CATCH) → tool `SET XACT_ABORT ON` trước EXEC để lỗi runtime (vd vỡ FK) chắc chắn rollback, không treo transaction.**
+- **Lỗi nghiệp vụ qua `@p_out` (SP KHÔNG raiserror):** `-1` trùng SoHoSo · `-2` trùng CMT · `-3` thiếu thâm niên · `-4` thiếu km. Tool PHẢI đọc `@p_out`; `≠0` → SP không insert → báo lỗi nghiệp vụ, giữ `pending`. **Đừng chỉ bắt exception** — SP lỗi nghiệp vụ không ném lỗi, chỉ `SELECT @p_out`.
+- **Ghi ảnh là bước RIÊNG sau SP (SP không đụng ảnh — đã đọc thân SP):** thứ tự = gọi SP (nhận `MaDK`) → ghi `.jp2` theo `MaDK` → UPDATE 5 cột ảnh (hướng A).
+  - `.jp2` ghi lỗi → KHÔNG UPDATE → HV giữ `TT_XuLy='01'`, `DuongDanAnh` NULL = **"có hồ sơ, chưa ảnh"** (hợp lệ BR-011; bổ sung ảnh sau bằng tool hoặc app cũ) — không phải rác, KHÔNG cần xóa HV.
+  - UPDATE cột ảnh lỗi (ảnh đã ghi, DB chưa trỏ) → **retry UPDATE** theo `MaDK`; không cần xóa HV.
+  - Nạp "chưa ảnh" chủ động (user bỏ trống ảnh) → bỏ cả 2 bước ảnh, giữ `'01'`.
 - **Chống tạo trùng khi bấm lại (mạng timeout):** server lưu `uuid → MaDK` đã nạp xong vào `staging.sqlite` (bảng `nap_xong`); request lại cùng `uuid` → trả kết quả cũ, không gọi SP lần 2 (idempotent, verify AS-003). Giữ cờ `madk_dang_nap` theo uuid để dọn mồ côi nếu tool chết giữa khe.
 - Mất kết nối DB giữa chừng → SP rollback, giữ `pending`, cho thử lại (EC-061).
 - Nạp lô, 1 HV lỗi → các HV khác vẫn nạp, HV lỗi giữ pending + báo dòng (EC-071); nạp tuần tự trong lô, hiện tiến độ.
@@ -600,6 +615,10 @@ Khác hạng: hướng xóa tạo lại.
 
 ### 11.4 Tạo khóa (KHO-01)
 Chọn hạng ĐT từ `DM_HangDT` → `usp_KhoaHoc_Insert` (mã tự sinh). `HangGPLX` suy từ hạng ĐT qua `DM_HangGPLX.MaHangMoi`.
+
+### 11.5 Nạp/thay ảnh cho HV đã có (QLY-05)
+Làm SAU NAP-05, **dùng lại cơ chế ghi ảnh hướng A** (§10.3) — không gọi SP tạo hồ sơ. Luồng: màn tra cứu lọc HV theo tình trạng ảnh (`TT_XuLy='01'` chưa ảnh / `'03'` đã ảnh) → chọn HV → xử lý ảnh (tái dùng NAP-04: crop 3:4 + nền trắng + `.jp2` 353×471) → ghi `.jp2` tại `<IMG_PATH_CSDT>\<MaKhoaHoc>\<MaDK>.jp2` (ghi đè nếu đã có) → UPDATE 5 cột ảnh `NguoiLX_HoSo` (`DuongDanAnh`, `ChatLuongAnh=1`, `TT_XuLy='03'`, `NgayThuNhanAnh=getdate()`, `NguoiThuNhanAnh`) WHERE `MaDK`. Chỉ cập nhật HV đã có, không tạo bản ghi mới.
+*Ca lỗi:* app cũ đang khóa file `.jp2` → báo đóng app cũ rồi thử lại; ghi `.jp2` lỗi → giữ trạng thái ảnh cũ; UPDATE lỗi → retry theo `MaDK` (§10.3).
 
 ---
 
@@ -741,3 +760,5 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 | 30/09/2026 | 1.1 | Sửa sau review TDD: chống trùng SoHoSo bằng `sp_getapplock` (§10); dọn `NguoiLX` mồ côi; tách họ tên + validate độ dài cột; màn Cấu hình + endpoint `/local/config*`; kiểm `is_active`/vai trò mỗi request + blocklist logout; IDOR theo `created_by`; validate ảnh upload; bỏ `duplicate` khỏi enum; timeout khóa 15'; sửa chuẩn hóa tiền tố DVHC; rembg warm-up; +3 sơ đồ (sequence, ma trận quyền, state machine); +index; +ghi chú bảo mật |
 | 01/10/2026 | 1.3 | Đổi nơi lưu `DM_DVHC_MAP`: GPLX_CSDT → **SQLite cục bộ tool** (tool tự dựng từ dataset đóng kèm + đọc `DM_DVHC` máy đích); production chỉ ĐỌC; tool mang đi cài máy khác không phụ thuộc máy hiện tại. §3.3, §8.2, sơ đồ §2.1, TDD-decisions §5. Xem CHANGES.md #1. |
 | 01/10/2026 | 1.4 | **Đổi đường nạp HV: 3 SP rời → 1 SP gộp app cũ** `usp_QuangLA_PM4_ThuNhanHS_ThemMoiCapNhat` (§10.1, §10.1b, §10.2 field map, §10.3 bỏ compensation thủ công; TDD-decisions §10). AS-003 (nạp thử HV thật) phát hiện 3 SP rời lệch app cũ 5 field (IN HOA, địa chỉ mã+chi tiết, `DonViHocLX` NULL, `CHON_IN_GPLX`=2, `MaQuocTich`=VNM). Xem CHANGES.md #4. |
+| 01/10/2026 | 1.6 | Thêm §11.5 Nạp/thay ảnh cho HV đã có (QLY-05) — dùng lại hướng A §10.3, làm sau NAP-05. Xem CHANGES.md #5. |
+| 01/10/2026 | 1.5 | Sửa sau review TDD (đọc thân SP + verify DB thật): **SP không ghi ảnh** → thêm bước UPDATE 5 cột ảnh (hướng A) nâng `TT_XuLy` `01`→`03`, chưa ảnh giữ `01` (§10.1, §10.1b, §10.3); chốt `@p_MaDK=NULL`→SP sinh (OUTPUT), `SoHoSo` caller truyền, SP tự tách họ tên; xử lý mã lỗi `@p_out` (-1..-4, SP không raiserror) + `SET XACT_ABORT ON`; sửa `GiayCNSK` (theo giấy 3) + `MaLoaiHs` (thêm case 3) + tên tham số `IMG_PATH_CSDT`. Biên bản `docs/tdd-review-01-10-2026.md`. |

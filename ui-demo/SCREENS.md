@@ -37,6 +37,7 @@ Prototype là tham chiếu **style/layout**, không phải scaffold thật.
 | 9 | Tra cứu & sửa hồ sơ đã có | QLY-01 | `/tool/nap` (tab DB → drawer Xem/Sửa) | ✅ Xong | 4 |
 | 10 | Đổi khóa + di chuyển ảnh | QLY-02 | `/tool/nap` (drawer → dialog Đổi khóa) | ✅ Xong | 4 |
 | 11 | Xóa học viên + xóa mềm ảnh | QLY-03 | `/tool/nap` (drawer → dialog Xóa) | ✅ Xong | 4 |
+| 12 | Nạp/thay ảnh cho HV đã có | QLY-05 | `/tool/nap` (lọc tình trạng ảnh + drawer → dialog Nạp/thay ảnh) | ⬜ Chưa có route | — |
 | — | Hàng đợi VPS + xóa PII 30 ngày | HTG-02 | (backend, không có UI) | ⬜ Không dựng | — |
 | — | Kết xuất Excel (NICE) | QLY-04 | (mới có nút, chưa luồng) | ⬜ NICE — sau | — |
 | — | Offline app web (NICE) | THU-03 | — | ⬜ NICE — sau | — |
