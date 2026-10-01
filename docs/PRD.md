@@ -118,7 +118,7 @@
 
 #### [NAP-01] Tool kéo hàng đợi + chống trùng
 
-**Trạng thái:** ⚠️ Partial — ① backend XONG (01/10): kéo VPS→staging (dedup UUID, ngày cấp ISO→yyyymmdd), proxy ảnh thô, nạp lô lock→nạp→da-nap/unlock; +2 vá server (`ngay_cap_cccd` vào `KeoOut`, `GET /api/nap/:uuid/anh`); tool 70 + server 56 test pass. CÒN ② UI: IA 2 chế độ + badge ⚪🔴🟢 + ô tìm không dấu/CCCD + IN HOA + cảnh báo chính tả mức A (chưa dựng). review-nghiepvu + soát GĐ chạy khi ② đóng story
+**Trạng thái:** ✅ Done — 01/10/2026. ① backend: kéo VPS→staging (dedup UUID, ngày cấp ISO→yyyymmdd), proxy ảnh thô, nạp lô lock→nạp→da-nap/unlock; +2 vá server (`ngay_cap_cccd` vào `KeoOut`, `GET /api/nap/:uuid/anh`). ② UI `/tool/nap`: IA 2 chế độ (Nạp + Tra cứu stub QLY-01), hàng chờ nạp lô ⚪🔴🟢 (lỗi lên đầu), ô tìm tên-không-dấu/CCCD (màn hẹp thu gọn kính lúp), tên IN HOA, cảnh báo chính tả mức A, banner nổi bật. Kiểm: tool 70 + server 56 test pass · Playwright 375/800/1440 (0 tràn, 0 lỗi JS) · review-nghiepvu 9/9 Done + EC-071 đủ. (Tra cứu DB = QLY-01 task 22)
 **Story:** Là nhân viên nạp DB, tôi muốn kéo danh sách học viên chờ nạp về tool, để xử lý và nạp vào DB.
 
 **Steps to Complete:**

@@ -153,6 +153,8 @@ export interface NapIn {
   ngay_sinh: string; // yyyymmdd
   gioi_tinh: string; // 'M' | 'F'
   so_cmt: string;
+  ngay_cap_cmt?: string; // yyyymmdd (SP convert style 112); từ hàng kéo về
+  noi_cap_cmt?: string;
   chi_tiet_tt?: string; // số nhà/thôn — mặc định trống (NoiTT); KHÔNG nhét tên xã
   noi_tt_ma_dvhc: string;
   noi_tt_ma_dvql: string;
@@ -196,3 +198,64 @@ export const kiemTrungCccd = async (
     return { trung: false, so_ho_so: null };
   }
 };
+
+// ── NAP-01: kéo hàng đợi VPS → staging + nạp lô ──
+export interface KeoVeRow {
+  uuid: string;
+  so_cccd: string | null;
+  so_cmnd_cu: string | null;
+  ho_ten: string | null;
+  ngay_sinh: string | null; // yyyymmdd
+  gioi_tinh: string | null;
+  noi_tt_raw: string | null;
+  ngay_cap: string | null; // yyyymmdd (đã đổi từ ISO)
+  noi_cap_cccd: string | null;
+  co_anh: number; // 0/1
+  created_at: string | null;
+  trang_thai: "cho" | "loi" | "xong";
+  loi: string | null;
+  ma_dk: string | null;
+  so_ho_so: string | null;
+}
+
+// Kéo trọn bản ghi pending từ VPS về staging. Trả số mới thêm + tổng trong staging.
+export const keoHangDoi = () =>
+  fetch(`${BASE}/local/nap/keo`, { method: "POST", headers: authHeaders() }).then(
+    json<{ keo_ve: number; tong: number }>,
+  );
+
+export const getDanhSachKeoVe = () =>
+  fetch(`${BASE}/local/nap/danh-sach`, { headers: authHeaders() }).then(json<KeoVeRow[]>);
+
+// Ảnh thô cần Bearer → tải bằng fetch rồi tạo object URL (thẻ <img> không gửi header được).
+// Chưa có ảnh (404) → null.
+export const taiAnhKeoVe = async (uuid: string): Promise<string | null> => {
+  const r = await fetch(`${BASE}/local/nap/keo/${uuid}/anh`, { headers: authHeaders() });
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+  return URL.createObjectURL(await r.blob());
+};
+
+export interface NapLoDong {
+  uuid: string;
+  ok: boolean;
+  ma_dk?: string;
+  so_ho_so?: string;
+  so_giay_to?: number;
+  loi?: string;
+}
+
+export interface NapLoKetQua {
+  tong: number;
+  thanh_cong: number;
+  that_bai: number;
+  ket_qua: NapLoDong[];
+}
+
+// Nạp lô các HV đã chuẩn bị đủ (khóa + địa chỉ + giấy tờ + ảnh). 1 lỗi không hỏng cả lô.
+export const napLo = (items: NapIn[]) =>
+  fetch(`${BASE}/local/nap/nap-lo`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ items }),
+  }).then(json<NapLoKetQua>);
