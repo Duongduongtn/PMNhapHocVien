@@ -1,7 +1,7 @@
 """NAP-05 (2/2) — nạp 1 HV vào GPLX_CSDT + danh sách giấy tờ mặc định theo khóa.
 
 - GET  /local/giay-to  : danh sách giấy tờ bắt buộc theo (MaLoaiHS, HangDT) cho checklist UI.
-- POST /local/nap      : nạp 1 HV (SoHoSo + 3 SP + .jp2 + giấy tờ đã tick). GHI PRODUCTION.
+- POST /local/nap      : nạp 1 HV (SoHoSo + 1 SP gộp app cũ + ghi ảnh hướng A + giấy tờ). GHI PRODUCTION.
 
 Mọi ghi DB qua SP (TDD §10). Đọc danh mục (khóa, tham số, giấy tờ) bằng SELECT parameterized
 — login tool được SELECT danh mục, chỉ cấm INSERT/UPDATE trực tiếp bảng nghiệp vụ (TDD §12).
@@ -59,10 +59,10 @@ class NapIn(BaseModel):
     so_cmt: str
     ngay_cap_cmt: str | None = None
     noi_cap_cmt: str | None = None
-    noi_tt: str = ""
+    chi_tiet_tt: str = ""           # NoiTT (số nhà/thôn) — mặc định TRỐNG; KHÔNG nhét tên xã (AS-003)
     noi_tt_ma_dvhc: str
     noi_tt_ma_dvql: str
-    noi_ct: str | None = None
+    chi_tiet_ct: str | None = None  # NoiCT; None → dùng chi_tiet_tt
     noi_ct_ma_dvhc: str | None = None
     noi_ct_ma_dvql: str | None = None
     giay_to_tick: list[int] = []    # danh sách MaGT đã tick
@@ -71,7 +71,7 @@ class NapIn(BaseModel):
 
 @router.post("/nap")
 def nap_ho_so(body: NapIn):
-    """Nạp 1 HV vào khóa (GHI PRODUCTION). Lỗi giữa chừng → compensation, bản ghi giữ pending."""
+    """Nạp 1 HV vào khóa (GHI PRODUCTION). SP gộp atomic → lỗi tự rollback, bản ghi giữ pending."""
     try:
         jp2 = base64.b64decode(body.anh_jp2_b64) if body.anh_jp2_b64 else None
     except Exception:
@@ -113,13 +113,15 @@ def nap_ho_so(body: NapIn):
                 "ho_ten": body.ho_ten, "ngay_sinh": body.ngay_sinh, "gioi_tinh": body.gioi_tinh,
                 "so_cmt": body.so_cmt, "ngay_cap_cmt": body.ngay_cap_cmt,
                 "noi_cap_cmt": body.noi_cap_cmt or "",
-                "noi_tt": body.noi_tt, "noi_tt_ma_dvhc": body.noi_tt_ma_dvhc,
+                "chi_tiet_tt": body.chi_tiet_tt,                 # NoiTT (mặc định trống)
+                "noi_tt_ma_dvhc": body.noi_tt_ma_dvhc,
                 "noi_tt_ma_dvql": body.noi_tt_ma_dvql,
-                "noi_ct": body.noi_ct or body.noi_tt,
+                "chi_tiet_ct": body.chi_tiet_ct or body.chi_tiet_tt,
                 "noi_ct_ma_dvhc": body.noi_ct_ma_dvhc or body.noi_tt_ma_dvhc,
                 "noi_ct_ma_dvql": body.noi_ct_ma_dvql or body.noi_tt_ma_dvql,
             }
-            r = nap.nap_mot_hv(conn, hv, khoa, jp2, img_path, "operator", body.uuid, giay_to)
+            # nguoi="" → NguoiNhanHSo/NguoiThuNhanAnh trống, khớp app cũ (55/55 HV thật để trống)
+            r = nap.nap_mot_hv(conn, hv, khoa, jp2, img_path, "", body.uuid, giay_to)
     except HTTPException:
         raise
     except ConfigChuaDay as e:

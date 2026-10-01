@@ -36,6 +36,7 @@ export default function NapHoSo() {
   const [gioiTinh, setGioiTinh] = useState("M");
   const [soCmt, setSoCmt] = useState("");
   const [diaChi, setDiaChi] = useState<DiaChiMoi | null>(null);
+  const [chiTiet, setChiTiet] = useState(""); // số nhà/thôn — NoiTT; mặc định trống (khớp app cũ)
   const [jp2, setJp2] = useState<string | null>(null);
 
   const [giayTo, setGiayTo] = useState<GiayTo[]>([]);
@@ -117,7 +118,7 @@ export default function NapHoSo() {
         ngay_sinh: ymd,
         gioi_tinh: gioiTinh,
         so_cmt: soCmt.trim(),
-        noi_tt: `${diaChi.ten_xa}, ${diaChi.ten_tinh}`,
+        chi_tiet_tt: chiTiet.trim() || undefined, // trống → NoiTT trống (địa chỉ từ mã DVHC)
         noi_tt_ma_dvhc: diaChi.ma_dvhc,
         noi_tt_ma_dvql: diaChi.ma_dvql,
         giay_to_tick: [...tick],
@@ -130,6 +131,7 @@ export default function NapHoSo() {
       setSoCmt("");
       setJp2(null);
       setDiaChi(null);
+      setChiTiet("");
     } catch (e) {
       setNapErr(e instanceof Error ? e.message : "Nạp hồ sơ thất bại.");
     } finally {
@@ -250,6 +252,18 @@ export default function NapHoSo() {
       {/* NAP-03: map địa chỉ nơi thường trú */}
       <div className="m-4">
         <AddressCombo onChon={setDiaChi} />
+        <div className="mt-3">
+          <label className="field-label">
+            Chi tiết địa chỉ{" "}
+            <span className="text-muted-foreground font-normal">(số nhà/thôn — không bắt buộc; để trống nếu chỉ có xã/tỉnh)</span>
+          </label>
+          <input
+            className="field-input mt-1"
+            value={chiTiet}
+            onChange={(e) => setChiTiet(e.target.value)}
+            placeholder="VD: Số 12, ngõ 5, thôn Đoài"
+          />
+        </div>
       </div>
 
       {/* NAP-04: ảnh chân dung */}

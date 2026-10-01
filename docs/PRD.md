@@ -200,7 +200,7 @@
 
 #### [NAP-05] Sinh Số hồ sơ + nạp DB qua 1 SP gộp app cũ + giấy tờ
 
-**Trạng thái:** 🔄 In Progress — code lại trên 1 SP gộp app cũ hướng A (CHANGES #4/#5); task 9 (orchestration `nap.py`) + AS-003 trước, task 10 (route+UI) sau.
+**Trạng thái:** ✅ Done — 01/10/2026, nạp qua 1 SP gộp app cũ hướng A (CHANGES #4/#5); AS-003 nạp thật 17/17 khớp app cũ (user đã mở app cũ đối chiếu). **EC-010 hoãn Phase 2:** khóa bản ghi VPS khi 2 máy cùng nạp cần `pending→importing` trên VPS (HTG-02/NAP-01, chưa dựng); chống trùng cùng máy đã có (idempotent UUID).
 **Story:** Là nhân viên nạp DB, tôi muốn nạp học viên vào khóa qua stored procedure có sẵn, để hồ sơ hiện đúng trên app cũ.
 
 **Steps to Complete:**

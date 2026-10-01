@@ -117,9 +117,10 @@ export interface NapIn {
   ngay_sinh: string; // yyyymmdd
   gioi_tinh: string; // 'M' | 'F'
   so_cmt: string;
-  noi_tt?: string;
+  chi_tiet_tt?: string; // số nhà/thôn — mặc định trống (NoiTT); KHÔNG nhét tên xã
   noi_tt_ma_dvhc: string;
   noi_tt_ma_dvql: string;
+  chi_tiet_ct?: string;
   giay_to_tick: number[];
   anh_jp2_b64?: string | null;
 }
