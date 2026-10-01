@@ -140,7 +140,7 @@
 
 #### [NAP-02] Chọn mô tô/ô tô + khóa chưa lập BC1
 
-**Trạng thái:** ⏳ Todo
+**Trạng thái:** ✅ Done
 **Story:** Là nhân viên nạp DB, tôi muốn lọc khóa theo mô tô/ô tô và chỉ khóa chưa báo cáo, để gán học viên vào đúng khóa còn nhận.
 
 **Done khi:**

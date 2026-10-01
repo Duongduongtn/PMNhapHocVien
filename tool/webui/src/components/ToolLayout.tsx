@@ -16,9 +16,14 @@ export default function ToolLayout() {
             <Link to="/" className="flex items-center gap-2 text-sm font-semibold">
               <Icon name="file" className="w-4 h-4" /> Thu nhận hồ sơ cấp mới — Tool nạp DB
             </Link>
-            <NavLink to="/tool/cau-hinh" className={navCls}>
-              <Icon name="settings" className="w-3.5 h-3.5" /> Cấu hình
-            </NavLink>
+            <div className="flex items-center gap-2">
+              <NavLink to="/tool/nap" className={navCls}>
+                <Icon name="file" className="w-3.5 h-3.5" /> Nạp hồ sơ
+              </NavLink>
+              <NavLink to="/tool/cau-hinh" className={navCls}>
+                <Icon name="settings" className="w-3.5 h-3.5" /> Cấu hình
+              </NavLink>
+            </div>
           </div>
           <Outlet />
         </div>

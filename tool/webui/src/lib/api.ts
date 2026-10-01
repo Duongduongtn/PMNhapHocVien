@@ -16,6 +16,17 @@ export interface TestResult {
   vps: { ok: boolean; message: string };
 }
 
+export type LoaiXe = "moto" | "oto";
+
+export interface KhoaHoc {
+  ma_kh: string;
+  ten_kh: string;
+  hang_gplx: string;
+  hang_dt: string | null;
+  ma_so_gtvt: string;
+  ma_loai_hs: number; // 1 = mô tô, 2 = ô tô
+}
+
 async function json<T>(r: Response): Promise<T> {
   if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
   return r.json() as Promise<T>;
@@ -37,3 +48,6 @@ export const testConfig = (cfg: ToolConfig) =>
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(cfg),
   }).then(json<TestResult>);
+
+export const getKhoaHoc = (loai: LoaiXe) =>
+  fetch(`${BASE}/local/khoa-hoc?loai=${loai}`).then(json<KhoaHoc[]>);
