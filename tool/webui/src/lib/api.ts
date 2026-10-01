@@ -85,6 +85,41 @@ export const testConfig = (cfg: ToolConfig) =>
 export const getKhoaHoc = (loai: LoaiXe) =>
   fetch(`${BASE}/local/khoa-hoc?loai=${loai}`, { headers: authHeaders() }).then(json<KhoaHoc[]>);
 
+// KHO-01 — tạo khóa học
+export interface HangDT {
+  ma_hang_dt: string;
+  ten: string;
+  tuoi_hv: number | null;
+  thoi_gian_dt: number | null;
+  hang_gplx: string;
+}
+export const getHangDT = () =>
+  fetch(`${BASE}/local/khoa-hoc/hang-dt`, { headers: authHeaders() }).then(json<HangDT[]>);
+
+export interface KhoaHocTaoIn {
+  hang_dt: string;
+  ten_kh: string;
+  ngay_kg: string; // yyyy-mm-dd
+  ngay_bg: string; // yyyy-mm-dd
+  tong_so_hv: number;
+  so_qd?: string | null;
+  ngay_qd?: string | null;
+  ngay_thi?: string | null;
+  ghi_chu?: string | null;
+}
+export interface KhoaHocTaoKq {
+  ma_kh: string;
+  ten_kh: string;
+  hang_gplx: string;
+  hang_dt: string;
+}
+export const taoKhoa = (body: KhoaHocTaoIn) =>
+  fetch(`${BASE}/local/khoa-hoc/tao`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(body),
+  }).then(json<KhoaHocTaoKq>);
+
 export interface Tinh {
   ma_dvql: string;
   ten_tinh: string;

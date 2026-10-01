@@ -263,7 +263,7 @@
 
 #### [KHO-01] Tạo khóa học
 
-**Trạng thái:** ⏳ Todo
+**Trạng thái:** ⚠️ Partial — 02/10/2026. Code xong (task 21): API tool `GET /local/khoa-hoc/hang-dt` + `POST /local/khoa-hoc/tao` (gọi `usp_KhoaHoc_Insert` — mã tự sinh; `HangGPLX` suy từ `DM_HangGPLX.MaHang WHERE MaHangMoi=hạng ĐT`; hằng MaCSDT=70004/MaSoGTVT=70/TrangThai=1; đếm HV=0; đọc lại MaKH vì SP không trả) + màn "Tạo khóa" webui (5 bắt buộc + 4 tùy chọn, tự điền HangGPLX/tuổi/thời gian ĐT). Kiểm: tool **81 test** (+9 logic/validate/gate, mock DB) · webui build + 15 test · typecheck. **Chờ verify:** tạo 1 khóa THẬT trên prod (user tự tạo, ghi DB) + đối chiếu app cũ (mã `70004K26…`). review-code/nghiệp vụ để sau khi verify.
 **Story:** Là nhân viên nạp DB, tôi muốn tạo khóa học mới trong tool, để có khóa gán học viên mà không cần mở app cũ.
 
 **Steps to Complete:**

@@ -22,6 +22,9 @@ export default function ToolLayout() {
               <NavLink to="/tool/nap" className={navCls}>
                 <Icon name="file" className="w-3.5 h-3.5" /> Nạp hồ sơ
               </NavLink>
+              <NavLink to="/tool/tao-khoa" className={navCls}>
+                <Icon name="plus" className="w-3.5 h-3.5" /> Tạo khóa
+              </NavLink>
               <NavLink to="/tool/cau-hinh" className={navCls}>
                 <Icon name="settings" className="w-3.5 h-3.5" /> Cấu hình
               </NavLink>
