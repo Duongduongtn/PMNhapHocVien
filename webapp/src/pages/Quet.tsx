@@ -841,10 +841,17 @@ function ChupAnhGui({ uuid, onXong }: { uuid: string; onXong: (mangYeu: boolean)
       )}
 
       <div className="space-y-2">
-        <label className="w-full h-11 rounded-lg border border-border bg-secondary text-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:bg-muted transition-colors cursor-pointer">
-          <Icon name="camera" className="w-4 h-4" /> {anh ? "Chụp lại / Chọn ảnh khác" : "Chụp ảnh / Chọn từ máy"}
-          <input type="file" accept="image/*" capture="user" className="hidden" onChange={chonAnh} disabled={dangGui} />
-        </label>
+        <div className="grid grid-cols-2 gap-2">
+          {/* Chụp trực tiếp (camera) vs chọn ảnh có sẵn trong máy — 2 lối riêng (CHANGES #15) */}
+          <label className="h-11 rounded-lg border border-border bg-secondary text-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:bg-muted transition-colors cursor-pointer">
+            <Icon name="camera" className="w-4 h-4" /> {anh ? "Chụp lại" : "Chụp ảnh"}
+            <input type="file" accept="image/*" capture="user" className="hidden" onChange={chonAnh} disabled={dangGui} />
+          </label>
+          <label className="h-11 rounded-lg border border-border bg-secondary text-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:bg-muted transition-colors cursor-pointer">
+            <Icon name="image" className="w-4 h-4" /> Chọn từ máy
+            <input type="file" accept="image/*" className="hidden" onChange={chonAnh} disabled={dangGui} />
+          </label>
+        </div>
 
         <button
           type="button"

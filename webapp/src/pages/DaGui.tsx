@@ -41,6 +41,41 @@ function AnhThumb({ uuid, coAnh, size = "sm" }: { uuid: string; coAnh: boolean; 
   );
 }
 
+// Popup phóng to ảnh chân dung (CHANGES #15) — bấm ảnh ở chi tiết để xem lớn, bấm ngoài để đóng.
+function AnhLightbox({ uuid, onDong }: { uuid: string; onDong: () => void }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let huy = false;
+    let u: string | null = null;
+    taiAnhCuaToi(uuid)
+      .then((x) => {
+        if (huy) {
+          if (x) URL.revokeObjectURL(x);
+          return;
+        }
+        u = x;
+        setUrl(x);
+      })
+      .catch(() => {});
+    return () => {
+      huy = true;
+      if (u) URL.revokeObjectURL(u);
+    };
+  }, [uuid]);
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4" onClick={onDong}>
+      {url ? (
+        <img src={url} alt="Ảnh chân dung" className="max-h-full max-w-full rounded-lg object-contain" />
+      ) : (
+        <div className="text-white/80 text-sm">Đang tải ảnh…</div>
+      )}
+      <button onClick={onDong} aria-label="Đóng" className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/15 text-white flex items-center justify-center hover:bg-white/25 transition-colors">
+        <Icon name="x" className="w-6 h-6" />
+      </button>
+    </div>
+  );
+}
+
 // Nén ảnh chụp lại về JPEG (cạnh dài ≤ maxCanh) — nhẹ cho upload, server giới hạn 8 MB.
 function nenAnh(file: File, maxCanh: number, chatLuong: number): Promise<Blob> {
   return new Promise((resolve, reject) => {
@@ -331,6 +366,7 @@ function ChiTiet({ row, onDong, onCapNhat }: { row: HoSoOut; onDong: () => void;
   const [f, setF] = useState<HoSoSua>({});
   const [luu, setLuu] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
+  const [xemLon, setXemLon] = useState(false); // popup phóng to ảnh (CHANGES #15)
 
   // 409 = tool đã khóa hồ sơ (importing) sau khi mở → báo + chuyển về chỉ xem (CHANGES #12, EC).
   function baoLoi(e: unknown, macDinh: string) {
@@ -401,15 +437,15 @@ function ChiTiet({ row, onDong, onCapNhat }: { row: HoSoOut; onDong: () => void;
 
         <div className="p-5 overflow-y-auto">
           <div className="flex items-start gap-4">
-            <div className="relative shrink-0">
-              <AnhThumb uuid={row.uuid} coAnh={row.co_anh} size="lg" />
-              {suaDuoc && (
-                <label className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 text-[10px] bg-primary text-primary-foreground px-2 py-0.5 rounded-full cursor-pointer hover:brightness-110 whitespace-nowrap">
-                  {row.co_anh ? "Đổi ảnh" : "Thêm ảnh"}
-                  <input type="file" accept="image/*" capture="user" className="hidden" disabled={luu}
-                    onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) void doiAnh(file); }} />
-                </label>
-              )}
+            <div className="shrink-0">
+              <button
+                type="button"
+                onClick={() => { if (row.co_anh) setXemLon(true); }}
+                className={row.co_anh ? "block cursor-zoom-in" : "block cursor-default"}
+                aria-label={row.co_anh ? "Phóng to ảnh chân dung" : undefined}
+              >
+                <AnhThumb uuid={row.uuid} coAnh={row.co_anh} size="lg" />
+              </button>
             </div>
             <div className="min-w-0 flex-1">
               <div className="font-bold text-[15px]">{row.ho_ten || "(chưa có tên)"}</div>
@@ -417,6 +453,24 @@ function ChiTiet({ row, onDong, onCapNhat }: { row: HoSoOut; onDong: () => void;
               <div className="text-[12px] text-muted-foreground mt-2">Gửi lúc {guiHienThi(row.created_at)}</div>
             </div>
           </div>
+
+          {/* Đổi ảnh khi còn Chờ nạp: 2 lối — chụp trực tiếp / chọn ảnh có sẵn (CHANGES #15) */}
+          {suaDuoc && (
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <label className="h-10 rounded-lg border border-border bg-secondary text-foreground text-[13px] font-medium flex items-center justify-center gap-1.5 hover:bg-muted transition-colors cursor-pointer">
+                <Icon name="camera" className="w-4 h-4" /> {row.co_anh ? "Chụp lại" : "Chụp ảnh"}
+                <input type="file" accept="image/*" capture="user" className="hidden" disabled={luu}
+                  onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) void doiAnh(file); }} />
+              </label>
+              <label className="h-10 rounded-lg border border-border bg-secondary text-foreground text-[13px] font-medium flex items-center justify-center gap-1.5 hover:bg-muted transition-colors cursor-pointer">
+                <Icon name="image" className="w-4 h-4" /> Chọn từ máy
+                <input type="file" accept="image/*" className="hidden" disabled={luu}
+                  onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) void doiAnh(file); }} />
+              </label>
+            </div>
+          )}
+
+          {xemLon && row.co_anh && <AnhLightbox uuid={row.uuid} onDong={() => setXemLon(false)} />}
 
           {loi && (
             <div className="mt-3 flex items-start gap-2 text-[12px] text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2">
