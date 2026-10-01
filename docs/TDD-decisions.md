@@ -66,3 +66,13 @@
 - **Vì sao:** không thêm dịch vụ; đủ cho tần suất ngày.
 - **Đánh đổi:** job gắn với process API (restart API = job theo). Chấp nhận; có thể tách system cron sau.
 - Nguồn: PRD BR-016, F4 (HTG-02).
+
+## 10. SP nạp màn Thu nhận HS (đổi 01/10/2026)
+
+> Làm rõ §8 cho riêng luồng thu nhận HV mới. §8 ("chỉ qua SP, khớp 100% app cũ") không đổi; đây là chốt DÙNG ĐÚNG SP nào.
+
+- **Đã chốt (01/10/2026):** Nạp 1 HV qua **1 SP gộp `usp_QuangLA_PM4_ThuNhanHS_ThemMoiCapNhat`** — chính SP màn "Thu nhận Hồ sơ cấp mới" của app cũ (32 tham số `@p_*` khớp 1:1 form): ghi `NguoiLX` + `NguoiLX_HoSo` + giấy tờ (`@p_GiayTo`) + `CHON_IN_GPLX` atomic trong một lần.
+- **Vì sao:** đó là SP app cũ dùng cho chính màn này → bản ghi khớp 100% (gồm `CHON_IN_GPLX=2`, họ tên IN HOA, địa chỉ mã+chi tiết tách riêng) — mục tiêu PRD NAP-05. 3 SP rời **không có tham số `CHON_IN_GPLX`** và ghi lệch nhiều field.
+- **Đánh đổi:** phụ thuộc SP nội bộ app cũ ("QuangLA") — nhưng chính điều đó bảo đảm khớp; app cũ đổi SP thì tool phải theo.
+- **Đã từng chốt (tới 01/10/2026):** 3 SP rời `usp_NguoiLX_Insert` → `usp_NguoiLX_HoSo_Insert` → `usp_NguoiLXHS_GiayTo_Insert` × N + compensation bù trừ tay. Đổi vì **AS-003 (nạp thử 1 HV thật 01/10/2026)** phát hiện bản ghi lệch app cũ 5 field (họ tên không IN HOA, địa chỉ lặp, `DonViHocLX`, `CHON_IN_GPLX`, `MaQuocTich`) và 3 SP rời không set được `CHON_IN_GPLX`.
+- Nguồn: PRD NAP-05 ("khớp app cũ"); AS-003 01/10/2026; CHANGES #4.

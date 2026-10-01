@@ -70,7 +70,7 @@ def test_params_nguoilx_gia_tri_mvp():
     p = dict(nap.build_params_nguoilx(_HV, nap.tach_ho_ten(_HV["ho_ten"]), _NOW, "operator"))
     assert len(p) == 23  # 24 tham số SP trừ @MaDK OUT
     assert p["DonViNhanHSo"] == "70004"
-    assert p["MaQuocTich"] == "VN"
+    assert p["MaQuocTich"] == "VNM"   # mã quốc tịch VN theo DM_QuocTich (FK), không phải "VN"
     assert p["TrangThai"] == 1
     assert p["NoiTT_MaDVHC"] == "00097" and p["NoiTT_MaDVQL"] == "01"
     assert p["NoiCT_MaDVHC"] == "00097"  # BR-004: NoiCT = NoiTT mặc định

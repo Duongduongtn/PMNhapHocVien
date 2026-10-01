@@ -69,7 +69,7 @@ def build_params_nguoilx(hv: dict, ten: dict, now: datetime, nguoi: str) -> list
         ("HoDemNLX", ten["HoDemNLX"]),
         ("TenNLX", ten["TenNLX"]),
         ("HoVaTen", ten["HoVaTen"]),
-        ("MaQuocTich", "VN"),
+        ("MaQuocTich", "VNM"),           # chuẩn ISO alpha-3 (DM_QuocTich.Ma); "VN" vỡ FK — AS-003 01/10
         ("NgaySinh", hv.get("ngay_sinh", "")),           # varchar(8) yyyymmdd
         ("NoiTT", hv.get("noi_tt", "")),
         ("NoiTT_MaDVHC", hv["noi_tt_ma_dvhc"]),
@@ -247,7 +247,7 @@ def nap_mot_hv(conn, hv: dict, khoa: dict, jp2_bytes: bytes | None,
     if loi:
         raise ValueError("Dữ liệu vượt độ dài cột: " + "; ".join(loi))
 
-    cur = conn.cursor()
+    cur = conn.cursor(as_dict=True)   # cần dict để đọc fetchone()["MaDK"]/["m"] (pymssql mặc định trả tuple)
     ma_dk = None
     jp2_path: Path | None = None
     cur.execute("EXEC sp_getapplock @Resource=%s, @LockMode='Exclusive', @LockTimeout=15000",

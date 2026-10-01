@@ -200,17 +200,18 @@
 
 #### [NAP-05] Sinh Số hồ sơ + nạp DB qua 3 SP + giấy tờ
 
-**Trạng thái:** ⚠️ Partial — code task 9+10 xong + unit test 41 pass (SoHoSo, 3 SP, giấy tờ theo tick cuối, nạp lô 1 lỗi không hỏng lô, route /local/nap, form nhập tay, chống trùng UUID server-side). CÒN (AS-003, bước có user giám sát): **nạp thử 1 HV THẬT vào production + mở app cũ đối chiếu** chưa chạy → chưa xác minh Done khi 1 (kiểm mức 1 live + mức 3 E2E)
+**Trạng thái:** ⏳ Todo — thiết kế nạp đổi 01/10/2026 (CHANGES.md #4): chuyển 3 SP rời → 1 SP gộp app cũ (AS-003 phát hiện 3 SP rời lệch app cũ 5 field, không set được CHON_IN_GPLX). Code task 9+10 cũ (843819a) phải làm lại. Phần tái dùng được: form nhập tay, checklist giấy tờ, route skeleton, logic SoHoSo/tách tên.
 **Story:** Là nhân viên nạp DB, tôi muốn nạp học viên vào khóa qua stored procedure có sẵn, để hồ sơ hiện đúng trên app cũ.
 
 **Steps to Complete:**
-1. Sinh `SoHoSo` = MAX+1 (3 chữ số) trong khóa.
-2. Gọi `usp_NguoiLX_Insert` (→MaDK) → `usp_NguoiLX_HoSo_Insert` (→SoHoSo) → `usp_NguoiLXHS_GiayTo_Insert` × N.
+1. Sinh `SoHoSo` = MAX+1 (3 chữ số) trong khóa (nếu SP không tự sinh).
+2. Gọi **1 SP gộp `usp_QuangLA_PM4_ThuNhanHS_ThemMoiCapNhat`** — chính SP màn "Thu nhận Hồ sơ cấp mới" của app cũ dùng (32 tham số khớp 1:1 form) — ghi NguoiLX + NguoiLX_HoSo + giấy tờ + `CHON_IN_GPLX` trong một lần, atomic (SP tự lo transaction).
 3. Ghi file ảnh; đánh dấu bản ghi VPS = `da_nap` (kèm MaDK).
 
 **Done khi:**
 - ✅ Mở app cũ (màn Thu nhận HS) tại đúng khóa: dòng học viên hiện đúng Số hồ sơ, Họ tên, Giới tính, Ngày sinh, CMT/HC, Nơi ĐK thường trú, Đường dẫn ảnh, Ngày nhận HS **khớp giá trị đã nhập**; mở ảnh chân dung xem được; tab Giấy tờ có đủ dòng đã tick.
 - ✅ `SoHoSo` đúng thứ tự khóa (khóa 55 HV → HV mới 056); `MaHTCap=CM_VN`, `TT_XuLy=03`, `GiayCNSK=1`.
+- ✅ **Giá trị khớp app cũ (verify AS-003 01/10/2026):** `HoVaTen`/`HoVaTenIn` **IN HOA giữ dấu**; `MaQuocTich=VNM` (không "VN" — vỡ FK); `NoiTT`/`NoiCT` **trống**, địa chỉ hành chính lấy từ mã DVHC, ô Chi tiết riêng (không nhét tên xã vào NoiTT gây lặp); `DonViHocLX=NULL`; `CHON_IN_GPLX=2`.
 - ✅ Giấy tờ mặc định nộp đủ theo `DM_LoaiHSo_GiayTo` (hạng B/A → 3 giấy tờ), `TenGT` lấy đầy đủ từ `DM_GiayTo`; **ghi theo trạng thái tick cuối của người dùng** (bỏ tick được và được tôn trọng khi nạp, không auto ghi đè về "đủ").
 - ✅ Nạp trong transaction; lỗi giữa chừng → rollback, giữ `pending`.
 - ❌ Không INSERT/UPDATE bảng trực tiếp (chỉ qua SP).
