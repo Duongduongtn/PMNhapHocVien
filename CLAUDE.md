@@ -14,7 +14,9 @@
 
 # Cấu trúc code
 
-- **Code thật: CHƯA CÓ.** Sẽ dựng khi chạy `/tieptheo` theo `docs/BUILD-PLAN.md`, tách 3 app `webapp/` + `server/` + `tool/` (xem TDD §2.4). Chưa có thì đừng đoán trước đường dẫn.
+- **Code thật:**
+  - `tool/` — tool nạp DB tại máy CSDT: `tool/app/` (FastAPI localhost, cổng 8000) + `tool/webui/` (React + Vite, cổng 3011). Chạy/test: xem `tool/README.md`.
+  - `webapp/` (app web PWA) và `server/` (backend VPS) **chưa dựng** — thêm ở Phase 2 theo `docs/BUILD-PLAN.md` (cấu trúc TDD §2.4).
 - **Prototype — KHÔNG sửa khi làm tính năng thật:** `ui-demo/` (project Vite + React riêng, chạy bằng `cd ui-demo && pnpm dev` — cổng 3021). Chỉ là tham chiếu style/layout.
 
 # Nguyên tắc khi implement
