@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Icon } from "../components/Icon";
+import { ODate } from "../components/ODate";
 import { ApiError, dsDaGui, guiAnh, suaHoSo, taiAnhCuaToi, type HoSoOut, type HoSoSua } from "../lib/api";
 import { dsNhap } from "../lib/draft";
 import { dangKyGuiLai, guiLaiTatCa } from "../lib/gui";
@@ -428,10 +429,11 @@ function ChiTiet({ row, onDong, onCapNhat }: { row: HoSoOut; onDong: () => void;
               <OSua label="Họ và tên" value={f.ho_ten ?? ""} onChange={(v) => set("ho_ten", v)} />
               <OSua label="Số CCCD" value={f.so_cccd ?? ""} onChange={(v) => set("so_cccd", v)} inputMode="numeric" />
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="field-label">Ngày sinh</label>
-                  <input className="field-input mt-1" value={nsHienThi(f.ngay_sinh ?? null) === "—" ? "" : nsHienThi(f.ngay_sinh ?? null)} placeholder="dd/mm/yyyy" onChange={(e) => set("ngay_sinh", vnToYmd(e.target.value))} />
-                </div>
+                <ODate
+                  label="Ngày sinh"
+                  value={nsHienThi(f.ngay_sinh ?? null) === "—" ? "" : nsHienThi(f.ngay_sinh ?? null)}
+                  onChange={(v) => set("ngay_sinh", vnToYmd(v))}
+                />
                 <div>
                   <label className="field-label">Giới tính</label>
                   <select className="field-input mt-1" value={f.gioi_tinh ?? "M"} onChange={(e) => set("gioi_tinh", e.target.value)}>

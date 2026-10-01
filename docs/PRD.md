@@ -67,6 +67,7 @@
 - ✅ Trên điện thoại (NFR Responsive): layout **vừa một màn** (`100dvh`), khung camera co giãn, **thanh điều hướng + nút hành động chính dính đáy**, không phải cuộn để thấy nút. **Logo header không phải nút** (bỏ dáng camera bấm được). (CHANGES #12)
 - ✅ Decoder: BarcodeDetector native + fallback qr-scanner (ZXing) — tham khảo cách quét từ dự án webThanhdat; hiệu ứng thiết kế riêng.
 - ✅ **Lưu & nhập hồ sơ tiếp** (CHANGES #13): màn xác nhận có thêm nút **"Lưu & nhập hồ sơ tiếp"** bên cạnh "Tiếp tục — chụp ảnh chân dung" → gửi ngay **không kèm ảnh** (chi tiết gửi + toast ở THU-02) rồi về **màn chọn cách nhập** (Quét QR / Nhập tay / Tải ảnh) để làm hồ sơ kế tiếp. Áp cho cả quét QR lẫn nhập tay (cùng đi qua màn xác nhận).
+- ✅ **Màn xác nhận thân thiện nhập tay** (CHANGES #14): **ẩn ô "Số CMND cũ"** khỏi form (vẫn lưu/gửi giá trị từ QR nếu có); ô **ngày sinh/ngày cấp** gõ tay dd/mm/yyyy **+ nút lịch** bấm chọn, vẫn nhập được **năm-only**; **desktop**: tách vị trí 2 nút tránh bấm nhầm, bố cục gọn, **phím tắt** (autofocus ô đầu, Enter → nút chính, tab order hợp lý).
 - ❌ Không OCR chữ trên thẻ; ảnh thẻ chỉ dùng cắt ảnh chân dung.
 
 **Edge cases:**
@@ -99,6 +100,7 @@
 - ✅ Nơi thường trú lấy từ QR (hoặc nhập tay), cho sửa trước khi gửi. Nơi cư trú (tạm trú) **không nhập ở app** — tool mặc định = nơi thường trú khi nạp (BR-004 / TDD §8.1; xem CHANGES #9).
 - ✅ **Gửi nhanh không ảnh để nhập liên tiếp** (CHANGES #13): ở màn xác nhận bấm "Lưu & nhập hồ sơ tiếp" → gửi hồ sơ **không kèm ảnh** → hiện **toast "Đã gửi ✓"** (không qua màn kết quả) → về màn chọn cách nhập. Mất mạng vẫn giữ nháp, tự gửi lại khi có mạng (như cũ).
 - ✅ **Badge "Thiếu ảnh" + bộ lọc** (CHANGES #13): ở "Hồ sơ đã gửi", hồ sơ chưa có ảnh chân dung hiện **badge "Thiếu ảnh"** (list + chi tiết) và có **bộ lọc riêng gom hồ sơ thiếu ảnh** để chụp bổ sung sau (nút "Thêm ảnh" cho hồ sơ Chờ nạp đã có). Badge thông báo cho mọi trạng thái; chụp bù chỉ áp hồ sơ còn **Chờ nạp** (đã nạp phải bổ sung ảnh ở tool — QLY-05).
+- ✅ **Form nhập tay thân thiện** (CHANGES #14): dùng chung màn xác nhận với THU-01 — ẩn ô CMND cũ, ô ngày có nút lịch (giữ năm-only), desktop bố cục gọn + phím tắt; ô sửa ngày sinh trong "Hồ sơ đã gửi" cũng có nút lịch.
 - ❌ Không xóa phông/căn ảnh ở điện thoại (để tool làm).
 
 **Edge cases:**
@@ -517,3 +519,4 @@
 | 01/10/2026 | v2.4 — NAP-01 thêm AC "kéo lại làm tươi hồ sơ chưa nạp" + edge case (CHANGES #11); hạ NAP-01 ✅→⏳ Todo (yêu cầu thêm, code ①/② cũ vẫn đúng) | PM |
 | 01/10/2026 | v2.5 — sửa UX app web sau test điện thoại (CHANGES #12): THU-01 (màn vào không tự mở camera, header logo không phải nút, layout mobile dính đáy, khung bám QR) + THU-02 (ảnh thật ở list/chi tiết, xem/sửa/chụp lại hồ sơ chờ nạp); hạ THU-01 & THU-02 ✅→⏳ Todo | PM |
 | 01/10/2026 | v2.6 — app web nhập liên tiếp (CHANGES #13): THU-01/THU-02 +AC "Lưu & nhập hồ sơ tiếp" (gửi không ảnh + toast) + badge/bộ lọc "Thiếu ảnh" → hạ THU-01 & THU-02 ✅→⏳; +story **THU-04** (SHOULD) cảnh báo trùng CCCD app web (cảnh báo mềm, soi hàng đợi); +story **QLY-06** (📝 Draft) mở hồ sơ khóa khác cho HV đã có — còn nợ kiểm DB | PM |
+| 01/10/2026 | v2.7 — redesign UX nhập liệu (CHANGES #14): THU-01/THU-02 +AC ẩn ô CMND cũ (vẫn lưu từ QR) + ô ngày gõ tay/nút lịch (giữ năm-only) + desktop tách nút/bố cục/phím tắt. Giữ THU-01/02 ⏳ | PM |

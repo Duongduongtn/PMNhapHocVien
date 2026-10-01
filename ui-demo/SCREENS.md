@@ -6,7 +6,7 @@
 - **Bản HTML chuẩn:** ui-demo-options/detailed.html
 - **Stack:** Vite + React + TypeScript + Tailwind v3 (token shadcn) + react-router-dom · font Be Vietnam Pro
 - **Cổng dev:** 3021 (sổ `~/.claude/local-ports.md`)
-- **Cập nhật lần cuối:** 01/10/2026 (lượt 10 — ghi quyết định UX app web nhập liên tiếp + badge/lọc thiếu ảnh + cảnh báo trùng, CHANGES #13; chưa dựng lại prototype)
+- **Cập nhật lần cuối:** 01/10/2026 (lượt 11 — redesign UX nhập liệu app web CHANGES #14: ẩn CMND cũ, ô ngày + lịch, desktop nút/bố cục/phím tắt; dựng trong webapp thật, chưa dựng lại prototype)
 
 ## ⚠️ Prototype gộp 1 project — KIẾN TRÚC THẬT là 2 app riêng (TDD §2.4)
 
@@ -76,6 +76,7 @@ Chú thích: ✅ Xong · 🟡 Placeholder · ⬜ Chưa có route
 | /app/quet | Nhập liên tiếp (CHANGES #13) | Màn preview thêm nút **"Lưu & nhập hồ sơ tiếp"** cạnh "Tiếp tục — chụp ảnh" → gửi **không ảnh** → **toast "Đã gửi ✓"** (bỏ màn kết quả) → về màn chọn cách nhập. Áp cho cả quét QR lẫn nhập tay | 10 |
 | /app/da-gui | Badge + lọc thiếu ảnh (CHANGES #13) | Hồ sơ chưa ảnh có **badge "Thiếu ảnh"** (list + chi tiết) + **bộ lọc "Thiếu ảnh"** cạnh tab trạng thái để gom chụp bù. Chụp bù qua nút "Thêm ảnh" (Chờ nạp) đã có | 10 |
 | /app/quet | Cảnh báo trùng CCCD (CHANGES #13, THU-04) | Khi gửi, nếu CCCD đã có hồ sơ **chưa nạp trong hàng đợi** → **banner cảnh báo mềm** (nêu ai gửi/lúc nào), **vẫn cho gửi**. Soi hàng đợi VPS, không soi DB thật | 10 |
+| /app/quet · /app/da-gui | Redesign UX nhập liệu (CHANGES #14, impeccable) | Màn xác nhận: **ẩn ô CMND cũ** (vẫn lưu từ QR); ô ngày **gõ tay dd/mm/yyyy + nút lịch** (giữ năm-only) — component dùng chung; **desktop** tách vị trí 2 nút tránh bấm nhầm + bố cục gọn + **phím tắt** (autofocus, Enter/Ctrl+Enter, tab order) | 11 |
 
 ## Component dùng chung
 

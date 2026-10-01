@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Icon } from "../components/Icon";
+import { ODate } from "../components/ODate";
 import { ApiError, kiemTrungCccd, type KiemTrungKq } from "../lib/api";
 import { kiemDoDaiTen, parseCccdQr, type CccdFields, type GioiTinh } from "../lib/qr";
 import { capNhatNhap, dsNhap, luuNhap, taoUuid, tuCccd } from "../lib/draft";
@@ -532,7 +533,7 @@ function KhungQuet({
 // ---------- Preview 7 trường cho sửa + giữ ----------
 function kiemFields(f: CccdFields): string | null {
   if (!/^\d{12}$/.test(f.soCccd.trim())) return "Số CCCD phải có đúng 12 chữ số.";
-  if (f.soCmndCu.trim() && !/^\d{9}$/.test(f.soCmndCu.trim())) return "Số CMND cũ phải có đúng 9 chữ số (hoặc bỏ trống).";
+  // CMND cũ không hiện ô nhập (CHANGES #14) — giá trị lấy từ QR, không chặn định dạng ở đây.
   if (!f.hoTen.trim()) return "Chưa có họ và tên.";
   const ns = f.ngaySinh.trim();
   if (!/^\d{4}$/.test(ns) && !/^\d{2}\/\d{2}\/\d{4}$/.test(ns)) return "Ngày sinh phải là dd/mm/yyyy (hoặc chỉ năm yyyy).";
@@ -609,7 +610,20 @@ function Preview({
   }
 
   return (
-    <div className="space-y-3">
+    <form
+      className="space-y-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        giu();
+      }}
+      onKeyDown={(e) => {
+        // Ctrl/Cmd + Enter = lưu nhanh & nhập hồ sơ tiếp (phím tắt nhập liệu hàng loạt).
+        if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          giuVaTiep();
+        }
+      }}
+    >
       <div className="flex items-center justify-between">
         <h2 className="text-base font-bold">Thông tin từ căn cước</h2>
         <button type="button" onClick={onQuetLai} className="text-[12px] text-primary font-medium hover:underline flex items-center gap-1">
@@ -618,11 +632,11 @@ function Preview({
       </div>
       <p className="text-[12px] text-muted-foreground -mt-1">Kiểm tra và sửa nếu sai trước khi giữ</p>
 
-      <Field label="Số CCCD" req value={f.soCccd} onChange={(v) => set("soCccd", v)} inputMode="numeric" />
-      <Field label="Số CMND cũ (nếu có)" value={f.soCmndCu} onChange={(v) => set("soCmndCu", v)} placeholder="9 số — bỏ trống nếu không có" inputMode="numeric" />
-      <Field label="Họ và tên" req value={f.hoTen} onChange={(v) => set("hoTen", v)} />
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Ngày sinh" req value={f.ngaySinh} onChange={(v) => set("ngaySinh", v)} placeholder="dd/mm/yyyy" />
+      {/* Desktop: 2 cột cho thấy hết trường, đỡ cuộn khi nhập tay (CHANGES #14) */}
+      <div className="grid gap-3 lg:grid-cols-2">
+        <Field label="Số CCCD" req value={f.soCccd} onChange={(v) => set("soCccd", v)} inputMode="numeric" autoFocus />
+        <Field label="Họ và tên" req value={f.hoTen} onChange={(v) => set("hoTen", v)} />
+        <ODate label="Ngày sinh" req value={f.ngaySinh} onChange={(v) => set("ngaySinh", v)} />
         <div>
           <label className="field-label">
             Giới tính <span className="text-destructive">*</span>
@@ -632,9 +646,11 @@ function Preview({
             <option value="Nữ">Nữ</option>
           </select>
         </div>
+        <div className="lg:col-span-2">
+          <Field label="Nơi thường trú" req value={f.noiThuongTru} onChange={(v) => set("noiThuongTru", v)} />
+        </div>
+        <ODate label="Ngày cấp" value={f.ngayCap} onChange={(v) => set("ngayCap", v)} />
       </div>
-      <Field label="Nơi thường trú" req value={f.noiThuongTru} onChange={(v) => set("noiThuongTru", v)} />
-      <Field label="Ngày cấp" value={f.ngayCap} onChange={(v) => set("ngayCap", v)} placeholder="dd/mm/yyyy" />
 
       {canhBaoTen.length > 0 && (
         <div className="flex items-start gap-2 text-[12px] text-warning bg-warning/10 border border-warning/30 rounded-lg px-3 py-2">
@@ -663,26 +679,31 @@ function Preview({
         </div>
       )}
 
-      <div className="space-y-2">
-        <button
-          type="button"
-          onClick={giu}
-          disabled={dangGui}
-          className="w-full h-11 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-sm disabled:opacity-60"
-        >
-          <Icon name="camera" className="w-4 h-4" /> Tiếp tục — chụp ảnh chân dung
-        </button>
-        <button
-          type="button"
-          onClick={giuVaTiep}
-          disabled={dangGui}
-          className="w-full h-11 rounded-lg border border-border bg-card text-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:bg-muted transition-colors disabled:opacity-60"
-        >
-          <Icon name="send" className="w-4 h-4" /> Lưu & nhập hồ sơ tiếp
-        </button>
-        <p className="text-[12px] text-muted-foreground text-center">Gửi ngay không kèm ảnh — bổ sung ảnh sau ở "Hồ sơ đã gửi".</p>
+      {/* Desktop: 2 nút tách hai bên (primary phải, phụ trái) tránh bấm nhầm; mobile xếp dọc (CHANGES #14) */}
+      <div className="pt-1">
+        <div className="flex flex-col gap-2.5 lg:flex-row-reverse lg:gap-4">
+          <button
+            type="submit"
+            disabled={dangGui}
+            className="lg:flex-1 h-11 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-sm disabled:opacity-60"
+          >
+            <Icon name="camera" className="w-4 h-4" /> Tiếp tục — chụp ảnh chân dung
+          </button>
+          <button
+            type="button"
+            onClick={giuVaTiep}
+            disabled={dangGui}
+            className="lg:flex-1 h-11 rounded-lg border border-border bg-card text-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:bg-muted transition-colors disabled:opacity-60"
+          >
+            <Icon name="send" className="w-4 h-4" /> Lưu & nhập hồ sơ tiếp
+          </button>
+        </div>
+        <p className="text-[12px] text-muted-foreground text-center mt-2 lg:text-right">
+          Gửi ngay không kèm ảnh — bổ sung ảnh sau ở "Hồ sơ đã gửi".
+          <span className="hidden lg:inline"> · Enter: chụp ảnh · Ctrl+Enter: lưu &amp; nhập tiếp</span>
+        </p>
       </div>
-    </div>
+    </form>
   );
 }
 
@@ -693,6 +714,7 @@ function Field({
   onChange,
   placeholder,
   inputMode,
+  autoFocus,
 }: {
   label: string;
   req?: boolean;
@@ -700,6 +722,7 @@ function Field({
   onChange: (v: string) => void;
   placeholder?: string;
   inputMode?: "text" | "numeric";
+  autoFocus?: boolean;
 }) {
   return (
     <div>
@@ -712,6 +735,7 @@ function Field({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         inputMode={inputMode}
+        autoFocus={autoFocus}
       />
     </div>
   );

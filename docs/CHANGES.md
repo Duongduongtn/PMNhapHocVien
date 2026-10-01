@@ -4,6 +4,7 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 14 | 01/10/2026 | ✏️ Sửa | `THU-01`, `THU-02` | Redesign UX nhập liệu (impeccable): ẩn ô "Số CMND cũ" (vẫn lưu từ QR nếu có) · ô ngày gõ tay dd/mm/yyyy + nút lịch (giữ năm-only) · desktop tách vị trí 2 nút tránh bấm nhầm + bố cục nhập tay thân thiện + phím tắt · rà content tránh lộ story/AI slop | ✅ | ✅ | ⬜ | 🔄 đang dựng |
 | 13 | 01/10/2026 | ✏️ Sửa + ➕ Thêm | `THU-01`, `THU-02`, `THU-04`, `QLY-06` | App web nhập liên tiếp: nút "Lưu & nhập hồ sơ tiếp" (gửi không ảnh + toast) + badge/lọc "Thiếu ảnh" (THU-01/02 hạ ⏳); +THU-04 cảnh báo trùng CCCD app web (SHOULD, cảnh báo mềm soi hàng đợi); +QLY-06 mở hồ sơ khóa khác cho HV đã có (📝 Draft, còn nợ kiểm DB) | ✅ | ✅ | ⬜ | 🟡 THU-01/02/04 code+test xong, chưa deploy · QLY-06 ⬜ |
 | 12 | 01/10/2026 | ✏️ Sửa | `THU-01`, `THU-02` | Sửa UX app web sau test điện thoại: màn vào không tự mở camera (chọn Quét/Nhập tay), header logo không phải nút, layout mobile dính đáy, khung bám QR; ảnh thật + xem/sửa/chụp lại hồ sơ chờ nạp (+endpoint tải ảnh của mình) | ✅ | ✅ | 🟡 ghi UX | ⬜ |
 | 11 | 01/10/2026 | ✏️ Sửa | `NAP-01` | "Kéo về từ VPS" làm tươi hồ sơ chưa nạp (collector sửa ở app web sau khi tool đã kéo → tool nhận bản mới); kéo không khóa | ✅ | ✅ | — nút có sẵn | ✅ |
@@ -19,6 +20,24 @@
 | 1 | 01/10/2026 | ✏️ Sửa | — | Đổi nơi lưu bảng ánh xạ `DM_DVHC_MAP`: GPLX_CSDT → SQLite cục bộ của tool | — | ✅ | — | ✅ (task 5) |
 
 Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên quan
+
+---
+
+## #14 — Redesign UX nhập liệu app web (impeccable) · 01/10/2026
+
+- **Mã:** `THU-01`, `THU-02`. Sửa giao diện/luồng nhập, không thêm story.
+- **Vì sao:** test thật, chủ dự án thấy màn nhập liệu desktop chưa thân thiện cho nhập tay: ô CMND cũ ít dùng gây rối, ô ngày khó nhập, 2 nút xếp dọc dễ bấm nhầm, thiếu phím tắt.
+- **Chốt (hỏi bộ chọn):**
+  1. **Ẩn ô "Số CMND cũ"** — vẫn tự lưu CMND cũ từ QR nếu có (không mất dữ liệu, tool nạp vẫn dùng). Không bỏ cột DB/field gửi.
+  2. **Ô ngày** (ngày sinh, ngày cấp) — **gõ tay dd/mm/yyyy + nút lịch** bấm chọn; vẫn nhập được **năm-only** (CCCD có HV chỉ có năm sinh → yyyy0000).
+  3. **Desktop:** tách vị trí 2 nút ("Tiếp tục — chụp ảnh" vs "Lưu & nhập hồ sơ tiếp") tránh bấm nhầm + bố cục form thân thiện nhập tay + **phím tắt** (Enter/Ctrl+Enter, autofocus, tab order).
+  4. **Content/anti-slop:** rà chữ hiển thị tự nhiên, không lộ mã story (đã bỏ "(HTG-01)" ở màn đăng nhập).
+  5. **Cảnh báo trùng (THU-04):** giữ hiển thị **tên đầy đủ** người gửi (chủ dự án chốt NV xem được của nhau).
+- **Hệ quả trạng thái:** `THU-01`/`THU-02` đang ⏳ (từ #13) — giữ ⏳, gộp phần này vào cùng đợt code.
+- **Kỹ thuật:** thuần client webapp (`Quet.tsx` + component ô ngày tái dùng; `DaGui.tsx` ô ngày sửa). Không đụng server/schema (CMND cũ vẫn gửi như cũ; cột DB giữ nguyên).
+- **Đã sửa:** PRD THU-01/THU-02 (AC UX) + Changelog v2.7 · TDD §6.6 (ghi UX) · SCREENS lượt 11.
+- **Còn nợ:** dựng UI bằng impeccable (ẩn CMND cũ, ô ngày + lịch, bố cục/nút/phím tắt desktop) + Playwright 375/1440 + deploy.
+- **Không đụng:** server, schema, tool, luồng nạp.
 
 ---
 
