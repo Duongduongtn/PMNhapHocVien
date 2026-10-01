@@ -14,6 +14,7 @@ from app.session import require_session
 from app.routers import auth as auth_router
 from app.routers import config as config_router
 from app.routers import khoahoc as khoahoc_router
+from app.routers import hoso as hoso_router
 from app.routers import dvhc as dvhc_router
 from app.routers import anh as anh_router
 from app.routers import nap as nap_router
@@ -44,6 +45,7 @@ app.include_router(auth_router.router)
 # Nghiệp vụ nạp/tra — buộc session cục bộ (HTG-01③, TDD §4.6).
 _gac = [Depends(require_session)]
 app.include_router(khoahoc_router.router, dependencies=_gac)
+app.include_router(hoso_router.router, dependencies=_gac)
 app.include_router(dvhc_router.router, dependencies=_gac)
 app.include_router(anh_router.router, dependencies=_gac)
 app.include_router(nap_router.router, dependencies=_gac)

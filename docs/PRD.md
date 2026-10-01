@@ -304,7 +304,7 @@
 
 #### [QLY-01] Tra cứu & sửa hồ sơ đã có
 
-**Trạng thái:** ⏳ Todo
+**Trạng thái:** ⚠️ Partial — 02/10/2026. **Lát 1 (đọc, task 22) xong + verify live:** chế độ Tra cứu DB — tìm khóa theo tên/mã **mọi khóa kể cả BC1** (badge "Đã BC1 — chỉ xem") + lưới HV theo khóa (`usp_NguoiLX_Select_By_MaKH`) + tìm trong lưới (client, tên bỏ dấu / CCCD) + xem chi tiết. Kiểm: tool **85 test** · webui build + typecheck · verify live (khóa B-K149, 55 HV đúng tên/ngày/CCCD/ảnh). **Chờ lát 2:** mở **SỬA** hồ sơ (`usp_NguoiLX_Update`/`usp_NguoiLX_HoSo_Update` — ghi prod) + chặn sửa khi khóa đã BC1 (BR-012).
 **Story:** Là nhân viên nạp DB, tôi muốn tra cứu và sửa hồ sơ học viên đã có trong DB, để thay phần lớn thao tác của app cũ.
 
 **Done khi:**

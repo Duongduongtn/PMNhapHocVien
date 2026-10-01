@@ -103,6 +103,10 @@ def test_tao_thieu_truong_422(auth_headers):
     assert r.status_code == 422
 
 
+def test_tra_cuu_chua_dang_nhap_401():
+    assert client.get("/local/khoa-hoc/tra-cuu?q=B").status_code == 401
+
+
 def test_tao_ngay_bg_truoc_kg_400(auth_headers):
     # Kiểm ngày nằm TRƯỚC khi chạm DB → 400 không cần SQL Server.
     r = client.post(

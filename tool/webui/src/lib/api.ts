@@ -120,6 +120,32 @@ export const taoKhoa = (body: KhoaHocTaoIn) =>
     body: JSON.stringify(body),
   }).then(json<KhoaHocTaoKq>);
 
+// QLY-01 — Tra cứu DB
+export interface KhoaTraCuu {
+  ma_kh: string;
+  ten_kh: string;
+  hang_gplx: string;
+  hang_dt: string | null;
+  bc1: boolean; // đã lập Báo cáo I → chỉ xem
+}
+export const traCuuKhoa = (q: string) =>
+  fetch(`${BASE}/local/khoa-hoc/tra-cuu?q=${encodeURIComponent(q)}`, { headers: authHeaders() }).then(json<KhoaTraCuu[]>);
+
+export interface HoSoRow {
+  ma_dk: string;
+  ho_ten: string | null;
+  ngay_sinh: string | null; // yyyymmdd
+  gioi_tinh: string | null; // M/F
+  so_cccd: string | null;
+  so_cmnd_cu: string | null;
+  so_ho_so: string | null;
+  noi_tt: string | null;
+  co_anh: boolean;
+  ma_loai_hs: number;
+}
+export const dsHoSoTheoKhoa = (makh: string) =>
+  fetch(`${BASE}/local/ho-so?makh=${encodeURIComponent(makh)}`, { headers: authHeaders() }).then(json<HoSoRow[]>);
+
 export interface Tinh {
   ma_dvql: string;
   ten_tinh: string;

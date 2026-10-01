@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Icon } from "../../components/Icon";
 import AddressCombo, { type DiaChiMoi } from "../../components/AddressCombo";
 import AnhModal from "../../components/AnhModal";
+import TraCuuDB from "./TraCuuDB";
 import { boDau, nghiSaiChinhTa, ymdToVN } from "../../lib/format";
 import {
   getKhoaHoc,
@@ -637,15 +638,7 @@ export default function NapHoSo() {
       )}
 
       {/* ============ CHẾ ĐỘ TRA CỨU DB (QLY-01 — task 22) ============ */}
-      {mode === "tracuu" && (
-        <div className="p-8 flex flex-col items-center justify-center text-center gap-3 text-muted-foreground">
-          <Icon name="search" className="w-10 h-10 opacity-40" />
-          <p className="text-sm font-medium text-foreground">Tra cứu & sửa hồ sơ đã có</p>
-          <p className="text-[13px] max-w-md">
-            Tìm mọi khóa (kể cả 🔒 đã BC1), xem/sửa học viên trong DB. Phần này thuộc <b>QLY-01</b> — sẽ dựng ở bước sau.
-          </p>
-        </div>
-      )}
+      {mode === "tracuu" && <TraCuuDB />}
 
       {anhOpen && selRow && (
         <AnhModal onDong={() => setAnhOpen(false)} onXong={(b64) => capNhatNhap(selRow.uuid, { jp2: b64 })} />

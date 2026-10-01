@@ -182,6 +182,39 @@ def list_hang_dt():
     ]
 
 
+@router.get("/tra-cuu")
+def tra_cuu_khoa(q: str = ""):
+    """QLY-01 — tìm khóa theo tên/mã, MỌI khóa (kể cả đã BC1), kèm cờ bc1.
+
+    Khác dropdown nạp (NAP-02 ẩn khóa BC1): chế độ Tra cứu hiện mọi khóa để xem HV,
+    khóa đã BC1 chỉ xem (chặn sửa, BR-012)."""
+    like = f"%{q.strip()}%"
+    sql = (
+        "SELECT TOP 50 k.MaKH, k.TenKH, k.HangGPLX, k.HangDT, "
+        "CASE WHEN EXISTS (SELECT 1 FROM BaoCaoI b WHERE b.MaKH = k.MaKH) THEN 1 ELSE 0 END AS bc1 "
+        "FROM KhoaHoc k WHERE k.MaCSDT = %s AND k.TrangThai = 1 "
+        "AND (k.MaKH LIKE %s OR k.TenKH LIKE %s) ORDER BY k.NgayTao DESC"
+    )
+    try:
+        with sqlserver_cursor() as cur:
+            cur.execute(sql, (MA_CSDT, like, like))
+            rows = cur.fetchall()
+    except ConfigChuaDay as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=502, detail="Không truy vấn được SQL Server — kiểm kết nối.")
+    return [
+        {
+            "ma_kh": r["MaKH"],
+            "ten_kh": r["TenKH"],
+            "hang_gplx": r["HangGPLX"],
+            "hang_dt": r["HangDT"],
+            "bc1": bool(r["bc1"]),
+        }
+        for r in rows
+    ]
+
+
 @router.post("/tao")
 def tao_khoa(body: KhoaHocTao, phien: Phien = Depends(require_session)):
     """Tạo khóa học qua usp_KhoaHoc_Insert (KHO-01, GHI DB). Mã tự sinh → đọc lại trả về.
