@@ -7,6 +7,8 @@ xử lý ảnh, nạp) được thêm ở các task sau theo docs/BUILD-PLAN.md.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.routers import config as config_router
+
 app = FastAPI(
     title="Tool nạp DB — Thu nhận hồ sơ học viên",
     version="0.1.0",
@@ -23,6 +25,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+app.include_router(config_router.router)
 
 
 @app.get("/health")

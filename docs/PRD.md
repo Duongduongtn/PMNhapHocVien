@@ -35,7 +35,7 @@
 
 #### [HTG-01] Đăng nhập & phân quyền + cấu hình kết nối
 
-**Trạng thái:** ⏳ Todo
+**Trạng thái:** 🔄 In Progress
 **Story:** Là người dùng, tôi muốn đăng nhập bằng tài khoản riêng, để hệ thống truy vết được ai gửi/ai nạp (dữ liệu căn cước).
 
 **Done khi:**

@@ -5,7 +5,7 @@ export default {
     extend: {
       fontFamily: { sans: ['"Be Vietnam Pro"', "system-ui", "sans-serif"] },
       colors: {
-        background: "hsl(210 40% 98%)",
+        background: "hsl(210 40% 96%)",
         foreground: "hsl(222 47% 11%)",
         card: "hsl(0 0% 100%)",
         primary: "hsl(222 76% 40%)",

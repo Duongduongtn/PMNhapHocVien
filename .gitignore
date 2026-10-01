@@ -12,8 +12,8 @@ anh-kiem/
 .env
 .env.*
 !.env.example
-# config tool mã hóa cục bộ
-tool/config/*.enc
+# config tool cục bộ (khóa mã hóa key.bin + config.enc) — không bao giờ commit
+tool/config/
 
 # ── Node / Vite / React ──
 node_modules/
