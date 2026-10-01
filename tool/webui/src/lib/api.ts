@@ -144,3 +144,19 @@ export const napHoSo = async (body: NapIn): Promise<NapKetQua> => {
   }
   return r.json() as Promise<NapKetQua>;
 };
+
+// NAP-06: kiểm CCCD đã có trong cùng khóa chưa (cảnh báo sớm). Lỗi kiểm → coi như không trùng
+// (SP gộp vẫn chặn khi nạp qua @p_out=-2).
+export const kiemTrungCccd = async (
+  maKh: string,
+  soCmt: string,
+): Promise<{ trung: boolean; so_ho_so: string | null }> => {
+  try {
+    const q = `ma_kh=${encodeURIComponent(maKh)}&so_cmt=${encodeURIComponent(soCmt)}`;
+    const r = await fetch(`${BASE}/local/kiem-trung-cccd?${q}`);
+    if (!r.ok) return { trung: false, so_ho_so: null };
+    return (await r.json()) as { trung: boolean; so_ho_so: string | null };
+  } catch {
+    return { trung: false, so_ho_so: null };
+  }
+};

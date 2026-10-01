@@ -6,6 +6,7 @@ import {
   getKhoaHoc,
   getGiayTo,
   napHoSo,
+  kiemTrungCccd,
   type KhoaHoc,
   type LoaiXe,
   type GiayTo,
@@ -35,6 +36,10 @@ export default function NapHoSo() {
   const [ngaySinh, setNgaySinh] = useState("");
   const [gioiTinh, setGioiTinh] = useState("M");
   const [soCmt, setSoCmt] = useState("");
+  const [trungCccd, setTrungCccd] = useState<{ trung: boolean; so_ho_so: string | null }>({
+    trung: false,
+    so_ho_so: null,
+  }); // NAP-06: cảnh báo sớm CCCD đã có trong khóa
   const [diaChi, setDiaChi] = useState<DiaChiMoi | null>(null);
   const [chiTiet, setChiTiet] = useState(""); // số nhà/thôn — NoiTT; mặc định trống (khớp app cũ)
   const [jp2, setJp2] = useState<string | null>(null);
@@ -109,6 +114,10 @@ export default function NapHoSo() {
       setNapErr("Điền đủ Họ tên, Ngày sinh (dd/mm/yyyy), CCCD và Nơi thường trú trước khi nạp.");
       return;
     }
+    if (trungCccd.trung) {
+      setNapErr(`CCCD ${soCmt.trim()} đã có trong khóa này (Số hồ sơ ${trungCccd.so_ho_so}) — không nạp trùng (NAP-06).`);
+      return;
+    }
     setNapBusy(true);
     try {
       const kq = await napHoSo({
@@ -129,6 +138,7 @@ export default function NapHoSo() {
       setHoTen("");
       setNgaySinh("");
       setSoCmt("");
+      setTrungCccd({ trung: false, so_ho_so: null });
       setJp2(null);
       setDiaChi(null);
       setChiTiet("");
@@ -244,7 +254,24 @@ export default function NapHoSo() {
           </div>
           <div className="sm:col-span-2">
             <label className="field-label">Số CCCD <span className="text-destructive">*</span></label>
-            <input className="field-input mt-1" value={soCmt} onChange={(e) => setSoCmt(e.target.value)} placeholder="VD: 070202008455" />
+            <input
+              className={"field-input mt-1" + (trungCccd.trung ? " border-destructive" : "")}
+              value={soCmt}
+              onChange={(e) => {
+                setSoCmt(e.target.value);
+                if (trungCccd.trung) setTrungCccd({ trung: false, so_ho_so: null });
+              }}
+              onBlur={async () => {
+                if (!khoa || !soCmt.trim()) return;
+                setTrungCccd(await kiemTrungCccd(khoa.ma_kh, soCmt.trim()));
+              }}
+              placeholder="VD: 070202008455"
+            />
+            {trungCccd.trung && (
+              <p className="mt-1 flex items-center gap-1.5 text-[12px] text-destructive">
+                <Icon name="warn" className="w-3.5 h-3.5" /> CCCD này đã có trong khóa (Số hồ sơ {trungCccd.so_ho_so}) — không nạp trùng.
+              </p>
+            )}
           </div>
         </div>
       </div>

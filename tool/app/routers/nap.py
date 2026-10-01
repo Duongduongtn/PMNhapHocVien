@@ -50,6 +50,29 @@ def list_giay_to(ma_loai_hs: int = Query(...), hang_dt: str = Query(...)):
     return [{"ma_gt": r["MaGT"], "ten_gt": r["TenGT"]} for r in rows]
 
 
+@router.get("/kiem-trung-cccd")
+def kiem_trung_cccd(ma_kh: str = Query(...), so_cmt: str = Query(...)):
+    """NAP-06: kiểm SoCMT đã có trong CÙNG khóa chưa (cảnh báo sớm trước khi nạp).
+    Chỉ trong khóa (BR-005) — khác khóa cho phép; không chặn toàn hệ thống. SP gộp vẫn
+    là chốt chặn cuối (@p_out=-2) khi nạp."""
+    if not so_cmt.strip():
+        return {"trung": False, "so_ho_so": None}
+    try:
+        with sqlserver_cursor() as cur:
+            cur.execute(
+                "SELECT TOP 1 hs.SoHoSo AS SoHoSo FROM NguoiLX lx "
+                "JOIN NguoiLX_HoSo hs ON hs.MaDK = lx.MaDK "
+                "WHERE lx.SoCMT = %s AND hs.MaKhoaHoc = %s",
+                (so_cmt.strip(), ma_kh),
+            )
+            row = cur.fetchone()
+    except ConfigChuaDay as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=502, detail="Không kiểm được trùng CCCD — kiểm kết nối.")
+    return {"trung": bool(row), "so_ho_so": row["SoHoSo"] if row else None}
+
+
 class NapIn(BaseModel):
     uuid: str                       # idempotent + truy vết + chống mồ côi
     ma_khoa_hoc: str

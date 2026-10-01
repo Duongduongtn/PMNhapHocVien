@@ -229,7 +229,7 @@
 
 #### [NAP-06] Kiểm trùng CCCD trong khóa
 
-**Trạng thái:** ⏳ Todo
+**Trạng thái:** ✅ Done — 01/10/2026, kiểm sớm qua `GET /local/kiem-trung-cccd` (cảnh báo khi nhập xong CCCD) + SP `@p_out=-2` chốt chặn cuối; verify DB thật 3/3 (trùng trong khóa / CCCD lạ / khác khóa cho phép).
 **Story:** Là nhân viên nạp DB, tôi muốn được cảnh báo khi CCCD đã có trong khóa, để không tạo hồ sơ trùng.
 
 **Done khi:**
