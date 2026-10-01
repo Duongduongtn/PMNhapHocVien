@@ -681,11 +681,11 @@ function Preview({
 
       {/* Desktop: 2 nút tách hai bên (primary phải, phụ trái) tránh bấm nhầm; mobile xếp dọc (CHANGES #14) */}
       <div className="pt-1">
-        <div className="flex flex-col gap-2.5 lg:flex-row-reverse lg:gap-4">
+        <div className="flex flex-col gap-2.5 lg:flex-row-reverse lg:items-center lg:justify-between lg:gap-4">
           <button
             type="submit"
             disabled={dangGui}
-            className="lg:flex-1 h-11 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-sm disabled:opacity-60"
+            className="w-full lg:w-auto px-5 h-11 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 whitespace-nowrap hover:brightness-110 transition-all shadow-sm disabled:opacity-60"
           >
             <Icon name="camera" className="w-4 h-4" /> Tiếp tục — chụp ảnh chân dung
           </button>
@@ -693,7 +693,7 @@ function Preview({
             type="button"
             onClick={giuVaTiep}
             disabled={dangGui}
-            className="lg:flex-1 h-11 rounded-lg border border-border bg-card text-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:bg-muted transition-colors disabled:opacity-60"
+            className="w-full lg:w-auto px-5 h-11 rounded-lg border border-border bg-card text-foreground font-semibold text-sm flex items-center justify-center gap-2 whitespace-nowrap hover:bg-muted transition-colors disabled:opacity-60"
           >
             <Icon name="send" className="w-4 h-4" /> Lưu & nhập hồ sơ tiếp
           </button>
