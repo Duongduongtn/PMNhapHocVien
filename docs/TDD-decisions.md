@@ -32,12 +32,13 @@
 - **Đánh đổi:** tự quản token thay vì dùng dịch vụ auth ngoài — chấp nhận, quy mô nhỏ.
 - Nguồn: PRD F1 (HTG-01), BR-020, OG-001/002.
 
-## 5. Nơi lưu bảng ánh xạ DM_DVHC_MAP (Câu 1 phỏng vấn = A)
+## 5. Nơi lưu bảng ánh xạ DM_DVHC_MAP (đổi 01/10/2026)
 
-- **Đã chốt:** **Bảng phụ `DM_DVHC_MAP` trong DB `GPLX_CSDT`** (schema tách, không đụng bảng nghiệp vụ).
-- **Vì sao:** tool query trực tiếp; cập nhật danh mục một lần dùng chung; không phải build lại tool khi xã đổi.
-- **Đánh đổi:** thêm 1 bảng trong DB production (chỉ đọc từ tool; nạp/cập nhật có kiểm soát).
-- **Phương án đã cân nhắc:** đóng gói trong tool (đổi danh mục phải phát hành lại); file CSV cạnh tool (mỗi máy một bản, dễ lệch).
+- **Đã chốt (01/10/2026):** Bảng ánh xạ nằm ở **SQLite cục bộ của tool** (`staging.sqlite`), **không** trong `GPLX_CSDT`. Tool đóng gói sẵn dataset `vietnamadminunits` (CSV tĩnh); lần chạy đầu / thao tác **"Đồng bộ danh mục"** → đọc `DM_DVHC (TrangThai=1)` của máy đích (chỉ đọc) + dataset → tự dựng bảng tra cứu, nối theo TÊN.
+- **Vì sao:** mang `.exe` cài máy/cơ sở khác được, **không phụ thuộc máy hiện tại**; production (`GPLX_CSDT`) chỉ bị ĐỌC, không thêm bảng nào. Nối theo tên với `DM_DVHC` của chính máy đích → luôn ra đúng mã của máy đó.
+- **Đánh đổi:** mỗi máy phải "Đồng bộ danh mục" lần đầu (tự động, vài giây); khi đơn vị hành chính đổi phải đồng bộ lại trên từng máy — nhẹ ở quy mô nhỏ.
+- **Điều kiện DB đích:** `DM_DVHC` đã có đơn vị mới 2025 (`TrangThai=1`) — ngoài phạm vi tool.
+- **Đã từng chốt (tới 30/09/2026):** bảng phụ `DM_DVHC_MAP` trong `GPLX_CSDT`, lý do "cập nhật danh mục một chỗ dùng chung, khỏi build lại tool". Đổi vì yêu cầu **không ghi production** + **tool mang đi máy khác** (01/10/2026).
 
 ## 6. Cách tool lấy dữ liệu (Câu 2 = A)
 

@@ -46,7 +46,7 @@ Bao gồm: app web thu thập, backend VPS (hàng đợi + PII), tool nạp DB (
                                                                           │  SQL SERVER GPLX_CSDT        │
                                                                           │  - usp_* (Insert/Update/Del) │
                                                                           │  - DM_* , QTHT_ThamSoHT      │
-                                                                          │  - DM_DVHC_MAP (bảng phụ mới)│
+                                                                          │  (CHỈ ĐỌC — tool không ghi)  │
                                                                           └──────────────┬───────────────┘
                                                                           ┌──────────────▼───────────────┐
                                                                           │  Ổ D: \GPLXCSDT\ANHCDUNG\    │
@@ -61,7 +61,7 @@ Bao gồm: app web thu thập, backend VPS (hàng đợi + PII), tool nạp DB (
 | **App web** | Quét QR CCCD, nhập, chụp ảnh thô, gửi VPS | React + Vite (PWA) + Tailwind + shadcn/ui |
 | **Backend VPS** | Auth, hàng đợi hồ sơ chờ nạp, lưu ảnh thô, job xóa PII | Python FastAPI + PostgreSQL |
 | **Tool máy DB** | Kéo về, map địa chỉ, xử lý ảnh, nạp qua SP, quản lý hồ sơ, tạo khóa | Python FastAPI (localhost) + React (static) + pymssql + Pillow + rembg |
-| **Staging tool** | Lưu tạm hồ sơ đã kéo | SQLite (cục bộ máy DB) |
+| **Staging tool** | Lưu tạm hồ sơ đã kéo + bảng tra cứu `DM_DVHC_MAP` (ánh xạ địa chỉ) | SQLite (cục bộ máy DB) |
 | **DB đích** | Nguồn sự thật hồ sơ học viên | SQL Server `GPLX_CSDT` (SP có sẵn) |
 | **Kho ảnh đích** | File `.jp2` chân dung | Filesystem ổ D máy DB |
 
@@ -93,8 +93,8 @@ pmcsdtlx-thunhan/
 ├── tool/              Python FastAPI + React     → tool máy DB (đóng gói PyInstaller)
 │   ├── app/           pull, dvhc-map, image, import(SP), khoahoc
 │   ├── webui/         React (build → static nhúng)
+│   ├── db/            builder nạp DM_DVHC_MAP → SQLite cục bộ + dataset vietnamadminunits đóng kèm
 │   └── tests/         pytest (sohoso, import-sp, image-jp2)
-├── db/                script bảng phụ DM_DVHC_MAP + seed ánh xạ
 ├── docker-compose.yml (VPS: api + postgres + nginx)
 └── docs/              PRD · TDD · TDD-decisions · prd-review · (BUILD-PLAN sau)
 ```
@@ -188,24 +188,28 @@ CREATE INDEX idx_hstt_creator ON ho_so_thu_thap(created_by);   -- lọc /api/ho-
 CREATE INDEX idx_audit_created ON audit_log(created_at);
 ```
 
-### 3.3 SQL Server (GPLX_CSDT) — bảng phụ MỚI
+### 3.3 Bảng tra cứu DVHC — SQLite CỤC BỘ của tool (KHÔNG trong GPLX_CSDT)
+
+> Bảng ánh xạ địa chỉ cũ → xã mới nằm trong SQLite cục bộ của tool (cùng file `staging.sqlite`),
+> **không** tạo trong `GPLX_CSDT`. Production chỉ bị ĐỌC (`DM_DVHC`). Tool **tự dựng** bảng này:
+> đọc `DM_DVHC (TrangThai=1)` của máy đích + dataset `vietnamadminunits` (CSV tĩnh) đóng kèm tool,
+> nối theo TÊN (tỉnh mới + xã mới ngắn) để lấy đúng mã của **chính máy đích** → mang `.exe` sang
+> máy/cơ sở khác vẫn chạy, không phụ thuộc máy hiện tại. Thao tác "Đồng bộ danh mục" dựng lại bảng.
 
 ```sql
--- Ánh xạ địa chỉ cũ → xã mới (nguồn: dataset vietnamadminunits, đối soát về mã DB)
--- Nối theo TÊN (tỉnh mới + xã mới) về DM_DVHC (TrangThai=1) để lấy đúng mã DB.
-CREATE TABLE dbo.DM_DVHC_MAP (
-  Id             INT IDENTITY(1,1) PRIMARY KEY,
-  TenTinhCu      NVARCHAR(100) NOT NULL,          -- chuẩn hóa lower/bỏ tiền tố khi tra
-  TenHuyenCu     NVARCHAR(100) NOT NULL,
-  TenXaCu        NVARCHAR(100) NOT NULL,
-  MaDvhcMoi      VARCHAR(5) NOT NULL,             -- = DM_DVHC.MaDvhc (TrangThai=1)
-  MaDVQLMoi      VARCHAR(5) NOT NULL,             -- = DM_DVHC.MaDVQL
-  TenXaMoi       NVARCHAR(100) NOT NULL,
-  TenTinhMoi     NVARCHAR(100) NOT NULL,
-  IsDividedWard  BIT NOT NULL DEFAULT 0,          -- 1 = xã cũ chia nhiều xã mới → cần chọn tay
-  NgayTao        DATETIME NOT NULL DEFAULT GETDATE()
+-- SQLite cục bộ (staging.sqlite). Tool tự dựng, không ghi vào GPLX_CSDT.
+CREATE TABLE IF NOT EXISTS dm_dvhc_map (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  ten_tinh_cu   TEXT NOT NULL,   -- chuẩn hóa: lower, bỏ tiền tố (khi tra khớp y hệt)
+  ten_huyen_cu  TEXT NOT NULL,
+  ten_xa_cu     TEXT NOT NULL,
+  ma_dvhc_moi   TEXT NOT NULL,   -- = DM_DVHC.MaDvhc (TrangThai=1) của máy đích
+  ma_dvql_moi   TEXT NOT NULL,   -- = DM_DVHC.MaDVQL
+  ten_xa_moi    TEXT NOT NULL,   -- tên hiển thị (giữ nguyên dấu/hoa thường)
+  ten_tinh_moi  TEXT NOT NULL,
+  is_divided    INTEGER NOT NULL DEFAULT 0  -- 1 = xã cũ chia nhiều xã mới → cần chọn tay
 );
-CREATE INDEX IX_DVHCMAP_cu ON dbo.DM_DVHC_MAP(TenTinhCu, TenHuyenCu, TenXaCu);
+CREATE INDEX IF NOT EXISTS ix_dvhcmap_cu ON dm_dvhc_map(ten_tinh_cu, ten_huyen_cu, ten_xa_cu);
 ```
 
 ### 3.4 Bảng hiện có của DB đích (CHỈ ĐỌC/ghi qua SP — không redesign)
@@ -445,8 +449,9 @@ APScheduler quét mỗi giờ: `pending`/`imported` quá 30 ngày → xóa dòng
 ```
 
 ### 8.2 Nguồn & đối soát
-- `DM_DVHC_MAP` nạp từ dataset `vietnamadminunits` (`convert_legacy_2025_simple.csv`), đối soát tên xã mới + tỉnh về `DM_DVHC (TrangThai=1)` để lấy đúng mã DB (đã verify phủ 3321/3321 xã).
-- Cập nhật lại mỗi khi `DM_DVHC` của DB đổi (chạy lại script đối soát).
+- Bảng `dm_dvhc_map` (SQLite cục bộ) do tool **tự dựng**: đọc `DM_DVHC (TrangThai=1)` của máy đích (chỉ đọc) + dataset `vietnamadminunits` (`convert_legacy_2025_simple.csv`) **đóng kèm tool**, nối theo TÊN (tỉnh mới + xã mới ngắn) để lấy đúng mã của **chính máy đích** (đã verify phủ 3321/3321 xã trên DB mẫu DESKTOP-UBV2GQI).
+- Thao tác **"Đồng bộ danh mục"** (lần chạy đầu, hoặc khi `DM_DVHC` đổi) dựng lại bảng SQLite. **Không ghi gì vào `GPLX_CSDT`.**
+- Điều kiện phía DB đích: `DM_DVHC` đã có đơn vị mới 2025 (`TrangThai=1`) — việc của quản trị DB, ngoài phạm vi tool.
 
 ---
 
@@ -717,3 +722,4 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 | 30/09/2026 | 1.0 | TDD đầu tiên — thiết kế đầy đủ từ PRD v2 (chế độ phỏng vấn 3 câu + PRD) |
 | 30/09/2026 | 1.2 | Verify DB thật: `TT_XuLy` phụ thuộc ảnh (có ảnh→`03`, chưa ảnh→`01`), `ChatLuongAnh`=1/NULL theo ảnh; `TrangThai`=1 không đổi theo ảnh (§10.2). |
 | 30/09/2026 | 1.1 | Sửa sau review TDD: chống trùng SoHoSo bằng `sp_getapplock` (§10); dọn `NguoiLX` mồ côi; tách họ tên + validate độ dài cột; màn Cấu hình + endpoint `/local/config*`; kiểm `is_active`/vai trò mỗi request + blocklist logout; IDOR theo `created_by`; validate ảnh upload; bỏ `duplicate` khỏi enum; timeout khóa 15'; sửa chuẩn hóa tiền tố DVHC; rembg warm-up; +3 sơ đồ (sequence, ma trận quyền, state machine); +index; +ghi chú bảo mật |
+| 01/10/2026 | 1.3 | Đổi nơi lưu `DM_DVHC_MAP`: GPLX_CSDT → **SQLite cục bộ tool** (tool tự dựng từ dataset đóng kèm + đọc `DM_DVHC` máy đích); production chỉ ĐỌC; tool mang đi cài máy khác không phụ thuộc máy hiện tại. §3.3, §8.2, sơ đồ §2.1, TDD-decisions §5. Xem CHANGES.md #1. |
