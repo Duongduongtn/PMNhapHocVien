@@ -56,8 +56,8 @@
 | 6 | Chọn mô tô/ô tô + dropdown khóa chưa lập BC1 + suy `MaLoaiHs`/hạng | `NAP-02` | M | 4 | 1 | → PRD |
 | 7 | Map địa chỉ cũ→mới (`DM_DVHC_MAP`) + popup chọn tay Tỉnh/Xã | `NAP-03` | M | 5 | 1+2 | → PRD |
 | 8 | Căn ảnh 3:4 grab/zoom + rembg nền trắng + xuất `.jp2` 353×471 | `NAP-04` | M | 4 | 1+2 | → PRD |
-| 9 | SoHoSo (`sp_getapplock`) + `usp_NguoiLX_Insert`/`HoSo_Insert` + ghi `.jp2` path + giá trị suy ra (TT_XuLy theo ảnh, tách họ tên) + compensation + dọn mồ côi | `NAP-05 (1/2)` | M | 6,7,8 | 1+2 | [ ] |
-| 10 | Giấy tờ theo tick cuối (`DM_LoaiHSo_GiayTo`→`GiayTo_Insert` ×N) + nạp lô nhiều HV + tiến độ + báo dòng lỗi | `NAP-05 (2/2)` | M | 9 | 1+2 | [ ] |
+| 9 | SoHoSo (`sp_getapplock`) + `usp_NguoiLX_Insert`/`HoSo_Insert` + ghi `.jp2` path + giá trị suy ra (TT_XuLy theo ảnh, tách họ tên) + compensation + dọn mồ côi | `NAP-05 (1/2)` | M | 6,7,8 | 1+2 | [x] |
+| 10 | Giấy tờ theo tick cuối (`DM_LoaiHSo_GiayTo`→`GiayTo_Insert` ×N) + nạp lô nhiều HV + tiến độ + báo dòng lỗi + route `/local/nap` + form nhập tay 1 HV + chống trùng UUID | `NAP-05 (2/2)` | M | 9 | 1+2 | [x] |
 | 11 | Kiểm trùng CCCD trong cùng khóa (BR-005) | `NAP-06` | S | 9 | 1 | → PRD |
 
 ### ✅ Checkpoint 1 — sau task 4-5

@@ -98,3 +98,48 @@ export const xuLyAnh = (file: File, box: string, xoaPhong: boolean) => {
   fd.append("xoa_phong", String(xoaPhong));
   return fetch(`${BASE}/local/anh/xu-ly`, { method: "POST", body: fd }).then(json<AnhKetQua>);
 };
+
+// NAP-05: giấy tờ bắt buộc theo khóa + nạp 1 HV.
+export interface GiayTo {
+  ma_gt: number;
+  ten_gt: string;
+}
+
+export const getGiayTo = (maLoaiHs: number, hangDt: string) =>
+  fetch(`${BASE}/local/giay-to?ma_loai_hs=${maLoaiHs}&hang_dt=${encodeURIComponent(hangDt)}`).then(
+    json<GiayTo[]>,
+  );
+
+export interface NapIn {
+  uuid: string;
+  ma_khoa_hoc: string;
+  ho_ten: string;
+  ngay_sinh: string; // yyyymmdd
+  gioi_tinh: string; // 'M' | 'F'
+  so_cmt: string;
+  noi_tt?: string;
+  noi_tt_ma_dvhc: string;
+  noi_tt_ma_dvql: string;
+  giay_to_tick: number[];
+  anh_jp2_b64?: string | null;
+}
+
+export interface NapKetQua {
+  ma_dk: string;
+  so_ho_so: string;
+  so_giay_to: number;
+}
+
+// Trả lỗi kèm nội dung detail (FastAPI) để UI báo đúng dòng.
+export const napHoSo = async (body: NapIn): Promise<NapKetQua> => {
+  const r = await fetch(`${BASE}/local/nap`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) {
+    const d = await r.json().catch(() => null);
+    throw new Error(d?.detail || `${r.status} ${r.statusText}`);
+  }
+  return r.json() as Promise<NapKetQua>;
+};

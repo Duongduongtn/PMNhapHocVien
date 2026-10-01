@@ -200,7 +200,7 @@
 
 #### [NAP-05] Sinh Số hồ sơ + nạp DB qua 3 SP + giấy tờ
 
-**Trạng thái:** ⚠️ Partial — lõi 1/2 (SoHoSo + NguoiLX/HoSo Insert + suy giá trị + tách tên + compensation + chống mồ côi) đã code + unit test; CÒN: giấy tờ + nạp lô (task 10), và **nạp thử 1 HV thật vào production** (kiểm mức 1 / AS-003) chưa chạy
+**Trạng thái:** ⚠️ Partial — code task 9+10 xong + unit test 41 pass (SoHoSo, 3 SP, giấy tờ theo tick cuối, nạp lô 1 lỗi không hỏng lô, route /local/nap, form nhập tay, chống trùng UUID server-side). CÒN (AS-003, bước có user giám sát): **nạp thử 1 HV THẬT vào production + mở app cũ đối chiếu** chưa chạy → chưa xác minh Done khi 1 (kiểm mức 1 live + mức 3 E2E)
 **Story:** Là nhân viên nạp DB, tôi muốn nạp học viên vào khóa qua stored procedure có sẵn, để hồ sơ hiện đúng trên app cũ.
 
 **Steps to Complete:**

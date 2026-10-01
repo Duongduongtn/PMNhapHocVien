@@ -141,6 +141,21 @@ def build_params_hoso(hv: dict, khoa: dict, so_ho_so: str, duong_dan_anh: str | 
     ]
 
 
+def build_params_giayto(ma_gt: int, ma_dk: str, so_ho_so: str, ten_gt: str) -> list[tuple]:
+    """5 tham số usp_NguoiLXHS_GiayTo_Insert (@MaGT,@MaDK,@SoHoSo,@TenGT,@TrangThai).
+
+    TrangThai=1 vì chỉ ghi giấy tờ ĐÃ tick (nộp đủ); giấy tờ bỏ tick không tạo dòng
+    (Done khi NAP-05: 'tab Giấy tờ có đủ dòng đã tick'). TenGT = tên đầy đủ từ DM_GiayTo.
+    """
+    return [
+        ("MaGT", ma_gt),
+        ("MaDK", ma_dk),
+        ("SoHoSo", so_ho_so),
+        ("TenGT", ten_gt),
+        ("TrangThai", 1),
+    ]
+
+
 def _exec_sql(params: list[tuple], proc: str, head: str, out_select: str) -> tuple[str, list]:
     """Dựng câu EXEC proc với tham số đặt tên + OUTPUT, trả (sql, values)."""
     named = ", ".join(f"@{n}=%s" for n, _ in params)
@@ -171,13 +186,60 @@ def _orphan_clear(uuid: str) -> None:
         conn.close()
 
 
+_DONE_DDL = ("CREATE TABLE IF NOT EXISTS nap_xong "
+             "(uuid TEXT PRIMARY KEY, ma_dk TEXT, so_ho_so TEXT, so_giay_to INT, duong_dan_anh TEXT)")
+
+
+def _done_get(uuid: str) -> dict | None:
+    """UUID đã nạp thành công trước đó? → trả kết quả cũ (idempotent, không tạo HV thứ 2)."""
+    if not ORPHAN_DB.exists():
+        return None
+    conn = sqlite3.connect(str(ORPHAN_DB))
+    try:
+        conn.execute(_DONE_DDL)
+        row = conn.execute(
+            "SELECT ma_dk, so_ho_so, so_giay_to, duong_dan_anh FROM nap_xong WHERE uuid=?",
+            (uuid,),
+        ).fetchone()
+    finally:
+        conn.close()
+    if not row:
+        return None
+    return {"ma_dk": row[0], "so_ho_so": row[1], "so_giay_to": row[2],
+            "duong_dan_anh": row[3], "trung_uuid": True}
+
+
+def _done_set(uuid: str, r: dict) -> None:
+    ORPHAN_DB.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(ORPHAN_DB))
+    try:
+        conn.execute(_DONE_DDL)
+        conn.execute(
+            "INSERT OR IGNORE INTO nap_xong (uuid, ma_dk, so_ho_so, so_giay_to, duong_dan_anh) "
+            "VALUES (?,?,?,?,?)",
+            (uuid, r["ma_dk"], r["so_ho_so"], r.get("so_giay_to", 0), r.get("duong_dan_anh")),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def nap_mot_hv(conn, hv: dict, khoa: dict, jp2_bytes: bytes | None,
-               img_path_base: str, nguoi: str, uuid: str) -> dict:
+               img_path_base: str, nguoi: str, uuid: str,
+               giay_to: list[dict] | None = None) -> dict:
     """Nạp 1 HV (GHI PRODUCTION). conn: pymssql connection (autocommit, 1 connection giữ applock).
 
-    Trả {"ma_dk","so_ho_so","duong_dan_anh"}. Lỗi → compensation (xóa NguoiLX cascade + .jp2) + raise.
+    giay_to: danh sách giấy tờ ĐÃ tick, mỗi phần tử {"ma_gt": int, "ten_gt": str}
+    (TenGT tên đầy đủ từ DM_GiayTo) → ghi N dòng usp_NguoiLXHS_GiayTo_Insert, TrangThai=1.
+
+    Trả {"ma_dk","so_ho_so","duong_dan_anh","so_giay_to"}.
+    Lỗi bất kỳ (kể cả giấy tờ) → compensation (xóa NguoiLX cascade → cuốn luôn HoSo+GiayTo + .jp2) + raise.
     """
     import pymssql  # noqa: F401 (đảm bảo driver có)
+
+    da_nap = _done_get(uuid)   # bấm lại cùng UUID (mạng timeout) → trả kết quả cũ, không tạo HV 2
+    if da_nap:
+        return da_nap
 
     now = datetime.now()
     ten = tach_ho_ten(hv.get("ho_ten", ""))
@@ -224,8 +286,17 @@ def nap_mot_hv(conn, hv: dict, khoa: dict, jp2_bytes: bytes | None,
         )
         cur.execute(sql, tuple([so_ho_so, ma_dk] + vals))
 
+        # 5) Giấy tờ kèm theo × N (theo tick cuối — chỉ ghi dòng đã tick, TrangThai=1)
+        for gt in (giay_to or []):
+            pg = build_params_giayto(gt["ma_gt"], ma_dk, so_ho_so, gt["ten_gt"])
+            sql_gt, vals_gt = _exec_sql(pg, "usp_NguoiLXHS_GiayTo_Insert", "", "")
+            cur.execute(sql_gt, tuple(vals_gt))
+
         _orphan_clear(uuid)
-        return {"ma_dk": ma_dk, "so_ho_so": so_ho_so, "duong_dan_anh": duong_dan_anh}
+        ket_qua = {"ma_dk": ma_dk, "so_ho_so": so_ho_so, "duong_dan_anh": duong_dan_anh,
+                   "so_giay_to": len(giay_to or [])}
+        _done_set(uuid, ket_qua)   # chốt UUID đã nạp xong → chống bấm lại tạo trùng
+        return ket_qua
     except Exception:
         # compensation: xóa NguoiLX (cascade) + .jp2 vừa ghi, giữ pending (§10.3)
         if ma_dk:
@@ -245,3 +316,29 @@ def nap_mot_hv(conn, hv: dict, khoa: dict, jp2_bytes: bytes | None,
             cur.execute("EXEC sp_releaseapplock @Resource=%s", (khoa["ma_kh"],))
         except Exception:
             pass
+
+
+def nap_lo(items: list[dict], nap_fn, on_progress=None) -> dict:
+    """Nạp lô nhiều HV TUẦN TỰ — 1 HV lỗi KHÔNG hỏng cả lô (EC-071).
+
+    items: danh sách HV (mỗi phần tử tuỳ ý, có "uuid" để truy vết).
+    nap_fn(item) -> dict: nạp 1 HV, raise khi lỗi (mỗi HV một connection/applock riêng).
+    on_progress(da_xong, tong): gọi sau mỗi HV để UI cập nhật tiến độ (tuỳ chọn).
+
+    Trả {"tong", "thanh_cong", "that_bai", "ket_qua": [{uuid, ok, ...}]}.
+    HV lỗi giữ pending (nap_fn tự compensation) + ghi dòng lỗi; lô vẫn chạy tiếp.
+    """
+    ket_qua: list[dict] = []
+    tong = len(items)
+    for i, it in enumerate(items):
+        uuid = it.get("uuid")
+        try:
+            r = nap_fn(it)
+            ket_qua.append({"uuid": uuid, "ok": True, **r})
+        except Exception as e:  # noqa: BLE001 — gom lỗi từng dòng, không dừng lô
+            ket_qua.append({"uuid": uuid, "ok": False, "loi": str(e)})
+        if on_progress:
+            on_progress(i + 1, tong)
+    thanh_cong = sum(1 for r in ket_qua if r["ok"])
+    return {"tong": tong, "thanh_cong": thanh_cong,
+            "that_bai": tong - thanh_cong, "ket_qua": ket_qua}

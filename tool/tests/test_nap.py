@@ -93,3 +93,102 @@ def test_params_hoso_khong_anh():
     assert p["DuongDanAnh"] is None and p["ChatLuongAnh"] is None
     assert p["NgayThuNhanAnh"] is None and p["NguoiThuNhanAnh"] is None
     assert p["TT_XuLy"] == "01"
+
+
+# ---- giấy tờ ----
+def test_build_params_giayto():
+    p = dict(nap.build_params_giayto(2, "70004-TEST", "056", "Bản sao CMND/hộ chiếu"))
+    assert len(p) == 5                       # đúng 5 tham số SP
+    assert p["MaGT"] == 2 and p["MaDK"] == "70004-TEST"
+    assert p["SoHoSo"] == "056"
+    assert p["TenGT"] == "Bản sao CMND/hộ chiếu"   # tên đầy đủ, giữ dấu
+    assert p["TrangThai"] == 1                # chỉ ghi dòng đã tick → luôn 1
+
+
+# ---- nạp lô: 1 HV lỗi không hỏng cả lô (EC-071) ----
+def test_nap_lo_mot_loi_khong_hong_lo():
+    items = [{"uuid": "a"}, {"uuid": "b"}, {"uuid": "c"}]
+
+    def nap_fn(it):
+        if it["uuid"] == "b":
+            raise RuntimeError("SP lỗi giữa chừng")
+        return {"ma_dk": "MK-" + it["uuid"], "so_ho_so": "056"}
+
+    tien_do = []
+    kq = nap.nap_lo(items, nap_fn, on_progress=lambda i, n: tien_do.append((i, n)))
+
+    assert kq["tong"] == 3 and kq["thanh_cong"] == 2 and kq["that_bai"] == 1
+    assert [r["ok"] for r in kq["ket_qua"]] == [True, False, True]  # b lỗi, a/c vẫn nạp
+    assert kq["ket_qua"][1]["loi"] == "SP lỗi giữa chừng"
+    assert tien_do == [(1, 3), (2, 3), (3, 3)]                      # tiến độ đủ từng bước
+
+
+# ---- vòng ghi giấy tờ trong nap_mot_hv (mock cursor, không chạm DB) ----
+class _FakeCursor:
+    def __init__(self):
+        self.calls = []
+        self._fetch = [{"MaDK": "70004-TEST"}, {"m": 55}]  # MaDK OUT, rồi MAX(SoHoSo)
+
+    def execute(self, sql, params=None):
+        self.calls.append((sql, params))
+
+    def fetchone(self):
+        return self._fetch.pop(0)
+
+
+class _FakeConn:
+    def __init__(self, cur):
+        self._cur = cur
+
+    def cursor(self, *a, **k):
+        return self._cur
+
+
+def _tat_staging(monkeypatch):
+    """Cô lập test khỏi staging.sqlite thật (cờ mồ côi + chống trùng UUID)."""
+    monkeypatch.setattr(nap, "_orphan_set", lambda *a, **k: None)
+    monkeypatch.setattr(nap, "_orphan_clear", lambda *a, **k: None)
+    monkeypatch.setattr(nap, "_done_get", lambda *a, **k: None)
+    monkeypatch.setattr(nap, "_done_set", lambda *a, **k: None)
+
+
+def test_nap_mot_hv_ghi_giay_to_theo_tick(monkeypatch):
+    _tat_staging(monkeypatch)
+
+    cur = _FakeCursor()
+    giay_to = [
+        {"ma_gt": 1, "ten_gt": "Đơn đề nghị học, sát hạch"},
+        {"ma_gt": 2, "ten_gt": "Bản sao CMND/hộ chiếu"},
+    ]
+    r = nap.nap_mot_hv(_FakeConn(cur), _HV, _KHOA, None, r"D:\A", "op", "uuid-1", giay_to)
+
+    assert r["ma_dk"] == "70004-TEST"
+    assert r["so_ho_so"] == "056"            # MAX 55 + 1
+    assert r["so_giay_to"] == 2
+    gt_calls = [c for c in cur.calls if "usp_NguoiLXHS_GiayTo_Insert" in c[0]]
+    assert len(gt_calls) == 2                # ghi đúng N dòng giấy tờ đã tick
+    assert any("sp_releaseapplock" in c[0] for c in cur.calls)  # luôn nhả applock
+
+
+def test_nap_mot_hv_khong_giay_to(monkeypatch):
+    _tat_staging(monkeypatch)
+    cur = _FakeCursor()
+    r = nap.nap_mot_hv(_FakeConn(cur), _HV, _KHOA, None, r"D:\A", "op", "uuid-2")  # giay_to mặc định None
+    assert r["so_giay_to"] == 0
+    assert not [c for c in cur.calls if "usp_NguoiLXHS_GiayTo_Insert" in c[0]]
+
+
+def test_nap_mot_hv_idempotent_uuid(monkeypatch):
+    """Bấm lại cùng UUID (đã nạp xong) → trả kết quả cũ, KHÔNG gọi SP tạo HV thứ 2."""
+    monkeypatch.setattr(nap, "_orphan_set", lambda *a, **k: None)
+    monkeypatch.setattr(nap, "_orphan_clear", lambda *a, **k: None)
+    monkeypatch.setattr(nap, "_done_set", lambda *a, **k: None)
+    monkeypatch.setattr(
+        nap, "_done_get",
+        lambda uuid: {"ma_dk": "70004-CU", "so_ho_so": "056", "so_giay_to": 3,
+                      "duong_dan_anh": None, "trung_uuid": True},
+    )
+    cur = _FakeCursor()
+    r = nap.nap_mot_hv(_FakeConn(cur), _HV, _KHOA, None, r"D:\A", "op", "uuid-trung")
+    assert r["ma_dk"] == "70004-CU" and r["trung_uuid"] is True
+    assert cur.calls == []   # không chạm applock/SP nào — không tạo HV mới

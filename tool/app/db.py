@@ -37,3 +37,17 @@ def sqlserver_cursor(as_dict: bool = True):
         yield conn.cursor(as_dict=as_dict)
     finally:
         conn.close()
+
+
+@contextmanager
+def sqlserver_conn(autocommit: bool = True):
+    """Mở CONNECTION (không phải cursor), tự đóng. Dùng cho nạp HV: applock phải giữ
+    trong một connection từ lúc đọc MAX(SoHoSo) tới khi HoSo_Insert xong (TDD §10.1),
+    và mỗi usp_* tự BEGIN/COMMIT nên connection để autocommit (không bọc transaction ngoài)."""
+    import pymssql  # lazy import
+
+    conn = pymssql.connect(login_timeout=5, charset="UTF-8", autocommit=autocommit, **_params())
+    try:
+        yield conn
+    finally:
+        conn.close()
