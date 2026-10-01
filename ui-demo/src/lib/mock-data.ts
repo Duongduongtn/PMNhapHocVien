@@ -2,6 +2,8 @@
 
 export type TrangThaiMap = "map" | "manual";
 export type TrangThaiAnh = "photo" | "no";
+// Trạng thái nạp lô (CHANGES #6): chờ nạp ⚪ · nạp lỗi 🔴 · đã nạp 🟢
+export type NapTrangThai = "cho" | "loi" | "nap";
 
 export interface HoSoChoNap {
   hoTen: string;
@@ -13,6 +15,9 @@ export interface HoSoChoNap {
   mau: string; // màu avatar
   tick: boolean;
   trung?: boolean; // trùng CCCD trong khóa
+  tt: NapTrangThai; // trạng thái nạp lô
+  loiLyDo?: string; // lý do khi tt = "loi"
+  chinhTa?: string; // cảnh báo chính tả mức A (thiếu dấu / ký tự lạ / khoảng trắng thừa)
 }
 
 export interface HocVienDB {
@@ -25,11 +30,13 @@ export interface HocVienDB {
 
 // Hồ sơ chờ nạp (kéo từ VPS về staging) — chưa vào DB
 export const hoSoChoNap: HoSoChoNap[] = [
-  { hoTen: "NGUYỄN THANH TÂM", gioiTinh: "Nam", cccd: "070202008455", noiTT: "Xã Phú Nghĩa, Tỉnh Đồng Nai", ttMap: "map", ttAnh: "photo", mau: "bg-blue-500", tick: true },
-  { hoTen: "LÊ THỊ MỸ DUYÊN", gioiTinh: "Nữ", cccd: "075301004821", noiTT: "Xã Nghĩa Trung, TP Đồng Nai", ttMap: "map", ttAnh: "photo", mau: "bg-rose-500", tick: true },
-  { hoTen: "PHẠM QUỐC HUY", gioiTinh: "Nam", cccd: "070204006712", noiTT: "Xã Thọ Sơn, TP Đồng Nai", ttMap: "map", ttAnh: "no", mau: "bg-emerald-500", tick: true },
-  { hoTen: "ĐỖ VŨ BẢO ANH", gioiTinh: "Nam", cccd: "074207005570", noiTT: "P. Chánh Phú Hòa, TP Hồ Chí Minh", ttMap: "manual", ttAnh: "no", mau: "bg-amber-500", tick: false, trung: true },
-  { hoTen: "VÕ XUÂN LỘC", gioiTinh: "Nam", cccd: "070094000283", noiTT: "Xã Đông Phú, TP Đồng Nai", ttMap: "map", ttAnh: "photo", mau: "bg-violet-500", tick: false },
+  { hoTen: "NGUYỄN THANH TÂM", gioiTinh: "Nam", cccd: "070202008455", noiTT: "Xã Phú Nghĩa, Tỉnh Đồng Nai", ttMap: "map", ttAnh: "photo", mau: "bg-blue-500", tick: true, tt: "cho" },
+  { hoTen: "LÊ THỊ MỸ DUYÊN", gioiTinh: "Nữ", cccd: "075301004821", noiTT: "Xã Nghĩa Trung, TP Đồng Nai", ttMap: "map", ttAnh: "photo", mau: "bg-rose-500", tick: true, tt: "cho" },
+  { hoTen: "PHẠM QUỐC HUY", gioiTinh: "Nam", cccd: "070204006712", noiTT: "Xã Thọ Sơn, TP Đồng Nai", ttMap: "map", ttAnh: "no", mau: "bg-emerald-500", tick: true, tt: "cho" },
+  { hoTen: "TRAN VAN HUNG", gioiTinh: "Nam", cccd: "070203007781", noiTT: "Xã Thọ Sơn, TP Đồng Nai", ttMap: "map", ttAnh: "photo", mau: "bg-teal-500", tick: false, tt: "cho", chinhTa: "Tên có thể thiếu dấu tiếng Việt — kiểm lại trước khi nạp (mức A)" },
+  { hoTen: "ĐỖ VŨ BẢO ANH", gioiTinh: "Nam", cccd: "074207005570", noiTT: "P. Chánh Phú Hòa, TP Hồ Chí Minh", ttMap: "manual", ttAnh: "no", mau: "bg-amber-500", tick: false, trung: true, tt: "loi", loiLyDo: "Trùng CCCD với học viên đã có trong khóa (BR-005) — không nạp được" },
+  { hoTen: "VÕ XUÂN LỘC", gioiTinh: "Nam", cccd: "070094000283", noiTT: "Xã Đông Phú, TP Đồng Nai", ttMap: "map", ttAnh: "photo", mau: "bg-violet-500", tick: false, tt: "nap" },
+  { hoTen: "NGUYỄN NGỌC MAI", gioiTinh: "Nữ", cccd: "075301009912", noiTT: "Xã Phú Nghĩa, Tỉnh Đồng Nai", ttMap: "map", ttAnh: "photo", mau: "bg-sky-500", tick: false, tt: "nap" },
 ];
 
 // Học viên đã có trong khóa (đọc từ DB thật qua usp_NguoiLX_Select_By_MaKH)
@@ -63,6 +70,23 @@ export const khoaOto = [
 export const khoaMoto = [
   "70004K26A011 — A1-K33 (KG 12/09/2026) · chưa BC1",
   "70004K26A012 — A-K34 (KG 20/09/2026) · chưa BC1",
+];
+
+// Khóa cho chế độ Tra cứu DB (CHANGES #6): hiện MỌI khóa kể cả đã BC1 (bc1=true → 🔒 chỉ xem)
+export interface KhoaTraCuu {
+  ma: string;
+  ten: string;
+  kg: string; // ngày khai giảng dd/mm/yyyy
+  siSo: number;
+  bc1: boolean; // đã lập BC1 → chỉ xem, chặn sửa (BR-012)
+  loai: "oto" | "moto";
+}
+export const khoaTraCuu: KhoaTraCuu[] = [
+  { ma: "70004K26B010", ten: "B-K149", kg: "28/08/2026", siSo: 55, bc1: false, loai: "oto" },
+  { ma: "70004K26B012", ten: "C-K151", kg: "05/09/2026", siSo: 48, bc1: false, loai: "oto" },
+  { ma: "70004K25B041", ten: "B-K118", kg: "10/11/2025", siSo: 60, bc1: true, loai: "oto" },
+  { ma: "70004K26A011", ten: "A1-K33", kg: "12/09/2026", siSo: 40, bc1: false, loai: "moto" },
+  { ma: "70004K25A007", ten: "A-K28", kg: "02/06/2025", siSo: 52, bc1: true, loai: "moto" },
 ];
 
 // Danh mục hạng đào tạo (DM_HangDT) — dữ liệu mẫu; thật đọc từ DB. Tuổi + thời gian auto theo hạng.

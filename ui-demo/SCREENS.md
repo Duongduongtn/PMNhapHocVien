@@ -6,7 +6,7 @@
 - **Bản HTML chuẩn:** ui-demo-options/detailed.html
 - **Stack:** Vite + React + TypeScript + Tailwind v3 (token shadcn) + react-router-dom · font Be Vietnam Pro
 - **Cổng dev:** 3021 (sổ `~/.claude/local-ports.md`)
-- **Cập nhật lần cuối:** 30/09/2026 (lượt 4 — HOÀN TẤT MUST + SHOULD; chỉ còn NICE QLY-04/THU-03)
+- **Cập nhật lần cuối:** 01/10/2026 (lượt 5 — dựng màn #13 Nạp lô + IA 2 chế độ theo CHANGES #6)
 
 ## ⚠️ Prototype gộp 1 project — KIẾN TRÚC THẬT là 2 app riêng (TDD §2.4)
 
@@ -38,7 +38,7 @@ Prototype là tham chiếu **style/layout**, không phải scaffold thật.
 | 10 | Đổi khóa + di chuyển ảnh | QLY-02 | `/tool/nap` (drawer → dialog Đổi khóa) | ✅ Xong | 4 |
 | 11 | Xóa học viên + xóa mềm ảnh | QLY-03 | `/tool/nap` (drawer → dialog Xóa) | ✅ Xong | 4 |
 | 12 | Nạp/thay ảnh cho HV đã có | QLY-05 | `/tool/nap` (lọc tình trạng ảnh + drawer → dialog Nạp/thay ảnh) | ⬜ Chưa có route | — |
-| 13 | Nạp lô + IA 2 chế độ (hàng chờ VPS badge ⚪🔴🟢) | NAP-01 | `/tool/nap` (chế độ Nạp hồ sơ / Tra cứu DB) | ⬜ Chưa có route (Phase 2) | — |
+| 13 | Nạp lô + IA 2 chế độ (hàng chờ VPS badge ⚪🔴🟢) | NAP-01 | `/tool/nap` (chế độ Nạp hồ sơ / Tra cứu DB) | ✅ Xong | 5 |
 | — | Hàng đợi VPS + xóa PII 30 ngày | HTG-02 | (backend, không có UI) | ⬜ Không dựng | — |
 | — | Kết xuất Excel (NICE) | QLY-04 | (mới có nút, chưa luồng) | ⬜ NICE — sau | — |
 | — | Offline app web (NICE) | THU-03 | — | ⬜ NICE — sau | — |
@@ -78,10 +78,12 @@ Chú thích: ✅ Xong · 🟡 Placeholder · ⬜ Chưa có route
 | AppLayout (mobile shell + bottom nav) | src/components/AppLayout.tsx | /app/* |
 | Placeholder | src/components/Placeholder.tsx | Các màn placeholder |
 | AddressCombo (combobox DVHC) | trong src/pages/tool/NapHoSo.tsx | /tool/nap |
+| NapBadge / Banner / KhoaCombo (helper nội bộ) | trong src/pages/tool/NapHoSo.tsx | /tool/nap (màn #13) |
 | mock-data / format | src/lib/mock-data.ts, src/lib/format.ts | Nhiều màn |
 
 ## Ghi chú
 
+- ✅ **Lượt 5 (01/10/2026) — màn #13 overlay lên `/tool/nap` theo CHANGES #6:** thanh **IA 2 chế độ** (Nạp hồ sơ / Tra cứu DB) thay cho segmented "Chờ nạp/Trong khóa" cũ; chế độ Nạp có filter nạp lô **Cần xử lý (⚪ chờ + 🔴 lỗi, lỗi lên đầu) / Đã nạp (🟢)**, badge trạng thái màu+icon+chữ (phủ mù màu), banner cảnh báo **nổi bật** (viền trái dày + nền + icon) cho lỗi & chính tả mức A; chế độ Tra cứu tìm **mọi khóa kể cả 🔒 BC1** (BC1 → chỉ xem, drawer khóa sửa). Tên hiển thị IN HOA. Không tạo component mới ở file chung — chỉ helper nội bộ NapHoSo (NapBadge/Banner/KhoaCombo) + thêm icon `lock` vào Icon.tsx. Mock thêm `tt/loiLyDo/chinhTa` + `khoaTraCuu`.
 - ✅ **App web đã có bản desktop (PRD ⑥) — làm 30/09/2026:** `AppLayout` responsive — mobile (< lg) giữ nguyên app điện thoại (header + bottom-nav, max-w-440); desktop (≥ lg) hiện **sidebar trái** (nav dọc + user) + nội dung rộng. `Quét` desktop thành **2 cột** (camera trái · form phải). Màn `Đã gửi` khi build sẽ làm **table** trên desktop (card list trên mobile).
 - **Component mới lượt 2:** không tạo component mới — tái dùng `Icon`, `ToolLayout`, `.field-input`, pattern "Tự điền + BẮT BUỘC + accordion". Thêm `dmHangDT` vào `mock-data.ts`.
 - **Chưa logic thật:** không API/DB/auth/validation. Nút bấm được, chuyển route được. Dữ liệu ở `src/lib/mock-data.ts` (tên/khóa/địa chỉ lấy từ PRD + DB thật).
