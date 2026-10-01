@@ -62,11 +62,10 @@ jobs:
           command_timeout: 10m
           script: |
             set -e
-            # Config docker RỖNG, cô lập: pull ẩn danh image PUBLIC, né credential ghcr cũ
-            # của root trên VPS dùng chung (Bẫy 4 — credential sai làm pull public bị "denied").
+            # Empty isolated docker config: anonymous pull of PUBLIC images, avoid stale ghcr cred (trap 4).
             export DOCKER_CONFIG=/tmp/pmnhap-docker
             mkdir -p "$DOCKER_CONFIG"
-            cd ${{ secrets.VPS_APP_PATH }}
+            cd "${{ secrets.VPS_APP_PATH }}"
             export IMAGE_TAG_API=${{ env.IMG_API }}:${{ github.sha }}
             export IMAGE_TAG_WEB=${{ env.IMG_WEB }}:${{ github.sha }}
             PREV=$(cat .last_good_sha 2>/dev/null || echo "")
