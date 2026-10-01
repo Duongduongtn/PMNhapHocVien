@@ -230,6 +230,15 @@ def nap_mot_hv(conn, hv: dict, khoa: dict, jp2_bytes: bytes | None,
     cur.execute("EXEC sp_getapplock @Resource=%s, @LockMode='Exclusive', @LockTimeout=15000",
                 (khoa["ma_kh"],))
     try:
+        # 0) NAP-06: kiểm trùng CMT trong khóa (SP gộp KHÔNG bắt khi nạp MỚI vì
+        #    `lx.MaDK <> @p_MaDK` với @p_MaDK=NULL → UNKNOWN → đếm 0). Kiểm trong applock
+        #    theo khóa nên chống được cả đua 2 máy (EC-012/BR-005).
+        cur.execute("SELECT COUNT(*) AS n FROM NguoiLX lx JOIN NguoiLX_HoSo hs ON hs.MaDK = lx.MaDK "
+                    "WHERE lx.SoCMT = %s AND hs.MaKhoaHoc = %s",
+                    (hv.get("so_cmt", ""), khoa["ma_kh"]))
+        if cur.fetchone()["n"] > 0:
+            raise ValueError("CCCD/CMND đã có học viên trong khóa")
+
         # 1) SoHoSo = MAX+1 trong khóa (đọc trong applock)
         cur.execute("SELECT MAX(CAST(SoHoSo AS INT)) AS m FROM NguoiLX_HoSo WHERE MaKhoaHoc=%s",
                     (khoa["ma_kh"],))

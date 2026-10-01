@@ -229,7 +229,7 @@
 
 #### [NAP-06] Kiểm trùng CCCD trong khóa
 
-**Trạng thái:** ✅ Done — 01/10/2026, kiểm sớm qua `GET /local/kiem-trung-cccd` (cảnh báo khi nhập xong CCCD) + SP `@p_out=-2` chốt chặn cuối; verify DB thật 3/3 (trùng trong khóa / CCCD lạ / khác khóa cho phép).
+**Trạng thái:** ✅ Done — 01/10/2026: (1) kiểm sớm UI `GET /local/kiem-trung-cccd` cảnh báo khi nhập CCCD; (2) **chốt chặn cuối server-side** trong `nap_mot_hv` (COUNT trùng CMT trong applock theo khóa, trước EXEC SP) — vì SP gộp KHÔNG bắt trùng khi nạp mới (`lx.MaDK <> @p_MaDK` với NULL → UNKNOWN). Test live `test_e_trung_cccd_cung_khoa` + 4 ca khác pass 5/5; verify production sạch.
 **Story:** Là nhân viên nạp DB, tôi muốn được cảnh báo khi CCCD đã có trong khóa, để không tạo hồ sơ trùng.
 
 **Done khi:**

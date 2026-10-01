@@ -65,11 +65,11 @@
 - [ ] Tool nối được SQL Server thật bằng login riêng; đọc `IMG_PATH_CSDT`/`MA_CSDT` từ `QTHT_ThamSoHT`.
 - [x] Bảng `DM_DVHC_MAP` (SQLite cục bộ) đối soát đủ 3321/3321 xã về `DM_DVHC` (TrangThai=1). ✅ 01/10/2026 — 10.602 dòng ánh xạ, 0 xã thiếu phủ. Production KHÔNG bị ghi.
 
-### ✅ Checkpoint 2 — sau task 9-11 — **cổng AS-003**
-- [ ] `pnpm build` (webui) + tool chạy sạch.
-- [ ] Nạp tay 1 HV → mở **app cũ** (màn Thu nhận HS) đúng khóa: SoHoSo, họ tên, giới tính, ngày sinh, CMT/HC, nơi ĐK, đường dẫn ảnh, ngày nhận HS **khớp**; mở ảnh chân dung xem được; tab Giấy tờ đủ dòng đã tick.
-- [ ] **Kiểm mức 2** (unit): sinh `SoHoSo` (MAX+1, 3 số), tách họ tên (`TenNLX`/`HoDemNLX`/`HoVaTenIn` cắt ≤25 giữ dấu), suy `TT_XuLy` theo ảnh (có ảnh→03, thiếu→01).
-- [ ] **Kiểm mức 3** (E2E): nạp 1 HV end-to-end + `@p_out` lỗi nghiệp vụ (trùng SoHoSo/CMT) + ghi ảnh hướng A (UPDATE 5 cột) + rollback khi lỗi runtime (`XACT_ABORT`).
+### ✅ Checkpoint 2 — sau task 9-11 — **cổng AS-003** ✅ ĐÓNG 01/10/2026
+- [x] `pnpm build` (webui) + tool chạy sạch.
+- [x] Nạp tay 1 HV → mở **app cũ** đúng khóa: khớp (SoHoSo, họ tên IN HOA, địa chỉ, ảnh, giấy tờ) — AS-003 17/17, user đã đối chiếu.
+- [x] **Kiểm mức 2** (unit): 45 test `test_nap.py` pass — SoHoSo, tách họ tên IN HOA, dựng tham số SP gộp, chuỗi giấy tờ, `@p_out` (-1/-2), ghi ảnh hướng A, trùng CMT server-side, idempotent, nạp lô.
+- [x] **Kiểm mức 3** (E2E live): 5/5 `test_nap_live.py` pass — nạp có/không ảnh, bỏ tick giấy KSK, trùng CMT cùng khóa (chặn) + khác khóa (cho phép); chạy `pytest -m live`, tự dọn, production về 55 HV.
 
 ## Phase 2 — Thu thập đầu-cuối qua VPS
 

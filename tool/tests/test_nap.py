@@ -133,8 +133,8 @@ def _tat_staging(monkeypatch):
 
 
 def _ok_fetches():
-    # thứ tự fetchone: MAX(SoHoSo) → kết quả SP gộp (@p_out, @p_MaDK)
-    return [{"m": 55}, {"@p_out": 0, "@p_MaDK": "70004-TEST"}]
+    # thứ tự fetchone: COUNT trùng CMT (NAP-06) → MAX(SoHoSo) → kết quả SP gộp (@p_out, @p_MaDK)
+    return [{"n": 0}, {"m": 55}, {"@p_out": 0, "@p_MaDK": "70004-TEST"}]
 
 
 def test_nap_mot_hv_khong_anh_truyen_giay_to_qua_sp(monkeypatch):
@@ -176,7 +176,7 @@ def test_nap_mot_hv_co_anh_update_5_cot(monkeypatch, tmp_path):
 def test_nap_mot_hv_loi_nghiep_vu_pout(monkeypatch):
     """@p_out ≠ 0 → lỗi nghiệp vụ, raise (SP không insert, không raiserror)."""
     _tat_staging(monkeypatch)
-    cur = _FakeCursor([{"m": 55}, {"@p_out": -2, "@p_MaDK": None}])
+    cur = _FakeCursor([{"n": 0}, {"m": 55}, {"@p_out": -2, "@p_MaDK": None}])
 
     with pytest.raises(ValueError, match="CCCD"):
         nap.nap_mot_hv(_FakeConn(cur), _HV, _KHOA, None, r"D:\A", "op", "uuid-3")
@@ -197,3 +197,66 @@ def test_nap_mot_hv_idempotent_uuid(monkeypatch):
     r = nap.nap_mot_hv(_FakeConn(cur), _HV, _KHOA, None, r"D:\A", "op", "uuid-trung")
     assert r["ma_dk"] == "70004-CU" and r["trung_uuid"] is True
     assert cur.calls == []   # không chạm applock/SP nào
+
+
+# ---- case bổ sung (Checkpoint 2 /kiemthu) ----
+def test_suy_ma_loai_hs_nang_hang():
+    """U-01: HangGPLX bắt đầu 'A' → mô tô (1); còn lại → ô tô (2). (MaLoaiHs=3 nâng hạng do SP tự tính
+    theo HangDT chứa '-', tool không truyền — verify ở E2E live, không ở hàm này.)"""
+    assert nap.suy_ma_loai_hs("A2") == 1
+    assert nap.suy_ma_loai_hs("C") == 2
+    assert nap.suy_ma_loai_hs("") == 2
+
+
+def test_validate_do_dai_ho_dem_vuot():
+    """U-05: HoDemNLX > 30 ký tự → báo lỗi riêng cột HoDemNLX (SP tự tách nên phải kiểm trước)."""
+    ten = nap.tach_ho_ten("A" * 31 + " B")   # HoDem 31 ký tự, Ten 'B'
+    loi = nap.validate_do_dai(ten, "012345678901")
+    assert any("HoDemNLX" in e for e in loi)
+
+
+def test_nap_mot_hv_khoa_moi_sohoso_001(monkeypatch):
+    """U-06: khóa mới (MAX(SoHoSo) trả NULL) → SoHoSo '001' (nhánh `m or 0`)."""
+    _tat_staging(monkeypatch)
+    cur = _FakeCursor([{"n": 0}, {"m": None}, {"@p_out": 0, "@p_MaDK": "70004-MOI"}])
+    r = nap.nap_mot_hv(_FakeConn(cur), _HV, _KHOA, None, r"D:\A", "op", "uuid-moi")
+    assert r["so_ho_so"] == "001"
+
+
+def test_nap_mot_hv_pout_trung_sohoso(monkeypatch):
+    """U-07: @p_out=-1 (trùng SoHoSo) → ValueError, vẫn nhả applock."""
+    _tat_staging(monkeypatch)
+    cur = _FakeCursor([{"n": 0}, {"m": 55}, {"@p_out": -1, "@p_MaDK": None}])
+    with pytest.raises(ValueError, match="Số hồ sơ"):
+        nap.nap_mot_hv(_FakeConn(cur), _HV, _KHOA, None, r"D:\A", "op", "uuid-7")
+    assert any("sp_releaseapplock" in c[0] for c in cur.calls)
+
+
+def test_nap_mot_hv_trung_cmt_server_side(monkeypatch):
+    """U-09: trùng CMT trong khóa (COUNT>0) → ValueError, KHÔNG gọi SP gộp (SP không bắt khi
+    nạp mới). Chốt chặn cuối server-side trong applock (NAP-06)."""
+    _tat_staging(monkeypatch)
+    cur = _FakeCursor([{"n": 1}])   # COUNT trùng = 1
+    with pytest.raises(ValueError, match="CCCD"):
+        nap.nap_mot_hv(_FakeConn(cur), _HV, _KHOA, None, r"D:\A", "op", "uuid-trung-cmt")
+    assert not [c for c in cur.calls if "ThemMoiCapNhat" in c[0]]   # không gọi SP
+    assert any("sp_releaseapplock" in c[0] for c in cur.calls)      # vẫn nhả applock
+
+
+class _FakeCursorUpdateFail(_FakeCursor):
+    def execute(self, sql, params=None):
+        self.calls.append((sql, params))
+        if "UPDATE NguoiLX_HoSo" in sql:
+            raise RuntimeError("DB rớt giữa UPDATE ảnh")
+
+
+def test_nap_mot_hv_ghi_anh_update_loi_giu_hv(monkeypatch, tmp_path):
+    """U-08: ghi .jp2 OK nhưng UPDATE 5 cột ảnh lỗi → HV VẪN tạo (giữ '01'), trả cờ anh_loi,
+    .jp2 KHÔNG bị xóa (để retry UPDATE, §10.3), applock vẫn nhả — khác EC-022 (SP lỗi → dọn)."""
+    _tat_staging(monkeypatch)
+    cur = _FakeCursorUpdateFail([{"n": 0}, {"m": 55}, {"@p_out": 0, "@p_MaDK": "70004-TEST"}])
+    r = nap.nap_mot_hv(_FakeConn(cur), _HV, _KHOA, b"JP2DATA", str(tmp_path), "op", "uuid-8")
+    assert r["ma_dk"] == "70004-TEST"          # HV đã tạo, không xóa
+    assert "anh_loi" in r and r["duong_dan_anh"] is None
+    assert (tmp_path / "70004K26B010" / "70004-TEST.jp2").exists()   # .jp2 giữ lại để retry
+    assert any("sp_releaseapplock" in c[0] for c in cur.calls)

@@ -1,3 +1,9 @@
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+# Test "live" GHI production SQL Server (nạp HV thật rồi dọn) — skip mặc định, chỉ chạy
+# có kiểm soát bằng: pytest -m live
+addopts = "-m 'not live'"
+markers = [
+    "live: test chạm DB production thật (nạp + dọn) — chỉ chạy có giám sát",
+]
