@@ -1,0 +1,20 @@
+# Giảm context Docker build (web build context = gốc repo). Chỉ cần webapp/ + deploy/.
+**/node_modules
+**/.venv
+**/dist
+**/__pycache__
+**/*.pyc
+.git
+.github
+anh-kiem
+DBcu
+ui-demo
+ui-demo-options
+tool
+server
+docs
+*.sqlite
+**/*.sqlite
+**/.env
+**/key.bin
+**/config.enc
