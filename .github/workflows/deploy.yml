@@ -54,22 +54,18 @@ jobs:
     steps:
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.0
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GHCR_USER: ${{ github.actor }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           port: ${{ secrets.VPS_PORT }}
           key: ${{ secrets.VPS_SSH_KEY }}
           command_timeout: 10m
-          envs: GHCR_TOKEN,GHCR_USER
           script: |
             set -e
-            # Login ghcr cô lập (tránh đụng auth dự án khác trên VPS — Bẫy 4)
+            # Config docker RỖNG, cô lập: pull ẩn danh image PUBLIC, né credential ghcr cũ
+            # của root trên VPS dùng chung (Bẫy 4 — credential sai làm pull public bị "denied").
             export DOCKER_CONFIG=/tmp/pmnhap-docker
             mkdir -p "$DOCKER_CONFIG"
-            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
             cd ${{ secrets.VPS_APP_PATH }}
             export IMAGE_TAG_API=${{ env.IMG_API }}:${{ github.sha }}
             export IMAGE_TAG_WEB=${{ env.IMG_WEB }}:${{ github.sha }}
