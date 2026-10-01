@@ -50,6 +50,19 @@ CREATE TABLE IF NOT EXISTS ho_so_thu_thap (
 );
 
 -- ────────────────────────────────────────────
+-- TOKEN BLOCKLIST (logout thu hồi phiên — TDD §5.1)
+-- jti của token đã đăng xuất, giữ tới khi token hết hạn (exp) rồi dọn.
+-- Ghi chú: TDD §3.2 ghi sót bảng này dù §5.1 có mô tả → thêm ở task 14 (HTG-01②);
+-- cần /capnhat đồng bộ lại §3.2.
+-- ────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS token_blocklist (
+  jti        UUID PRIMARY KEY,
+  exp        TIMESTAMPTZ NOT NULL,
+  revoked_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_blocklist_exp ON token_blocklist(exp);
+
+-- ────────────────────────────────────────────
 -- AUDIT LOG (ai gửi/ai nạp/ai xóa — PII)
 -- ────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS audit_log (

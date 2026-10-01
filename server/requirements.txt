@@ -1,10 +1,14 @@
-# Khung dịch vụ VPS (task 12). Thư viện auth/queue/job thêm ở task 14/15/16.
+# Khung dịch vụ VPS (task 12). Thư viện queue/job thêm ở task 15/16.
 fastapi==0.115.5
 uvicorn[standard]==0.32.1
 gunicorn==23.0.0
 sqlalchemy==2.0.36
 psycopg[binary]==3.2.3
 pydantic-settings==2.6.1
+
+# Auth (task 14 — HTG-01②)
+pyjwt==2.10.1
+bcrypt==4.2.1
 
 # Test
 pytest==8.3.4

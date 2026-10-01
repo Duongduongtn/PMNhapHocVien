@@ -11,8 +11,12 @@ from sqlalchemy import text
 
 from app.config import get_settings
 from app.db import engine
+from app.routers import admin_users, auth
 
 app = FastAPI(title="Thu nhận hồ sơ — API VPS", version="0.1.0")
+
+app.include_router(auth.router)
+app.include_router(admin_users.router)
 
 
 @app.get("/api/health")
