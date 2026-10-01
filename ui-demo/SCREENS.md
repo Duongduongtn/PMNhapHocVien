@@ -6,7 +6,7 @@
 - **Bản HTML chuẩn:** ui-demo-options/detailed.html
 - **Stack:** Vite + React + TypeScript + Tailwind v3 (token shadcn) + react-router-dom · font Be Vietnam Pro
 - **Cổng dev:** 3021 (sổ `~/.claude/local-ports.md`)
-- **Cập nhật lần cuối:** 01/10/2026 (lượt 11 — redesign UX nhập liệu app web CHANGES #14: ẩn CMND cũ, ô ngày + lịch, desktop nút/bố cục/phím tắt; dựng trong webapp thật, chưa dựng lại prototype)
+- **Cập nhật lần cuối:** 01/10/2026 (lượt 12 — ảnh app web CHANGES #15: 2 nút chụp/chọn-từ-máy + popup phóng to; dựng trong webapp thật, chưa dựng lại prototype)
 
 ## ⚠️ Prototype gộp 1 project — KIẾN TRÚC THẬT là 2 app riêng (TDD §2.4)
 
@@ -77,6 +77,7 @@ Chú thích: ✅ Xong · 🟡 Placeholder · ⬜ Chưa có route
 | /app/da-gui | Badge + lọc thiếu ảnh (CHANGES #13) | Hồ sơ chưa ảnh có **badge "Thiếu ảnh"** (list + chi tiết) + **bộ lọc "Thiếu ảnh"** cạnh tab trạng thái để gom chụp bù. Chụp bù qua nút "Thêm ảnh" (Chờ nạp) đã có | 10 |
 | /app/quet | Cảnh báo trùng CCCD (CHANGES #13, THU-04) | Khi gửi, nếu CCCD đã có hồ sơ **chưa nạp trong hàng đợi** → **banner cảnh báo mềm** (nêu ai gửi/lúc nào), **vẫn cho gửi**. Soi hàng đợi VPS, không soi DB thật | 10 |
 | /app/quet · /app/da-gui | Redesign UX nhập liệu (CHANGES #14, impeccable) | Màn xác nhận: **ẩn ô CMND cũ** (vẫn lưu từ QR); ô ngày **gõ tay dd/mm/yyyy + nút lịch** (giữ năm-only) — component dùng chung; **desktop** tách vị trí 2 nút tránh bấm nhầm + bố cục gọn + **phím tắt** (autofocus, Enter/Ctrl+Enter, tab order) | 11 |
+| /app/quet · /app/da-gui | Ảnh: nguồn + phóng to (CHANGES #15) | Màn chụp ảnh & đổi ảnh (Chờ nạp): **2 nút "Chụp ảnh" (camera) / "Chọn từ máy" (file·thư viện)**. Chi tiết hồ sơ: **bấm ảnh → popup phóng to** (AnhLightbox, bấm ngoài đóng) | 12 |
 
 ## Component dùng chung
 

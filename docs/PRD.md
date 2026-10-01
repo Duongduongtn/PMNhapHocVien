@@ -83,7 +83,7 @@
 
 #### [THU-02] Nhập tay + chụp ảnh + gửi VPS (app web)
 
-**Trạng thái:** ✅ Done — 01/10/2026. Gửi nhanh không ảnh (toast) + badge "Thiếu ảnh" + bộ lọc thiếu ảnh ở "Hồ sơ đã gửi" (task 30, CHANGES #13) + form nhập tay thân thiện (ô ngày auto-mask/lịch, CHANGES #14). Kiểm: server 67 test · webapp 24 · 4 review đã vá · Playwright 1440/375 · deploy live.
+**Trạng thái:** ✅ Done — 01/10/2026. Gửi nhanh không ảnh (toast) + badge "Thiếu ảnh" + bộ lọc thiếu ảnh ở "Hồ sơ đã gửi" (task 30, CHANGES #13) + form nhập tay thân thiện (ô ngày auto-mask/lịch, CHANGES #14) + ảnh 2 nút chụp/chọn-từ-máy & phóng to popup (CHANGES #15). Kiểm: server 67 test · webapp 24 · 4 review đã vá · Playwright 1440/375 · deploy live.
 **Story:** Là nhân viên thu nhận, tôi muốn nhập tay và chụp ảnh chân dung rồi gửi lên VPS, để thu thập được cả khi không quét được QR.
 
 **Steps to Complete:**
@@ -101,6 +101,7 @@
 - ✅ **Gửi nhanh không ảnh để nhập liên tiếp** (CHANGES #13): ở màn xác nhận bấm "Lưu & nhập hồ sơ tiếp" → gửi hồ sơ **không kèm ảnh** → hiện **toast "Đã gửi ✓"** (không qua màn kết quả) → về màn chọn cách nhập. Mất mạng vẫn giữ nháp, tự gửi lại khi có mạng (như cũ).
 - ✅ **Badge "Thiếu ảnh" + bộ lọc** (CHANGES #13): ở "Hồ sơ đã gửi", hồ sơ chưa có ảnh chân dung hiện **badge "Thiếu ảnh"** (list + chi tiết) và có **bộ lọc riêng gom hồ sơ thiếu ảnh** để chụp bổ sung sau (nút "Thêm ảnh" cho hồ sơ Chờ nạp đã có). Badge thông báo cho mọi trạng thái; chụp bù chỉ áp hồ sơ còn **Chờ nạp** (đã nạp phải bổ sung ảnh ở tool — QLY-05).
 - ✅ **Form nhập tay thân thiện** (CHANGES #14): dùng chung màn xác nhận với THU-01 — ẩn ô CMND cũ, ô ngày có nút lịch (giữ năm-only), desktop bố cục gọn + phím tắt; ô sửa ngày sinh trong "Hồ sơ đã gửi" cũng có nút lịch.
+- ✅ **Ảnh: chụp trực tiếp hoặc chọn từ máy + xem phóng to** (CHANGES #15): màn chụp ảnh & đổi ảnh (hồ sơ Chờ nạp) có **2 nút "Chụp ảnh" / "Chọn từ máy"** (bỏ ép camera, chọn được ảnh có sẵn); bấm ảnh chân dung ở chi tiết → **phóng to popup**.
 - ❌ Không xóa phông/căn ảnh ở điện thoại (để tool làm).
 
 **Edge cases:**

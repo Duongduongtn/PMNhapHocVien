@@ -4,6 +4,7 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 15 | 01/10/2026 | ✏️ Sửa | `THU-02` | Ảnh app web: tách **2 nút "Chụp ảnh" (camera) / "Chọn từ máy" (file·thư viện)** ở màn chụp + đổi ảnh hồ sơ Chờ nạp (trước ép camera, mobile không chọn được thư viện); bấm ảnh chân dung ở chi tiết → **phóng to popup (lightbox)** | ✅ | — | ⬜ | ✅ deploy |
 | 14 | 01/10/2026 | ✏️ Sửa | `THU-01`, `THU-02` | Redesign UX nhập liệu (impeccable): ẩn ô "Số CMND cũ" (vẫn lưu từ QR nếu có) · ô ngày gõ tay dd/mm/yyyy auto-mask "/" + nút lịch (giữ năm-only) · desktop nới khung 2 cột + tách 2 nút tránh bấm nhầm + phím tắt · rà content tránh lộ story/AI slop | ✅ | ✅ | ⬜ | ✅ deploy |
 | 13 | 01/10/2026 | ✏️ Sửa + ➕ Thêm | `THU-01`, `THU-02`, `THU-04`, `QLY-06` | App web nhập liên tiếp: nút "Lưu & nhập hồ sơ tiếp" (gửi không ảnh + toast) + badge/lọc "Thiếu ảnh" (THU-01/02 hạ ⏳); +THU-04 cảnh báo trùng CCCD app web (SHOULD, cảnh báo mềm soi hàng đợi); +QLY-06 mở hồ sơ khóa khác cho HV đã có (📝 Draft, còn nợ kiểm DB) | ✅ | ✅ | ⬜ | ✅ THU-01/02/04 deploy + chốt · QLY-06 ⬜ (Draft) |
 | 12 | 01/10/2026 | ✏️ Sửa | `THU-01`, `THU-02` | Sửa UX app web sau test điện thoại: màn vào không tự mở camera (chọn Quét/Nhập tay), header logo không phải nút, layout mobile dính đáy, khung bám QR; ảnh thật + xem/sửa/chụp lại hồ sơ chờ nạp (+endpoint tải ảnh của mình) | ✅ | ✅ | 🟡 ghi UX | ⬜ |
@@ -20,6 +21,18 @@
 | 1 | 01/10/2026 | ✏️ Sửa | — | Đổi nơi lưu bảng ánh xạ `DM_DVHC_MAP`: GPLX_CSDT → SQLite cục bộ của tool | — | ✅ | — | ✅ (task 5) |
 
 Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên quan
+
+---
+
+## #15 — Ảnh app web: 2 nút chụp/chọn-từ-máy + phóng to popup · 01/10/2026
+
+- **Mã:** `THU-02`. Sửa UX phần ảnh, không thêm story. UI thuần client.
+- **Vì sao:** chủ dự án hỏi — màn ảnh đang ép `capture="user"` nên điện thoại chỉ mở camera, **không chọn được ảnh có sẵn trong máy/thư viện**; và ảnh chân dung ở chi tiết hiện nhỏ (~80px), **bấm không phóng to được**.
+- **Chốt (bộ chọn):**
+  1. **2 nút nguồn ảnh:** "Chụp ảnh" (giữ `capture` → camera trực tiếp) và "Chọn từ máy" (bỏ `capture` → file/thư viện). Áp ở **màn chụp ảnh (Quet/ChupAnhGui)** + **đổi ảnh hồ sơ Chờ nạp (DaGui/ChiTiet)**. Chủ dự án chọn mở cả 2 lối (không ép camera cứng).
+  2. **Phóng to ảnh:** bấm ảnh chân dung ở chi tiết → **AnhLightbox** mở toàn màn, bấm ngoài đóng.
+- **Kỹ thuật:** thuần client `Quet.tsx` + `DaGui.tsx` (component `AnhLightbox` tái dùng `taiAnhCuaToi`). Không thêm endpoint, không đụng server/schema. Test webapp 24 pass, typecheck + build sạch.
+- **Không đụng:** server, schema, tool, luồng nạp.
 
 ---
 
