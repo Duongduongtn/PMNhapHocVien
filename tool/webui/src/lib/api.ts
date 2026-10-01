@@ -218,10 +218,10 @@ export interface KeoVeRow {
   so_ho_so: string | null;
 }
 
-// Kéo trọn bản ghi pending từ VPS về staging. Trả số mới thêm + tổng trong staging.
+// Kéo trọn bản ghi pending từ VPS về staging. Trả số mới thêm + số làm tươi + tổng.
 export const keoHangDoi = () =>
   fetch(`${BASE}/local/nap/keo`, { method: "POST", headers: authHeaders() }).then(
-    json<{ keo_ve: number; tong: number }>,
+    json<{ keo_ve: number; lam_tuoi: number; tong: number }>,
   );
 
 export const getDanhSachKeoVe = () =>

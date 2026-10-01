@@ -180,24 +180,26 @@ def _loi_vps(e: VpsLoi) -> HTTPException:
 def keo_hang_doi(phien: Phien = Depends(require_session), limit: int = Query(200, ge=1, le=500)):
     """Kéo bản ghi `pending` từ VPS về staging (dedup theo uuid). Kéo trọn bằng cursor.
 
-    VPS lỗi ngay từ đầu → báo lỗi; lỗi giữa chừng → giữ phần đã kéo, dừng. Trả số bản ghi
-    MỚI thêm + tổng trong staging."""
-    tong_moi = 0
+    VPS lỗi ngay từ đầu → báo lỗi; lỗi giữa chừng → giữ phần đã kéo, dừng. Kéo lại **làm tươi**
+    bản còn 'chờ nạp' (CHANGES #11). Trả số thêm mới + số làm tươi + tổng trong staging."""
+    tong_moi = tong_tuoi = 0
     cursor: str | None = None
     for _ in range(50):  # chặn vòng lặp vô hạn (tối đa ~25.000 bản ghi/lượt kéo)
         try:
             rows = vps.keo(phien.vps_token, limit=limit, cursor=cursor)
         except VpsLoi as e:
-            if tong_moi == 0:
+            if tong_moi == 0 and tong_tuoi == 0:
                 raise _loi_vps(e)
             break  # đã kéo được một phần → giữ, để nhân viên xử lý phần đã có
         if not rows:
             break
-        tong_moi += nap.keo_ve_upsert(rows)
+        moi, tuoi = nap.keo_ve_upsert(rows)
+        tong_moi += moi
+        tong_tuoi += tuoi
         if len(rows) < limit:
             break
         cursor = rows[-1].get("created_at")
-    return {"keo_ve": tong_moi, "tong": len(nap.keo_ve_danh_sach())}
+    return {"keo_ve": tong_moi, "lam_tuoi": tong_tuoi, "tong": len(nap.keo_ve_danh_sach())}
 
 
 @router.get("/nap/danh-sach")

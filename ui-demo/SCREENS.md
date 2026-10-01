@@ -69,6 +69,7 @@ Chú thích: ✅ Xong · 🟡 Placeholder · ⬜ Chưa có route
 | /tool/nap (chế độ Nạp) | Trạng thái nạp lô (CHANGES #6) | 1 danh sách hàng chờ, lọc **Cần xử lý** (⚪ chờ + 🔴 lỗi, lỗi lên đầu) / **Đã nạp** (🟢). Nạp lô → dòng đổi realtime; "Đã nạp" là xác nhận tạm, chỗ ở thật là tab Tra cứu DB | 6 |
 | /tool/nap | Chuẩn cảnh báo (CHANGES #6) | Inline **nổi bật** (banner nền/viền/icon) + **nêu rõ nguyên nhân**, KHÔNG modal. Trạng thái dùng màu + icon + chữ (phủ mù màu) | 6 |
 | /tool/nap · /app/da-gui | Ô tìm kiếm (CHANGES #10) | Tìm theo **tên (khớp cả không dấu)** hoặc **CCCD**. Đặt **đầu danh sách/lưới**: tool list tải về (chế độ Nạp), tool lưới khóa (Tra cứu DB), app web Hồ sơ đã gửi. **Màn hẹp thu gọn thành nút kính lúp** (bấm mới bung ô nhập). App web KHÔNG nằm trong B cũ — chốt lại A (cả 3 chỗ) | 7 |
+| /tool/nap (chế độ Nạp) | Kéo lại làm tươi (CHANGES #11) | Bấm "Kéo về từ VPS" lần nữa **cập nhật** hồ sơ còn **chờ nạp** (collector sửa ở app web sau khi đã kéo → nhận bản mới); giữ nguyên bản đã nạp/đã lỗi. Báo số hồ sơ vừa làm tươi | 8 |
 
 ## Component dùng chung
 

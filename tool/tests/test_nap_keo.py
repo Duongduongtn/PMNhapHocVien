@@ -71,13 +71,30 @@ def test_iso_to_yyyymmdd():
 
 
 # ---- staging keo_ve ----------------------------------------------------------
-def test_keo_ve_upsert_dedup(staging_tmp):
-    n1 = nap.keo_ve_upsert([_keo_row("u1"), _keo_row("u2")])
-    assert n1 == 2
-    n2 = nap.keo_ve_upsert([_keo_row("u2"), _keo_row("u3")])  # u2 trùng → bỏ qua
-    assert n2 == 1
-    ds = nap.keo_ve_danh_sach()
-    assert {r["uuid"] for r in ds} == {"u1", "u2", "u3"}
+def test_keo_ve_upsert_them_moi(staging_tmp):
+    moi, tuoi = nap.keo_ve_upsert([_keo_row("u1"), _keo_row("u2")])
+    assert (moi, tuoi) == (2, 0)
+    moi2, tuoi2 = nap.keo_ve_upsert([_keo_row("u2"), _keo_row("u3")])  # u2 còn 'cho' → làm tươi; u3 mới
+    assert (moi2, tuoi2) == (1, 1)
+    assert {r["uuid"] for r in nap.keo_ve_danh_sach()} == {"u1", "u2", "u3"}
+
+
+def test_keo_ve_lam_tuoi_ban_cho(staging_tmp):
+    # CHANGES #11: kéo lại cập nhật bản còn 'cho' (collector sửa ở app web sau khi đã kéo).
+    nap.keo_ve_upsert([_keo_row("u1", ho_ten="Tên Cũ")])
+    moi, tuoi = nap.keo_ve_upsert([_keo_row("u1", ho_ten="Tên Mới")])
+    assert (moi, tuoi) == (0, 1)
+    assert nap.keo_ve_danh_sach()[0]["ho_ten"] == "Tên Mới"
+
+
+def test_keo_ve_khong_dung_ban_da_nap(staging_tmp):
+    # Bản 'xong'/'loi' GIỮ nguyên, kéo lại không làm tươi.
+    nap.keo_ve_upsert([_keo_row("u1", ho_ten="Tên Cũ")])
+    nap.keo_ve_cap_nhat("u1", trang_thai="xong", ma_dk="M1", so_ho_so="056")
+    moi, tuoi = nap.keo_ve_upsert([_keo_row("u1", ho_ten="Tên Mới")])
+    assert (moi, tuoi) == (0, 0)
+    r = nap.keo_ve_danh_sach()[0]
+    assert r["ho_ten"] == "Tên Cũ" and r["trang_thai"] == "xong"
 
 
 def test_keo_ve_upsert_doi_ngay_cap(staging_tmp):
@@ -107,7 +124,7 @@ def test_keo_ghi_staging(staging_tmp, op_headers, monkeypatch):
     monkeypatch.setattr(vps_mod, "keo", fake_keo)
     r = client.post("/local/nap/keo", headers=op_headers)
     assert r.status_code == 200
-    assert r.json() == {"keo_ve": 2, "tong": 2}
+    assert r.json() == {"keo_ve": 2, "lam_tuoi": 0, "tong": 2}
     assert len(nap.keo_ve_danh_sach()) == 2
 
 

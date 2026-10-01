@@ -118,7 +118,7 @@
 
 #### [NAP-01] Tool kéo hàng đợi + chống trùng
 
-**Trạng thái:** ✅ Done — 01/10/2026. ① backend: kéo VPS→staging (dedup UUID, ngày cấp ISO→yyyymmdd), proxy ảnh thô, nạp lô lock→nạp→da-nap/unlock; +2 vá server (`ngay_cap_cccd` vào `KeoOut`, `GET /api/nap/:uuid/anh`). ② UI `/tool/nap`: IA 2 chế độ (Nạp + Tra cứu stub QLY-01), hàng chờ nạp lô ⚪🔴🟢 (lỗi lên đầu), ô tìm tên-không-dấu/CCCD (màn hẹp thu gọn kính lúp), tên IN HOA, cảnh báo chính tả mức A, banner nổi bật. Kiểm: tool 70 + server 56 test pass · Playwright 375/800/1440 (0 tràn, 0 lỗi JS) · review-nghiepvu 9/9 Done + EC-071 đủ. (Tra cứu DB = QLY-01 task 22)
+**Trạng thái:** ✅ Done — 01/10/2026. ① backend (kéo→staging, nạp lô lock→nạp→da-nap, +2 vá server) + ② UI 2 chế độ (ô tìm/IN HOA/chính tả/badge) + AC "kéo lại làm tươi bản chờ nạp" (CHANGES #11). Kiểm: tool 72 + server 56 test · Playwright 3vp · review-nghiepvu 9/9. (Tra cứu DB = QLY-01 task 22)
 **Story:** Là nhân viên nạp DB, tôi muốn kéo danh sách học viên chờ nạp về tool, để xử lý và nạp vào DB.
 
 **Steps to Complete:**
@@ -130,6 +130,7 @@
 **Done khi:**
 - ✅ Chỉ kéo bản ghi `pending`; bản `imported` không kéo lại (theo UUID).
 - ✅ Kéo lại nhiều lần không nhân đôi trong staging.
+- ✅ **Kéo lại làm tươi hồ sơ chưa nạp** (CHANGES #11): bấm "Kéo về từ VPS" lần nữa **cập nhật lại thông tin/ảnh mới nhất từ VPS** cho các hồ sơ đang **chờ nạp** trong tool — người thu nhận sửa trên app web sau khi tool đã kéo thì tool nhận bản mới; **giữ nguyên** hồ sơ đã nạp/đã lỗi. (Kéo KHÔNG khóa hồ sơ — app web còn sửa được tới lúc operator bấm nạp.)
 - ✅ Tool hiển thị ảnh chân dung của từng học viên (như UI.png).
 - ✅ **Màn nạp 2 chế độ** (CHANGES #6): **Nạp hồ sơ** (dropdown khóa chỉ chưa BC1 — NAP-02) · **Tra cứu DB** (QLY-01). Ở chế độ Nạp: hàng chờ VPS gộp **1 danh sách**, lọc **"Cần xử lý" (⚪ chờ + 🔴 lỗi, lỗi đẩy lên đầu) / "Đã nạp" (🟢)**.
 - ✅ **Tìm trong list tải về** (hàng chờ VPS, chế độ Nạp hồ sơ) theo **tên (khớp cả có dấu lẫn không dấu)** hoặc **số CCCD**; ô tìm đặt trên đầu danh sách, màn hẹp thu gọn thành **nút kính lúp**. (CHANGES #10)
@@ -144,8 +145,9 @@
 | VPS/tunnel down khi kéo | Tool vẫn xử lý bản ghi đã kéo (staging); báo lỗi, cho thử lại |
 | Nạp lô, vài HV lỗi | Dòng lỗi 🔴 + lý do, dòng xong 🟢; lô vẫn chạy hết (EC-071) |
 | Tên thiếu dấu / ký tự lạ (từ QR hỏng hoặc gõ tay) | Cảnh báo mức A, cho sửa; không chặn cứng |
+| Kéo xong, người thu nhận sửa thông tin/ảnh trên app web | Kéo lại làm tươi bản 'chờ nạp'; bản đã nạp/đã lỗi giữ nguyên (CHANGES #11) |
 
-> Nguồn: CAP-004 · BR-015 · EC-062 · EC-071 · CHANGES #6
+> Nguồn: CAP-004 · BR-015 · EC-062 · EC-071 · CHANGES #6 · CHANGES #11
 
 #### [NAP-02] Chọn mô tô/ô tô + khóa chưa lập BC1
 
@@ -467,3 +469,4 @@
 | 01/10/2026 | v2.1 — chốt 4 ô [CHƯA CHỐT]: ⑧ baseline ~100 HV/khóa & ~3 phút/HV; ⑨ budget (VPS/domain có sẵn, không phát sinh) · timeline (không deadline, giao tăng dần) · team size (1 người, tuần tự) | PM |
 | 01/10/2026 | v2.2 — sau review TDD §10 (CHANGES #5): NAP-05 đổi tiêu đề "3 SP"→"1 SP gộp app cũ" + nới ❌ cho UPDATE 5 cột ảnh (hướng A); thêm story **QLY-05** Nạp/thay ảnh cho HV đã có (làm sau NAP-05) | PM |
 | 01/10/2026 | v2.3 — UX màn nạp (CHANGES #6): NAP-01 thêm IA 2 chế độ (Nạp/Tra cứu), tên IN HOA khi kéo, check chính tả mức A, nạp lô badge đỏ/xanh; QLY-01 tìm khóa mọi khóa (kể cả BC1); NFR ⑥ chuẩn cảnh báo inline nổi bật; NAP-06 hạ ⏳ (làm banner nổi bật) | PM |
+| 01/10/2026 | v2.4 — NAP-01 thêm AC "kéo lại làm tươi hồ sơ chưa nạp" + edge case (CHANGES #11); hạ NAP-01 ✅→⏳ Todo (yêu cầu thêm, code ①/② cũ vẫn đúng) | PM |

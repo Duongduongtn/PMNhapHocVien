@@ -4,6 +4,7 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 11 | 01/10/2026 | ✏️ Sửa | `NAP-01` | "Kéo về từ VPS" làm tươi hồ sơ chưa nạp (collector sửa ở app web sau khi tool đã kéo → tool nhận bản mới); kéo không khóa | ✅ | ✅ | — nút có sẵn | ✅ |
 | 10 | 01/10/2026 | ✏️ Sửa | `THU-02`, `NAP-01`, `QLY-01` | Thêm ô tìm kiếm (tên khớp cả không dấu / CCCD) ở 3 chỗ: app web Hồ sơ đã gửi · tool list tải về · tool lưới khóa. Màn hẹp thu gọn nút kính lúp | ✅ | ✅ | 🟡 prototype còn | ⬜ |
 | 9 | 01/10/2026 | ✏️ Sửa | `THU-02` | Bỏ ô "nhập nơi cư trú khác" ở app thu nhận — chỉ thu nơi thường trú; cư trú để tool mặc định = thường trú (phương án A, không đổi schema) | ✅ | — đã khớp | ✅ demo | ⬜ THU-02 (P2) |
 | 8 | 01/10/2026 | ✏️ Sửa | `HTG-01` | Chốt cách tool xác thực `/local/*` (task 17): option A (tool gọi VPS thay mặt → session cục bộ; collector 403) + A1 miễn token `/local/config*`+`/local/auth/*`. Còn mở: 1 hay n phiên | — | ✅ | — | ✅ task 17 |
@@ -16,6 +17,19 @@
 | 1 | 01/10/2026 | ✏️ Sửa | — | Đổi nơi lưu bảng ánh xạ `DM_DVHC_MAP`: GPLX_CSDT → SQLite cục bộ của tool | — | ✅ | — | ✅ (task 5) |
 
 Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên quan
+
+---
+
+## #11 — "Kéo về từ VPS" làm tươi hồ sơ chưa nạp (NAP-01) · 01/10/2026
+
+- **Mã:** `NAP-01`. Thêm 1 tiêu chí "Done khi" + 1 edge case trong story có sẵn, không thêm story mới.
+- **Vì sao:** Động tác kéo **không khóa** hồ sơ (khóa chỉ ở bước nạp, 15'). Nên sau khi tool đã kéo về, người thu nhận vẫn sửa được thông tin/ảnh trên app web (hồ sơ còn `pending`) → bản trong tool thành cũ mà tool **không biết**. Trước đó tool kéo lại chống trùng theo uuid (`INSERT OR IGNORE`) → **không** làm tươi bản đã kéo.
+- **Chốt (phương án A — mức nhẹ):** bấm "Kéo về từ VPS" lần nữa **cập nhật lại** thông tin/ảnh mới nhất từ VPS cho các bản `keo_ve` còn trạng thái cục bộ `cho`; **giữ nguyên** bản `xong`/`loi`. Báo số hồ sơ vừa làm tươi. KHÔNG khóa-khi-kéo (đã cân nhắc "mức chặt": khóa ngay khi kéo + app web báo "đang xử lý" — loại vì nặng, dễ kẹt lô lớn, job 15' lật ngược khi kéo mà chưa nạp).
+- **Hệ quả trạng thái:** `NAP-01` đang ✅ Done (phiên này) → **hạ ⏳ Todo** (yêu cầu thêm). Code ①+② cũ vẫn đúng, chỉ bổ sung làm tươi.
+- **Kỹ thuật:** đổi `tool/app/nap.py` `keo_ve_upsert` từ `INSERT OR IGNORE` → UPSERT cập nhật bản `cho` (giữ `xong`/`loi` + local status), trả số bản làm tươi; `routers/nap.py` `keo_hang_doi` báo thêm số làm tươi. Không đụng VPS/app web.
+- **Đã sửa:** PRD `NAP-01` (Done khi + Edge) · TDD §7.2 + Changelog v2.0.
+- **Đã code (01/10):** `keo_ve_upsert` UPSERT bản `cho` trả `(mới, làm tươi)`; `keo_hang_doi` báo `lam_tuoi`; `NapHoSo.tsx` hiện "Đã kéo N mới · làm tươi M". Test tool 72 pass (+2: làm tươi bản `cho`, không đụng `xong`). NAP-01 ✅ lại — gọn trong task 20, không cần `/kehoach` bổ sung.
+- **Không đụng:** schema VPS/DB · app web · server.
 
 ---
 

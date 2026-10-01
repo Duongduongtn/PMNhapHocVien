@@ -67,6 +67,7 @@ export default function NapHoSo() {
   // Hàng kéo về (staging)
   const [keoVe, setKeoVe] = useState<KeoVeRow[]>([]);
   const [keoErr, setKeoErr] = useState("");
+  const [keoMsg, setKeoMsg] = useState("");
   const [keoBusy, setKeoBusy] = useState(false);
   const [napFilter, setNapFilter] = useState<"canxuly" | "danap">("canxuly");
   const [q, setQ] = useState("");
@@ -151,10 +152,14 @@ export default function NapHoSo() {
 
   const keoVeFromVps = async () => {
     setKeoErr("");
+    setKeoMsg("");
     setKeoBusy(true);
     try {
-      await keoHangDoi();
+      const kq = await keoHangDoi();
       setKeoVe(await getDanhSachKeoVe());
+      const phan = [`${kq.keo_ve} hồ sơ mới`];
+      if (kq.lam_tuoi > 0) phan.push(`làm tươi ${kq.lam_tuoi} hồ sơ chờ nạp`);
+      setKeoMsg(`Đã kéo: ${phan.join(" · ")}. Tổng ${kq.tong} trong danh sách.`);
     } catch (e) {
       setKeoErr(e instanceof Error ? e.message : "Không kéo được hàng đợi từ VPS.");
     } finally {
@@ -328,6 +333,11 @@ export default function NapHoSo() {
           {(errKhoa || keoErr) && (
             <div className="mx-4 mt-3">
               <Banner tone="error">{errKhoa || keoErr}</Banner>
+            </div>
+          )}
+          {keoMsg && !keoErr && (
+            <div className="mx-4 mt-3 flex items-center gap-2 text-[13px] font-medium text-success bg-success/10 border border-success/30 rounded-lg px-3 py-2">
+              <Icon name="check" className="w-4 h-4 shrink-0" sw={3} /> {keoMsg}
             </div>
           )}
 

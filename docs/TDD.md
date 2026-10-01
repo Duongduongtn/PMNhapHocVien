@@ -462,6 +462,7 @@ Lọc **phía client** trên danh sách `/api/ho-so/cua-toi` đã tải (không 
 
 ### 7.2 Khóa & chống trùng (EC-003, EC-010, EC-011)
 - Kéo: chỉ trả `pending` chưa bị khóa (`locked_by IS NULL`).
+- **Kéo KHÔNG khóa** (lock chỉ ở bước nạp) → bản ghi còn sửa được ở app web (`PUT /api/ho-so/:uuid`, `POST .../anh`) tới khi operator nạp. Hệ quả: tool kéo xong, collector sửa tiếp → bản trong staging tool thành cũ. Xử lý (NAP-01, CHANGES #11): tool **kéo lại làm tươi** các bản `keo_ve` còn trạng thái cục bộ `cho` (ghi đè thông tin/ảnh mới nhất từ VPS), **giữ nguyên** bản `xong`/`loi`. Không khóa-khi-kéo (tránh kẹt hàng loạt + job 15' lật ngược khi kéo mà chưa nạp).
 - Trước nạp: `POST /nap/:uuid/lock` set `importing` + `locked_by` (compare-and-set nguyên tử trong 1 UPDATE có WHERE `trang_thai='pending'`). Tool khác thua → báo "đang được nạp".
 - Nạp xong: `da_nap` + lưu `ma_dk`; `imported` không kéo lại → không tạo HV thứ 2.
 - Lỗi: `unlock` → `pending`; timeout khóa **15 phút** (env `IMPORT_LOCK_TIMEOUT_MIN=15`) → job tự mở khóa (EC-002).
@@ -799,6 +800,7 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 |---|---|---|
+| 01/10/2026 | 2.0 | §7.2 ghi rõ **kéo KHÔNG khóa** (bản ghi còn sửa ở app web tới lúc nạp) → tool **kéo lại làm tươi** bản `keo_ve` trạng thái `cho` (NAP-01, CHANGES #11); không khóa-khi-kéo để tránh kẹt + job 15' lật ngược. |
 | 01/10/2026 | 1.8 | §3.2 bổ sung bảng `token_blocklist` (+ index `idx_blocklist_exp`) — §5.1 đã mô tả logout ghi jti vào blocklist nhưng schema §3.2 ghi sót; đồng bộ khi làm task 14 (HTG-01②). Xem CHANGES.md #7. |
 | 30/09/2026 | 1.0 | TDD đầu tiên — thiết kế đầy đủ từ PRD v2 (chế độ phỏng vấn 3 câu + PRD) |
 | 30/09/2026 | 1.2 | Verify DB thật: `TT_XuLy` phụ thuộc ảnh (có ảnh→`03`, chưa ảnh→`01`), `ChatLuongAnh`=1/NULL theo ảnh; `TrangThai`=1 không đổi theo ảnh (§10.2). |

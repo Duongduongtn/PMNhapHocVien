@@ -230,33 +230,45 @@ def _keo_conn() -> sqlite3.Connection:
     return conn
 
 
-def keo_ve_upsert(rows: list[dict]) -> int:
-    """Ghi các bản ghi kéo từ VPS vào staging, dedup theo uuid (INSERT OR IGNORE —
-    bản đã có GIỮ nguyên trạng thái cục bộ, không ghi đè). Trả số bản ghi MỚI thêm.
+def keo_ve_upsert(rows: list[dict]) -> tuple[int, int]:
+    """Ghi các bản ghi kéo từ VPS vào staging. Dedup + LÀM TƯƠI theo uuid (CHANGES #11):
+    - Chưa có → thêm mới (trạng thái 'cho').
+    - Đã có + còn 'cho' → **cập nhật** thông tin/ảnh mới nhất từ VPS (collector sửa ở app web
+      sau khi tool đã kéo → nhận bản mới). Giữ nguyên trạng thái cục bộ.
+    - Đã có + 'xong'/'loi' → GIỮ nguyên, không đụng (đã nạp/đã xử lý).
+    Trả (số thêm mới, số làm tươi).
 
     Mỗi row là KeoOut của VPS: uuid, so_cccd, so_cmnd_cu, ho_ten, ngay_sinh, gioi_tinh,
     noi_tt_raw, ngay_cap_cccd (ISO), noi_cap_cccd, co_anh, created_at.
     """
     conn = _keo_conn()
     try:
-        moi = 0
+        moi = lam_tuoi = 0
         for r in rows:
-            cur = conn.execute(
-                "INSERT OR IGNORE INTO keo_ve "
-                "(uuid, so_cccd, so_cmnd_cu, ho_ten, ngay_sinh, gioi_tinh, noi_tt_raw, "
-                " ngay_cap, noi_cap_cccd, co_anh, created_at, trang_thai) "
-                "VALUES (?,?,?,?,?,?,?,?,?,?,?, 'cho')",
-                (
-                    str(r.get("uuid")), r.get("so_cccd"), r.get("so_cmnd_cu"),
-                    r.get("ho_ten"), r.get("ngay_sinh"), r.get("gioi_tinh"),
-                    r.get("noi_tt_raw"), iso_to_yyyymmdd(r.get("ngay_cap_cccd")),
-                    r.get("noi_cap_cccd"), 1 if r.get("co_anh") else 0,
-                    str(r.get("created_at") or ""),
-                ),
+            gt = (
+                str(r.get("uuid")), r.get("so_cccd"), r.get("so_cmnd_cu"),
+                r.get("ho_ten"), r.get("ngay_sinh"), r.get("gioi_tinh"),
+                r.get("noi_tt_raw"), iso_to_yyyymmdd(r.get("ngay_cap_cccd")),
+                r.get("noi_cap_cccd"), 1 if r.get("co_anh") else 0,
+                str(r.get("created_at") or ""),
             )
-            moi += cur.rowcount
+            cot = ("uuid", "so_cccd", "so_cmnd_cu", "ho_ten", "ngay_sinh", "gioi_tinh",
+                   "noi_tt_raw", "ngay_cap", "noi_cap_cccd", "co_anh", "created_at")
+            hien = conn.execute("SELECT trang_thai FROM keo_ve WHERE uuid=?", (gt[0],)).fetchone()
+            if hien is None:
+                conn.execute(
+                    f"INSERT INTO keo_ve ({', '.join(cot)}, trang_thai) "
+                    f"VALUES ({', '.join('?' * len(cot))}, 'cho')",
+                    gt,
+                )
+                moi += 1
+            elif hien[0] == "cho":
+                dat = ", ".join(f"{c}=?" for c in cot[1:])  # bỏ uuid (khóa)
+                conn.execute(f"UPDATE keo_ve SET {dat} WHERE uuid=?", (*gt[1:], gt[0]))
+                lam_tuoi += 1
+            # 'xong'/'loi' → bỏ qua
         conn.commit()
-        return moi
+        return moi, lam_tuoi
     finally:
         conn.close()
 
