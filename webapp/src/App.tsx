@@ -1,8 +1,8 @@
 import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import AppLayout from "./components/AppLayout";
-import Placeholder from "./pages/Placeholder";
 import DangNhap from "./pages/DangNhap";
 import Quet from "./pages/Quet";
+import DaGui from "./pages/DaGui";
 import TaiKhoan from "./pages/TaiKhoan";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 
@@ -22,7 +22,7 @@ export default function App() {
           <Route element={<AppLayout />}>
             <Route index element={<Navigate to="/quet" replace />} />
             <Route path="/quet" element={<Quet />} />
-            <Route path="/da-gui" element={<Placeholder ten="Hồ sơ đã gửi" icon="send" />} />
+            <Route path="/da-gui" element={<DaGui />} />
             <Route path="/tai-khoan" element={<TaiKhoan />} />
           </Route>
         </Route>

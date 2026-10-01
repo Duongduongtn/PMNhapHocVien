@@ -4,6 +4,7 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 9 | 01/10/2026 | ✏️ Sửa | `THU-02` | Bỏ ô "nhập nơi cư trú khác" ở app thu nhận — chỉ thu nơi thường trú; cư trú để tool mặc định = thường trú (phương án A, không đổi schema) | ✅ | — đã khớp | ✅ demo | ⬜ THU-02 (P2) |
 | 8 | 01/10/2026 | ✏️ Sửa | `HTG-01` | Chốt cách tool xác thực `/local/*` (task 17): option A (tool gọi VPS thay mặt → session cục bộ; collector 403) + A1 miễn token `/local/config*`+`/local/auth/*`. Còn mở: 1 hay n phiên | — | ✅ | — | ✅ task 17 |
 | 7 | 01/10/2026 | ✏️ Sửa | `HTG-01` | TDD §3.2 ghi sót bảng `token_blocklist` (logout thu hồi phiên §5.1) — đồng bộ khi làm task 14 | — | ✅ | — | ✅ task 14 |
 | 6 | 01/10/2026 | ✏️ Sửa | `NAP-01`, `QLY-01`, `NAP-06`, NFR⑥ | UX màn nạp: IA 2 chế độ (Nạp/Tra cứu); tên IN HOA khi kéo; check chính tả mức A; nạp lô badge đỏ/xanh; chuẩn cảnh báo inline nổi bật; tìm khóa mọi khóa (kể cả BC1) | ✅ | ✅ | ⬜ NAP-01 (P2) | ✅ C1 · ⬜ NAP-01 (P2) |
@@ -14,6 +15,17 @@
 | 1 | 01/10/2026 | ✏️ Sửa | — | Đổi nơi lưu bảng ánh xạ `DM_DVHC_MAP`: GPLX_CSDT → SQLite cục bộ của tool | — | ✅ | — | ✅ (task 5) |
 
 Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên quan
+
+---
+
+## #9 — Bỏ ô nhập nơi cư trú khác ở app thu nhận (THU-02) · 01/10/2026
+
+- **Mã:** `THU-02`. Đổi quy tắc nghiệp vụ nhỏ (bớt một ô nhập), không thêm/bỏ story.
+- **Vì sao:** Bảng `ho_so_thu_thap` trên VPS không có cột nơi cư trú (`HoSoIn`/model chỉ có `noi_tt_raw`), và tool khi nạp tự lấy cư trú = thường trú (BR-004 / TDD §8.1). App cho nhập cư trú khác thì dữ liệu đó không gửi đi đâu được, âm thầm mất. Nghiệp vụ học viên lái xe gần như luôn khai một địa chỉ.
+- **Chốt (phương án A):** app chỉ thu **nơi thường trú** (lấy từ QR, cho sửa); không có ô cư trú. Cư trú để tool mặc định = thường trú khi nạp. Không đổi schema VPS, không sửa server, không sửa luồng tool.
+- **Đã loại (B):** thêm cột `noi_cu_tru` vào bảng + `HoSoIn` + luồng tool — đúng PRD cũ nhưng phải `down -v` đổi schema + sửa server + NAP-05 cho một ô gần như không dùng.
+- **Đã sửa:** PRD `THU-02` Done-khi (bỏ "nút bỏ tick để nhập khác"). Prototype `ui-demo/src/pages/app/Quet.tsx` (gỡ checkbox cư trú). **TDD không đổi** — §8.1 + field map đã ghi `NoiCT = NoiTT mặc định` sẵn.
+- **Không đụng:** server (schema/endpoint giữ nguyên) · BUILD-PLAN (THU-02 vẫn task 19) · code THU-01 (đã không có ô cư trú).
 
 ---
 

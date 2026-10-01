@@ -1,9 +1,6 @@
-import { useState } from "react";
 import { Icon } from "../../components/Icon";
 
 export default function Quet() {
-  const [giongTT, setGiongTT] = useState(true);
-
   return (
     <div className="lg:flex lg:gap-6 lg:p-6 lg:max-w-4xl lg:mx-auto lg:items-start">
       {/* Camera viewport (desktop: cột trái) */}
@@ -46,11 +43,6 @@ export default function Quet() {
           </div>
         </div>
         <Field label="Nơi thường trú" req defaultValue="Xã Phú Nghĩa, Tỉnh Bình Phước" />
-        <label className="flex items-center gap-2 text-[13px] cursor-pointer select-none">
-          <input type="checkbox" checked={giongTT} onChange={(e) => setGiongTT(e.target.checked)} className="w-4 h-4 accent-primary rounded" />
-          Nơi cư trú giống nơi thường trú
-        </label>
-        {!giongTT && <Field label="Nơi cư trú" placeholder="Nhập nơi cư trú khác" />}
         <Field label="Ngày cấp" defaultValue="10/03/2021" />
 
         <div className="flex items-center gap-2 text-[12px] text-warning bg-warning/10 border border-warning/30 rounded-lg px-3 py-2">

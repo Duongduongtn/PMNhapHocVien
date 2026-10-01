@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { Icon } from "../components/Icon";
+import { ApiError } from "../lib/api";
 import { kiemDoDaiTen, parseCccdQr, type CccdFields, type GioiTinh } from "../lib/qr";
-import { luuNhap, taoUuid, tuCccd } from "../lib/draft";
+import { capNhatNhap, dsNhap, luuNhap, taoUuid, tuCccd } from "../lib/draft";
+import { dangKyGuiLai, guiMot } from "../lib/gui";
 
-// THU-01 — Quét QR mặt trước CCCD gắn chip → preview 7 trường cho sửa → giữ nháp.
-// Bám bố cục ui-demo/src/pages/app/Quet.tsx (khung ngắm góc xanh + hiệu ứng + form).
-// Chụp ảnh chân dung + gửi VPS là THU-02 (đọc lại nháp qua lib/draft).
+// THU-01 quét QR + preview sửa; THU-02 chụp ảnh chân dung + gửi VPS.
+// Luồng: quét/nhập → preview (sửa) → giữ nháp → chụp ảnh → gửi (POST /api/ho-so + /anh).
+// Bám bố cục ui-demo/src/pages/app/Quet.tsx. Mất mạng → giữ nháp, tự gửi lại khi online (lib/gui).
 // Cách quét (BarcodeDetector→qr-scanner, auto-capture 2 frame) tham khảo webThanhdat — memory ref-quet-qr-cccd.
 
 // ---- Decoder cascade: BarcodeDetector native → qr-scanner (ZXing) ----
@@ -75,12 +78,19 @@ const FIELDS_RONG: CccdFields = {
   ngayCap: "",
 };
 
-type GiaiDoan = "quet" | "preview" | "xong";
+type GiaiDoan = "quet" | "preview" | "anh" | "ketqua";
 
 export default function Quet() {
   const [giaiDoan, setGiaiDoan] = useState<GiaiDoan>("quet");
   const [fields, setFields] = useState<CccdFields>(FIELDS_RONG);
   const [loiQuet, setLoiQuet] = useState<string | null>(null);
+  const [uuid, setUuid] = useState<string>("");
+  const [offline, setOffline] = useState(false);
+
+  // Có mạng trở lại → tự gửi lại nháp còn tồn.
+  useEffect(() => {
+    dangKyGuiLai();
+  }, []);
 
   const batDau = useCallback((f: CccdFields) => {
     setFields(f);
@@ -96,6 +106,8 @@ export default function Quet() {
 
   function quetTiep() {
     setFields(FIELDS_RONG);
+    setUuid("");
+    setOffline(false);
     setLoiQuet(null);
     setGiaiDoan("quet");
   }
@@ -106,11 +118,23 @@ export default function Quet() {
       {giaiDoan === "preview" && (
         <Preview
           fields={fields}
-          onLuu={() => setGiaiDoan("xong")}
+          onLuu={(id) => {
+            setUuid(id);
+            setGiaiDoan("anh");
+          }}
           onQuetLai={quetTiep}
         />
       )}
-      {giaiDoan === "xong" && <Xong onQuetTiep={quetTiep} />}
+      {giaiDoan === "anh" && (
+        <ChupAnhGui
+          uuid={uuid}
+          onXong={(mangYeu) => {
+            setOffline(mangYeu);
+            setGiaiDoan("ketqua");
+          }}
+        />
+      )}
+      {giaiDoan === "ketqua" && <KetQua offline={offline} onQuetTiep={quetTiep} />}
     </div>
   );
 }
@@ -359,7 +383,7 @@ function kiemFields(f: CccdFields): string | null {
   return null;
 }
 
-function Preview({ fields, onLuu, onQuetLai }: { fields: CccdFields; onLuu: () => void; onQuetLai: () => void }) {
+function Preview({ fields, onLuu, onQuetLai }: { fields: CccdFields; onLuu: (uuid: string) => void; onQuetLai: () => void }) {
   const [f, setF] = useState<CccdFields>(fields);
   const [loi, setLoi] = useState<string | null>(null);
 
@@ -372,8 +396,9 @@ function Preview({ fields, onLuu, onQuetLai }: { fields: CccdFields; onLuu: () =
       setLoi(e);
       return;
     }
-    luuNhap(tuCccd(taoUuid(), f));
-    onLuu();
+    const id = taoUuid();
+    luuNhap(tuCccd(id, f));
+    onLuu(id);
   }
 
   return (
@@ -425,7 +450,7 @@ function Preview({ fields, onLuu, onQuetLai }: { fields: CccdFields; onLuu: () =
         onClick={giu}
         className="w-full h-11 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-sm"
       >
-        <Icon name="check" className="w-4 h-4" sw={3} /> Giữ thông tin
+        <Icon name="camera" className="w-4 h-4" /> Tiếp tục — chụp ảnh chân dung
       </button>
     </div>
   );
@@ -462,26 +487,152 @@ function Field({
   );
 }
 
-// ---------- Đã giữ ----------
-function Xong({ onQuetTiep }: { onQuetTiep: () => void }) {
+// ---------- Chụp ảnh chân dung + gửi VPS ----------
+// Nén ảnh về JPEG (cạnh dài ≤ maxCanh) để nhẹ khi giữ nháp offline + upload. Ảnh thô để tool
+// xử lý (căn 3:4 + xóa phông + .jp2 ở NAP-04), app KHÔNG cắt/xóa phông.
+function nenAnhJpeg(file: File, maxCanh: number, chatLuong: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let w = img.naturalWidth;
+      let h = img.naturalHeight;
+      const canh = Math.max(w, h);
+      if (canh > maxCanh) {
+        const r = maxCanh / canh;
+        w = Math.round(w * r);
+        h = Math.round(h * r);
+      }
+      const c = document.createElement("canvas");
+      c.width = w;
+      c.height = h;
+      const ctx = c.getContext("2d");
+      if (!ctx) {
+        reject(new Error("Không dựng được canvas"));
+        return;
+      }
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(c.toDataURL("image/jpeg", chatLuong));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Không đọc được ảnh"));
+    };
+    img.src = url;
+  });
+}
+
+function ChupAnhGui({ uuid, onXong }: { uuid: string; onXong: (mangYeu: boolean) => void }) {
+  const [anh, setAnh] = useState<string | null>(null);
+  const [dangGui, setDangGui] = useState(false);
+  const [loi, setLoi] = useState<string | null>(null);
+
+  function chonAnh(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setLoi(null);
+    void nenAnhJpeg(file, 1600, 0.85)
+      .then(setAnh)
+      .catch(() => setLoi("Không đọc được ảnh. Thử ảnh khác."));
+  }
+
+  async function gui() {
+    setDangGui(true);
+    setLoi(null);
+    if (anh) capNhatNhap(uuid, { anh_data_url: anh });
+    const hs = dsNhap().find((x) => x.uuid === uuid);
+    if (!hs) {
+      setLoi("Không tìm thấy nháp hồ sơ. Hãy quét lại.");
+      setDangGui(false);
+      return;
+    }
+    try {
+      await guiMot(hs);
+      onXong(false);
+    } catch (err) {
+      // ApiError = server từ chối (4xx) → báo để sửa. Lỗi khác = mất mạng → đã giữ nháp, tự gửi lại.
+      if (err instanceof ApiError) {
+        setLoi(err.message);
+        setDangGui(false);
+      } else {
+        onXong(true);
+      }
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="text-center">
+        <h2 className="text-base font-bold">Ảnh chân dung</h2>
+        <p className="text-[12px] text-muted-foreground mt-0.5">Chụp ảnh người thật. Căn khung và xóa phông do tool nạp làm sau.</p>
+      </div>
+
+      <div className="relative bg-slate-100 border border-border rounded-xl aspect-[3/4] max-w-[260px] mx-auto overflow-hidden flex items-center justify-center">
+        {anh ? (
+          <img src={anh} alt="Ảnh chân dung" className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          <div className="flex flex-col items-center gap-2 text-slate-400">
+            <Icon name="user" className="w-14 h-14" sw={1.5} />
+            <span className="text-[12px]">Chưa có ảnh</span>
+          </div>
+        )}
+      </div>
+
+      {loi && (
+        <div className="flex items-start gap-2 text-[12px] text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2">
+          <Icon name="warn" className="w-4 h-4 shrink-0 mt-0.5" /> {loi}
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <label className="w-full h-11 rounded-lg border border-border bg-secondary text-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:bg-muted transition-colors cursor-pointer">
+          <Icon name="camera" className="w-4 h-4" /> {anh ? "Chụp lại / Chọn ảnh khác" : "Chụp ảnh / Chọn từ máy"}
+          <input type="file" accept="image/*" capture="user" className="hidden" onChange={chonAnh} disabled={dangGui} />
+        </label>
+
+        <button
+          type="button"
+          onClick={gui}
+          disabled={dangGui}
+          className="w-full h-11 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-sm disabled:opacity-60"
+        >
+          <Icon name="send" className="w-4 h-4" /> {dangGui ? "Đang gửi…" : anh ? "Gửi hồ sơ" : "Gửi không kèm ảnh"}
+        </button>
+        {!anh && <p className="text-[11px] text-muted-foreground text-center">Có thể gửi trước, bổ sung ảnh sau ở máy nạp.</p>}
+      </div>
+    </div>
+  );
+}
+
+// ---------- Kết quả gửi ----------
+function KetQua({ offline, onQuetTiep }: { offline: boolean; onQuetTiep: () => void }) {
   return (
     <div className="flex flex-col items-center text-center gap-4 py-10">
-      <div className="w-16 h-16 rounded-full bg-success/15 text-success flex items-center justify-center">
-        <Icon name="check" className="w-8 h-8" sw={3} />
+      <div className={`w-16 h-16 rounded-full flex items-center justify-center ${offline ? "bg-warning/15 text-warning" : "bg-success/15 text-success"}`}>
+        <Icon name={offline ? "wifiOff" : "check"} className="w-8 h-8" sw={offline ? 2 : 3} />
       </div>
       <div>
-        <h2 className="text-base font-bold">Đã giữ thông tin căn cước</h2>
+        <h2 className="text-base font-bold">{offline ? "Đã lưu — chưa gửi được" : "Đã gửi hồ sơ"}</h2>
         <p className="text-[13px] text-muted-foreground mt-1 max-w-xs">
-          Bước tiếp theo — chụp ảnh chân dung và gửi hồ sơ — thực hiện ở màn thu nhận.
+          {offline
+            ? "Chưa có mạng. Hồ sơ đã lưu ở máy và sẽ tự gửi lại khi có mạng trở lại."
+            : "Hồ sơ đã lên hệ thống, chờ nhân viên nạp xử lý."}
         </p>
       </div>
-      <button
-        type="button"
-        onClick={onQuetTiep}
-        className="h-11 px-6 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-sm"
-      >
-        <Icon name="scan" className="w-4 h-4" /> Quét hồ sơ khác
-      </button>
+      <div className="flex flex-col items-center gap-2">
+        <button
+          type="button"
+          onClick={onQuetTiep}
+          className="h-11 px-6 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-sm"
+        >
+          <Icon name="scan" className="w-4 h-4" /> Quét hồ sơ khác
+        </button>
+        <Link to="/da-gui" className="text-[13px] text-primary font-medium hover:underline">
+          Xem hồ sơ đã gửi
+        </Link>
+      </div>
     </div>
   );
 }

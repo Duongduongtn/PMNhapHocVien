@@ -56,3 +56,48 @@ export const layMe = () => fetch(`${BASE}/api/auth/me`, { headers: authHeaders()
 
 export const dangXuat = () =>
   fetch(`${BASE}/api/auth/logout`, { method: "POST", headers: authHeaders() });
+
+// ---- Hồ sơ thu thập (THU-02) ----
+// Khớp HoSoIn của server (server/app/routers/ho_so.py). uuid do client sinh (idempotent).
+export interface HoSoGui {
+  uuid: string;
+  so_cccd: string | null;
+  so_cmnd_cu: string | null;
+  ho_ten: string | null;
+  ngay_sinh: string | null; // yyyymmdd
+  gioi_tinh: string | null; // M/F
+  noi_tt_raw: string | null;
+  ngay_cap_cccd: string | null; // yyyy-mm-dd
+  noi_cap_cccd: string | null;
+}
+
+export interface HoSoOut {
+  uuid: string;
+  trang_thai: string; // pending | importing | imported | deleted
+  so_cccd: string | null;
+  so_cmnd_cu: string | null;
+  ho_ten: string | null;
+  ngay_sinh: string | null;
+  gioi_tinh: string | null;
+  noi_tt_raw: string | null;
+  noi_cap_cccd: string | null;
+  co_anh: boolean;
+  ma_dk: string | null;
+  created_at: string;
+}
+
+export const guiHoSo = (body: HoSoGui) =>
+  fetch(`${BASE}/api/ho-so`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(body),
+  }).then(json<HoSoOut>);
+
+// Ảnh thô JPEG — upload riêng (TDD §6.3). KHÔNG tự đặt Content-Type để trình duyệt tự gắn boundary.
+export const guiAnh = (uuid: string, blob: Blob) => {
+  const fd = new FormData();
+  fd.append("file", blob, "anh.jpg");
+  return fetch(`${BASE}/api/ho-so/${uuid}/anh`, { method: "POST", headers: authHeaders(), body: fd }).then(json<HoSoOut>);
+};
+
+export const dsDaGui = () => fetch(`${BASE}/api/ho-so/cua-toi`, { headers: authHeaders() }).then(json<HoSoOut[]>);

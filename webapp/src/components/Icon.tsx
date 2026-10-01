@@ -14,6 +14,8 @@ const PATHS: Record<string, ReactNode> = {
   warn: <><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /></>,
   image: <><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-5-5L5 21" /></>,
   x: <path d="M18 6 6 18M6 6l12 12" />,
+  clock: <><path d="M21 12a9 9 0 1 1-3-6.7" /><path d="M12 7v5l3 2" /></>,
+  wifiOff: <><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4" /></>,
 };
 
 export function Icon({ name, className = "w-5 h-5", sw = 2 }: { name: keyof typeof PATHS | string; className?: string; sw?: number }) {

@@ -79,7 +79,7 @@
 
 #### [THU-02] Nhập tay + chụp ảnh + gửi VPS (app web)
 
-**Trạng thái:** ⏳ Todo
+**Trạng thái:** ✅ Done
 **Story:** Là nhân viên thu nhận, tôi muốn nhập tay và chụp ảnh chân dung rồi gửi lên VPS, để thu thập được cả khi không quét được QR.
 
 **Steps to Complete:**
@@ -90,7 +90,7 @@
 **Done khi:**
 - ✅ Gửi thành công → bản ghi có UUID, trạng thái `pending` trên VPS.
 - ✅ Xem lại được danh sách bản ghi mình đã gửi.
-- ✅ Nơi cư trú mặc định = nơi thường trú (có nút bỏ tick để nhập khác).
+- ✅ Nơi thường trú lấy từ QR (hoặc nhập tay), cho sửa trước khi gửi. Nơi cư trú (tạm trú) **không nhập ở app** — tool mặc định = nơi thường trú khi nạp (BR-004 / TDD §8.1; xem CHANGES #9).
 - ❌ Không xóa phông/căn ảnh ở điện thoại (để tool làm).
 
 **Edge cases:**
