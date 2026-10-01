@@ -27,12 +27,18 @@ def test_suy_ma_loai_hs_rong():
     assert suy_ma_loai_hs("") == 2
 
 
-def test_loai_sai_tra_422():
+def test_loai_sai_tra_422(auth_headers):
     # Tham số loai ngoài {moto, oto} bị chặn ở tầng validate, không chạm DB.
-    r = client.get("/local/khoa-hoc?loai=xe-dap")
+    # (Đã đăng nhập để qua cổng HTG-01③, mới tới được tầng validate.)
+    r = client.get("/local/khoa-hoc?loai=xe-dap", headers=auth_headers)
     assert r.status_code == 422
 
 
-def test_thieu_loai_tra_422():
-    r = client.get("/local/khoa-hoc")
+def test_thieu_loai_tra_422(auth_headers):
+    r = client.get("/local/khoa-hoc", headers=auth_headers)
     assert r.status_code == 422
+
+
+def test_khoa_hoc_chua_dang_nhap_401():
+    # Cổng HTG-01③: chưa đăng nhập → chặn trước khi tới DB.
+    assert client.get("/local/khoa-hoc?loai=moto").status_code == 401

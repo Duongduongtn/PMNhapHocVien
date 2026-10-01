@@ -87,5 +87,10 @@ def test_map_khong_khop(tmp_map):
 
 
 # ---- Validate endpoint -----------------------------------------------------
-def test_xa_thieu_tinh_422():
-    assert client.get("/local/dvhc/xa").status_code == 422
+def test_xa_thieu_tinh_422(auth_headers):
+    # Đã đăng nhập để qua cổng HTG-01③ → mới tới tầng validate (thiếu tinh → 422).
+    assert client.get("/local/dvhc/xa", headers=auth_headers).status_code == 422
+
+
+def test_dvhc_chua_dang_nhap_401():
+    assert client.get("/local/dvhc/tinh").status_code == 401

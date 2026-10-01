@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { Icon } from "./Icon";
+import { NHAN_VAI_TRO, useAuth } from "../auth/AuthContext";
 
 // Shell app web thu thập — bám prototype ui-demo/src/components/AppLayout.tsx:
 // mobile (<lg) header + bottom-nav (max-w-440); desktop (≥lg) sidebar trái + nội dung rộng.
@@ -20,6 +21,9 @@ const sideCls = ({ isActive }: { isActive: boolean }) =>
   (isActive ? "bg-primary text-primary-foreground font-semibold" : "text-muted-foreground hover:bg-muted hover:text-foreground");
 
 export default function AppLayout() {
+  const { user } = useAuth();
+  const tenHienThi = user?.ho_ten || user?.username || "—";
+  const nhanVaiTro = user ? (NHAN_VAI_TRO[user.vai_tro] ?? user.vai_tro) : "";
   return (
     <div className="min-h-screen bg-slate-200 lg:bg-[hsl(210_40%_96%)]">
       <div className="mx-auto w-full max-w-[440px] lg:max-w-[1180px] min-h-screen lg:min-h-0 lg:py-6 flex flex-col lg:flex-row">
@@ -36,7 +40,7 @@ export default function AppLayout() {
           </nav>
           <div className="p-3 border-t border-border flex items-center gap-2">
             <span className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0"><Icon name="user" className="w-4 h-4 text-muted-foreground" /></span>
-            <span className="text-[13px] font-medium truncate">Người thu thập</span>
+            <span className="min-w-0"><span className="block text-[13px] font-medium truncate">{tenHienThi}</span><span className="block text-[11px] text-muted-foreground truncate">{nhanVaiTro}</span></span>
           </div>
         </aside>
 
@@ -48,7 +52,7 @@ export default function AppLayout() {
               <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center"><Icon name="scan" className="w-5 h-5" /></div>
               <div><div className="text-sm font-semibold leading-tight">Thu nhận hồ sơ</div><div className="text-[11px] text-white/70 leading-tight">CSDT 70004</div></div>
             </div>
-            <span className="text-[11px] bg-white/15 rounded-full px-2 py-1">Người thu thập</span>
+            <span className="text-[11px] bg-white/15 rounded-full px-2 py-1 max-w-[45%] truncate">{tenHienThi}</span>
           </header>
 
           <main className="flex-1 overflow-y-auto">

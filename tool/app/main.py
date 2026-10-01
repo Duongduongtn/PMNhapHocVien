@@ -4,12 +4,14 @@ Tool pull dữ liệu từ VPS về và nạp vào SQL Server GPLX_CSDT qua stor
 File này là KHUNG — các router nghiệp vụ (cấu hình, kéo hàng đợi, map địa chỉ,
 xử lý ảnh, nạp) được thêm ở các task sau theo docs/BUILD-PLAN.md.
 """
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 import os
 import threading
 
+from app.session import require_session
+from app.routers import auth as auth_router
 from app.routers import config as config_router
 from app.routers import khoahoc as khoahoc_router
 from app.routers import dvhc as dvhc_router
@@ -34,11 +36,17 @@ app.add_middleware(
 )
 
 
+# Cửa vào — KHÔNG gác token (A1): config là bước mồi (chưa có URL VPS thì không
+# đăng nhập được), auth chính là chỗ đăng nhập.
 app.include_router(config_router.router)
-app.include_router(khoahoc_router.router)
-app.include_router(dvhc_router.router)
-app.include_router(anh_router.router)
-app.include_router(nap_router.router)
+app.include_router(auth_router.router)
+
+# Nghiệp vụ nạp/tra — buộc session cục bộ (HTG-01③, TDD §4.6).
+_gac = [Depends(require_session)]
+app.include_router(khoahoc_router.router, dependencies=_gac)
+app.include_router(dvhc_router.router, dependencies=_gac)
+app.include_router(anh_router.router, dependencies=_gac)
+app.include_router(nap_router.router, dependencies=_gac)
 
 
 @app.on_event("startup")

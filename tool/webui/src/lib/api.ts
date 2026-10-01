@@ -2,6 +2,18 @@
 // Khi đóng gói .exe, webui static do chính FastAPI phục vụ → cùng origin (BASE rỗng).
 const BASE = import.meta.env.DEV ? "http://localhost:8000" : "";
 
+// Session token cục bộ (HTG-01③) — giữ trong bộ nhớ; tải lại trang phải đăng nhập lại.
+let _token: string | null = null;
+export const datToken = (t: string | null) => {
+  _token = t;
+};
+// Header kèm Bearer cho endpoint /local/* nghiệp vụ (config/auth được miễn — A1).
+function authHeaders(extra?: Record<string, string>): Record<string, string> {
+  const h: Record<string, string> = { ...(extra || {}) };
+  if (_token) h.Authorization = `Bearer ${_token}`;
+  return h;
+}
+
 export interface ToolConfig {
   sqlserver_host: string;
   sqlserver_database: string;
@@ -28,9 +40,30 @@ export interface KhoaHoc {
 }
 
 async function json<T>(r: Response): Promise<T> {
-  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+  if (!r.ok) {
+    const d = await r.json().catch(() => null);
+    throw new Error(d?.detail || `${r.status} ${r.statusText}`);
+  }
   return r.json() as Promise<T>;
 }
+
+// ── Đăng nhập cục bộ của tool (HTG-01③) ──
+export interface ToolNguoiDung {
+  session_token: string;
+  username: string;
+  ho_ten: string | null;
+  vai_tro: string;
+}
+
+export const toolDangNhap = (username: string, password: string) =>
+  fetch(`${BASE}/local/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  }).then(json<ToolNguoiDung>);
+
+export const toolDangXuat = () =>
+  fetch(`${BASE}/local/auth/logout`, { method: "POST", headers: authHeaders() });
 
 export const getConfig = () =>
   fetch(`${BASE}/local/config`).then(json<Partial<ToolConfig>>);
@@ -50,7 +83,7 @@ export const testConfig = (cfg: ToolConfig) =>
   }).then(json<TestResult>);
 
 export const getKhoaHoc = (loai: LoaiXe) =>
-  fetch(`${BASE}/local/khoa-hoc?loai=${loai}`).then(json<KhoaHoc[]>);
+  fetch(`${BASE}/local/khoa-hoc?loai=${loai}`, { headers: authHeaders() }).then(json<KhoaHoc[]>);
 
 export interface Tinh {
   ma_dvql: string;
@@ -72,15 +105,16 @@ export interface MapKetQua {
   ten_tinh?: string;
 }
 
-export const getTinh = () => fetch(`${BASE}/local/dvhc/tinh`).then(json<Tinh[]>);
+export const getTinh = () =>
+  fetch(`${BASE}/local/dvhc/tinh`, { headers: authHeaders() }).then(json<Tinh[]>);
 
 export const getXa = (tinh: string) =>
-  fetch(`${BASE}/local/dvhc/xa?tinh=${encodeURIComponent(tinh)}`).then(json<Xa[]>);
+  fetch(`${BASE}/local/dvhc/xa?tinh=${encodeURIComponent(tinh)}`, { headers: authHeaders() }).then(json<Xa[]>);
 
 export const mapDiaChi = (dc: { tinh: string; huyen: string; xa: string }) =>
   fetch(`${BASE}/local/dvhc/map`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(dc),
   }).then(json<MapKetQua>);
 
@@ -96,7 +130,9 @@ export const xuLyAnh = (file: File, box: string, xoaPhong: boolean) => {
   fd.append("file", file);
   fd.append("box", box);
   fd.append("xoa_phong", String(xoaPhong));
-  return fetch(`${BASE}/local/anh/xu-ly`, { method: "POST", body: fd }).then(json<AnhKetQua>);
+  return fetch(`${BASE}/local/anh/xu-ly`, { method: "POST", headers: authHeaders(), body: fd }).then(
+    json<AnhKetQua>,
+  );
 };
 
 // NAP-05: giấy tờ bắt buộc theo khóa + nạp 1 HV.
@@ -106,9 +142,9 @@ export interface GiayTo {
 }
 
 export const getGiayTo = (maLoaiHs: number, hangDt: string) =>
-  fetch(`${BASE}/local/giay-to?ma_loai_hs=${maLoaiHs}&hang_dt=${encodeURIComponent(hangDt)}`).then(
-    json<GiayTo[]>,
-  );
+  fetch(`${BASE}/local/giay-to?ma_loai_hs=${maLoaiHs}&hang_dt=${encodeURIComponent(hangDt)}`, {
+    headers: authHeaders(),
+  }).then(json<GiayTo[]>);
 
 export interface NapIn {
   uuid: string;
@@ -135,7 +171,7 @@ export interface NapKetQua {
 export const napHoSo = async (body: NapIn): Promise<NapKetQua> => {
   const r = await fetch(`${BASE}/local/nap`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(body),
   });
   if (!r.ok) {
@@ -153,7 +189,7 @@ export const kiemTrungCccd = async (
 ): Promise<{ trung: boolean; so_ho_so: string | null }> => {
   try {
     const q = `ma_kh=${encodeURIComponent(maKh)}&so_cmt=${encodeURIComponent(soCmt)}`;
-    const r = await fetch(`${BASE}/local/kiem-trung-cccd?${q}`);
+    const r = await fetch(`${BASE}/local/kiem-trung-cccd?${q}`, { headers: authHeaders() });
     if (!r.ok) return { trung: false, so_ho_so: null };
     return (await r.json()) as { trung: boolean; so_ho_so: string | null };
   } catch {

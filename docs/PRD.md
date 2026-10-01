@@ -35,7 +35,7 @@
 
 #### [HTG-01] Đăng nhập & phân quyền + cấu hình kết nối
 
-**Trạng thái:** 🔄 In Progress
+**Trạng thái:** ✅ Done — 01/10/2026, đủ 3 task: ① cấu hình (task 4) · ② auth JWT 3 vai trò (task 14) · ③ login UI webapp + cổng đăng nhập tool (task 17). Tool xác thực qua VPS rồi phát session cục bộ (option A); /local/config miễn token (A1). review-nghiepvu đủ 4/4. E2E đăng nhập 3 vai trò live để ở Checkpoint 3 (/kiemthu).
 **Story:** Là người dùng, tôi muốn đăng nhập bằng tài khoản riêng, để hệ thống truy vết được ai gửi/ai nạp (dữ liệu căn cước).
 
 **Done khi:**
