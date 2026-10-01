@@ -36,7 +36,7 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 - **Hệ quả trạng thái:** `THU-01`/`THU-02` đang ⏳ (từ #13) — giữ ⏳, gộp phần này vào cùng đợt code.
 - **Kỹ thuật:** thuần client webapp (`Quet.tsx` + component ô ngày tái dùng; `DaGui.tsx` ô ngày sửa). Không đụng server/schema (CMND cũ vẫn gửi như cũ; cột DB giữ nguyên).
 - **Đã sửa:** PRD THU-01/THU-02 (AC UX) + Changelog v2.7 · TDD §6.6 (ghi UX) · SCREENS lượt 11.
-- **Còn nợ:** dựng UI bằng impeccable (ẩn CMND cũ, ô ngày + lịch, bố cục/nút/phím tắt desktop) + Playwright 375/1440 + deploy.
+- **Đã code (01/10, deployed):** `ODate.tsx` (ô ngày: gõ tay + nút lịch `showPicker` + **auto-mask tự chèn "/"** khi gõ số, giữ năm-only) dùng ở `Quet.tsx` + `DaGui.tsx`; ẩn ô CMND cũ (giữ giá trị QR); desktop form 2 cột + 2 nút tách hai bên + phím tắt (autofocus/Enter/Ctrl+Enter); +icon calendar/edit/chevronLeft. Verify Playwright 1440+375. Test webapp 24 (+4 maskNgay). impeccable detect sạch (trừ góc khung ngắm camera — cố ý).
 - **Không đụng:** server, schema, tool, luồng nạp.
 
 ---

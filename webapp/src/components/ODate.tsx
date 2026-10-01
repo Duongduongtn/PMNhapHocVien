@@ -1,6 +1,16 @@
 import { useRef } from "react";
 import { Icon } from "./Icon";
 
+// Tự chèn "/" khi gõ số (CHANGES #14): 01012000 → 01/01/2000.
+// GIỮ năm-only: ≤4 số để nguyên (vd 2000) — CCCD có HV chỉ khai năm sinh.
+// Chỉ bắt đầu chèn dấu khi có số thứ 5 (lúc đó chắc chắn là ngày đầy đủ).
+export function maskNgay(raw: string): string {
+  const d = raw.replace(/\D/g, "").slice(0, 8);
+  if (d.length <= 4) return d;
+  if (d.length <= 6) return `${d.slice(0, 2)}/${d.slice(2, 4)}/${d.slice(4)}`;
+  return `${d.slice(0, 2)}/${d.slice(2, 4)}/${d.slice(4, 8)}`;
+}
+
 // Ô ngày cho nhập liệu nhanh (THU-01/THU-02, CHANGES #14):
 // - Gõ tay dd/mm/yyyy bằng bàn phím (nhanh cho người nhập liệu), hoặc CHỈ NĂM (yyyy) —
 //   CCCD có học viên chỉ khai năm sinh, không cho mất khả năng đó.
@@ -42,7 +52,7 @@ export function ODate({
         <input
           className="field-input pr-11"
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => onChange(maskNgay(e.target.value))}
           placeholder={placeholder}
           inputMode="numeric"
           autoFocus={autoFocus}
