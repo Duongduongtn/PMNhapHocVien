@@ -35,6 +35,10 @@ venv/
 *.sqlite3
 staging.sqlite
 
+# ── Dataset DVHC thô (tải lại từ GitHub vietnamadminunits; 2 MB) ──
+# Giữ script sinh + 2 file SQL deliverable, chỉ chặn CSV nguồn.
+tool/db/data/
+
 # ── Đóng gói ──
 *.spec
 tool/dist/
