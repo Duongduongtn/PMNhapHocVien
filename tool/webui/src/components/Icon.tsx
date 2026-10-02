@@ -29,6 +29,7 @@ const PATHS: Record<string, ReactNode> = {
   chevronLeft: <path d="m15 18-6-6 6-6" />,
   wifiOff: <><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4" /></>,
   image: <><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-5-5L5 21" /></>,
+  imageOff: <><path d="M2 2l20 20" /><path d="M10.4 10.4a2 2 0 1 1-2.8-2.8" /><path d="m13.5 13.5-7.5 7.5" /><path d="m18 12 3 3" /><path d="M3.6 3.6A2 2 0 0 0 3 5v14a2 2 0 0 0 2 2h14c.55 0 1.05-.22 1.41-.59" /><path d="M21 15V5a2 2 0 0 0-2-2H9" /></>,
 };
 
 export function Icon({ name, className = "w-5 h-5", sw = 2 }: { name: keyof typeof PATHS | string; className?: string; sw?: number }) {

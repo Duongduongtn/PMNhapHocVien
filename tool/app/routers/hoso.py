@@ -186,6 +186,7 @@ def ds_ho_so(makh: str = Query(..., min_length=1)):
             "so_ho_so": r["SoHoSo"],
             "noi_tt": r["NoiTT"],
             "co_anh": bool((r["DuongDanAnh"] or "").strip()),
+            "duong_dan_anh": (r["DuongDanAnh"] or "").strip() or None,  # QLY-01 task 35: hiện ở modal chi tiết
             "ma_loai_hs": r["MaLoaiHs"],
         }
         for r in rows

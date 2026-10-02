@@ -141,10 +141,25 @@ export interface HoSoRow {
   so_ho_so: string | null;
   noi_tt: string | null;
   co_anh: boolean;
+  duong_dan_anh: string | null; // đường dẫn .jp2 trong DB (QLY-01 task 35 — hiện ở modal)
   ma_loai_hs: number;
 }
 export const dsHoSoTheoKhoa = (makh: string) =>
   fetch(`${BASE}/local/ho-so?makh=${encodeURIComponent(makh)}`, { headers: authHeaders() }).then(json<HoSoRow[]>);
+
+// QLY-01 task 35 — tải ảnh chân dung HV đã lưu (.jp2 → PNG qua backend). Phải fetch kèm session
+// header rồi createObjectURL (KHÔNG <img src=url> trực tiếp: header không gửi kèm). Phân biệt
+// file mất (404) / ảnh hỏng (422) để avatar hiện icon ảnh-vỡ và modal báo đúng nguyên nhân.
+export type KetQuaAnh = { url: string } | { loi: "mat" | "hong" | "khac" };
+async function taiAnhPNG(path: string): Promise<KetQuaAnh> {
+  const r = await fetch(`${BASE}${path}`, { headers: authHeaders() });
+  if (r.ok) return { url: URL.createObjectURL(await r.blob()) };
+  if (r.status === 404) return { loi: "mat" };
+  if (r.status === 422) return { loi: "hong" };
+  return { loi: "khac" };
+}
+export const taiAnhHoSo = (maDk: string) => taiAnhPNG(`/local/ho-so/anh?ma_dk=${encodeURIComponent(maDk)}`);
+export const taiAnhThumb = (maDk: string) => taiAnhPNG(`/local/ho-so/anh-thumb?ma_dk=${encodeURIComponent(maDk)}`);
 
 // QLY-01 lát 2 — sửa nhân thân HV. Đọc chi tiết để mở form + cờ BC1 (chặn sửa).
 export interface HoSoChiTiet {

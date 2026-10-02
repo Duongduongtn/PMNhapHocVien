@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon } from "../../components/Icon";
 import AnhModal from "../../components/AnhModal";
 import MoKhoaKhacDialog from "../../components/MoKhoaKhacDialog";
@@ -13,6 +13,9 @@ import {
   doiKhoa,
   xoaHoSo,
   napAnh,
+  taiAnhHoSo,
+  taiAnhThumb,
+  type KetQuaAnh,
   type KhoaTraCuu,
   type KhoaDich,
   type HoSoRow,
@@ -34,6 +37,48 @@ function Bc1Chip() {
 }
 
 const FORM_RONG: HoSoSuaIn = { ho_ten: "", ngay_sinh: "", gioi_tinh: "U", so_cccd: "", noi_tt: "" };
+
+// QLY-01 task 35 — avatar mỗi dòng lưới, lazy-load (IntersectionObserver): chỉ tải thumbnail khi
+// dòng lọt viewport, không request cả khóa. 3 ca (TDD §11.1):
+//   co_anh=false → icon người (chưa ảnh) · thumb OK → ảnh · 404/422 → icon ảnh-vỡ (khác icon người).
+function AnhAvatar({ maDk, coAnh }: { maDk: string; coAnh: boolean }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [url, setUrl] = useState<string | null>(null);
+  const [loi, setLoi] = useState(false);     // file mất/hỏng
+  const [hien, setHien] = useState(false);   // đã lọt viewport
+
+  useEffect(() => {
+    if (!coAnh || hien) return;
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (ents) => { if (ents.some((e) => e.isIntersecting)) { setHien(true); io.disconnect(); } },
+      { rootMargin: "120px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [coAnh, hien]);
+
+  useEffect(() => {
+    if (!hien || !coAnh) return;
+    let huy = false;
+    let obj: string | null = null;
+    void taiAnhThumb(maDk).then((kq) => {
+      if (huy) return;
+      if ("url" in kq) { obj = kq.url; setUrl(kq.url); } else setLoi(true);
+    });
+    return () => { huy = true; if (obj) URL.revokeObjectURL(obj); };
+  }, [hien, coAnh, maDk]);
+
+  const box = "w-9 h-9 rounded-md border flex items-center justify-center overflow-hidden shrink-0";
+  if (!coAnh)
+    return <div className={box + " border-border bg-muted"} title="Chưa có ảnh"><Icon name="user" className="w-5 h-5 text-muted-foreground" /></div>;
+  if (loi)
+    return <div className={box + " border-destructive/40 bg-destructive/10"} title="DB có đường dẫn nhưng mất/hỏng file ảnh"><Icon name="imageOff" className="w-5 h-5 text-destructive" /></div>;
+  if (url)
+    return <div className={box + " border-border bg-muted"}><img src={url} alt="" className="w-full h-full object-cover" /></div>;
+  return <div ref={ref} className={box + " border-border bg-muted"}><Icon name="image" className="w-4 h-4 text-muted-foreground/40" /></div>;
+}
 
 export default function TraCuuDB() {
   const [q, setQ] = useState("");
@@ -71,8 +116,13 @@ export default function TraCuuDB() {
   const [locAnh, setLocAnh] = useState<"all" | "chua" | "roi">("all"); // lọc tình trạng ảnh
   const [anhMo, setAnhMo] = useState(false);   // panel xác nhận nạp/thay ảnh
   const [anhModal, setAnhModal] = useState(false); // AnhModal (căn + xóa phông)
+  const [anhSeed, setAnhSeed] = useState<string | null>(null); // ảnh nạp sẵn vào AnhModal (chỉnh ảnh cũ)
   const [anhBusy, setAnhBusy] = useState(false);
   const [anhErr, setAnhErr] = useState("");
+
+  // Xem ảnh lớn ở modal chi tiết (QLY-01 task 35)
+  const [anhXem, setAnhXem] = useState<KetQuaAnh | null>(null);
+  const [anhXemBusy, setAnhXemBusy] = useState(false);
 
   // Mở hồ sơ khóa khác (QLY-06)
   const [moKhoaKhac, setMoKhoaKhac] = useState(false);
@@ -118,8 +168,36 @@ export default function TraCuuDB() {
     setXoaErr("");
     setAnhMo(false);
     setAnhModal(false);
+    setAnhSeed(null);
     setAnhErr("");
     setMoKhoaKhac(false);
+  }
+
+  // Tải ảnh lớn khi mở modal chi tiết (QLY-01 task 35). Fetch kèm session header → object URL;
+  // revoke khi đổi HV/đóng. File mất (404) / hỏng (422) → giữ trong anhXem để báo cảnh báo.
+  useEffect(() => {
+    setAnhXem(null);
+    if (!sel || !sel.co_anh) return;
+    let huy = false;
+    let obj: string | null = null;
+    setAnhXemBusy(true);
+    void taiAnhHoSo(sel.ma_dk)
+      .then((kq) => {
+        if (huy) return;
+        if ("url" in kq) obj = kq.url;
+        setAnhXem(kq);
+      })
+      .finally(() => { if (!huy) setAnhXemBusy(false); });
+    return () => { huy = true; if (obj) URL.revokeObjectURL(obj); };
+  }, [sel]);
+
+  // Click ảnh → mở trình chỉnh (QLY-05). Ảnh cũ còn → nạp sẵn vào khung; mất/hỏng (404/422) →
+  // mở chế độ chọn-file mới (TDD §11.5). Ảnh đã nạp sẽ ghi đè qua napAnhHv.
+  function moChinhAnh() {
+    if (!sel) return;
+    setAnhErr("");
+    setAnhSeed(anhXem && "url" in anhXem ? anhXem.url : null);
+    setAnhModal(true);
   }
 
   async function napAnhHv(jp2B64: string) {
@@ -361,25 +439,23 @@ export default function TraCuuDB() {
               <table className="w-full text-[13px]">
                 <thead>
                   <tr className="bg-muted text-muted-foreground text-left">
+                    <th className="px-2 py-2 font-semibold w-12">Ảnh</th>
                     <th className="px-3 py-2 font-semibold">Số HS</th>
                     <th className="px-3 py-2 font-semibold">Họ và tên</th>
                     <th className="px-3 py-2 font-semibold">Giới tính</th>
                     <th className="px-3 py-2 font-semibold">Ngày sinh</th>
                     <th className="px-3 py-2 font-semibold">Số CCCD</th>
-                    <th className="px-3 py-2 font-semibold text-center">Ảnh</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rowsTrang.map((h) => (
                     <tr key={h.ma_dk} onClick={() => setSel(h)} className="border-t border-border cursor-pointer hover:bg-muted/60 transition-colors">
+                      <td className="px-2 py-1.5"><AnhAvatar maDk={h.ma_dk} coAnh={h.co_anh} /></td>
                       <td className="px-3 py-2 tabular-nums">{h.so_ho_so || "—"}</td>
                       <td className="px-3 py-2 font-semibold">{h.ho_ten || "(chưa có tên)"}</td>
                       <td className="px-3 py-2">{gioiTinhVN(h.gioi_tinh)}</td>
                       <td className="px-3 py-2 tabular-nums">{ymdToVN(h.ngay_sinh)}</td>
                       <td className="px-3 py-2 tabular-nums">{h.so_cccd || "—"}</td>
-                      <td className="px-3 py-2 text-center">
-                        {h.co_anh ? <Icon name="check" className="w-4 h-4 text-success inline" sw={3} /> : <span className="text-[11px] text-warning">thiếu</span>}
-                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -414,6 +490,47 @@ export default function TraCuuDB() {
             {!sua ? (
               <>
                 <div className="p-5 overflow-y-auto">
+                  {/* Ảnh chân dung (QLY-01 task 35): ảnh lớn + đường dẫn + cảnh báo mất file; bấm → trình chỉnh */}
+                  <div className="mb-4 flex flex-col items-center">
+                    <button
+                      type="button"
+                      onClick={moChinhAnh}
+                      title={sel.co_anh ? "Bấm để chỉnh / thay ảnh" : "Bấm để nạp ảnh"}
+                      className="group relative w-32 h-[170px] rounded-lg border border-border overflow-hidden bg-muted flex items-center justify-center"
+                    >
+                      {!sel.co_anh ? (
+                        <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                          <Icon name="user" className="w-10 h-10" />
+                          <span className="text-[11px]">Thiếu ảnh</span>
+                        </div>
+                      ) : anhXemBusy ? (
+                        <Icon name="refresh" className="w-6 h-6 text-muted-foreground animate-spin" />
+                      ) : anhXem && "url" in anhXem ? (
+                        <img src={anhXem.url} alt="Ảnh chân dung" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="flex flex-col items-center gap-1 text-destructive px-2 text-center">
+                          <Icon name="imageOff" className="w-10 h-10" />
+                          <span className="text-[11px]">{anhXem && "loi" in anhXem && anhXem.loi === "hong" ? "Ảnh hỏng" : "Mất file"}</span>
+                        </div>
+                      )}
+                      <span className="absolute inset-x-0 bottom-0 bg-black/55 text-white text-[10px] py-0.5 flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Icon name="edit" className="w-3 h-3" /> {sel.co_anh ? "Chỉnh / thay" : "Nạp ảnh"}
+                      </span>
+                    </button>
+                    {sel.co_anh && anhXem && "loi" in anhXem && (
+                      <p className="mt-2 text-[12px] text-destructive flex items-start gap-1 text-center max-w-[260px]">
+                        <Icon name="warn" className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                        {anhXem.loi === "hong"
+                          ? "Ảnh trong hồ sơ bị hỏng, không đọc được — cần nạp lại."
+                          : "DB có đường dẫn nhưng không tìm thấy file ảnh trên ổ — cần nạp lại."}
+                      </p>
+                    )}
+                    {sel.duong_dan_anh && (
+                      <p className="mt-1.5 text-[11px] text-muted-foreground break-all text-center max-w-[300px]" title={sel.duong_dan_anh}>
+                        {sel.duong_dan_anh}
+                      </p>
+                    )}
+                  </div>
                   <div className="font-bold text-[15px]">{sel.ho_ten || "(chưa có tên)"}</div>
                   <div className="text-[12px] text-muted-foreground mt-0.5">Số hồ sơ {sel.so_ho_so || "—"} · {gioiTinhVN(sel.gioi_tinh)}</div>
                   <div className="mt-3 space-y-2">
@@ -423,7 +540,6 @@ export default function TraCuuDB() {
                         ["Số CMND cũ", sel.so_cmnd_cu || "—"],
                         ["Ngày sinh", ymdToVN(sel.ngay_sinh)],
                         ["Nơi thường trú", sel.noi_tt || "—"],
-                        ["Ảnh chân dung", sel.co_anh ? "Đã có" : "Thiếu ảnh"],
                       ] as [string, string][]
                     ).map(([k, v]) => (
                       <div key={k} className="flex justify-between gap-3 text-[13px] border-b border-border pb-2 last:border-0">
@@ -519,7 +635,7 @@ export default function TraCuuDB() {
                       <div className="flex gap-2">
                         <button onClick={() => { setAnhMo(false); setAnhErr(""); }} className="h-9 px-3 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Hủy</button>
                         <button
-                          onClick={() => { setAnhErr(""); setAnhModal(true); }}
+                          onClick={() => { setAnhErr(""); setAnhSeed(null); setAnhModal(true); }}
                           disabled={anhBusy}
                           className="ml-auto h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center gap-2 hover:brightness-110 transition-all disabled:opacity-60"
                         >
@@ -661,9 +777,14 @@ export default function TraCuuDB() {
         </div>
       )}
 
-      {/* AnhModal (QLY-05) — căn khung 3:4 + xóa phông; onXong trả jp2_b64 → nạp vào hồ sơ */}
+      {/* AnhModal (QLY-05) — căn khung 3:4 + xóa phông; onXong trả jp2_b64 → nạp vào hồ sơ.
+          anhSeed: ảnh cũ nạp sẵn khi bấm chỉnh từ modal chi tiết (null = chọn file mới). */}
       {anhModal && sel && (
-        <AnhModal onDong={() => setAnhModal(false)} onXong={(b64) => void napAnhHv(b64)} />
+        <AnhModal
+          anhBanDau={anhSeed}
+          onDong={() => { setAnhModal(false); setAnhSeed(null); }}
+          onXong={(b64) => void napAnhHv(b64)}
+        />
       )}
 
       {/* Mở hồ sơ khóa khác (QLY-06) */}
