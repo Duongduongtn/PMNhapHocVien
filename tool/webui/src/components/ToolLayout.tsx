@@ -10,11 +10,12 @@ const navCls = ({ isActive }: { isActive: boolean }) =>
 // được dựng (task 6, 21) — tham chiếu bố cục đầy đủ ở ui-demo/src/components/ToolLayout.tsx.
 export default function ToolLayout() {
   const { user, dangXuat } = useToolAuth();
+  // UI-1/2 (CHANGES #18): khóa khung = 100svh (hết "giật" khi thanh địa chỉ ẩn/hiện),
+  // thanh tiêu đề/nav đứng yên (shrink-0), chỉ vùng nội dung cuộn trong → giống app Windows.
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-[1500px] mx-auto p-4 sm:p-6">
-        <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-2.5 bg-primary text-primary-foreground flex-wrap gap-2">
+    <div className="h-[100svh] overflow-hidden bg-background p-3 sm:p-4">
+      <div className="max-w-[1500px] mx-auto h-full flex flex-col bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+        <div className="shrink-0 flex items-center justify-between px-4 py-2.5 bg-primary text-primary-foreground flex-wrap gap-2">
             <Link to="/" className="flex items-center gap-2 text-sm font-semibold">
               <Icon name="file" className="w-4 h-4" /> Thu nhận hồ sơ cấp mới — Tool nạp DB
             </Link>
@@ -44,9 +45,10 @@ export default function ToolLayout() {
               )}
             </div>
           </div>
-          <Outlet />
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <Outlet />
+          </div>
         </div>
       </div>
-    </div>
   );
 }

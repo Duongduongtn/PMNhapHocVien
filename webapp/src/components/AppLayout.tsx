@@ -24,11 +24,14 @@ export default function AppLayout() {
   const { user } = useAuth();
   const tenHienThi = user?.ho_ten || user?.username || "—";
   const nhanVaiTro = user ? (NHAN_VAI_TRO[user.vai_tro] ?? user.vai_tro) : "";
+  // UI-1/2 (CHANGES #18): khóa khung = chiều cao màn hình bằng 100svh (small viewport height —
+  // KHÔNG đổi khi thanh địa chỉ ẩn/hiện nên hết "giật", khác 100dvh), chỉ <main> cuộn trong;
+  // desktop fill đủ viewport (bỏ h-auto) nên khung không co theo độ dài nội dung.
   return (
-    <div className="min-h-[100dvh] bg-slate-200 lg:bg-[hsl(210_40%_96%)]">
-      <div className="mx-auto w-full max-w-[440px] lg:max-w-[1180px] h-[100dvh] lg:h-auto lg:min-h-0 lg:py-6 flex flex-col lg:flex-row">
+    <div className="h-[100svh] overflow-hidden bg-slate-200 lg:bg-[hsl(210_40%_96%)] lg:p-6">
+      <div className="mx-auto w-full max-w-[440px] lg:max-w-[1180px] h-full flex flex-col lg:flex-row">
         {/* SIDEBAR — chỉ desktop */}
-        <aside className="hidden lg:flex flex-col w-60 shrink-0 bg-card border border-border rounded-l-xl">
+        <aside className="hidden lg:flex flex-col w-60 shrink-0 h-full bg-card border border-border rounded-l-xl">
           <div className="px-4 py-4 flex items-center gap-2 border-b border-border">
             <div className="w-9 h-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center"><Icon name="scan" className="w-5 h-5" /></div>
             <div><div className="text-sm font-bold leading-tight">Thu nhận hồ sơ</div><div className="text-[11px] text-muted-foreground leading-tight">App web · CSDT 70004</div></div>
@@ -45,8 +48,8 @@ export default function AppLayout() {
         </aside>
 
         {/* CỘT NỘI DUNG */}
-        <div className="flex-1 min-w-0 bg-background flex flex-col shadow-xl lg:shadow-none lg:bg-card lg:border lg:border-l-0 lg:border-border lg:rounded-r-xl lg:overflow-hidden">
-          {/* Header — chỉ mobile. Logo là chữ, KHÔNG phải nút (không gây nhầm là camera). */}
+        <div className="flex-1 min-w-0 min-h-0 bg-background flex flex-col shadow-xl lg:shadow-none lg:bg-card lg:border lg:border-l-0 lg:border-border lg:rounded-r-xl overflow-hidden">
+          {/* Header — chỉ mobile, đứng yên (shrink-0). Logo là chữ, KHÔNG phải nút. */}
           <header className="lg:hidden bg-primary text-primary-foreground px-4 pt-3 pb-3 flex items-center justify-between shrink-0">
             <div>
               <div className="text-sm font-semibold leading-tight">Thu nhận hồ sơ</div>
@@ -55,11 +58,11 @@ export default function AppLayout() {
             <span className="text-[11px] bg-white/15 rounded-full px-2 py-1 max-w-[45%] truncate">{tenHienThi}</span>
           </header>
 
-          <main className="flex-1 min-h-0 overflow-y-auto">
+          <main className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
             <Outlet />
           </main>
 
-          {/* Bottom-nav — chỉ mobile */}
+          {/* Bottom-nav — chỉ mobile, đứng yên */}
           <nav className="lg:hidden shrink-0 border-t border-border bg-card grid grid-cols-3">
             {NAV.map((n) => (
               <NavLink key={n.to} to={n.to} className={tabCls}><Icon name={n.icon} /> {n.short}</NavLink>
