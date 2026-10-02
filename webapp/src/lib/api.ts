@@ -114,6 +114,39 @@ export const resetMatKhauTaiKhoan = (id: string, password: string) =>
     body: JSON.stringify({ password }),
   }).then(json<TaiKhoan>);
 
+// ---- HTG-03: admin lọc & xóa PII thủ công trên VPS ----
+export interface HoSoAdmin {
+  uuid: string;
+  ho_ten: string | null;
+  so_cccd: string | null;
+  noi_tt_raw: string | null;
+  trang_thai: string; // pending | importing | imported | deleted
+  co_anh: boolean;
+  created_at: string; // ISO
+}
+export interface LocHoSoParams {
+  trang_thai?: string;
+  tu_ngay?: string; // yyyy-mm-dd
+  den_ngay?: string; // yyyy-mm-dd
+  limit?: number;
+  offset?: number;
+}
+export const dsHoSoAdmin = (p: LocHoSoParams = {}) => {
+  const q = new URLSearchParams();
+  if (p.trang_thai) q.set("trang_thai", p.trang_thai);
+  if (p.tu_ngay) q.set("tu_ngay", p.tu_ngay);
+  if (p.den_ngay) q.set("den_ngay", p.den_ngay);
+  q.set("limit", String(p.limit ?? 100));
+  q.set("offset", String(p.offset ?? 0));
+  return fetch(`${BASE}/api/admin/ho-so?${q.toString()}`, { headers: authHeaders() }).then(
+    json<{ items: HoSoAdmin[]; total: number }>,
+  );
+};
+export const xoaHoSoAdmin = (uuid: string) =>
+  fetch(`${BASE}/api/admin/ho-so/${uuid}`, { method: "DELETE", headers: authHeaders() }).then(
+    json<{ uuid: string; da_xoa: boolean }>,
+  );
+
 // ---- Hồ sơ thu thập (THU-02) ----
 // Khớp HoSoIn của server (server/app/routers/ho_so.py). uuid do client sinh (idempotent).
 export interface HoSoGui {

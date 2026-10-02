@@ -392,7 +392,7 @@
 
 #### [HTG-03] Bộ lọc & xóa PII thủ công trên VPS
 
-**Trạng thái:** ⏳ Todo
+**Trạng thái:** ⚠️ Partial — 02/10/2026. Code xong: `GET /api/admin/ho-so` (lọc trạng thái + khoảng ngày giờ VN + phân trang) + `DELETE /api/admin/ho-so/:uuid` (hard-delete bản ghi + ảnh thô + audit `xoa_pii_tay`) + màn `/admin/ho-so` (chỉ admin, vào từ màn Tài khoản). Tách helper `xoa_mot_ho_so` dùng chung với job 30 ngày. Kiểm: server 93 test (11 mới, có biên múi giờ VN) · webapp build + 24 test · Playwright 3vp (0 tràn, 0 lỗi) · review-nghiepvu 7/7. **Chờ deploy VPS + verify thao tác lọc/xóa thật.** (Admin xóa được mọi trạng thái kể cả `importing` — có chủ đích, khác job tự động bỏ qua importing EC-040.)
 **Story:** Là quản trị, tôi muốn lọc và xóa thủ công bản ghi trên VPS, để chủ động dọn dữ liệu căn cước.
 
 **Done khi:**

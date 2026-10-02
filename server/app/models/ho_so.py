@@ -79,7 +79,7 @@ class AuditLog(Base):
         BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True
     )
     actor_id: Mapped[UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
-    hanh_dong: Mapped[str] = mapped_column(String(30))  # 'gui','keo','nap','unlock','xoa_pii'
+    hanh_dong: Mapped[str] = mapped_column(String(30))  # 'gui','keo','nap','unlock','xoa_pii','xoa_pii_tay'
     uuid_hs: Mapped[UUID | None] = mapped_column(Uuid, nullable=True)
     chi_tiet: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

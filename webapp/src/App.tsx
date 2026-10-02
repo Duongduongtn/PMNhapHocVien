@@ -6,6 +6,7 @@ import Quet from "./pages/Quet";
 import DaGui from "./pages/DaGui";
 import TaiKhoan from "./pages/TaiKhoan";
 import QuanLyTaiKhoan from "./pages/QuanLyTaiKhoan";
+import QuanTriHoSo from "./pages/QuanTriHoSo";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 
 // Chưa đăng nhập → đẩy về /dang-nhap (không đăng nhập không dùng được — HTG-01).
@@ -36,6 +37,7 @@ export default function App() {
             <Route path="/tai-khoan" element={<TaiKhoan />} />
             <Route element={<RequireAdmin />}>
               <Route path="/quan-ly-tai-khoan" element={<QuanLyTaiKhoan />} />
+              <Route path="/admin/ho-so" element={<QuanTriHoSo />} />
             </Route>
           </Route>
         </Route>

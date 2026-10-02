@@ -50,6 +50,17 @@ export default function TaiKhoan() {
         </Link>
       )}
 
+      {laAdmin && (
+        <Link
+          to="/admin/ho-so"
+          className="bg-card border border-border rounded-xl p-4 flex items-center gap-3 hover:bg-muted/50 transition-colors"
+        >
+          <Icon name="warn" className="w-5 h-5 text-muted-foreground" />
+          <span className="font-medium text-sm flex-1">Lọc &amp; xóa dữ liệu căn cước (VPS)</span>
+          <Icon name="chevronRight" className="w-4 h-4 text-muted-foreground" />
+        </Link>
+      )}
+
       <button
         onClick={thoat}
         disabled={dangThoat}

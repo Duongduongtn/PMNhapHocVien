@@ -9,6 +9,7 @@ Tách khỏi scheduler để test được trực tiếp trên SQLite in-memory,
 """
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -22,6 +23,26 @@ _XOA_DUOC = ("pending", "imported")
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def xoa_mot_ho_so(
+    db: Session,
+    hs: HoSoThuThap,
+    *,
+    hanh_dong: str = "xoa_pii",
+    actor_id: UUID | None = None,
+) -> None:
+    """Xóa 1 bản ghi hàng đợi: unlink ảnh thô + ghi audit + xóa dòng. KHÔNG commit.
+
+    Dùng chung cho job tự xóa 30 ngày (`hanh_dong='xoa_pii'`, không actor) và xóa tay
+    của admin (`hanh_dong='xoa_pii_tay'`, kèm actor_id) — HTG-03. Caller tự `db.commit()`.
+    Chỉ ghi hành động + uuid vào audit, KHÔNG ghi nội dung CCCD (§3.5).
+    """
+    if hs.anh_tho_path:
+        # Xóa file ảnh thô; thiếu file (đã xóa tay) không phải lỗi.
+        Path(hs.anh_tho_path).unlink(missing_ok=True)
+    db.add(AuditLog(actor_id=actor_id, hanh_dong=hanh_dong, uuid_hs=hs.uuid))
+    db.delete(hs)
 
 
 def xoa_pii_qua_han(db: Session, *, now: datetime | None = None, retention_days: int | None = None) -> int:
@@ -41,11 +62,7 @@ def xoa_pii_qua_han(db: Session, *, now: datetime | None = None, retention_days:
     ).all()
 
     for hs in rows:
-        if hs.anh_tho_path:
-            # Xóa file ảnh thô; thiếu file (đã xóa tay) không phải lỗi.
-            Path(hs.anh_tho_path).unlink(missing_ok=True)
-        db.add(AuditLog(hanh_dong="xoa_pii", uuid_hs=hs.uuid))
-        db.delete(hs)
+        xoa_mot_ho_so(db, hs)
 
     db.commit()
     return len(rows)
