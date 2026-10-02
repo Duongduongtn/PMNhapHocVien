@@ -235,6 +235,18 @@ export default function TraCuuDB() {
     }
   }
 
+  // QLY-01 task 36 — nút nhanh ra lưới: chọn HV rồi mở đúng luồng confirm 2 bước trong modal
+  // (tái dùng moDoiKhoa/xoaHv, vẫn tôn trọng chặn BC1 — chỉ hiện khi khóa chưa BC1).
+  function nhanhXoa(h: HoSoRow) {
+    setSel(h);
+    setXoaErr("");
+    setXoaMo(true);
+  }
+  function nhanhDoiKhoa(h: HoSoRow) {
+    setSel(h);
+    void moDoiKhoa();
+  }
+
   async function moDoiKhoa() {
     if (!khoa) return;
     setDoiErr("");
@@ -405,6 +417,23 @@ export default function TraCuuDB() {
             {khoa.bc1 && <Bc1Chip />}
           </div>
 
+          {/* QLY-01 task 36 — thống kê nhanh đầu khóa (client, trên lưới đã tải; BC1 ở cấp khóa) */}
+          {hoSo && (
+            <div className="flex items-center gap-2 flex-wrap mb-3 text-[12px]">
+              <span className="inline-flex items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1 font-medium">
+                <Icon name="user" className="w-3.5 h-3.5 text-muted-foreground" /> Tổng <b className="tabular-nums">{hoSo.length}</b> HV
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-lg bg-warning/10 text-warning px-2.5 py-1 font-medium">
+                <Icon name="imageOff" className="w-3.5 h-3.5" /> Thiếu ảnh <b className="tabular-nums">{hoSo.filter((h) => !h.co_anh).length}</b>
+              </span>
+              {khoa.bc1 && (
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-warning/10 text-warning px-2.5 py-1 font-medium">
+                  <Icon name="warn" className="w-3.5 h-3.5" /> Khóa đã lập Báo cáo 1
+                </span>
+              )}
+            </div>
+          )}
+
           <div className="flex items-center gap-2 flex-wrap mb-2">
             <div className="relative max-w-sm flex-1 min-w-[220px]">
               <Icon name="search" className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -445,6 +474,7 @@ export default function TraCuuDB() {
                     <th className="px-3 py-2 font-semibold">Giới tính</th>
                     <th className="px-3 py-2 font-semibold">Ngày sinh</th>
                     <th className="px-3 py-2 font-semibold">Số CCCD</th>
+                    {!khoa.bc1 && <th className="px-2 py-2 font-semibold text-center w-20">Thao tác</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -456,6 +486,26 @@ export default function TraCuuDB() {
                       <td className="px-3 py-2">{gioiTinhVN(h.gioi_tinh)}</td>
                       <td className="px-3 py-2 tabular-nums">{ymdToVN(h.ngay_sinh)}</td>
                       <td className="px-3 py-2 tabular-nums">{h.so_cccd || "—"}</td>
+                      {!khoa.bc1 && (
+                        <td className="px-2 py-1.5 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            title="Đổi khóa"
+                            onClick={() => nhanhDoiKhoa(h)}
+                            className="w-7 h-7 rounded-md hover:bg-muted inline-flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            <Icon name="send" className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            title="Xóa học viên"
+                            onClick={() => nhanhXoa(h)}
+                            className="w-7 h-7 rounded-md hover:bg-destructive/10 inline-flex items-center justify-center text-destructive transition-colors"
+                          >
+                            <Icon name="x" className="w-4 h-4" />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
