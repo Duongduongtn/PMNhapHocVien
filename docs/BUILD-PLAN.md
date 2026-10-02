@@ -2,7 +2,7 @@
 
 > File do `/kehoach` sinh. `/tieptheo` đọc file này để biết làm gì tiếp theo.
 > **Thứ tự code** nằm ở đây. **Yêu cầu và trạng thái story** nằm ở `docs/PRD.md`.
-> Cập nhật lần cuối: 01/10/2026 (v3 — bổ sung mô tả task 20 NAP-01 + task 22 QLY-01 theo CHANGES #6)
+> Cập nhật lần cuối: 02/10/2026 (v7 — bổ sung task 33-40 theo CHANGES #22: mở rộng quản lý ảnh Tra cứu DB + bảo toàn Báo cáo 1/2 + QLY-07 đổi nền cả khóa)
 
 ## Quyết định về thứ tự
 
@@ -109,7 +109,27 @@
 | 25 | Admin lọc bản ghi (trạng thái/ngày) + xóa PII thủ công (bản ghi + ảnh thô) | `HTG-03` | M | 15 | 1 | → PRD |
 | 27 | Nạp/thay ảnh cho HV đã có: lọc tình trạng ảnh (`TT_XuLy` 01/03) + **dùng lại hàm ghi ảnh hướng A** (ghi `.jp2` + UPDATE 5 cột) của NAP-05; ghi đè nếu HV đã có ảnh | `QLY-05` | M | 9,22 | 1 | → PRD |
 | 32 | Mở hồ sơ khóa khác cho HV đã có (cấp mới khác hạng, song song): từ Tra cứu DB chọn HV → điền sẵn từ bản ghi cũ → nạp mới qua SP gộp vào khóa đích (MaDK mới, chung SoCMT). Đã kiểm DB chốt thiết kế (CHANGES #16). KHÔNG nâng hạng | `QLY-06` | M | 22,9 | 1 | → PRD |
+| 33 | 🐛 **Vá `ghi_anh_update` giữ `TT_XuLy`** (whitelist `'01'/'02'`, KHÔNG BAO GIỜ HẠ) + ghi ảnh **atomic** (temp→`os.replace`). ƯU TIÊN — bug prod, dùng chung NAP-05 nên cẩn thận (CHANGES #22, TDD §11.5) | `QLY-05` | S | 27 | 1+2 | [x] 02/10 — giữ TT_XuLy + atomic; 123 test (2 hồi quy) |
+| 34 | Backend phục vụ ảnh: `GET /local/ho-so/anh` (.jp2→PNG; file mất→404, hỏng→422) + `GET /local/ho-so/anh-thumb` (thumbnail + cache cục bộ `.gitignore`) + kiểm file tồn tại (TDD §11.1) | `QLY-01` | M | 22 | 1+2 | [ ] |
+| 35 | UI Tra cứu DB: modal chi tiết **ảnh + đường dẫn + cảnh báo file mất** · **avatar** mỗi dòng lazy-load (3 ca: người/ảnh/ảnh-vỡ) · click ảnh → `AnhModal` (fallback chọn-file khi 404) → lưu đè qua `nap-anh` | `QLY-01`,`QLY-05` | M | 33,34 | 1 | [ ] |
+| 36 | Thống kê đầu khóa (client: tổng/thiếu ảnh/BC1) + nút **đổi khóa/xóa nhanh** ra lưới (xác nhận 2 bước, tôn trọng chặn BC1) | `QLY-01` | S | 35,23,24 | 1 | [ ] |
+| 37 | **Chặn xóa HV khóa BC1 ở BACKEND**: `EXISTS(BaoCaoI theo MaKH)` trước `usp_NguoiLX_Delete` → 409 (bảo toàn `MaBC1/MaBC2` ↔ Báo cáo 1/2; TDD §11.3) | `QLY-03` | S | 24 | 1+2 | [ ] |
+| 38 | NAP-01: **"Bỏ khỏi hàng đợi"** (`DELETE /local/keo-ve/:uuid` xóa staging `keo_ve`, tool-local, tách bạch "Xóa khỏi DB") + **"Nạp lại nhanh"** dòng lỗi (gọi lại `nap_lo` 1 uuid) | `NAP-01` | S | 20 | 1 | [ ] |
+| 39 | **QLY-07 (1/2)** backend đổi nền cả khóa: `POST /local/khoa/:ma_kh/doi-nen` job nền + tiến độ · `_BACKUP` **chỉ-nếu-chưa-có** · heuristic 4 góc phát hiện ảnh-trắng · **giữ `TT_XuLy`** · applock theo khóa (TDD §11.6) | `QLY-07` | M | 33,8 | 1+2 | [ ] |
+| 40 | **QLY-07 (2/2)** UI: dialog phạm vi (chỉ chưa-trắng/tất cả) + sao lưu + **thanh tiến độ** (polling N/tổng + số lỗi) | `QLY-07` | S | 39 | 1 | [ ] |
 | 26 | Đóng gói tool PyInstaller (.exe) + đối chiếu bảo mật OG (không `sa`, không log CCCD, HTTPS) | — | M | tất cả | 1 | [ ] |
+
+### ✅ Checkpoint 6 — sau task 33-38 (quản lý ảnh Tra cứu DB + bảo toàn Báo cáo)
+- [ ] `pnpm build` (webui) + tool chạy sạch.
+- [ ] Xem ảnh chân dung HV thật ở Tra cứu DB (modal + avatar lưới); file mất → cảnh báo/icon ảnh-vỡ.
+- [ ] **Hồi quy bug (mức 2):** thay ảnh HV đang ở trạng thái Báo cáo (`TT_XuLy '11'`) → sau khi lưu `TT_XuLy` **giữ nguyên**, không về `'03'`.
+- [ ] Xóa HV ở khóa đã BC1 → backend chặn **409**.
+- [ ] "Bỏ khỏi hàng đợi" dòng 🟢 không đụng DB prod; "Nạp lại nhanh" dòng 🔴 chạy đúng.
+
+### ✅ Checkpoint 7 — sau task 39-40 (đổi nền cả khóa QLY-07)
+- [ ] Đổi nền 1 khóa thật → ảnh chuyển nền trắng, tiến độ chạy, lỗi từng HV không hỏng cả lô.
+- [ ] `_BACKUP` giữ **bản gốc đầu tiên**; chạy lần 2 KHÔNG đè backup.
+- [ ] Khóa đã BC2 → sau đổi nền HV **vẫn còn trong Báo cáo** (`TT_XuLy` giữ nguyên).
 
 ### ✅ Checkpoint 5 — cuối dự án
 - [ ] Mọi tiêu chí MUST + SHOULD trong PRD đạt.
@@ -151,10 +171,10 @@
 
 > `/tieptheo` so mục này với PRD mỗi buổi để biết kế hoạch còn khớp không. Lệch thì báo user chạy lại `/kehoach` chế độ bổ sung. **Không tự sửa kế hoạch.**
 
-- **Số story trong PRD khi lập:** 18 (17 MUST/SHOULD gồm `THU-04`, `QLY-06`; chưa tính NICE `QLY-04`, `THU-03`)
-- **Mã story đã đưa vào kế hoạch:** `HTG-01`, `HTG-02`, `HTG-03`, `THU-01`, `THU-02`, `THU-04`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`
-- **Mã story chưa đưa vào (Chờ chốt):** `QLY-04`, `THU-03` (NICE, chưa đủ chi tiết)
-- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 01/10/2026 (#13)
+- **Số story trong PRD khi lập:** 22 (21 MUST/SHOULD gồm `THU-04`, `HTG-04/05/06`, `QLY-06`, `QLY-07`; chưa tính NICE `QLY-04`, `THU-03`)
+- **Mã story đã đưa vào kế hoạch:** `HTG-01`, `HTG-02`, `HTG-03`, `THU-01`, `THU-02`, `THU-04`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`
+- **Mã story chưa đưa vào:** `QLY-04`, `THU-03` (NICE, chưa đủ chi tiết) · **`HTG-04/05/06`** (thêm ở CHANGES #18, đã code thẳng — chưa có task trong plan; cần `/kehoach` bổ sung riêng nếu muốn khớp sổ)
+- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 02/10/2026 (#22)
 
 ## Changelog
 
@@ -166,3 +186,4 @@
 | 01/10/2026 | v4 — bổ sung (CHANGES #12): thêm task **28** (rework UX THU-01: màn vào + khung bám QR + layout dính đáy + header) + task **29** (rework UX THU-02: endpoint ảnh collector + ảnh thật + xem/sửa/chụp lại) vào cuối Phase 2. 29 task. THU-01/02 đã hạ ⏳ ở PRD. |
 | 01/10/2026 | v5 — bổ sung (CHANGES #13): thêm task **30** (nhập liên tiếp: nút "Lưu & nhập hồ sơ tiếp" + badge/lọc "Thiếu ảnh", THU-01/02) + task **31** (cảnh báo trùng CCCD app web, THU-04) — cả 2 đã code+deploy. +QLY-06 (📝 Draft) vào Chờ chốt. 31 task. |
 | 01/10/2026 | v6 — bổ sung (CHANGES #16): kiểm DB thật chốt thiết kế `QLY-06` → chuyển từ Chờ chốt thành **task 32** (Phase 3, nạp khác khóa/khác hạng). 32 task. |
+| 02/10/2026 | v7 — bổ sung (CHANGES #22): thêm task **33-40** (Phase 3) — 🐛 vá `TT_XuLy` (33), backend ảnh (34), UI xem ảnh/avatar (35), thống kê+nút nhanh (36), chặn xóa BC1 backend (37), bỏ-hàng-đợi+nạp-lại-nhanh (38), **QLY-07** đổi nền cả khóa (39-40) + Checkpoint 6/7. QLY-01/03/05 + NAP-01 đã hạ ⏳ ở PRD. 40 task. |

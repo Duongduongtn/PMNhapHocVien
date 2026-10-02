@@ -316,7 +316,11 @@ POST /local/khoa-hoc/tao             Tạo khóa (usp_KhoaHoc_Insert)
 GET  /local/ho-so?makh=<>            Tra cứu HV theo khóa (usp_NguoiLX_Select_By_MaKH)
 PUT  /local/ho-so/:madk              Sửa (usp_NguoiLX_*_Update)
 POST /local/ho-so/:madk/doi-khoa     Đổi khóa + di chuyển ảnh
-DELETE /local/ho-so/:madk            Xóa HV + xóa mềm ảnh
+DELETE /local/ho-so/:madk            Xóa HV + xóa mềm ảnh (chặn khi khóa đã BC1 — §11.3)
+GET  /local/ho-so/anh?ma_dk=<>       Ảnh chân dung .jp2→PNG (xem); file mất→404, hỏng→422     [QLY-01]
+GET  /local/ho-so/anh-thumb?ma_dk=<> Thumbnail PNG avatar lưới (cache cục bộ, lazy)            [QLY-01]
+DELETE /local/keo-ve/:uuid           Bỏ dòng đã-nạp khỏi hàng đợi staging (tool-local)        [NAP-01]
+POST /local/khoa/:ma_kh/doi-nen      Đổi nền trắng cả khóa (job nền + tiến độ)                 [QLY-07]
 ```
 
 ### 4.7 Ví dụ
@@ -491,6 +495,7 @@ Lọc **phía client** trên danh sách `/api/ho-so/cua-toi` đã tải (không 
 - Trước nạp: `POST /nap/:uuid/lock` set `importing` + `locked_by` (compare-and-set nguyên tử trong 1 UPDATE có WHERE `trang_thai='pending'`). Tool khác thua → báo "đang được nạp".
 - Nạp xong: `da_nap` + lưu `ma_dk`; `imported` không kéo lại → không tạo HV thứ 2.
 - Lỗi: `unlock` → `pending`; timeout khóa **15 phút** (env `IMPORT_LOCK_TIMEOUT_MIN=15`) → job tự mở khóa (EC-002).
+- **"Bỏ khỏi hàng đợi" (NAP-01, CHANGES #22):** xóa dòng trạng thái cục bộ `xong` khỏi `staging.sqlite` bảng `keo_ve` (endpoint tool-local `DELETE /local/keo-ve/:uuid`) — chỉ dọn hàng đợi tool, **KHÔNG đụng VPS/DB đích** (HV đã nạp, VPS đã `da_nap` nên kéo lại không mang về). Khác hẳn "Xóa khỏi DB" (QLY-03 `usp_NguoiLX_Delete`) — đặt tên/nút tách bạch để tránh xóa nhầm prod.
 
 ### 7.3 Xóa PII (BR-016)
 APScheduler quét mỗi giờ: `pending`/`imported` quá 30 ngày → xóa dòng + file ảnh thô; **bỏ qua** `importing` (EC-040). Ghi `audit_log(hanh_dong='xoa_pii')`.
@@ -668,12 +673,13 @@ Collector(App web)  VPS(FastAPI/PG)   Operator(Tool)   SQL Server GPLX_CSDT   �
 - **VPS/tunnel down khi kéo** → tool vẫn xử lý bản ghi đã kéo trong `staging.sqlite`; báo lỗi, cho thử lại (EC-062).
 - **Token hết hạn giữa lúc nhập** → yêu cầu đăng nhập lại; nháp local (localStorage/staging) không mất.
 - **Hiển thị khi kéo VPS về (NAP-01, CHANGES #6):** tên HV hiển thị **IN HOA giữ dấu** ngay trên form (khớp cách ghi DB). **Check chính tả mức A** (lớp UI, cảnh báo mềm — không chặn): cờ khi tên **thiếu dấu** (vd không có ký tự có dấu tiếng Việt), có **số/ký tự lạ** (ngoài chữ cái + khoảng trắng), hoặc **khoảng trắng thừa**. Không dùng từ điển tên (tránh báo nhầm tên hiếm/dân tộc). Nạp lô: trạng thái từng dòng ⚪/🔴(+lý do)/🟢 từ `nap_lo` (đã có, trả `{uuid, ok, loi}`).
+- **"Nạp lại nhanh" dòng lỗi (NAP-01, CHANGES #22):** nút trên dòng `loi` gọi lại `nap_lo` cho **một** `uuid` (dòng đã unlock về `pending` sau lần lỗi trước) — không cơ chế mới, chỉ là lối tắt khỏi phải tick lại.
 
 ---
 
 ## 11. Quản lý hồ sơ đã có & tạo khóa (tool)
 
-> **Phục vụ:** `QLY-01`, `QLY-02`, `QLY-03`, `KHO-01`
+> **Phục vụ:** `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-07`, `KHO-01`
 *Vì sao gộp: đều là thao tác của operator trên DB đích qua SP, cùng ràng buộc BC1/GPLX.*
 
 ### 11.1 Tra cứu/sửa (QLY-01)
@@ -682,6 +688,13 @@ Collector(App web)  VPS(FastAPI/PG)   Operator(Tool)   SQL Server GPLX_CSDT   �
 **Sửa (lát 2, CHANGES #17) — chỉ bảng `NguoiLX` qua `usp_NguoiLX_Update`.** Phạm vi: họ tên, ngày sinh, giới tính, số căn cước (SoCMT), địa chỉ thường trú chi tiết (NoiTT). KHÔNG dùng `usp_NguoiLX_HoSo_Update` ở QLY-01 — SP đó ghi đè **65 cột** của `NguoiLX_HoSo` (kết quả thi, BC1/BC2, ảnh) trong khi `usp_NguoiLX_HoSo_Get_Sua_HS` chỉ trả một phần → rủi ro xóa trắng. Ảnh thuộc QLY-05, đổi khóa thuộc QLY-02. **An toàn ghi:** `usp_NguoiLX_Update` cũng ghi đè 22 cột → đọc lại full bản ghi `NguoiLX` hiện tại (SELECT), chồng 5 trường user sửa, giữ nguyên phần còn lại; đọc + ghi trong 1 kết nối. NgaySinh lưu `yyyymmdd` (hoặc `yyyy`), GioiTinh `M/F/U`, họ tên IN HOA giữ dấu (dùng chung `tach_ho_ten`). Khóa đã BC1 → UI ẩn nút Sửa, backend kiểm lại → 409 (BR-012).
 
 **Tìm trong lưới học viên (CHANGES #10):** khớp theo **tên hoặc số CCCD**; tên **chuẩn hóa bỏ dấu cả hai vế** (NFD + xóa dấu kết hợp) để gõ không dấu vẫn ra. QLY-01 tìm qua SP `usp_NguoiLX_HoSo_Search` (collation không phân biệt dấu, hoặc chuẩn hóa tương tự); NAP-01 (list tải về, hàng chờ VPS) lọc phía client trên staging SQLite đã kéo. UI chung: ô tìm đặt **đầu danh sách/lưới**; màn hẹp thu gọn thành **nút kính lúp** (bấm mới bung ô nhập).
+
+**Xem ảnh + avatar + thống kê (CHANGES #22).** Ảnh lưu là `.jp2` (JPEG 2000) — trình duyệt KHÔNG render được → backend phải transcode:
+- `GET /local/ho-so/anh?ma_dk=` → đọc `DuongDanAnh` (`NguoiLX_HoSo`) → đọc file `.jp2` → **transcode sang PNG** (Pillow/openjpeg, dùng lại `image.py`) → trả `image/png`. **File mất** (DB có path, ổ không có) → **404**; **file hỏng/không giải mã được** → **422** (KHÔNG để 500). `ma_dk` tra DB parameterized, đường dẫn lấy từ cột DB (không ghép từ input) → không path traversal.
+- `GET /local/ho-so/anh-thumb?ma_dk=` → PNG **thu nhỏ** (vd 96px) cho avatar → UI dùng `<img loading="lazy">` + **chỉ fetch dòng đang hiển thị** (IntersectionObserver), không request dòng ngoài viewport. **Cache (`MaDK`, mtime)** ở thư mục tạm cục bộ (`staging/anh-cache/`, thêm vào `.gitignore`; hoặc transcode in-memory) — ảnh là PII, không để lọt backup/commit.
+- **Avatar phân biệt 3 ca:** `co_anh=false` → icon người (chưa ảnh); `co_anh=true` + thumbnail OK → ảnh; `co_anh=true` nhưng 404/422 (file mất/hỏng) → **icon ảnh-vỡ** (khác icon người, để không nhầm với chưa nạp ảnh).
+- Modal chi tiết hiện **ảnh lớn + dòng `DuongDanAnh`** (cảnh báo nếu 404/422); click ảnh → trình chỉnh (QLY-05, §11.5). Thống kê đầu khóa (tổng HV · thiếu ảnh · đã BC1) tính **client** trên dữ liệu lưới đã tải (`co_anh`, cờ BC1), không thêm endpoint.
+- Nút **đổi khóa / xóa nhanh** đưa ra lưới gọi lại QLY-02/QLY-03 (vẫn xác nhận 2 bước, tôn trọng chặn BC1 — §11.3).
 
 ### 11.2 Đổi khóa (QLY-02) — vòng đời file ảnh
 ```
@@ -693,12 +706,57 @@ Khác hạng: hướng xóa tạo lại.
 ### 11.3 Xóa HV (QLY-03)
 `usp_NguoiLX_Delete` (cascade HoSo+GiayTo) + chuyển file `.jp2` sang `_DELETED` (xóa mềm). HV có GPLX → FK chặn.
 
+**Chặn xóa HV ở khóa đã BC1 — BACKEND (CHANGES #22).** `usp_NguoiLX_Delete` cascade xóa `NguoiLX_HoSo` → mất cột `MaBC1`/`MaBC2` (FK `FK_NguoiLX_HoSo_BaoCaoI` + liên kết `BaoCaoII`) → HV **biến mất khỏi Báo cáo 1/2** (`usp_BaoCao1_DSHS`/`usp_BaoCao2_DSHS` chọn theo `NguoiLX_HoSo`). Hiện code chỉ **ẩn nút UI** khi khóa BC1, backend chưa chặn → phải thêm kiểm: trước `usp_NguoiLX_Delete`, `EXISTS(SELECT 1 FROM BaoCaoI b WHERE b.MaKH = <khóa của HV>)` → có → **409, không xóa** (BR-012 mở rộng cho xóa, như QLY-01/QLY-02 đã làm). *Verify schema DBcu 30/09: `NguoiLX_HoSo.MaBC1 varchar(18)` FK→`BaoCaoI.MaBCI`; `MaBC2 varchar(13)`; `BaoCaoII.MaBCI`→`BaoCaoI`.*
+
+```
+Liên kết HV ↔ Báo cáo (schema DBcu):
+
+  NguoiLX ──1:1── NguoiLX_HoSo ──FK MaBC1──► BaoCaoI (PK MaBCI, theo khóa MaKH)
+   (MaDK)          (MaDK, MaBC1,                   ▲ FK MaBCI
+                    MaBC2, TT_XuLy)                │
+                        └────── MaBC2 ──► BaoCaoII ┘ (PK MaBCII)
+
+  Xóa NguoiLX → cascade NguoiLX_HoSo → mất MaBC1/MaBC2
+             → HV biến mất khỏi Báo cáo 1/2
+  ⇒ QLY-03 chặn xóa khi khóa đã BC1
+```
+
 ### 11.4 Tạo khóa (KHO-01)
 Chọn hạng ĐT từ `DM_HangDT` → `usp_KhoaHoc_Insert` (mã tự sinh). `HangGPLX` suy từ hạng ĐT qua `DM_HangGPLX.MaHangMoi`.
 
 ### 11.5 Nạp/thay ảnh cho HV đã có (QLY-05)
-Làm SAU NAP-05, **dùng lại cơ chế ghi ảnh hướng A** (§10.3) — không gọi SP tạo hồ sơ. Luồng: màn tra cứu lọc HV theo tình trạng ảnh (`TT_XuLy='01'` chưa ảnh / `'03'` đã ảnh) → chọn HV → xử lý ảnh (tái dùng NAP-04: crop 3:4 + nền trắng + `.jp2` 353×471) → ghi `.jp2` tại `<IMG_PATH_CSDT>\<MaKhoaHoc>\<MaDK>.jp2` (ghi đè nếu đã có) → UPDATE 5 cột ảnh `NguoiLX_HoSo` (`DuongDanAnh`, `ChatLuongAnh=1`, `TT_XuLy='03'`, `NgayThuNhanAnh=getdate()`, `NguoiThuNhanAnh`) WHERE `MaDK`. Chỉ cập nhật HV đã có, không tạo bản ghi mới.
+Làm SAU NAP-05, **dùng lại cơ chế ghi ảnh hướng A** (§10.3) — không gọi SP tạo hồ sơ. Luồng: màn tra cứu lọc HV theo tình trạng ảnh (`TT_XuLy='01'` chưa ảnh / `'03'` đã ảnh) → chọn HV → xử lý ảnh (tái dùng NAP-04: crop 3:4 + nền trắng + `.jp2` 353×471) → ghi `.jp2` tại `<IMG_PATH_CSDT>\<MaKhoaHoc>\<MaDK>.jp2` (ghi đè nếu đã có) → UPDATE cột ảnh `NguoiLX_HoSo` (`DuongDanAnh`, `ChatLuongAnh=1`, `NgayThuNhanAnh=getdate()`, `NguoiThuNhanAnh`) WHERE `MaDK`. Chỉ cập nhật HV đã có, không tạo bản ghi mới.
+
+**🐛 `TT_XuLy` — quy tắc "KHÔNG BAO GIỜ HẠ" (CHANGES #22).** Hàm dùng chung `ghi_anh_update` (NAP-05 + QLY-05) hiện set cứng `TT_XuLy='03'`. Nhưng `usp_BaoCao2_DSHS` lọc HV theo tập `TT_XuLy in ('11','12','13','14','16','17','18','19')` (lưu ý **thiếu `'15'`**) → hạ HV đã Báo cáo về `'03'` thì **rơi khỏi Báo cáo 2** ("HV không có trong BC1"). → Sửa: **chỉ set `'03'` khi HV CHƯA có ảnh (`TT_XuLy` hiện tại là `'01'`/`'02'`); mọi giá trị khác (`'03'` và mọi mã Báo cáo) → GIỮ NGUYÊN** — nguyên tắc thay ảnh **không bao giờ HẠ** `TT_XuLy` (dùng whitelist `'01'/'02'`, không dùng ngưỡng `< '11'`). NAP-05 nạp HV mới luôn ở `'01'` → vẫn lên `'03'` đúng. **Ghi ảnh atomic:** ghi file tạm cùng thư mục → `os.replace` sang tên đích (crash giữa chừng không để lại `.jp2` cụt). **Mở từ Tra cứu DB:** click avatar/ảnh HV đã có → ảnh `.jp2` transcode→PNG (§11.1) nạp vào `AnhModal` làm ảnh gốc → đổi nền/chỉnh → lưu đè; **file gốc 404 → AnhModal mở chế độ chọn-file mới** (báo "ảnh cũ không còn, chọn ảnh mới").
 *Ca lỗi:* app cũ đang khóa file `.jp2` → báo đóng app cũ rồi thử lại; ghi `.jp2` lỗi → giữ trạng thái ảnh cũ; UPDATE lỗi → retry theo `MaDK` (§10.3).
+
+```
+Vòng đời TT_XuLy & quy tắc thay ảnh (QLY-05/QLY-07):
+
+  nạp HV mới (NAP-05)
+        │
+        ▼
+     '01' / '02'  (chưa ảnh) ──(ghi .jp2)──► '03'  (có ảnh)
+                                               │
+                                               │ (app cũ lập Báo cáo)
+                                               ▼
+                             '11','12','13','14','16','17','18','19'
+                             (đã vào Báo cáo 1/2) ◄── usp_BaoCao2_DSHS lọc tập này
+
+  THAY ẢNH — "KHÔNG BAO GIỜ HẠ":
+     • TT_XuLy ∈ {'01','02'}       → set '03'     (chưa ảnh → nâng)
+     • mọi giá trị khác ('03'…'19') → GIỮ NGUYÊN  (chỉ thay file + DuongDanAnh)
+  Vì sao: hạ HV đã Báo cáo về '03' → rơi khỏi usp_BaoCao2_DSHS
+          → "HV không có trong Báo cáo 1" (bug #22)
+```
+
+### 11.6 Đổi nền trắng cả khóa (QLY-07) — CHANGES #22
+Xử lý hàng loạt ảnh của 1 khóa (chủ yếu ảnh cũ từ app cũ chưa nền trắng). **Dùng lại `ghi_anh_update` với quy tắc giữ `TT_XuLy` của §11.5** — bắt buộc, vì bulk chạm MỌI HV trong khóa cùng lúc; nếu hạ `'03'` thì **cả khóa đã BC2 biến mất khỏi báo cáo** trong một lần chạy.
+- **Chạy nền + tiến độ:** endpoint khởi tạo job (vd `POST /local/khoa/:ma_kh/doi-nen`) → xử lý tuần tự từng HV, UI hỏi tiến độ (N/tổng, số lỗi) qua polling hoặc SSE. ~1-3 giây/ảnh (rembg) × ~100 HV ≈ vài phút → KHÔNG làm đồng bộ (treo UI).
+- **Sao lưu trước ghi đè:** tùy chọn (mặc định bật) chép `.jp2` gốc sang `<IMG_PATH_CSDT>\<MaKhoaHoc>\_BACKUP\<MaDK>.jp2` — **CHỈ chép nếu `_BACKUP\<MaDK>.jp2` CHƯA tồn tại** (giữ bản gốc đầu tiên; lần chạy sau KHÔNG ghi đè backup, tránh backup thành bản đã xử lý → mất bản gốc thật). Ghi ảnh **atomic** (file tạm → `os.replace`).
+- **Phạm vi:** mặc định "chỉ ảnh chưa nền trắng" — phát hiện bằng **heuristic lấy mẫu pixel 4 góc** (gần trắng → coi đã trắng, bỏ qua; DB không có cờ đánh dấu); sai sót nhỏ bù bằng tùy chọn **"tất cả HV có ảnh"** (luôn cho đổi). HV không ảnh → bỏ qua.
+- *Ca lỗi từng HV* (file bị khóa app cũ, ghi lỗi) → bỏ qua HV đó, ghi danh sách lỗi, chạy tiếp — 1 HV lỗi không hỏng cả lô.
+- *Chống chạy trùng:* bọc job bằng `sp_getapplock(MaKhoaHoc)` (như nạp lô §10.3) để 2 tool không cùng xử lý một khóa (hiếm — thường 1 máy CSDT).
 
 ---
 
@@ -835,6 +893,8 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 |---|---|---|
+| 02/10/2026 | 2.5 | Sau review TDD (CHANGES #22, biên bản `tdd-review-02-10-2026.md`): §11.5 `TT_XuLy` đổi sang quy tắc **"không bao giờ HẠ"** (whitelist `'01'/'02'`, bỏ ngưỡng `< '11'`) + ghi ảnh atomic + click sửa ảnh file-mất fallback + **sơ đồ vòng đời `TT_XuLy`**; §11.3 +**sơ đồ liên kết HV↔Báo cáo**; §11.6 `_BACKUP` chỉ-nếu-chưa-có + heuristic phát hiện ảnh-trắng (4 góc) + applock bulk; §11.1 avatar file-mất→icon ảnh-vỡ + transcode lỗi→422 + cache PII cục bộ + lazy-load; §4.6 +4 endpoint; §10.4 +"nạp lại nhanh". |
+| 02/10/2026 | 2.4 | Mở rộng quản lý ảnh + bảo toàn Báo cáo 1/2 (CHANGES #22): §11.1 +endpoint phục vụ ảnh `.jp2`→PNG + thumbnail/avatar + kiểm file tồn tại + thống kê đầu khóa; §11.3 chặn xóa HV khóa BC1 ở BACKEND (FK `MaBC1`/`MaBC2` → `BaoCaoI`/`BaoCaoII`); §11.5 🐛 giữ `TT_XuLy` khi HV đã Báo cáo (`'11'`–`'19'`) tránh rơi khỏi `usp_BaoCao2_DSHS` + mở trình chỉnh ảnh từ Tra cứu DB; §11.6 mới QLY-07 đổi nền cả khóa (chạy nền + `_BACKUP` + giữ `TT_XuLy`); §7.2 "Bỏ khỏi hàng đợi" staging. QLY-01/QLY-03/QLY-05 + NAP-01 hạ ⏳. |
 | 01/10/2026 | 2.1 | Sửa UX app web sau test điện thoại (CHANGES #12): §4.3 thêm `GET /api/ho-so/:uuid/anh` (collector tải ảnh của mình); §6.5 mới (màn vào không tự mở camera, khung bám QR `cornerPoints`, layout `100dvh` dính đáy, xem/sửa/chụp lại hồ sơ chờ nạp). THU-01/THU-02 hạ ⏳. |
 | 01/10/2026 | 2.2 | App web nhập liên tiếp (CHANGES #13): §6.1 +nhánh preview "Lưu & nhập hồ sơ tiếp" (gửi không ảnh→toast→màn chọn); §6.6 mới (badge/bộ lọc "Thiếu ảnh" + cảnh báo trùng); §4.3 +`GET /api/ho-so/kiem-trung` (THU-04 soi hàng đợi, cảnh báo mềm). THU-01/THU-02 hạ ⏳. |
 | 01/10/2026 | 2.0 | §7.2 ghi rõ **kéo KHÔNG khóa** (bản ghi còn sửa ở app web tới lúc nạp) → tool **kéo lại làm tươi** bản `keo_ve` trạng thái `cho` (NAP-01, CHANGES #11); không khóa-khi-kéo để tránh kẹt + job 15' lật ngược. |

@@ -4,6 +4,7 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 22 | 02/10/2026 | ➕ Thêm + ✏️ Sửa + 🐛 | `QLY-01`, `QLY-03`, `QLY-05`, `QLY-07`, `NAP-01` | Mở rộng quản lý ảnh Tra cứu DB + bảo toàn Báo cáo 1/2: xem ảnh+đường dẫn+avatar+thống kê (QLY-01) · 🐛 giữ `TT_XuLy` khi thay ảnh HV đã Báo cáo (QLY-05, tránh rơi khỏi BC2) + click ảnh từ Tra cứu DB · chặn xóa HV khóa BC1 ở backend (QLY-03) · "Bỏ khỏi hàng đợi"+"Nạp lại nhanh" (NAP-01) · **story mới QLY-07** đổi nền cả khóa | ✅ | ✅ | ⬜ wireframe chốt | ⬜ |
 | 21 | 02/10/2026 | ✏️ Sửa | `NAP-04` | Zoom trình chỉnh ảnh (phản hồi test): cho **thu nhỏ dưới cỡ ban đầu** (trước lấy ảnh gốc làm mốc nhỏ nhất) · thang zoom **mặc định ở GIỮA** (trái thu nhỏ, phải phóng to, mũ 3^t) · **lăn chuột** trên khung để phóng/thu | ✅ | ✅ | — tinh chỉnh AnhModal | ✅ code+build+Playwright, ⚠️ chờ verify |
 | 20 | 02/10/2026 | ➕ Thêm + ⚙️ | `NAP-04` | Nâng cấp trình chỉnh ảnh (phản hồi test tool): +xoay ảnh (−90°/+90° + tinh chỉnh độ nghiêng) · +khung chân dung mẫu overlay (ô-van+đường căn, không dính ảnh xuất) · tăng tốc xóa phông = bật warm-up rembg (bỏ `TOOL_SKIP_WARMUP=1` ở `tool-start.bat`), GIỮ model u2net (phương án A). NAP-04 ⚠️→⏳ | ✅ | ✅ | — tinh chỉnh AnhModal có sẵn | ⬜ |
 | 19 | 02/10/2026 | ✏️ Sửa | `NAP-03`, `NAP-04` | Tận dụng dữ liệu đã kéo từ VPS ở màn Nạp (kéo-về): NAP-03 tự tách `noi_tt_raw` → điền sẵn ô map (operator chỉ bấm Chuyển đổi; tách không chắc thì gõ tay) · NAP-04 nạp thẳng ảnh thô VPS vào trình chỉnh (không bắt chọn lại file). NAP-03 ✅→⏳, NAP-04 ⚠️→⏳ (yêu cầu đổi, code lại phần này) | ✅ | ✅ | — tinh chỉnh màn tool có sẵn | ⬜ |
@@ -27,6 +28,27 @@
 | 1 | 01/10/2026 | ✏️ Sửa | — | Đổi nơi lưu bảng ánh xạ `DM_DVHC_MAP`: GPLX_CSDT → SQLite cục bộ của tool | — | ✅ | — | ✅ (task 5) |
 
 Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên quan
+
+---
+
+## #22 — Mở rộng quản lý ảnh Tra cứu DB + bảo toàn Báo cáo 1/2 · 02/10/2026
+
+- **Mã:** `QLY-01` (mở rộng), `QLY-03` (sửa), `QLY-05` (sửa + 🐛), `QLY-07` (MỚI), `NAP-01` (mở rộng).
+- **Vì sao:** chủ dự án muốn xem/sửa ảnh HV đã nạp ngay ở Tra cứu DB (hiện chỉ hiện chữ "Đã có/Thiếu ảnh", KHÔNG render ảnh) + đổi nền trắng hàng loạt cho ảnh cũ. Khi tra schema DB cũ (`DBcu/DBcu30092026.sql`) để kiểm tác động Báo cáo 1/2, phát hiện **bug nghiêm trọng** ở luồng thay ảnh.
+- **🐛 Bug phát hiện (QLY-05, có sẵn trong code task 27):** `ghi_anh_update` (dùng chung NAP-05/QLY-05) set cứng `TT_XuLy='03'`. Mà `usp_BaoCao2_DSHS` lọc HV theo `TT_XuLy in ('11'..'19')` → **thay ảnh cho HV đã vào Báo cáo 1/2 làm HV rơi khỏi Báo cáo 2** ("HV không có trong BC1"). Liên kết HV↔báo cáo: `NguoiLX_HoSo.MaBC1`(FK→`BaoCaoI`)/`MaBC2`, `BaoCaoII.MaBCI`→`BaoCaoI`.
+- **Chốt luật (khóa đã BC1):** thay ảnh/đổi nền **ĐƯỢC** (ảnh không nằm trong nội dung báo cáo) nhưng **phải giữ `TT_XuLy`**; sửa thông tin nhân thân **CHẶN** (đã chặn sẵn, BR-012); xóa HV **CHẶN ở backend** (mới).
+- **Nhóm 1 (làm trước):**
+  - QLY-01: hiện ảnh chân dung + đường dẫn khi xem HV (backend transcode `.jp2`→PNG) · avatar mỗi dòng lưới (thumbnail + cache; chưa ảnh → icon người) · cảnh báo khi DB có path mà mất file · thống kê đầu khóa (tổng/thiếu ảnh/BC1) · nút đổi-khóa/xóa nhanh ra lưới · click ảnh → trình chỉnh.
+  - QLY-05: 🐛 giữ `TT_XuLy` khi HV đã Báo cáo (`'11'`–`'19'`), chỉ nâng `'01/02'→'03'` khi chưa BC · mở trình chỉnh ảnh từ Tra cứu DB.
+  - QLY-03: chặn xóa HV khóa BC1 ở BACKEND (`usp_NguoiLX_Delete`), không chỉ ẩn nút UI.
+  - NAP-01: "Bỏ khỏi hàng đợi" (xóa dòng 🟢 khỏi `staging.sqlite`, KHÔNG đụng prod — tách bạch "Xóa khỏi DB") + "Nạp lại nhanh" dòng 🔴.
+- **Nhóm 2 (story mới QLY-07):** đổi nền trắng cả khóa — chạy nền + thanh tiến độ · sao lưu `_BACKUP` trước ghi đè · mặc định "chỉ ảnh chưa trắng" · giữ `TT_XuLy` (nếu không, cả khóa đã BC2 biến mất cùng lúc).
+- **Đã sửa:** PRD `QLY-01`/`QLY-03`/`QLY-05` (+Done khi, hạ ⏳) · PRD `NAP-01` (hạ ⏳) · PRD +story `QLY-07` · TDD §7.2 + §11.1 + §11.3 + §11.5 + §11.6 mới + Changelog 2.4 · SCREENS màn #12/#14/#15 + 3 quyết định UX + wireframe.
+- **Hạ trạng thái:** `QLY-01` ⚠️→⏳ · `QLY-03` ⚠️→⏳ · `QLY-05` ⚠️→⏳ · `NAP-01` ✅→⏳ (mở rộng yêu cầu — code cũ vẫn đúng nhưng story quay lại hàng đợi).
+- **TREO (chưa quyết, KHÔNG vào PRD):** ❓ sửa thông tin nhân thân *trước* khi nạp trong tool — bẫy "Kéo lại từ VPS" đè. Nghiêng về KHÔNG làm (giữ sửa trên app web). Chờ chủ dự án quyết.
+- **Code sẽ đụng:** `tool/app/nap.py` (`ghi_anh_update` giữ `TT_XuLy`; +xóa staging `keo_ve`) · `tool/app/routers/hoso.py` (`xoa_ho_so` chặn BC1; +endpoint phục vụ ảnh + thumbnail) · `tool/app/image.py` (transcode `.jp2`→PNG) · `tool/webui/src/pages/tool/TraCuuDB.tsx` + `NapHoSo.tsx` + `lib/api.ts` · màn QLY-07 mới.
+- **Còn nợ:** `/reviewtdd` (TDD đổi API §11.1 + nghiệp vụ §11.3/§11.5/§11.6) · `/kehoach` bổ sung (rework QLY-01/03/05 + NAP-01 + task QLY-07) · `/prototype-next` dựng màn #14/#15 · code · chủ dự án quyết mục ❓ treo.
+- **Không đụng:** schema DB đích (chỉ đọc; `_BACKUP` là thư mục file) · server VPS · app web.
 
 ---
 
@@ -309,7 +331,7 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 > `/capnhat` đọc mục này ở Bước 0b để biết có thay đổi nào chưa ghi sổ không.
 > So bằng **danh sách mã**, không so bằng thời gian sửa file.
 
-- **Cập nhật:** 02/10/2026 (CHANGES #21)
-- **Số story trong PRD:** 21 (20 MUST/SHOULD gồm `THU-04` SHOULD + `HTG-04` SHOULD + `QLY-06` ⏳; chưa tính NICE `QLY-04`, `THU-03`) — #19/#20/#21 không thêm/bớt story, chỉ sửa NAP-03/NAP-04
-- **Mã story hiện có:** `HTG-01`…`HTG-06`, `THU-01`, `THU-02`, `THU-04`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06` (NICE: `QLY-04`, `THU-03`)
+- **Cập nhật:** 02/10/2026 (CHANGES #22)
+- **Số story trong PRD:** 22 (21 MUST/SHOULD gồm `THU-04` SHOULD + `HTG-04` SHOULD + `QLY-06` ⏳ + `QLY-07` MỚI; chưa tính NICE `QLY-04`, `THU-03`) — #22 thêm story `QLY-07`
+- **Mã story hiện có:** `HTG-01`…`HTG-06`, `THU-01`, `THU-02`, `THU-04`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07` (NICE: `QLY-04`, `THU-03`)
 - **Mã đã nghỉ hưu:** (chưa có)

@@ -6,7 +6,7 @@
 - **Bản HTML chuẩn:** ui-demo-options/detailed.html
 - **Stack:** Vite + React + TypeScript + Tailwind v3 (token shadcn) + react-router-dom · font Be Vietnam Pro
 - **Cổng dev:** 3021 (sổ `~/.claude/local-ports.md`)
-- **Cập nhật lần cuối:** 01/10/2026 (lượt 12 — ảnh app web CHANGES #15: 2 nút chụp/chọn-từ-máy + popup phóng to; dựng trong webapp thật, chưa dựng lại prototype)
+- **Cập nhật lần cuối:** 02/10/2026 (CHANGES #22 — mở rộng quản lý ảnh Tra cứu DB: avatar lưới + xem ảnh/đường dẫn + click sửa ảnh + thống kê + QLY-07 đổi nền cả khóa. **Chỉ chốt thiết kế/wireframe, chưa dựng prototype** — `/prototype-next` dựng sau. Lượt 12 trước đó: ảnh app web CHANGES #15)
 
 ## ⚠️ Prototype gộp 1 project — KIẾN TRÚC THẬT là 2 app riêng (TDD §2.4)
 
@@ -37,8 +37,10 @@ Prototype là tham chiếu **style/layout**, không phải scaffold thật.
 | 9 | Tra cứu & sửa hồ sơ đã có | QLY-01 | `/tool/nap` (tab DB → drawer Xem/Sửa) | ✅ Xong | 4 |
 | 10 | Đổi khóa + di chuyển ảnh | QLY-02 | `/tool/nap` (drawer → dialog Đổi khóa) | ✅ Xong | 4 |
 | 11 | Xóa học viên + xóa mềm ảnh | QLY-03 | `/tool/nap` (drawer → dialog Xóa) | ✅ Xong | 4 |
-| 12 | Nạp/thay ảnh cho HV đã có | QLY-05 | `/tool/nap` (lọc tình trạng ảnh + drawer → dialog Nạp/thay ảnh) | ⬜ Chưa có route | — |
-| 13 | Nạp lô + IA 2 chế độ (hàng chờ VPS badge ⚪🔴🟢) | NAP-01 | `/tool/nap` (chế độ Nạp hồ sơ / Tra cứu DB) | ✅ Xong | 5 |
+| 12 | Nạp/thay ảnh cho HV đã có (+ click avatar/ảnh ở Tra cứu DB mở trình chỉnh — CHANGES #22) | QLY-05 | `/tool/nap` (lọc tình trạng ảnh + drawer → dialog Nạp/thay ảnh) | ⬜ Chưa có route | — |
+| 13 | Nạp lô + IA 2 chế độ (hàng chờ VPS badge ⚪🔴🟢) | NAP-01 | `/tool/nap` (chế độ Nạp hồ sơ / Tra cứu DB) | ✅ Xong (+⬜ "Bỏ khỏi hàng đợi" & "Nạp lại nhanh" CHANGES #22) | 5 |
+| 14 | Tra cứu DB: avatar lưới + xem ảnh/đường dẫn + thống kê đầu khóa + thao tác nhanh | QLY-01 | `/tool/nap` (tab DB) | ⬜ Chưa dựng (CHANGES #22) | — |
+| 15 | Đổi nền trắng cả khóa (phạm vi + sao lưu + thanh tiến độ) | QLY-07 | `/tool/nap` (tab DB → dialog) | ⬜ Chưa dựng (CHANGES #22) | — |
 | — | Hàng đợi VPS + xóa PII 30 ngày | HTG-02 | (backend, không có UI) | ⬜ Không dựng | — |
 | — | Kết xuất Excel (NICE) | QLY-04 | (mới có nút, chưa luồng) | ⬜ NICE — sau | — |
 | — | Offline app web (NICE) | THU-03 | — | ⬜ NICE — sau | — |
@@ -78,6 +80,9 @@ Chú thích: ✅ Xong · 🟡 Placeholder · ⬜ Chưa có route
 | /app/quet | Cảnh báo trùng CCCD (CHANGES #13, THU-04) | Khi gửi, nếu CCCD đã có hồ sơ **chưa nạp trong hàng đợi** → **banner cảnh báo mềm** (nêu ai gửi/lúc nào), **vẫn cho gửi**. Soi hàng đợi VPS, không soi DB thật | 10 |
 | /app/quet · /app/da-gui | Redesign UX nhập liệu (CHANGES #14, impeccable) | Màn xác nhận: **ẩn ô CMND cũ** (vẫn lưu từ QR); ô ngày **gõ tay dd/mm/yyyy + nút lịch** (giữ năm-only) — component dùng chung; **desktop** tách vị trí 2 nút tránh bấm nhầm + bố cục gọn + **phím tắt** (autofocus, Enter/Ctrl+Enter, tab order) | 11 |
 | /app/quet · /app/da-gui | Ảnh: nguồn + phóng to (CHANGES #15) | Màn chụp ảnh & đổi ảnh (Chờ nạp): **2 nút "Chụp ảnh" (camera) / "Chọn từ máy" (file·thư viện)**. Chi tiết hồ sơ: **bấm ảnh → popup phóng to** (AnhLightbox, bấm ngoài đóng) | 12 |
+| /tool/nap (tab DB) | Avatar + xem ảnh (CHANGES #22) | Lưới HV thêm **cột avatar** (ảnh thu nhỏ từ DB qua endpoint thumbnail; chưa ảnh → icon người). Modal chi tiết hiện **ảnh lớn + dòng đường dẫn `.jp2`**; **click ảnh → mở trình chỉnh** (đổi nền, QLY-05). File DB có path mà mất file → **cảnh báo "không tìm thấy file ảnh"**. Ảnh `.jp2` phải transcode→PNG (trình duyệt không mở `.jp2`). Wireframe ở Ghi chú | 13 |
+| /tool/nap (tab DB) | Thống kê + thao tác nhanh (CHANGES #22) | Đầu khóa hiện **tổng HV · thiếu ảnh · đã BC1**. Nút **đổi khóa/xóa nhanh** ra lưới (xác nhận 2 bước, **chặn BC1**). Tab Nạp (staging): nút **"Bỏ khỏi hàng đợi"** dòng 🟢 (nhẹ, TÁCH BẠCH "Xóa khỏi DB") + **"Nạp lại nhanh"** dòng 🔴 | 13 |
+| /tool/nap (tab DB) | Đổi nền cả khóa QLY-07 (CHANGES #22) | Dialog: **phạm vi** (chỉ ảnh chưa trắng [mặc định] / tất cả HV có ảnh) · tùy chọn **sao lưu `_BACKUP`** (mặc định bật) · nút Bắt đầu → **thanh tiến độ N/tổng + số lỗi** (chạy nền, không treo). Giữ `TT_XuLy`. Wireframe ở Ghi chú | 13 |
 
 ## Component dùng chung
 
@@ -101,3 +106,45 @@ Chú thích: ✅ Xong · 🟡 Placeholder · ⬜ Chưa có route
 - **QLY-02/03** (đổi khóa, xóa HV) là thao tác trong tab "Trong khóa (DB)" của /tool/nap — chưa dựng tương tác, sẽ thêm ở lượt sau.
 - **HTG-02** là backend VPS (hàng đợi + job xóa PII) — không có UI, không dựng màn.
 - PRD chưa gắn mã bằng `/ganma`? — PRD đã có mã story (THU/NAP/QLY/KHO/HTG), dùng luôn ở cột Mã story.
+
+## Wireframe CHANGES #22 (cách làm — `/prototype-next` bám theo)
+
+**① Lưới HV có avatar (tab Tra cứu DB) + thống kê + thao tác nhanh**
+```
+Khóa B-K149 · hạng B · 98 HV · thiếu ảnh 12 · 🔒 đã BC1   [Tìm] [Tất cả][Chưa ảnh][Đã có ảnh]
+[Đổi nền trắng cả khóa ⚙]
+┌─────┬────────────────────┬──────┬───────────┬─────────────┬───────┐
+│ Ảnh │ Họ và tên          │ G.T  │ Ngày sinh │ Số CCCD     │ Số HS │
+├─────┼────────────────────┼──────┼───────────┼─────────────┼───────┤
+│ [▣] │ NGUYỄN VĂN AN      │ Nam  │ 01/02/1990│ 0360…1234   │ 010   │  ▣=ảnh thu nhỏ (click→chỉnh)
+│ [☺] │ TRẦN THỊ BÌNH      │ Nữ   │ 03/04/1992│ 0360…5678   │ 011   │  ☺=icon người (chưa ảnh)
+└─────┴────────────────────┴──────┴───────────┴─────────────┴───────┘
+  click dòng → modal chi tiết ② · click avatar [▣] → trình chỉnh ảnh
+```
+
+**② Modal chi tiết có ảnh + đường dẫn (click ảnh để sửa)**
+```
+┌─ Chi tiết học viên ─────────────────────── [x] ┐
+│ ┌────────┐  NGUYỄN VĂN AN                      │
+│ │ ẢNH    │  Số hồ sơ 010 · Nam                 │
+│ │ 3:4    │  Số CCCD   0360…1234                │
+│ │(click  │  Ngày sinh 01/02/1990               │
+│ │ để sửa)│  Ảnh       Đã có                     │
+│ └────────┘                                     │
+│ Đường dẫn: D:\GPLXCSDT\…\70004K26B010.jp2 [⎘]  │
+│ ⚠ File ảnh không có trên ổ (khi path có, file mất) │
+│ [Đóng] [Thay ảnh] [Mở khóa khác]  [Xóa*][Đổi khóa*][Sửa*] │  *ẩn/chặn khi khóa BC1
+└──────────────────────────────────────────────────┘
+```
+
+**③ Đổi nền trắng cả khóa (chạy nền + tiến độ)**
+```
+┌─ Đổi nền trắng — khóa B-K149 ─────────────── [x] ┐
+│ Phạm vi: (•) Chỉ ảnh CHƯA nền trắng  ( ) Tất cả (98) │
+│ Sao lưu: [✓] Lưu ảnh gốc vào _BACKUP trước khi ghi   │
+│ ⚠ ~1-3 giây/ảnh · ghi đè ảnh · giữ TT_XuLy (BC an toàn) │
+│ [Hủy]                    [Bắt đầu đổi nền 98 ảnh]    │
+│ ───────────────────────────────────────────────    │
+│ Đang xử lý ▓▓▓▓▓▓▓░░░░░ 42/98 (✓39 ✎1 ✗3)  [xem lỗi]│
+└──────────────────────────────────────────────────────┘
+```

@@ -129,7 +129,7 @@
 
 #### [NAP-01] Tool kéo hàng đợi + chống trùng
 
-**Trạng thái:** ✅ Done — 01/10/2026. ① backend (kéo→staging, nạp lô lock→nạp→da-nap, +2 vá server) + ② UI 2 chế độ (ô tìm/IN HOA/chính tả/badge) + AC "kéo lại làm tươi bản chờ nạp" (CHANGES #11). Kiểm: tool 72 + server 56 test · Playwright 3vp · review-nghiepvu 9/9. (Tra cứu DB = QLY-01 task 22)
+**Trạng thái:** ⏳ Todo — mở rộng yêu cầu 02/10/2026 (CHANGES #22: "Bỏ khỏi hàng đợi" dòng đã nạp + "Nạp lại nhanh" dòng lỗi). Phần đã xong trước đó: ✅ Done 01/10/2026 — ① backend (kéo→staging, nạp lô lock→nạp→da-nap, +2 vá server) + ② UI 2 chế độ (ô tìm/IN HOA/chính tả/badge) + AC "kéo lại làm tươi bản chờ nạp" (CHANGES #11). Kiểm: tool 72 + server 56 test · Playwright 3vp · review-nghiepvu 9/9. (Tra cứu DB = QLY-01 task 22)
 **Story:** Là nhân viên nạp DB, tôi muốn kéo danh sách học viên chờ nạp về tool, để xử lý và nạp vào DB.
 
 **Steps to Complete:**
@@ -148,6 +148,8 @@
 - ✅ **Tên học viên hiển thị IN HOA giữ dấu** ngay khi kéo về (khớp cách ghi DB).
 - ✅ **Cảnh báo "sai chính tả" mức A:** tô dấu hiệu khi tên **thiếu dấu tiếng Việt / có số/ký tự lạ / khoảng trắng thừa** (không dùng từ điển tên — tránh báo nhầm); cảnh báo mềm, nhân viên tự sửa.
 - ✅ **Nạp lô:** HV lỗi (trùng CCCD cùng khóa / thiếu dữ liệu…) **tô đỏ + nêu rõ lý do**; HV nạp được **tô xanh (kèm Số hồ sơ)**; HV khác trong lô vẫn nạp (EC-071).
+- ⬜ **"Bỏ khỏi hàng đợi"** (CHANGES #22): xóa dòng 🟢 Đã nạp khỏi hàng đợi staging của tool (SQLite cục bộ) — KHÔNG đụng DB prod; VPS đã đánh dấu đã nạp nên kéo lại không mang về. Tên nhẹ, TÁCH BẠCH với "Xóa khỏi DB" của Tra cứu DB (tránh xóa nhầm prod).
+- ⬜ **"Nạp lại nhanh"** dòng 🔴 lỗi (CHANGES #22): nút nạp lại ngay trên dòng lỗi (không phải chọn lại thủ công).
 - ❌ Không kéo bản ghi đã nạp/đã xóa.
 
 **Edge cases:**
@@ -312,13 +314,18 @@
 
 #### [QLY-01] Tra cứu & sửa hồ sơ đã có
 
-**Trạng thái:** ⚠️ Partial — 02/10/2026. **Lát 1 (đọc, task 22) xong + verify live:** Tra cứu DB — tìm khóa mọi khóa kể cả BC1 + lưới HV theo khóa (`usp_NguoiLX_Select_By_MaKH`) + tìm trong lưới + xem chi tiết (verify live: khóa B-K149, 55 HV đúng). **Lát 2 (sửa, task 22) code xong — CHỜ VERIFY PROD:** sửa **thông tin nhân thân** (họ tên/ngày sinh/giới tính/CCCD/địa chỉ TT) qua `usp_NguoiLX_Update`, đọc lại full bản ghi để giữ cột không sửa; chặn sửa khi khóa đã BC1 (BR-012). **Thu hẹp phạm vi:** bỏ `usp_NguoiLX_HoSo_Update` khỏi QLY-01 (SP ghi đè 65 cột gồm kết quả thi/báo cáo → rủi ro) — ảnh để QLY-05, đổi khóa QLY-02 (CHANGES #17). Kiểm: tool **101 test** + webui **19 test** + build. Chờ bạn verify ghi prod thật + chặn BC1 live.
+**Trạng thái:** ⏳ Todo — mở rộng yêu cầu 02/10/2026 (CHANGES #22: hiện ảnh chân dung + avatar lưới + đường dẫn ảnh + cảnh báo file thiếu + thống kê đầu khóa + nút đổi-khóa/xóa nhanh ra list). Phần đã code trước đó (chờ verify prod): **Lát 1 (đọc, task 22) xong + verify live:** Tra cứu DB — tìm khóa mọi khóa kể cả BC1 + lưới HV theo khóa (`usp_NguoiLX_Select_By_MaKH`) + tìm trong lưới + xem chi tiết (verify live: khóa B-K149, 55 HV đúng). **Lát 2 (sửa, task 22) code xong — CHỜ VERIFY PROD:** sửa **thông tin nhân thân** (họ tên/ngày sinh/giới tính/CCCD/địa chỉ TT) qua `usp_NguoiLX_Update`, đọc lại full bản ghi để giữ cột không sửa; chặn sửa khi khóa đã BC1 (BR-012). **Thu hẹp phạm vi:** bỏ `usp_NguoiLX_HoSo_Update` khỏi QLY-01 (SP ghi đè 65 cột gồm kết quả thi/báo cáo → rủi ro) — ảnh để QLY-05, đổi khóa QLY-02 (CHANGES #17). Kiểm: tool **101 test** + webui **19 test** + build. Chờ bạn verify ghi prod thật + chặn BC1 live.
 **Story:** Là nhân viên nạp DB, tôi muốn tra cứu và sửa hồ sơ học viên đã có trong DB, để thay phần lớn thao tác của app cũ.
 
 **Done khi:**
 - ✅ **Chế độ "Tra cứu DB"** (CHANGES #6): **tìm khóa theo tên khóa hoặc mã khóa — MỌI khóa, kể cả đã lập BC1** (khác dropdown nạp của NAP-02 vốn ẩn khóa BC1). Chọn khóa → lưới học viên theo khóa (`usp_NguoiLX_Select_By_MaKH`) + tìm theo **tên (khớp cả có dấu lẫn không dấu)**/CCCD/số hồ sơ (`usp_NguoiLX_HoSo_Search`); ô tìm đặt trên đầu lưới, màn hẹp thu gọn thành **nút kính lúp**. (CHANGES #10)
 - ✅ Mở hồ sơ để sửa **thông tin nhân thân** (họ tên, ngày sinh, giới tính, số căn cước, địa chỉ thường trú) qua `usp_NguoiLX_Update`; đọc lại bản ghi hiện tại để giữ nguyên cột không sửa. Ảnh → QLY-05, đổi khóa → QLY-02 (KHÔNG dùng `usp_NguoiLX_HoSo_Update` ở đây — SP ghi đè 65 cột, CHANGES #17).
 - ✅ Chặn sửa khi khóa đã lập BC1 (badge "Đã BC1 — chỉ xem"); khóa chưa BC1 sửa được.
+- ⬜ **Hiện ảnh chân dung + đường dẫn ảnh khi xem HV** (CHANGES #22): click HV → modal chi tiết hiện ảnh thật (backend chuyển `.jp2`→PNG để trình duyệt xem được) + dòng đường dẫn `DuongDanAnh`. **DB có đường dẫn nhưng file không tồn tại trên ổ → cảnh báo "không tìm thấy file ảnh"** (hiện `co_anh` chỉ xét cột rỗng, không kiểm file thật).
+- ⬜ **Avatar mỗi dòng lưới HV** (CHANGES #22): ảnh thu nhỏ lấy từ DB (endpoint thumbnail + cache); HV chưa ảnh → icon hình người.
+- ⬜ **Click ảnh → mở trình chỉnh ảnh** (sang QLY-05): chỉnh/đổi nền ảnh đã có.
+- ⬜ **Thống kê nhanh đầu khóa** (CHANGES #22): tổng HV · số thiếu ảnh · đã BC1.
+- ⬜ **Nút đổi khóa / xóa nhanh ra lưới** (CHANGES #22): gọi QLY-02/QLY-03, vẫn xác nhận 2 bước, tôn trọng chặn BC1.
 - ❌ Không kết xuất báo cáo (NICE).
 
 **Edge cases:**
@@ -347,31 +354,34 @@
 
 #### [QLY-03] Xóa học viên + xóa mềm ảnh
 
-**Trạng thái:** ⚠️ Partial — 02/10/2026 (task 24). Code xong: `POST /local/ho-so/xoa` → `usp_NguoiLX_Delete` (cascade HoSo+GiayTo); chặn HV đã có GPLX (pre-check `NguoiLX_GPLX` + verify sau xóa vì SP không raiserror); ảnh **xóa mềm** chuyển sang folder `_DELETED` (giữ tên MaDK, không xóa cứng) + ghi log staging. UI: nút "Xóa" xác nhận 2 bước ở Tra cứu DB. Kiểm: tool **111 test** + webui build · review-nghiệp-vụ **6/6 Done**. **Chờ verify xóa thật.** (Ghi chú: UI ẩn nút Xóa khi khóa BC1 — ngoài AC, backend chưa chặn tương ứng; cần `/capnhat` nếu muốn cấm xóa HV khóa BC1.)
+**Trạng thái:** ⏳ Todo — mở rộng 02/10/2026 (CHANGES #22: chặn xóa HV khóa BC1 ở BACKEND + đưa xóa nhanh ra list). Phần đã code trước đó (task 24): `POST /local/ho-so/xoa` → `usp_NguoiLX_Delete` (cascade HoSo+GiayTo); chặn HV đã có GPLX (pre-check `NguoiLX_GPLX` + verify sau xóa vì SP không raiserror); ảnh **xóa mềm** chuyển sang folder `_DELETED` (giữ tên MaDK, không xóa cứng) + ghi log staging. UI: nút "Xóa" xác nhận 2 bước ở Tra cứu DB. Kiểm: tool **111 test** + webui build · review-nghiệp-vụ **6/6 Done**. **Chờ verify xóa thật.** (CHANGES #22: ĐÃ CHỐT cấm xóa HV khóa BC1 — chặn ở BACKEND, không chỉ ẩn nút UI; lý do: bảo toàn liên kết `NguoiLX_HoSo.MaBC1/MaBC2` với Báo cáo 1/2.)
 **Story:** Là nhân viên nạp DB, tôi muốn xóa học viên nhập nhầm, để dọn hồ sơ sai mà không mất ảnh vĩnh viễn.
 
 **Done khi:**
 - ✅ `usp_NguoiLX_Delete` (cascade HoSo + GiayTo); file `.jp2` chuyển sang folder `_DELETED` (xóa mềm) + log.
 - ✅ HV đã có GPLX không xóa được (FK chặn) → báo rõ.
+- ⬜ **Chặn xóa HV ở khóa đã lập BC1 — ở BACKEND** (CHANGES #22): xóa HV đã vào Báo cáo (`NguoiLX_HoSo.MaBC1/MaBC2`) sẽ làm HV biến mất khỏi Báo cáo 1/2 → cấm xóa ở tầng backend (`usp_NguoiLX_Delete`), không chỉ ẩn nút UI.
 - ❌ Không xóa cứng file ảnh.
 
 > Nguồn: CAP-012 · BR-014 · EC-021
 
 #### [QLY-05] Nạp/thay ảnh cho học viên đã có
 
-**Trạng thái:** ⚠️ Partial — 02/10/2026 (task 27). Code xong: màn Tra cứu DB thêm lọc tình trạng ảnh (Tất cả/Chưa ảnh/Đã có ảnh) + nút Nạp/Thay ảnh → tái dùng `AnhModal` (NAP-04: crop 3:4 + nền trắng + .jp2 353×471) → `POST /local/ho-so/nap-anh` ghi `.jp2` (ghi đè khi thay) + UPDATE 5 cột ảnh hướng A (`ghi_anh_update` dùng chung NAP-05); cảnh báo trước khi ghi đè; retry UPDATE 1 lần theo MaDK khi lỗi (EC §11.5), file bị khóa app cũ → báo đóng (409). Nạp/thay ảnh dùng được cả khóa đã BC1 (chỉ cập nhật ảnh). Kiểm: tool 119 test (11 QLY-05) · webui build · Playwright 3vp (0 tràn) · review-nghiepvu Done khi 5/5 + edge case retry đã vá. **Chờ verify ghi ảnh thật trên SQL Server.**
+**Trạng thái:** 🔄 In Progress — task 33 (🐛 vá `TT_XuLy` + ghi ảnh atomic) XONG + 123 test (2 hồi quy); còn task 34-35 (xem ảnh/click từ Tra cứu DB). Nền (CHANGES #22: 🐛 sửa bug `TT_XuLy='03'` làm rơi HV khỏi Báo cáo 2 + cho click ảnh từ Tra cứu DB mở trình chỉnh). Phần đã code trước đó (task 27): màn Tra cứu DB thêm lọc tình trạng ảnh (Tất cả/Chưa ảnh/Đã có ảnh) + nút Nạp/Thay ảnh → tái dùng `AnhModal` (NAP-04: crop 3:4 + nền trắng + .jp2 353×471) → `POST /local/ho-so/nap-anh` ghi `.jp2` (ghi đè khi thay) + UPDATE 5 cột ảnh hướng A (`ghi_anh_update` dùng chung NAP-05); cảnh báo trước khi ghi đè; retry UPDATE 1 lần theo MaDK khi lỗi (EC §11.5), file bị khóa app cũ → báo đóng (409). Nạp/thay ảnh dùng được cả khóa đã BC1 (chỉ cập nhật ảnh). Kiểm: tool 119 test (11 QLY-05) · webui build · Playwright 3vp (0 tràn) · review-nghiepvu Done khi 5/5 + edge case retry đã vá. **Chờ verify ghi ảnh thật trên SQL Server.**
 **Story:** Là nhân viên nạp DB, tôi muốn bổ sung ảnh cho học viên đã nạp hồ sơ nhưng chưa có ảnh, hoặc thay ảnh mới cho học viên đã có ảnh, để hoàn tất/chuẩn hóa hồ sơ mà không phải nhập lại từ đầu.
 
 **Steps to Complete:**
 1. Trên màn tra cứu/quản lý HV, lọc học viên theo tình trạng ảnh (chưa có ảnh `TT_XuLy='01'` / đã có ảnh `'03'`).
 2. Chọn HV → căn ảnh + xóa phông + xuất `.jp2` (dùng lại luồng NAP-04).
-3. Ghi `.jp2` theo `MaDK` (ghi đè nếu đã có) + UPDATE 5 cột ảnh `NguoiLX_HoSo`, nâng/giữ `TT_XuLy='03'` (hướng A, TDD §10.3).
+3. Ghi `.jp2` theo `MaDK` (ghi đè nếu đã có) + UPDATE cột ảnh `NguoiLX_HoSo` (hướng A, TDD §10.3). **`TT_XuLy` — nguyên tắc "KHÔNG BAO GIỜ HẠ": chỉ set `'03'` khi HV CHƯA có ảnh (`TT_XuLy` hiện tại là `'01'`/`'02'`); mọi giá trị khác (`'03'` và mọi mã Báo cáo) → GIỮ NGUYÊN, chỉ thay file + đường dẫn ảnh** — tránh đá HV khỏi `usp_BaoCao2_DSHS` (lọc `TT_XuLy in '11'..'19'`).
 
 **Done khi:**
 - ✅ Màn tra cứu có bộ lọc theo tình trạng ảnh; hiện đúng danh sách HV chưa ảnh / đã có ảnh.
 - ✅ Bổ sung ảnh (HV `'01'`): `.jp2` ghi tại `<IMG_PATH_CSDT>\<MaKhoaHoc>\<MaDK>.jp2`; `DuongDanAnh`/`ChatLuongAnh=1`/`TT_XuLy='03'`/`NgayThuNhanAnh` cập nhật; mở app cũ thấy ảnh.
 - ✅ Thay ảnh (HV `'03'`): ghi đè đúng file `.jp2` cùng tên; cập nhật lại `DuongDanAnh`/`ChatLuongAnh`/`NgayThuNhanAnh`; có cảnh báo trước khi ghi đè ảnh cũ.
 - ✅ Dùng lại đúng luồng xử lý ảnh NAP-04 (crop 3:4 + nền trắng + 353×471).
+- ⬜ **Giữ `TT_XuLy` khi HV đã ở Báo cáo 1/2** (CHANGES #22, 🐛): thay ảnh cho HV `'11'`–`'19'` KHÔNG hạ về `'03'` (sẽ làm HV biến mất khỏi Báo cáo 2) — chỉ thay file + `DuongDanAnh`/`NgayThuNhanAnh`.
+- ⬜ **Mở trình chỉnh ảnh từ màn Tra cứu DB** (CHANGES #22): click avatar/ảnh HV đã có → AnhModal (ảnh `.jp2` đã transcode→PNG làm ảnh gốc) → đổi nền/chỉnh → lưu đè.
 - ❌ Không tạo bản ghi HV mới (chỉ cập nhật HV đã có).
 
 **Edge cases:**
@@ -397,6 +407,29 @@
 - ❌ Không làm nâng hạng (B→C/D/E) — ngoài MVP (SP có tham số thâm niên/km nhưng chưa thu thập).
 
 > Nguồn: user 01/10/2026 (CHANGES #13/#16) · kiểm DB thật · NAP-06 "cùng CCCD khác khóa thì cho phép" · liên quan QLY-01/QLY-02
+
+#### [QLY-07] Đổi nền trắng ảnh cho cả khóa
+
+**Trạng thái:** ⏳ Todo — thêm mới 02/10/2026 (CHANGES #22). Làm SAU nhóm QLY-01/QLY-05 mở rộng.
+**Story:** Là nhân viên nạp DB, tôi muốn đổi nền trắng hàng loạt cho ảnh của cả một khóa, để chuẩn hóa ảnh cũ (nạp từ app cũ, nền chưa trắng) mà không phải xử lý từng học viên.
+
+**Done khi:**
+- ⬜ Từ màn Tra cứu DB, chọn 1 khóa → "Đổi nền trắng cả khóa" → chạy xử lý rembg (crop 3:4 + nền trắng như NAP-04) cho ảnh từng HV.
+- ⬜ **Chạy nền + thanh tiến độ** (N/tổng, số lỗi), không treo giao diện (ước ~1-3 giây/ảnh × ~100 HV ≈ vài phút).
+- ⬜ **Sao lưu ảnh gốc vào `_BACKUP` trước khi ghi đè** (tùy chọn, mặc định bật) — ghi đè `.jp2` không khôi phục được nếu không sao lưu.
+- ⬜ **Phạm vi mặc định "chỉ ảnh chưa nền trắng"** (ảnh nạp qua tool đã trắng sẵn) — phát hiện bằng heuristic lấy mẫu pixel 4 góc (DB không có cờ); sai sót nhỏ bù bằng tùy chọn "tất cả HV có ảnh".
+- ⬜ **Giữ `TT_XuLy`** như QLY-05 (không hạ về `'03'` cho HV đã Báo cáo) — nếu không, cả khóa đã BC2 biến mất khỏi báo cáo cùng lúc.
+- ⬜ HV không có ảnh → bỏ qua, không báo lỗi.
+- ❌ Không đổi thông tin nhân thân, không xóa, không đụng khóa/đăng ký.
+
+**Edge cases:**
+| Tình huống | Hành vi mong muốn |
+|---|---|
+| File ảnh bị app cũ khóa | Bỏ qua HV đó, ghi vào danh sách lỗi, chạy tiếp các HV khác |
+| Khóa đã BC1/BC2 | Vẫn chạy (ảnh không nằm trong nội dung báo cáo), nhưng BẮT BUỘC giữ `TT_XuLy` |
+| Tắt tool/mất điện giữa chừng | Ảnh đã xử lý giữ nguyên; chạy lại bỏ qua ảnh đã trắng |
+
+> Nguồn: user 02/10/2026 (CHANGES #22) · dùng lại NAP-04 · liên quan QLY-05 · bảo toàn Báo cáo 1/2 (schema DBcu: `NguoiLX_HoSo.MaBC1/MaBC2`, `usp_BaoCao2_DSHS` lọc `TT_XuLy`)
 
 #### [HTG-03] Bộ lọc & xóa PII thủ công trên VPS
 
