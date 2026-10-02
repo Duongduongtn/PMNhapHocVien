@@ -277,6 +277,7 @@ GET  /api/ho-so/:uuid/anh       Tải lại ảnh thô CỦA MÌNH (hiện thumb
 GET  /api/ho-so/kiem-trung?cccd=<>  Kiểm CCCD đã có hồ sơ pending/importing trong hàng đợi CSDT — cảnh báo mềm (THU-04, CHANGES #13)
 DELETE /api/ho-so/:uuid         Xóa hồ sơ đã gửi — SOFT-DELETE (trang_thai→'deleted'), CHỈ khi 'pending'; collector CHỈ của mình (kiểm created_by, chống IDOR), admin bất kỳ; 'importing'/'imported'→409. Ghi audit_log (THU-05, CHANGES #24)
 ```
+> **CAS (review #24):** chuyển trạng thái bằng UPDATE có điều kiện nguyên tử, KHÔNG đọc-rồi-ghi: `UPDATE … SET trang_thai='deleted' WHERE uuid=:u AND trang_thai='pending'` (như `lock` §7.1); 0 dòng bị sửa → **409** (hồ sơ vừa bị tool `lock` sang `importing` đúng lúc collector bấm xóa — EC đồng thời THU-05). Soft-delete ghi **mốc thời điểm vào `audit_log`** (đã có `created_at` + `idx_audit_created`) → endpoint `GET /api/nap/da-xoa?since=` (§4.4) lọc theo mốc này, KHÔNG cần thêm cột `deleted_at`.
 
 ### 4.4 Nạp (tool — operator, kèm X-Tool-Key)
 ```
@@ -285,7 +286,10 @@ POST /api/nap/:uuid/lock        Khóa bản ghi (→ importing) trước khi n�
 POST /api/nap/:uuid/da-nap      Đánh dấu da_nap (kèm ma_dk) + mở khóa
 POST /api/nap/:uuid/unlock      Mở khóa khi nạp lỗi (→ pending)
 POST /api/nap/:uuid/tra-ve-cho-nap  Trả hồ sơ ĐÃ NẠP về chờ nạp (imported→pending, gỡ ma_dk) — tool gọi sau khi gỡ HV khỏi CSDT (QLY-08, CHANGES #24). Bản ghi đã 'deleted' → 409 (không còn để trả về)
+GET  /api/nap/da-xoa?since=<ts>  DS uuid đã chuyển 'deleted' từ mốc <ts> (đọc audit_log) — tool dùng khi "Kéo về" để BỎ dòng staging collector đã xóa ở app web (NAP-01/THU-05, CHANGES #24)
+GET  /api/nap/tra-uuid?ma_dk=<>  Tra uuid gốc theo ma_dk (VPS lưu ma_dk khi da-nap) — fallback cho QLY-08 bước 2 khi staging nap_xong local không còn
 ```
+> **CAS (review #24):** `tra-ve-cho-nap` chuyển nguyên tử `UPDATE … SET trang_thai='pending', ma_dk=NULL WHERE uuid=:u AND trang_thai='imported'`; 0 dòng bị sửa → **409**. Gọi lại khi đã `pending` → 0 dòng → coi như **idempotent** (báo "đã về chờ nạp", không lỗi) để nhánh retry QLY-08 bước 4 an toàn.
 
 ### 4.5 Quản trị PII (admin)
 
@@ -771,7 +775,7 @@ Xử lý hàng loạt ảnh của 1 khóa (chủ yếu ảnh cũ từ app cũ ch
 ```
 Tool: POST /local/ho-so/go-ve-cho-nap?ma_dk=<>
   1) Chặn khóa BC1 (EXISTS BaoCaoI theo MaKH) → 409 (như QLY-03).
-  2) Tra uuid gốc theo ma_dk (liên kết nạp: staging nap_xong(uuid, ma_dk); fallback hỏi VPS theo ma_dk).
+  2) Tra uuid gốc theo ma_dk (liên kết nạp: staging nap_xong(uuid, ma_dk); fallback GET /api/nap/tra-uuid?ma_dk=<> khi staging local không còn — §4.4).
   3) usp_NguoiLX_Delete (cascade HoSo+GiayTo) + ảnh .jp2 → _DELETED (xóa mềm, dùng lại di_chuyen_anh) + log.
      HV đã có GPLX → FK chặn (như QLY-03) → 409, KHÔNG xóa.
   4) Gọi VPS tra-ve-cho-nap(uuid): imported→pending, gỡ ma_dk. VPS 'deleted'/không còn → 409
@@ -780,9 +784,36 @@ Tool: POST /local/ho-so/go-ve-cho-nap?ma_dk=<>
 ```
 *Thứ tự xóa-CSDT-trước-rồi-VPS:* nếu VPS lỗi sau khi đã xóa CSDT thì HV đã rời khóa (đúng ý "gỡ") nhưng chưa về hàng chờ → báo rõ + cho thử lại riêng bước đồng bộ VPS (không tạo lại HV ở CSDT). Ảnh khi về chờ nạp dùng **ảnh thô còn trên VPS** (`GET /api/nap/keo` trả lại như HV mới), KHÔNG chuyển ngược `.jp2`.
 
+```
+QLY-08 "Gỡ về chờ nạp"  (operator ở Tra cứu DB, khóa chưa BC1)
+───────────────────────────────────────────────────────────────
+ Tool                     CSDT (SQL Server)        VPS
+  │  xác nhận 2 bước
+  ├─(1) chặn BC1? ─────────▶ EXISTS BaoCaoI theo MaKH
+  │        ◀── có → 409 "khóa đã BC1" (DỪNG, không xóa gì)
+  │
+  ├─(2) tra uuid theo ma_dk (staging nap_xong │ fallback GET /api/nap/tra-uuid)
+  │
+  ├─(3) usp_NguoiLX_Delete ─▶ cascade HoSo+GiayTo
+  │                           ảnh .jp2 → _DELETED (xóa mềm, di_chuyen_anh)
+  │        ◀── FK chặn (HV có GPLX) → 409 (DỪNG, chưa xóa)
+  │        ✔ CSDT đã xóa  ── điểm KHÔNG hoàn tác ───────────────┐
+  │                                                              │
+  ├─(4) POST /api/nap/:uuid/tra-ve-cho-nap ───────────▶ CAS imported→pending, gỡ ma_dk
+  │        ◀── 'deleted'/không còn → 409 "không còn bản gốc, chỉ Xóa hẳn"
+  │        ◀── lỗi mạng/5xx ─────────┐
+  │                                   │  HV ĐÃ rời CSDT nhưng CHƯA về hàng chờ
+  │   ┌───────────────────────────────┘  → báo rõ + cho THỬ LẠI riêng bước (4)
+  │   │                                     (KHÔNG tạo lại HV ở CSDT)
+  │   └─ retry (4) ──────────────────▶ (idempotent: đang pending rồi → coi như xong)
+  │
+  └─(5) staging local: dòng uuid → 'cho'/pending, gỡ ma_dk
+         (nếu đã "Bỏ khỏi hàng đợi" → kéo lại từ VPS)
+```
+
 **Đồng bộ xóa khi kéo (NAP-01 + THU-05).** Collector xóa hồ sơ `pending` ở app web → VPS `deleted` (soft, §7.1). "Kéo về từ VPS" ngoài THÊM mới + làm tươi (CHANGES #11) nay còn **bỏ dòng staging đã xóa**: với mỗi dòng staging còn `pending` (chưa nạp), nếu VPS báo bản ghi đó **không còn `pending`** (đã `deleted`) → **xóa dòng khỏi staging**. Chỉ áp dòng chưa nạp; dòng đã nạp/đã lỗi giữ nguyên (không bị collector đụng tới).
 - *Vì sao so ở bước kéo* (không webhook): tool chạy LAN sau tunnel, không nhận push từ VPS → đồng bộ theo nhịp kéo (operator chủ động). Nguồn chân lý là VPS.
-- *Cách so:* `keo` đã chỉ trả `pending`; bổ sung cho tool biết uuid nào trong staging không còn trong tập `pending` trả về (hoặc endpoint nhẹ trả danh sách uuid `deleted` gần đây) → tool xóa khỏi staging.
+- *Cách so (review #24):* tool gọi `GET /api/nap/da-xoa?since=<mốc kéo trước>` (§4.4) → VPS trả danh sách `uuid` đã chuyển `deleted` từ mốc đó → tool xóa đúng các `uuid` đó khỏi staging. **KHÔNG** suy "đã xóa" từ việc `uuid` vắng mặt trong `GET /api/nap/keo`: `keo` còn lọc `locked_by IS NULL` (§7.2) **và** `limit` → một dòng vẫn `pending` nhưng đang bị tool khác khóa / rớt ngoài limit cũng vắng mặt → suy theo vắng mặt sẽ **xóa nhầm** hồ sơ chưa hề bị xóa.
 
 ---
 
@@ -919,6 +950,7 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 |---|---|---|
+| 03/10/2026 | 2.8 | Sửa sau review TDD #24 (biên bản `tdd-review-03-10-2026.md`): §11.7 "đồng bộ xóa khi kéo" bỏ cách suy-từ-vắng-mặt-trong-`keo` (xóa nhầm khi dòng bị khóa/rớt limit) → chốt `GET /api/nap/da-xoa?since=` (thêm §4.4); §4.4 +`GET /api/nap/tra-uuid?ma_dk=` cho fallback QLY-08 bước 2; §4.3/§4.4 +quy tắc CAS nguyên tử (`DELETE … WHERE trang_thai='pending'`, `tra-ve-cho-nap … WHERE 'imported'`, idempotent khi retry); §4.3 soft-delete ghi mốc vào `audit_log.created_at` (không cột mới); §11.7 +sơ đồ ASCII luồng xóa-CSDT-trước-rồi-VPS + nhánh bù. (Ghi nhận: PRD gọi `done`, DB/TDD là `imported` → xử bằng `/capnhat`.) |
 | 02/10/2026 | 2.7 | Gỡ HV về chờ nạp + đồng bộ xóa (CHANGES #24): §4.3 +`DELETE /api/ho-so/:uuid` (soft-delete, chỉ pending, phân quyền — THU-05); §4.4 +`POST /api/nap/:uuid/tra-ve-cho-nap` (imported→pending — QLY-08); §7.1 +2 chuyển trạng thái (imported→pending gỡ về; collector xóa pending→deleted); §11.7 mới (gỡ HV về chờ nạp + kéo về đồng bộ bỏ dòng đã xóa); §6 +nút Xóa app web. Dùng lại trạng thái `deleted` + `audit_log` sẵn có, không bảng mới. NAP-01 hạ ⏳; +story QLY-08, THU-05. |
 | 02/10/2026 | 2.6 | UX giữ ảnh đã chỉnh để xem lại/chỉnh tiếp (CHANGES #23): §9.1 client lưu thêm bản `preview` PNG cạnh `jp2` trong nháp → khung ảnh hiện ảnh đã chỉnh (`.jp2` không render trực tiếp) + mở lại trình chỉnh nạp sẵn ảnh đã chỉnh gần nhất; nút áp dụng nổi bật. Thuần client, không đổi endpoint. NAP-04/QLY-05 hạ ⏳; QLY-06 đổi nhãn nút → ⏳. |
 | 02/10/2026 | 2.5 | Sau review TDD (CHANGES #22, biên bản `tdd-review-02-10-2026.md`): §11.5 `TT_XuLy` đổi sang quy tắc **"không bao giờ HẠ"** (whitelist `'01'/'02'`, bỏ ngưỡng `< '11'`) + ghi ảnh atomic + click sửa ảnh file-mất fallback + **sơ đồ vòng đời `TT_XuLy`**; §11.3 +**sơ đồ liên kết HV↔Báo cáo**; §11.6 `_BACKUP` chỉ-nếu-chưa-có + heuristic phát hiện ảnh-trắng (4 góc) + applock bulk; §11.1 avatar file-mất→icon ảnh-vỡ + transcode lỗi→422 + cache PII cục bộ + lazy-load; §4.6 +4 endpoint; §10.4 +"nạp lại nhanh". |

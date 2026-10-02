@@ -4,6 +4,7 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 25 | 03/10/2026 | ✏️ Sửa (nhãn) | `QLY-08`, `THU-05` | Sửa nhãn trạng thái VPS trong PRD: `done` → `imported` (3 chỗ ở THU-05 + QLY-08) cho khớp DB thật (`server/db/init.sql:28` chỉ có `pending/importing/imported/deleted`) + TDD. Phát hiện ở review TDD #24 (Điểm 1, biên bản `tdd-review-03-10-2026.md`). Không đổi yêu cầu, không chạm TDD (đã đúng) | ✅ | — đã đúng | — | — |
 | 24 | 02/10/2026 | ➕ Thêm + ✏️ Sửa | `QLY-08`, `THU-05`, `NAP-01` | Đồng bộ gỡ/xóa hồ sơ (verify #22): **QLY-08 mới** — nút "Gỡ về chờ nạp" ở tool (gỡ HV khỏi CSDT + VPS imported→pending + về hàng chờ), tách bạch "Xóa" bỏ hẳn, chỉ khóa chưa BC1, ảnh dùng ảnh thô VPS · **THU-05 mới** — app web collector xóa hồ sơ đã gửi (chỉ pending, soft-delete VPS, của mình/admin) · **NAP-01 mở rộng** — "Kéo về từ VPS" đồng bộ bỏ hồ sơ đã xóa khỏi hàng chờ. Đụng cả tool + **server VPS** (đường mới) + app web | ✅ | ✅ | ✅ ghi UX (không dựng màn) | ⬜ |
 | 23 | 02/10/2026 | ✏️ Sửa (UI) | `NAP-04`, `QLY-05`, `QLY-06` | Sửa UX quản lý ảnh + nhãn nút (phát hiện khi verify #22): sau "Dùng ảnh này" **hiện ảnh đã chỉnh** (bản PNG, không chỉ icon check) + **mở lại trình chỉnh nạp sẵn ảnh đã chỉnh** để chỉnh tiếp (NAP-04/QLY-05) · nút áp dụng ảnh **nổi bật + nhãn rõ** (tránh dừng ở "Xử lý ảnh" tưởng đã lưu) · nút **"Mở khóa khác" → "Tạo thêm hồ sơ ở khóa học khác hạng"**, giữ hiển thị cả ở khóa BC1 (QLY-06). Thuần UI, backend `/local/anh/xu-ly` đã trả `preview` sẵn | ✅ | ✅ ghi chú §9.1 | ✅ ghi UX (không dựng màn) | ⬜ |
 | 22 | 02/10/2026 | ➕ Thêm + ✏️ Sửa + 🐛 | `QLY-01`, `QLY-03`, `QLY-05`, `QLY-07`, `NAP-01` | Mở rộng quản lý ảnh Tra cứu DB + bảo toàn Báo cáo 1/2: xem ảnh+đường dẫn+avatar+thống kê (QLY-01) · 🐛 giữ `TT_XuLy` khi thay ảnh HV đã Báo cáo (QLY-05, tránh rơi khỏi BC2) + click ảnh từ Tra cứu DB · chặn xóa HV khóa BC1 ở backend (QLY-03) · "Bỏ khỏi hàng đợi"+"Nạp lại nhanh" (NAP-01) · **story mới QLY-07** đổi nền cả khóa | ✅ | ✅ | ⬜ wireframe chốt | ✅ code+push, chờ verify prod |
@@ -33,7 +34,13 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 
 ---
 
-## #24 — Đồng bộ gỡ/xóa hồ sơ: tool ↔ VPS ↔ app web · 02/10/2026
+## #25 — Sửa nhãn trạng thái VPS trong PRD: `done` → `imported` · 03/10/2026
+
+- **Mã:** `QLY-08`, `THU-05` (sửa nhãn trong story đã có, prefix cũ, không nghỉ hưu mã).
+- **Vì sao:** review TDD #24 (Điểm 1) phát hiện PRD gọi trạng thái bản ghi VPS là `done`, nhưng DB thật (`server/db/init.sql:28`) chỉ định nghĩa `pending/importing/imported/deleted` và TDD dùng `imported`. Người code đọc PRD thấy `done` sẽ đi tìm trạng thái không tồn tại, hoặc map nhầm sang staging local `nap_xong` → hỏng guard "chỉ xóa khi chưa nạp".
+- **Đã sửa:** PRD `[THU-05]` Done khi + Edge case, `[QLY-08]` Steps bước 3 — 3 chỗ `done` → `imported`. Giữ nguyên `nap_xong` (staging local của tool, không phải trạng thái VPS).
+- **Không chạm:** TDD (đã đúng `imported` từ v2.7/2.8), màn hình, code.
+- **Hồ sơ:** biên bản `docs/tdd-review-03-10-2026.md`.
 
 - **Mã:** `QLY-08` (MỚI), `THU-05` (MỚI), `NAP-01` (mở rộng). Prefix cũ, không nghỉ hưu mã.
 - **Vì sao:** buổi verify #22, chủ dự án nêu 2 nhu cầu đồng bộ chưa có:
@@ -372,7 +379,7 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 > `/capnhat` đọc mục này ở Bước 0b để biết có thay đổi nào chưa ghi sổ không.
 > So bằng **danh sách mã**, không so bằng thời gian sửa file.
 
-- **Cập nhật:** 02/10/2026 (CHANGES #24 — +2 story: QLY-08, THU-05)
+- **Cập nhật:** 03/10/2026 (CHANGES #25 — sửa nhãn `done`→`imported`, không đổi số story/mã)
 - **Số story trong PRD:** 24 (23 MUST/SHOULD gồm `THU-04` SHOULD + `THU-05` + `HTG-04` SHOULD + `QLY-06` ⏳ + `QLY-07` + `QLY-08`; chưa tính NICE `QLY-04`, `THU-03`)
 - **Mã story hiện có:** `HTG-01`…`HTG-06`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08` (NICE: `QLY-04`, `THU-03`)
 - **Mã đã nghỉ hưu:** (chưa có)

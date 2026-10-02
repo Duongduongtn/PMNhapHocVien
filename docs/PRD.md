@@ -323,7 +323,7 @@
 
 **Done khi:**
 - ⬜ Màn **"Hồ sơ đã gửi"** (`/app/da-gui`) có nút **Xóa** cho mỗi hồ sơ **chưa nạp** (⚪ Chờ nạp); xác nhận 2 bước trước khi xóa.
-- ⬜ **Chỉ xóa hồ sơ CHƯA NẠP** (`pending`); hồ sơ **đã nạp/đang nạp** (`importing`/`done`) **không xóa được** ở app web (phải xử lý ở tool — QLY-03/QLY-08), ẩn/khóa nút + báo lý do.
+- ⬜ **Chỉ xóa hồ sơ CHƯA NẠP** (`pending`); hồ sơ **đã nạp/đang nạp** (`importing`/`imported`) **không xóa được** ở app web (phải xử lý ở tool — QLY-03/QLY-08), ẩn/khóa nút + báo lý do.
 - ⬜ **Phân quyền:** nhân viên thu nhận chỉ xóa **hồ sơ của chính mình**; **admin** xóa được bất kỳ hồ sơ nào.
 - ⬜ **Xóa mềm trên VPS** (đánh dấu "đã xóa" + ai xóa/lúc nào), KHÔNG xóa cứng → giữ vết truy; hồ sơ đã xóa không còn trả về khi tool kéo.
 - ⬜ **Đồng bộ sang tool:** khi tool bấm **"Kéo về từ VPS"**, hồ sơ đã xóa ở app web **biến mất khỏi hàng chờ nạp** của tool (xem NAP-01 — kéo về đồng bộ bỏ).
@@ -332,7 +332,7 @@
 **Edge cases:**
 | Tình huống | Hành vi mong muốn |
 |---|---|
-| Hồ sơ vừa được tool nạp (đổi sang `importing`/`done`) đúng lúc collector bấm xóa | Chặn xóa, báo "hồ sơ đã/đang được nạp, không xóa được ở đây" |
+| Hồ sơ vừa được tool nạp (đổi sang `importing`/`imported`) đúng lúc collector bấm xóa | Chặn xóa, báo "hồ sơ đã/đang được nạp, không xóa được ở đây" |
 | Collector xóa hồ sơ của người khác (không phải admin) | Chặn (403), chỉ xóa của mình |
 
 > Nguồn: user 02/10/2026 (CHANGES #24, buổi verify #22) · liên quan NAP-01 (kéo về đồng bộ xóa) · phân quyền HTG
@@ -465,7 +465,7 @@
 **Steps to Complete:**
 1. Ở Tra cứu DB, chọn HV (khóa **chưa BC1**) → nút **"Gỡ về chờ nạp"** (TÁCH BẠCH với "Xóa" bỏ hẳn — QLY-03) → xác nhận 2 bước.
 2. Tool gỡ HV khỏi CSDT (`usp_NguoiLX_Delete`, cascade HoSo+GiayTo như QLY-03; ảnh `.jp2` xóa mềm → `_DELETED`).
-3. Tool gọi VPS **"trả về chờ nạp"** (bản ghi gốc `done`→`pending`, gỡ liên kết `ma_dk`) theo `uuid` suy từ liên kết nạp (`nap_xong`/VPS).
+3. Tool gọi VPS **"trả về chờ nạp"** (bản ghi gốc `imported`→`pending`, gỡ liên kết `ma_dk`) theo `uuid` suy từ liên kết nạp (`nap_xong`/VPS).
 4. Hàng chờ của tool đưa dòng HV về **"chờ nạp" (⚪)** ngay; nếu dòng đã bị "Bỏ khỏi hàng đợi" trước đó → kéo lại từ VPS.
 
 **Done khi:**
