@@ -20,12 +20,18 @@ export interface HoSoChoNap {
   chinhTa?: string; // cảnh báo chính tả mức A (thiếu dấu / ký tự lạ / khoảng trắng thừa)
 }
 
+// anh: "photo" có ảnh · "no" chưa ảnh · "mat" DB có đường dẫn nhưng file mất trên ổ (CHANGES #22)
+export type TrangThaiAnhDB = "photo" | "no" | "mat";
 export interface HocVienDB {
   soHS: string;
   hoTen: string;
   gioiTinh: "Nam" | "Nữ";
   cccd: string;
   noiTT: string;
+  ngaySinh: string;          // dd/mm/yyyy
+  anh: TrangThaiAnhDB;
+  mau: string;               // màu avatar (prototype thay cho ảnh thật)
+  duongDanAnh?: string;      // đường dẫn .jp2 trong DB (có khi anh = photo | mat)
 }
 
 // Hồ sơ chờ nạp (kéo từ VPS về staging) — chưa vào DB
@@ -40,15 +46,16 @@ export const hoSoChoNap: HoSoChoNap[] = [
 ];
 
 // Học viên đã có trong khóa (đọc từ DB thật qua usp_NguoiLX_Select_By_MaKH)
+const _IMG = "D:\\GPLXCSDT\\ANHCDUNG\\70004K26B010";
 export const hocVienTrongKhoa: HocVienDB[] = [
-  { soHS: "034", hoTen: "NGUYỄN THỊ HUỆ AN", gioiTinh: "Nữ", cccd: "072190003564", noiTT: "Xã Hảo Đước, Tỉnh Tây Ninh" },
-  { soHS: "042", hoTen: "ĐỖ VŨ BẢO ANH", gioiTinh: "Nam", cccd: "074207005570", noiTT: "P. Chánh Phú Hòa, TP Hồ Chí Minh" },
-  { soHS: "008", hoTen: "NGÔ NGUYỄN HOÀNG ANH", gioiTinh: "Nữ", cccd: "066301002217", noiTT: "Xã Krông Pắc, Tỉnh Đắk Lắk" },
-  { soHS: "011", hoTen: "TRẦN TUẤN ANH", gioiTinh: "Nam", cccd: "054201004151", noiTT: "P. Tuy Hòa, Tỉnh Đắk Lắk" },
-  { soHS: "036", hoTen: "NINH THỊ BÌNH", gioiTinh: "Nữ", cccd: "070191001352", noiTT: "Xã Nghĩa Trung, TP Đồng Nai" },
-  { soHS: "055", hoTen: "BÙI TẤN ĐẠT", gioiTinh: "Nam", cccd: "070095010655", noiTT: "P. Đông Phú, TP Đồng Nai" },
-  { soHS: "040", hoTen: "MÔ TRỌNG ĐẠT", gioiTinh: "Nam", cccd: "070207002892", noiTT: "Xã Nghĩa Trung, TP Đồng Nai" },
-  { soHS: "045", hoTen: "ĐIỂU THỊ DUNG", gioiTinh: "Nữ", cccd: "070192001900", noiTT: "Xã Thọ Sơn, TP Đồng Nai" },
+  { soHS: "034", hoTen: "NGUYỄN THỊ HUỆ AN", gioiTinh: "Nữ", cccd: "072190003564", noiTT: "Xã Hảo Đước, Tỉnh Tây Ninh", ngaySinh: "12/03/1990", anh: "photo", mau: "bg-rose-500", duongDanAnh: `${_IMG}\\70004-034.jp2` },
+  { soHS: "042", hoTen: "ĐỖ VŨ BẢO ANH", gioiTinh: "Nam", cccd: "074207005570", noiTT: "P. Chánh Phú Hòa, TP Hồ Chí Minh", ngaySinh: "25/07/2001", anh: "photo", mau: "bg-amber-500", duongDanAnh: `${_IMG}\\70004-042.jp2` },
+  { soHS: "008", hoTen: "NGÔ NGUYỄN HOÀNG ANH", gioiTinh: "Nữ", cccd: "066301002217", noiTT: "Xã Krông Pắc, Tỉnh Đắk Lắk", ngaySinh: "15/05/2001", anh: "mat", mau: "bg-violet-500", duongDanAnh: `${_IMG}\\70004-008.jp2` },
+  { soHS: "011", hoTen: "TRẦN TUẤN ANH", gioiTinh: "Nam", cccd: "054201004151", noiTT: "P. Tuy Hòa, Tỉnh Đắk Lắk", ngaySinh: "05/06/2001", anh: "photo", mau: "bg-blue-500", duongDanAnh: `${_IMG}\\70004-011.jp2` },
+  { soHS: "036", hoTen: "NINH THỊ BÌNH", gioiTinh: "Nữ", cccd: "070191001352", noiTT: "Xã Nghĩa Trung, TP Đồng Nai", ngaySinh: "20/10/1991", anh: "no", mau: "bg-slate-400" },
+  { soHS: "055", hoTen: "BÙI TẤN ĐẠT", gioiTinh: "Nam", cccd: "070095010655", noiTT: "P. Đông Phú, TP Đồng Nai", ngaySinh: "08/02/1995", anh: "photo", mau: "bg-emerald-500", duongDanAnh: `${_IMG}\\70004-055.jp2` },
+  { soHS: "040", hoTen: "MÔ TRỌNG ĐẠT", gioiTinh: "Nam", cccd: "070207002892", noiTT: "Xã Nghĩa Trung, TP Đồng Nai", ngaySinh: "30/09/2002", anh: "photo", mau: "bg-teal-500", duongDanAnh: `${_IMG}\\70004-040.jp2` },
+  { soHS: "045", hoTen: "ĐIỂU THỊ DUNG", gioiTinh: "Nữ", cccd: "070192001900", noiTT: "Xã Thọ Sơn, TP Đồng Nai", ngaySinh: "17/11/1992", anh: "no", mau: "bg-slate-400" },
 ];
 
 // Danh mục DVHC (DM_DVHC, TrangThai=1) — combobox địa chỉ. [MaDvhc, MaDVQL, Tên đầy đủ]

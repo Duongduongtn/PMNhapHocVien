@@ -6,7 +6,7 @@
 - **Bản HTML chuẩn:** ui-demo-options/detailed.html
 - **Stack:** Vite + React + TypeScript + Tailwind v3 (token shadcn) + react-router-dom · font Be Vietnam Pro
 - **Cổng dev:** 3021 (sổ `~/.claude/local-ports.md`)
-- **Cập nhật lần cuối:** 02/10/2026 (CHANGES #22 — mở rộng quản lý ảnh Tra cứu DB: avatar lưới + xem ảnh/đường dẫn + click sửa ảnh + thống kê + QLY-07 đổi nền cả khóa. **Chỉ chốt thiết kế/wireframe, chưa dựng prototype** — `/prototype-next` dựng sau. Lượt 12 trước đó: ảnh app web CHANGES #15)
+- **Cập nhật lần cuối:** 02/10/2026 (lượt 13 — dựng màn #14 Tra cứu DB mở rộng + #15 đổi nền cả khóa theo CHANGES #22; Playwright 375/800/1440 sạch, 0 tràn/0 console. Lượt 12 trước đó: ảnh app web CHANGES #15)
 
 ## ⚠️ Prototype gộp 1 project — KIẾN TRÚC THẬT là 2 app riêng (TDD §2.4)
 
@@ -39,8 +39,8 @@ Prototype là tham chiếu **style/layout**, không phải scaffold thật.
 | 11 | Xóa học viên + xóa mềm ảnh | QLY-03 | `/tool/nap` (drawer → dialog Xóa) | ✅ Xong | 4 |
 | 12 | Nạp/thay ảnh cho HV đã có (+ click avatar/ảnh ở Tra cứu DB mở trình chỉnh — CHANGES #22) | QLY-05 | `/tool/nap` (lọc tình trạng ảnh + drawer → dialog Nạp/thay ảnh) | ⬜ Chưa có route | — |
 | 13 | Nạp lô + IA 2 chế độ (hàng chờ VPS badge ⚪🔴🟢) | NAP-01 | `/tool/nap` (chế độ Nạp hồ sơ / Tra cứu DB) | ✅ Xong (+⬜ "Bỏ khỏi hàng đợi" & "Nạp lại nhanh" CHANGES #22) | 5 |
-| 14 | Tra cứu DB: avatar lưới + xem ảnh/đường dẫn + thống kê đầu khóa + thao tác nhanh | QLY-01 | `/tool/nap` (tab DB) | ⬜ Chưa dựng (CHANGES #22) | — |
-| 15 | Đổi nền trắng cả khóa (phạm vi + sao lưu + thanh tiến độ) | QLY-07 | `/tool/nap` (tab DB → dialog) | ⬜ Chưa dựng (CHANGES #22) | — |
+| 14 | Tra cứu DB: avatar lưới (3 ca: có ảnh/chưa ảnh/mất file) + xem ảnh lớn+đường dẫn + thống kê đầu khóa + thao tác nhanh | QLY-01 | `/tool/nap` (tab DB) | ✅ Xong | 13 |
+| 15 | Đổi nền trắng cả khóa (phạm vi + sao lưu _BACKUP + thanh tiến độ) | QLY-07 | `/tool/nap` (tab DB → dialog) | ✅ Xong | 13 |
 | — | Hàng đợi VPS + xóa PII 30 ngày | HTG-02 | (backend, không có UI) | ⬜ Không dựng | — |
 | — | Kết xuất Excel (NICE) | QLY-04 | (mới có nút, chưa luồng) | ⬜ NICE — sau | — |
 | — | Offline app web (NICE) | THU-03 | — | ⬜ NICE — sau | — |
@@ -83,6 +83,7 @@ Chú thích: ✅ Xong · 🟡 Placeholder · ⬜ Chưa có route
 | /tool/nap (tab DB) | Avatar + xem ảnh (CHANGES #22) | Lưới HV thêm **cột avatar** (ảnh thu nhỏ từ DB qua endpoint thumbnail; chưa ảnh → icon người). Modal chi tiết hiện **ảnh lớn + dòng đường dẫn `.jp2`**; **click ảnh → mở trình chỉnh** (đổi nền, QLY-05). File DB có path mà mất file → **cảnh báo "không tìm thấy file ảnh"**. Ảnh `.jp2` phải transcode→PNG (trình duyệt không mở `.jp2`). Wireframe ở Ghi chú | 13 |
 | /tool/nap (tab DB) | Thống kê + thao tác nhanh (CHANGES #22) | Đầu khóa hiện **tổng HV · thiếu ảnh · đã BC1**. Nút **đổi khóa/xóa nhanh** ra lưới (xác nhận 2 bước, **chặn BC1**). Tab Nạp (staging): nút **"Bỏ khỏi hàng đợi"** dòng 🟢 (nhẹ, TÁCH BẠCH "Xóa khỏi DB") + **"Nạp lại nhanh"** dòng 🔴 | 13 |
 | /tool/nap (tab DB) | Đổi nền cả khóa QLY-07 (CHANGES #22) | Dialog: **phạm vi** (chỉ ảnh chưa trắng [mặc định] / tất cả HV có ảnh) · tùy chọn **sao lưu `_BACKUP`** (mặc định bật) · nút Bắt đầu → **thanh tiến độ N/tổng + số lỗi** (chạy nền, không treo). Giữ `TT_XuLy`. Wireframe ở Ghi chú | 13 |
+| /tool/nap (tab DB) | Avatar 3 trạng thái (lượt 13 dựng) | Có ảnh → vòng tròn màu + user · chưa ảnh → xám + user · **mất file (DB có path, ổ không có) → đỏ + icon ảnh-vỡ + badge "mất ảnh"**. Bấm avatar/ảnh → trình chỉnh (được cả khóa BC1 — chỉ đụng ảnh, giữ TT_XuLy). Thao tác nhanh đổi-khóa/xóa chỉ hiện khi khóa chưa BC1 | 13 |
 
 ## Component dùng chung
 
@@ -94,6 +95,7 @@ Chú thích: ✅ Xong · 🟡 Placeholder · ⬜ Chưa có route
 | Placeholder | src/components/Placeholder.tsx | Các màn placeholder |
 | AddressCombo (combobox DVHC) | trong src/pages/tool/NapHoSo.tsx | /tool/nap |
 | NapBadge / Banner / KhoaCombo (helper nội bộ) | trong src/pages/tool/NapHoSo.tsx | /tool/nap (màn #13) |
+| Avatar / AvatarDB (helper nội bộ) | trong src/pages/tool/NapHoSo.tsx | /tool/nap — AvatarDB 3 ca ảnh (màn #14) |
 | mock-data / format | src/lib/mock-data.ts, src/lib/format.ts | Nhiều màn |
 
 ## Ghi chú

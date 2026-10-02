@@ -51,6 +51,15 @@ function Avatar({ mau }: { mau: string }) {
   );
 }
 
+// Avatar HV trong DB (CHANGES #22): có ảnh → màu + user · chưa ảnh → xám + user · mất file → đỏ + image
+function AvatarDB({ anh, mau }: { anh: HocVienDB["anh"]; mau: string }) {
+  if (anh === "no")
+    return <span className="inline-flex w-9 h-9 rounded-full items-center justify-center shrink-0 bg-muted border border-border" title="Chưa có ảnh"><Icon name="user" className="w-5 h-5 text-muted-foreground" /></span>;
+  if (anh === "mat")
+    return <span className="inline-flex w-9 h-9 rounded-full items-center justify-center shrink-0 bg-destructive/10 border border-destructive/40" title="File ảnh không tìm thấy trên ổ"><Icon name="image" className="w-4 h-4 text-destructive" /></span>;
+  return <span className={`inline-flex w-9 h-9 rounded-full items-center justify-center shrink-0 ${mau}`} title="Đã có ảnh"><Icon name="user" className="w-5 h-5 text-white/90" /></span>;
+}
+
 // Combobox địa chỉ tra DM_DVHC (mock — thật nối usp_DM_DVHC_*)
 function AddressCombo({ value, onPick }: { value: string; onPick: (ten: string, code: string, dvql: string) => void }) {
   const [q, setQ] = useState(value);
@@ -123,7 +132,12 @@ export default function NapHoSo() {
   const [selDb, setSelDb] = useState<HocVienDB | null>(null); // QLY-01 xem/sửa
   const [doiKhoa, setDoiKhoa] = useState(false); // QLY-02
   const [xoaHV, setXoaHV] = useState(false); // QLY-03
+  const [doiNen, setDoiNen] = useState(false); // QLY-07 đổi nền cả khóa
+  const [dnPham, setDnPham] = useState<"chua" | "all">("chua"); // phạm vi đổi nền
+  const [dnBackup, setDnBackup] = useState(true); // sao lưu _BACKUP
+  const [dnRun, setDnRun] = useState(false); // đang chạy đổi nền
   const khoaList = loai === "oto" ? khoaOto : khoaMoto;
+  const soThieuAnh = hocVienTrongKhoa.filter((r) => r.anh !== "photo").length; // thiếu/mất ảnh
 
   // Phân loại hàng chờ nạp lô: "Cần xử lý" = ⚪ chờ + 🔴 lỗi (lỗi lên đầu) · "Đã nạp" = 🟢
   const canXuly = useMemo(
@@ -362,12 +376,18 @@ export default function NapHoSo() {
               <label className="field-label whitespace-nowrap">Khóa</label>
               <KhoaCombo value={khoaTC} onPick={setKhoaTC} />
             </div>
+            {/* Thống kê nhanh đầu khóa (CHANGES #22) */}
             <div className="flex items-center gap-2 text-[12px]">
               <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1">Sĩ số <b className="text-foreground">{khoaTC.siSo}</b></span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-warning/10 text-warning px-2.5 py-1 border border-warning/30">Thiếu ảnh <b>{soThieuAnh}</b></span>
               {khoaTC.bc1
                 ? <span className="inline-flex items-center gap-1 rounded-full bg-warning/10 text-warning px-2.5 py-1 font-semibold border border-warning/30"><Icon name="lock" className="w-3.5 h-3.5" /> Đã BC1 · chỉ xem</span>
                 : <span className="inline-flex items-center gap-1 rounded-full bg-success/10 text-success px-2.5 py-1 font-semibold border border-success/30"><Icon name="check" className="w-3.5 h-3.5" sw={3} /> Chưa BC1 · được sửa</span>}
             </div>
+            {/* QLY-07: đổi nền trắng cả khóa — được cả khóa đã BC1 (chỉ đụng ảnh, giữ TT_XuLy) */}
+            <button onClick={() => { setDnRun(false); setDoiNen(true); }} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">
+              <Icon name="image" className="w-4 h-4" /> Đổi nền trắng cả khóa
+            </button>
             <div className="ml-auto relative">
               <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"><Icon name="search" className="w-4 h-4" /></span>
               <input className="field-input pl-8" style={{ width: 220 }} placeholder="Tìm học viên: tên / CCCD / số HS" />
@@ -392,12 +412,21 @@ export default function NapHoSo() {
               <div className="flex-1 overflow-y-auto min-h-0">
                 {hocVienTrongKhoa.map((r) => (
                   <div key={r.soHS} onClick={() => setSelDb(r)} className={"lrow flex items-center gap-3 px-4 py-3 " + (selDb?.soHS === r.soHS ? "sel" : "")}>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setSelDb(r); setModal(true); }} title="Bấm ảnh để chỉnh / đổi nền" className="shrink-0 rounded-full hover:ring-2 hover:ring-primary/40 transition-all">
+                      <AvatarDB anh={r.anh} mau={r.mau} />
+                    </button>
                     <span className="inline-flex items-center justify-center min-w-[42px] h-6 rounded-md bg-secondary text-[12px] font-bold tabular-nums shrink-0">{r.soHS}</span>
                     <div className="min-w-0 flex-1">
                       <div className="font-semibold text-[14px] truncate">{r.hoTen}</div>
                       <div className="text-[12px] text-muted-foreground truncate">{r.gioiTinh} · {r.cccd} · {r.noiTT}</div>
                     </div>
-                    <span className="text-[11px] text-success shrink-0" title="Đường dẫn ảnh"><Icon name="image" className="w-3.5 h-3.5" /></span>
+                    {r.anh === "mat" && <span className="hidden sm:inline-flex items-center gap-1 text-[10px] text-destructive font-medium shrink-0" title="DB có đường dẫn nhưng file ảnh mất"><Icon name="warn" className="w-3 h-3" /> mất ảnh</span>}
+                    {!khoaTC.bc1 && (
+                      <span className="hidden sm:flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => { setSelDb(r); setDoiKhoa(true); }} title="Đổi khóa nhanh" className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"><Icon name="refresh" className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => { setSelDb(r); setXoaHV(true); }} title="Xóa nhanh" className="w-7 h-7 rounded-md border border-destructive/30 flex items-center justify-center text-destructive hover:bg-destructive/10 transition-colors"><Icon name="x" className="w-3.5 h-3.5" /></button>
+                      </span>
+                    )}
                     <Icon name="chevronRight" className="w-4 h-4 text-muted-foreground shrink-0" />
                   </div>
                 ))}
@@ -499,11 +528,26 @@ export default function NapHoSo() {
                 </div>
               )}
               <div className="flex items-start gap-4">
-                <div className="w-24 aspect-[3/4] rounded-lg bg-slate-100 border border-border flex items-center justify-center shrink-0 relative">
-                  <Icon name="user" className="w-12 h-12 text-slate-300" sw={1.5} />
-                  {!khoaTC.bc1 && <button onClick={() => setModal(true)} className="absolute bottom-1.5 left-1/2 -translate-x-1/2 text-[10px] bg-primary text-white px-2 py-0.5 rounded-full hover:brightness-110 transition-all">Chỉnh ảnh</button>}
+                {/* Ảnh lớn — click để chỉnh/đổi nền (được cả khóa BC1: chỉ đụng ảnh, giữ TT_XuLy) */}
+                <button type="button" onClick={() => setModal(true)} title="Bấm để chỉnh / đổi nền ảnh" className="group block w-24 aspect-[3/4] rounded-lg border border-border overflow-hidden shrink-0 relative">
+                  {selDb.anh === "photo" && <span className={`absolute inset-0 flex items-center justify-center ${selDb.mau}`}><Icon name="user" className="w-12 h-12 text-white/85" sw={1.5} /></span>}
+                  {selDb.anh === "no" && <span className="absolute inset-0 flex items-center justify-center bg-slate-100"><Icon name="user" className="w-12 h-12 text-slate-300" sw={1.5} /></span>}
+                  {selDb.anh === "mat" && <span className="absolute inset-0 flex flex-col items-center justify-center bg-destructive/10 text-destructive"><Icon name="image" className="w-9 h-9" sw={1.5} /><span className="text-[9px] font-medium mt-1">mất file</span></span>}
+                  <span className="absolute bottom-0 inset-x-0 text-[10px] bg-primary/90 text-white py-0.5 text-center opacity-0 group-hover:opacity-100 transition-opacity">Chỉnh / đổi nền</span>
+                </button>
+                <div className="min-w-0 flex-1">
+                  <div className="font-bold text-[15px]">{selDb.hoTen}</div>
+                  <div className="text-[12px] text-muted-foreground mt-1">{selDb.gioiTinh} · {selDb.cccd} · NS {selDb.ngaySinh}</div>
+                  <div className="text-[11px] text-muted-foreground mt-2">Đường dẫn ảnh:</div>
+                  {selDb.duongDanAnh
+                    ? <div className="font-mono text-[10.5px] break-all text-foreground bg-secondary rounded px-1.5 py-1 mt-0.5">{selDb.duongDanAnh}</div>
+                    : <div className="text-[11px] text-muted-foreground italic mt-0.5">(chưa có ảnh)</div>}
+                  {selDb.anh === "mat" && (
+                    <div className="mt-1.5 flex items-start gap-1.5 text-[11px] text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-2 py-1.5">
+                      <Icon name="warn" className="w-3.5 h-3.5 shrink-0 mt-px" /><span>DB có đường dẫn nhưng <b>không tìm thấy file ảnh</b> trên ổ — nạp lại ảnh cho học viên này.</span>
+                    </div>
+                  )}
                 </div>
-                <div className="min-w-0 flex-1"><div className="font-bold text-[15px]">{selDb.hoTen}</div><div className="text-[12px] text-muted-foreground mt-1">{selDb.gioiTinh} · {selDb.cccd}</div></div>
               </div>
               <div><label className="field-label">Họ và tên</label><input className="field-input mt-1" defaultValue={selDb.hoTen} readOnly={khoaTC.bc1} /></div>
               <div className="grid grid-cols-2 gap-2">
@@ -560,6 +604,48 @@ export default function NapHoSo() {
               <button onClick={() => setXoaHV(false)} className="h-10 px-4 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Hủy</button>
               <button onClick={() => { setXoaHV(false); setSelDb(null); }} className="h-10 px-5 rounded-lg bg-destructive text-white text-sm font-semibold hover:brightness-110 transition-all">Xóa</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* QLY-07: Đổi nền trắng cả khóa (CHANGES #22) */}
+      {doiNen && (
+        <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) { setDoiNen(false); setDnRun(false); } }}>
+          <div className="bg-card rounded-xl shadow-2xl w-full max-w-md p-5">
+            <h3 className="font-bold text-sm flex items-center gap-2"><Icon name="image" className="w-4 h-4 text-primary" /> Đổi nền trắng cả khóa {khoaTC.ten}</h3>
+            {!dnRun ? (
+              <>
+                <p className="text-[12px] text-muted-foreground mt-1 mb-3">QLY-07 · xử lý rembg nền trắng hàng loạt cho ảnh cả khóa. <b>Giữ nguyên TT_XuLy</b> — không đá học viên đã Báo cáo khỏi báo cáo.</p>
+                <label className="field-label">Phạm vi</label>
+                <div className="mt-1 space-y-1.5">
+                  <label className="flex items-center gap-2 text-[13px] cursor-pointer"><input type="radio" name="dnpham" checked={dnPham === "chua"} onChange={() => setDnPham("chua")} className="accent-primary" /> Chỉ ảnh <b>chưa nền trắng</b> <span className="text-muted-foreground">(khuyến nghị)</span></label>
+                  <label className="flex items-center gap-2 text-[13px] cursor-pointer"><input type="radio" name="dnpham" checked={dnPham === "all"} onChange={() => setDnPham("all")} className="accent-primary" /> Tất cả học viên có ảnh ({khoaTC.siSo})</label>
+                </div>
+                <label className="flex items-center gap-2 text-[13px] cursor-pointer mt-3"><input type="checkbox" checked={dnBackup} onChange={(e) => setDnBackup(e.target.checked)} className="w-4 h-4 accent-primary" /> Sao lưu ảnh gốc vào <span className="font-mono">_BACKUP</span> trước khi ghi đè</label>
+                <div className="mt-3 flex items-start gap-2 text-[11px] text-warning bg-warning/10 border border-warning/30 border-l-4 border-l-warning rounded-lg px-2.5 py-2">
+                  <Icon name="warn" className="w-4 h-4 shrink-0 mt-px" /><span>Chạy nền ~1-3 giây/ảnh · ghi đè ảnh hiện tại. {dnBackup ? "Có sao lưu nên khôi phục được." : "KHÔNG sao lưu — không khôi phục được!"}</span>
+                </div>
+                <div className="flex justify-end gap-2 mt-5">
+                  <button onClick={() => setDoiNen(false)} className="h-10 px-4 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Hủy</button>
+                  <button onClick={() => setDnRun(true)} className="h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition-all">Bắt đầu đổi nền</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-[12px] text-muted-foreground mt-1 mb-3">Đang xử lý nền (chạy nền — có thể đóng và quay lại xem sau)…</p>
+                <div className="flex justify-between text-[12px] text-muted-foreground mb-1"><span>Tiến độ</span><span className="tabular-nums">42/{dnPham === "all" ? khoaTC.siSo : 46}</span></div>
+                <div className="h-2.5 rounded-full bg-muted overflow-hidden"><div className="h-full bg-primary rounded-full" style={{ width: "46%" }} /></div>
+                <div className="flex items-center gap-3 mt-2 text-[12px]">
+                  <span className="inline-flex items-center gap-1 text-success"><Icon name="check" className="w-3.5 h-3.5" sw={3} /> 39 xong</span>
+                  <span className="inline-flex items-center gap-1 text-primary"><Icon name="refresh" className="w-3.5 h-3.5" /> 1 đang xử lý</span>
+                  <button type="button" className="inline-flex items-center gap-1 text-destructive hover:underline"><Icon name="warn" className="w-3.5 h-3.5" /> 3 lỗi — xem</button>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-3">Ảnh gốc đã chép vào <span className="font-mono">_BACKUP</span> (chỉ chép nếu chưa có — giữ bản gốc đầu tiên).</p>
+                <div className="flex justify-end gap-2 mt-5">
+                  <button onClick={() => { setDoiNen(false); setDnRun(false); }} className="h-10 px-5 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Đóng (vẫn chạy nền)</button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
