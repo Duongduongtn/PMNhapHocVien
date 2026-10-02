@@ -417,12 +417,12 @@
 
 #### [HTG-05] Admin quản lý tài khoản nhân viên
 
-**Trạng thái:** ⚠️ Partial — 02/10/2026. Code xong: màn "Quản lý tài khoản" (danh sách + phân trang 20/50/100) · tạo (họ tên/username/vai trò/mật khẩu + nút ngẫu nhiên) · reset mật khẩu · khóa/mở (`is_active`, chặn tự khóa). Server `GET|POST|PUT /api/admin/users*` + reset endpoint + 13 test. **Còn nợ:** "buộc đổi mật khẩu lần đầu" (hoãn — cần thêm cột DB `must_change_password` + xử lý ở cả tool login). **Chờ deploy VPS + verify.**
+**Trạng thái:** ⚠️ Partial — 02/10/2026. Code xong + **đã deploy** (chờ user verify): màn "Quản lý tài khoản" (danh sách + phân trang 20/50/100) · tạo (họ tên/username/vai trò/mật khẩu + nút ngẫu nhiên) · reset mật khẩu · khóa/mở (`is_active`, chặn tự khóa). Server `GET|POST|PUT /api/admin/users*` + reset endpoint + 13 test. ("Buộc đổi mật khẩu lần đầu" — **bỏ khỏi phạm vi** theo chủ dự án 02/10, CHANGES #18.)
 **Story:** Là quản trị, tôi muốn tạo và quản lý tài khoản nhân viên (thu nhận / nạp DB), để cấp quyền dùng hệ thống mà không phải đụng cơ sở dữ liệu.
 
 **Done khi:**
 - ✅ Màn "Quản lý tài khoản" (chỉ admin): danh sách tài khoản (tên, tài khoản, vai trò, trạng thái) có **phân trang**.
-- ✅ Tạo nhân viên: họ tên · tài khoản (username) · vai trò (thu nhận / nạp DB / quản trị) · mật khẩu ban đầu (có nút tạo ngẫu nhiên) · tùy chọn "buộc đổi mật khẩu lần đăng nhập đầu".
+- ✅ Tạo nhân viên: họ tên · tài khoản (username) · vai trò (thu nhận / nạp DB / quản trị) · mật khẩu ban đầu (có nút tạo ngẫu nhiên).
 - ✅ Reset mật khẩu nhân viên: admin đặt mật khẩu mới trực tiếp (hệ thống không có email).
 - ✅ Khóa/mở tài khoản (`is_active`) thay cho xóa — giữ dấu vết ai gửi/nạp hồ sơ (PII).
 - ✅ Mọi endpoint chỉ admin (`require_role("admin")`); mật khẩu **băm** trước khi lưu; tài khoản trùng → báo lỗi.

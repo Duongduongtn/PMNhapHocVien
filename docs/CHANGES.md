@@ -32,7 +32,7 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 - **Mã:** `HTG-04` (SHOULD), `HTG-05` (MUST), `HTG-06` (MUST) — thêm vào nhóm HTG.
 - **Vì sao:** chủ dự án cần tự vận hành tài khoản (tạo nhân viên, đổi mật khẩu) + lấy API key tool khỏi phải SSH; đồng thời phản ánh vài lỗi khung UI.
 - **HTG-04 — Admin xem API key VPS:** endpoint `GET /api/admin/tool-key` (chỉ admin) + khối ở màn Tài khoản (che/Hiện/Sao chép). **Đánh đổi bảo mật đã ghi ở PRD** (khóa dùng chung, lộ phải xoay). Không đổi `require_tool_key`, không xoay key.
-- **HTG-05 — Quản lý tài khoản nhân viên:** màn admin (danh sách + phân trang) · tạo (họ tên/username/vai trò/mật khẩu ban đầu/buộc đổi lần đầu) · reset mật khẩu · khóa/mở (`is_active`, **không xóa cứng** để giữ dấu vết PII). Chặn admin tự khóa mình.
+- **HTG-05 — Quản lý tài khoản nhân viên:** màn admin (danh sách + phân trang) · tạo (họ tên/username/vai trò/mật khẩu ban đầu) · reset mật khẩu · khóa/mở (`is_active`, **không xóa cứng** để giữ dấu vết PII). Chặn admin tự khóa mình. ("Buộc đổi mật khẩu lần đầu" — **bỏ** theo chủ dự án 02/10.)
 - **HTG-06 — Tự đổi mật khẩu:** khối ở màn Tài khoản (mọi vai trò); kiểm mật khẩu hiện tại trước khi đổi.
 - **5 sửa UI (polish, không phải story):**
   - UI-1 Header cố định, hết giật — khóa khung = chiều cao màn hình, chỉ pane cuộn (nguyên nhân cũ: `h-[100dvh]` nhảy theo thanh địa chỉ; desktop thiếu header).
@@ -43,7 +43,8 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 - **Chạm story đã xong:** UI-3 thêm phân trang cho `THU-02` (✅) và `QLY-01` (⚠️); UI-1/2/5 chạm khung chung (`HTG-01`). Code sửa trong cùng đợt này → cập nhật trạng thái sau khi build xong, không để ✅ sai.
 - **Đã code (02/10):** server HTG-04/05/06 (`admin.py` tool-key · `admin_users.py` list/reset/chặn tự khóa · `auth.py` đổi mật khẩu) + 13 test (server 82 pass); webapp (màn Tài khoản: đổi mật khẩu + API key admin + link quản lý · màn Quản lý tài khoản: list phân trang/tạo/reset/khóa) + route admin-only; UI-5 fix kính lúp (`@layer components`, cả 2 app).
 - **UI đã xong (02/10):** UI-1/2 (`AppLayout`/`ToolLayout` 100svh, header/toolbar đứng yên, khung cao ổn định) · UI-3 (`PhanTrang` mỗi app; `DaGui` + lưới HV `TraCuuDB` + list Nạp) · UI-4 (`NapHoSo` ghim detail+ảnh theo màn hình, bỏ 720px cứng) · UI-5 (`@layer components`).
-- **Còn nợ:** "buộc đổi mật khẩu lần đầu" của HTG-05 (hoãn — cần cột DB `must_change_password` + xử lý tool login) · **deploy VPS** để HTG-04/05/06 chạy thật + verify.
+- **Đã deploy (02/10):** push `main` → CD build + deploy VPS; kiểm live: `/api/admin/tool-key` + `/api/auth/doi-mat-khau` trả 403 khi chưa đăng nhập (endpoint có, gác đúng). Chờ user verify trên giao diện.
+- **Bỏ khỏi phạm vi (02/10):** "buộc đổi mật khẩu lần đầu" — chủ dự án không cần; không thêm cột `must_change_password`.
 
 ---
 
