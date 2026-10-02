@@ -663,7 +663,9 @@ Collector(App web)  VPS(FastAPI/PG)   Operator(Tool)   SQL Server GPLX_CSDT   �
 *Vì sao gộp: đều là thao tác của operator trên DB đích qua SP, cùng ràng buộc BC1/GPLX.*
 
 ### 11.1 Tra cứu/sửa (QLY-01)
-**Chế độ "Tra cứu DB" (CHANGES #6):** tìm khóa theo **tên/mã, MỌI khóa kể cả đã BC1** (SELECT `KhoaHoc` lọc theo tên/mã, **KHÔNG** lọc `BaoCaoI` — khác dropdown nạp của NAP-02). Chọn khóa → lưới theo khóa (`usp_NguoiLX_Select_By_MaKH`) + tìm (`usp_NguoiLX_HoSo_Search`) → mở sửa (`usp_NguoiLX_HoSo_Get_Sua_HS`) → `usp_NguoiLX_Update`/`usp_NguoiLX_HoSo_Update`. Khóa đã BC1 → badge 🔒, chặn sửa (BR-012), chỉ xem.
+**Chế độ "Tra cứu DB" (CHANGES #6):** tìm khóa theo **tên/mã, MỌI khóa kể cả đã BC1** (SELECT `KhoaHoc` lọc theo tên/mã, **KHÔNG** lọc `BaoCaoI` — khác dropdown nạp của NAP-02). Chọn khóa → lưới theo khóa (`usp_NguoiLX_Select_By_MaKH`) + tìm trong lưới (client) → xem chi tiết → **sửa NHÂN THÂN**.
+
+**Sửa (lát 2, CHANGES #17) — chỉ bảng `NguoiLX` qua `usp_NguoiLX_Update`.** Phạm vi: họ tên, ngày sinh, giới tính, số căn cước (SoCMT), địa chỉ thường trú chi tiết (NoiTT). KHÔNG dùng `usp_NguoiLX_HoSo_Update` ở QLY-01 — SP đó ghi đè **65 cột** của `NguoiLX_HoSo` (kết quả thi, BC1/BC2, ảnh) trong khi `usp_NguoiLX_HoSo_Get_Sua_HS` chỉ trả một phần → rủi ro xóa trắng. Ảnh thuộc QLY-05, đổi khóa thuộc QLY-02. **An toàn ghi:** `usp_NguoiLX_Update` cũng ghi đè 22 cột → đọc lại full bản ghi `NguoiLX` hiện tại (SELECT), chồng 5 trường user sửa, giữ nguyên phần còn lại; đọc + ghi trong 1 kết nối. NgaySinh lưu `yyyymmdd` (hoặc `yyyy`), GioiTinh `M/F/U`, họ tên IN HOA giữ dấu (dùng chung `tach_ho_ten`). Khóa đã BC1 → UI ẩn nút Sửa, backend kiểm lại → 409 (BR-012).
 
 **Tìm trong lưới học viên (CHANGES #10):** khớp theo **tên hoặc số CCCD**; tên **chuẩn hóa bỏ dấu cả hai vế** (NFD + xóa dấu kết hợp) để gõ không dấu vẫn ra. QLY-01 tìm qua SP `usp_NguoiLX_HoSo_Search` (collation không phân biệt dấu, hoặc chuẩn hóa tương tự); NAP-01 (list tải về, hàng chờ VPS) lọc phía client trên staging SQLite đã kéo. UI chung: ô tìm đặt **đầu danh sách/lưới**; màn hẹp thu gọn thành **nút kính lúp** (bấm mới bung ô nhập).
 

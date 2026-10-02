@@ -146,6 +146,38 @@ export interface HoSoRow {
 export const dsHoSoTheoKhoa = (makh: string) =>
   fetch(`${BASE}/local/ho-so?makh=${encodeURIComponent(makh)}`, { headers: authHeaders() }).then(json<HoSoRow[]>);
 
+// QLY-01 lát 2 — sửa nhân thân HV. Đọc chi tiết để mở form + cờ BC1 (chặn sửa).
+export interface HoSoChiTiet {
+  ma_dk: string;
+  ho_ten: string;
+  ngay_sinh: string; // dd/mm/yyyy (hoặc yyyy) để hiển thị trên ô
+  gioi_tinh: string; // M/F/U
+  gioi_tinh_ten: string;
+  so_cccd: string;
+  noi_tt: string;
+  hktt: string | null; // tên xã HKTT (chỉ để tham chiếu, không sửa ở đây)
+  ma_kh: string;
+  bc1: boolean;
+}
+export const chiTietHoSo = (maDk: string) =>
+  fetch(`${BASE}/local/ho-so/chi-tiet?ma_dk=${encodeURIComponent(maDk)}`, { headers: authHeaders() }).then(
+    json<HoSoChiTiet>,
+  );
+
+export interface HoSoSuaIn {
+  ho_ten: string;
+  ngay_sinh: string; // dd/mm/yyyy hoặc yyyy
+  gioi_tinh: string; // M/F/U
+  so_cccd: string;
+  noi_tt: string;
+}
+export const suaHoSo = (maDk: string, body: HoSoSuaIn) =>
+  fetch(`${BASE}/local/ho-so/sua?ma_dk=${encodeURIComponent(maDk)}`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(body),
+  }).then(json<{ ok: boolean; ma_dk: string }>);
+
 export interface Tinh {
   ma_dvql: string;
   ten_tinh: string;

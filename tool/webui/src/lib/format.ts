@@ -15,6 +15,14 @@ export const ymdToVN = (s: string | null | undefined): string => {
   return mo === "00" || dd === "00" ? y : `${dd}/${mo}/${y}`;
 };
 
+// QLY-01: ô ngày gõ tay tự chèn "/" (dd/mm/yyyy). Chỉ năm (≤4 số) để nguyên.
+export const maskNgay = (raw: string): string => {
+  const d = (raw || "").replace(/\D/g, "").slice(0, 8);
+  if (d.length <= 4) return d;
+  if (d.length <= 6) return `${d.slice(0, 2)}/${d.slice(2, 4)}/${d.slice(4)}`;
+  return `${d.slice(0, 2)}/${d.slice(2, 4)}/${d.slice(4, 8)}`;
+};
+
 // NAP-01: bỏ dấu tiếng Việt (NFD + xóa dấu kết hợp + đ→d) để tìm/so khớp không dấu.
 export const boDau = (s: string): string =>
   (s || "")

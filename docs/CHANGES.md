@@ -4,6 +4,7 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 17 | 02/10/2026 | ✏️ Sửa | `QLY-01` | Lát 2 (sửa hồ sơ) — **thu hẹp phạm vi: chỉ sửa NHÂN THÂN** (họ tên, ngày sinh, giới tính, CCCD, địa chỉ TT) qua `usp_NguoiLX_Update`; **bỏ `usp_NguoiLX_HoSo_Update` khỏi QLY-01** (SP ghi đè 65 cột gồm kết quả thi/BC1/BC2 → rủi ro xóa trắng); ảnh→QLY-05, đổi khóa→QLY-02. Ghi an toàn: đọc lại full bản ghi giữ cột không sửa. Chặn khi khóa BC1 (BR-012) | ✅ | ✅ | ⬜ | ✅ code+test, chờ verify prod |
 | 16 | 01/10/2026 | ✏️ Sửa | `QLY-06` | Kiểm DB thật (chỉ đọc) chốt thiết kế QLY-06: SP `ThemMoiCapNhat` nạp mới **luôn tạo NguoiLX mới** (không dò người cũ); dữ liệu thật nhiều HV có **2–8 khóa chung SoCMT** → nạp khác khóa = nạp mới bình thường, không cần nối người. Gỡ 📝 Draft → ⏳ Todo | ✅ | — | ⬜ | ⬜ |
 | 15 | 01/10/2026 | ✏️ Sửa | `THU-02` | Ảnh app web: tách **2 nút "Chụp ảnh" (camera) / "Chọn từ máy" (file·thư viện)** ở màn chụp + đổi ảnh hồ sơ Chờ nạp (trước ép camera, mobile không chọn được thư viện); bấm ảnh chân dung ở chi tiết → **phóng to popup (lightbox)** | ✅ | — | ⬜ | ✅ deploy |
 | 14 | 01/10/2026 | ✏️ Sửa | `THU-01`, `THU-02` | Redesign UX nhập liệu (impeccable): ẩn ô "Số CMND cũ" (vẫn lưu từ QR nếu có) · ô ngày gõ tay dd/mm/yyyy auto-mask "/" + nút lịch (giữ năm-only) · desktop nới khung 2 cột + tách 2 nút tránh bấm nhầm + phím tắt · rà content tránh lộ story/AI slop | ✅ | ✅ | ⬜ | ✅ deploy |
@@ -22,6 +23,20 @@
 | 1 | 01/10/2026 | ✏️ Sửa | — | Đổi nơi lưu bảng ánh xạ `DM_DVHC_MAP`: GPLX_CSDT → SQLite cục bộ của tool | — | ✅ | — | ✅ (task 5) |
 
 Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên quan
+
+---
+
+## #17 — QLY-01 lát 2: sửa hồ sơ thu hẹp còn nhân thân · 02/10/2026
+
+- **Mã:** `QLY-01`. Không thêm/bớt story — thu hẹp phạm vi lát 2 cho an toàn dữ liệu (chủ dự án duyệt live 02/10).
+- **Vì sao:** soi 3 SP sửa của app cũ trên DB thật trước khi code: `usp_NguoiLX_HoSo_Update` **ghi đè toàn bộ 65 cột** của `NguoiLX_HoSo` (gồm kết quả thi lý thuyết/hình/đường, liên kết BC1/BC2, đường dẫn ảnh), mà SP đọc-để-sửa `usp_NguoiLX_HoSo_Get_Sua_HS` **chỉ trả một phần** → nếu tool đụng bảng hồ sơ mà truyền thiếu/sai một cột là **xóa trắng kết quả thi của HV thật** trên prod.
+- **Chốt phạm vi:** QLY-01 lát 2 **chỉ sửa thông tin nhân thân** (bảng `NguoiLX`): họ tên, ngày sinh, giới tính, số căn cước, địa chỉ thường trú (chi tiết). Tất cả nằm ở `NguoiLX` → qua **1 SP `usp_NguoiLX_Update`**, KHÔNG đụng `NguoiLX_HoSo`.
+  - Ảnh → `QLY-05` (nạp/thay ảnh). Đổi khóa → `QLY-02`. Kết quả thi/báo cáo → do app cũ quản, tool không sửa.
+- **Ghi an toàn:** `usp_NguoiLX_Update` cũng ghi đè 22 cột → trước khi ghi, **đọc lại full bản ghi `NguoiLX` hiện tại** rồi chỉ chồng 5 trường user sửa (giữ nguyên quốc tịch, nơi cấp CCCD, ghi chú, mã DVHC, người/ngày tạo, nơi cư trú...). Đọc + ghi trong 1 kết nối.
+- **BR-012:** khóa đã lập BC1 → UI chỉ cho xem (không hiện nút Sửa); backend kiểm lại khi ghi → 409.
+- **Đã làm:** API `GET /local/ho-so/chi-tiet` + `POST /local/ho-so/sua` (`tool/app/routers/hoso.py`) · UI nút Sửa + form nhân thân trong modal Tra cứu DB (`TraCuuDB.tsx`) · tool **101 pytest** + webui **19 vitest** + build sạch.
+- **Chờ verify prod (bạn chạy):** sửa 1 HV thật ở khóa chưa BC1 → mở app cũ đối chiếu đúng · thử khóa đã BC1 → không sửa được.
+- **Không đụng:** `usp_NguoiLX_HoSo_Update`, bảng `NguoiLX_HoSo`, ảnh, schema, server/app web.
 
 ---
 
@@ -239,7 +254,7 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 > `/capnhat` đọc mục này ở Bước 0b để biết có thay đổi nào chưa ghi sổ không.
 > So bằng **danh sách mã**, không so bằng thời gian sửa file.
 
-- **Cập nhật:** 01/10/2026 (CHANGES #13)
+- **Cập nhật:** 02/10/2026 (CHANGES #17)
 - **Số story trong PRD:** 18 (17 MUST/SHOULD gồm `THU-04` + `QLY-06` 📝 Draft; chưa tính NICE `QLY-04`, `THU-03`)
 - **Mã story hiện có:** `HTG-01`, `HTG-02`, `HTG-03`, `THU-01`, `THU-02`, `THU-04`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06` (NICE: `QLY-04`, `THU-03`)
 - **Mã đã nghỉ hưu:** (chưa có)

@@ -1,6 +1,6 @@
 // NAP-01 — helper bỏ dấu / cảnh báo chính tả mức A / hiển thị ngày (mức 2). Hàm thuần.
 import { describe, it, expect } from "vitest";
-import { boDau, nghiSaiChinhTa, ymdToVN } from "./format";
+import { boDau, nghiSaiChinhTa, ymdToVN, maskNgay } from "./format";
 
 describe("NAP-01 — boDau (tìm không dấu)", () => {
   it("bỏ dấu tiếng Việt + đ→d, về chữ thường", () => {
@@ -72,5 +72,26 @@ describe("NAP-01 — ymdToVN (yyyymmdd → hiển thị)", () => {
     expect(ymdToVN("")).toBe("");
     expect(ymdToVN(null)).toBe("");
     expect(ymdToVN(undefined)).toBe("");
+  });
+});
+
+describe("QLY-01 — maskNgay (gõ tay tự chèn /)", () => {
+  it("đủ 8 số → dd/mm/yyyy", () => {
+    expect(maskNgay("15031990")).toBe("15/03/1990");
+  });
+
+  it("≤4 số → để nguyên (nhập chỉ năm)", () => {
+    expect(maskNgay("1990")).toBe("1990");
+    expect(maskNgay("15")).toBe("15");
+  });
+
+  it("đang gõ dở (5-6 số) → chèn dần", () => {
+    expect(maskNgay("15031")).toBe("15/03/1");
+    expect(maskNgay("150319")).toBe("15/03/19");
+  });
+
+  it("bỏ ký tự không phải số, cắt tối đa 8 số", () => {
+    expect(maskNgay("15/03/1990")).toBe("15/03/1990");
+    expect(maskNgay("150319901")).toBe("15/03/1990");
   });
 });

@@ -304,13 +304,13 @@
 
 #### [QLY-01] Tra cứu & sửa hồ sơ đã có
 
-**Trạng thái:** ⚠️ Partial — 02/10/2026. **Lát 1 (đọc, task 22) xong + verify live:** chế độ Tra cứu DB — tìm khóa theo tên/mã **mọi khóa kể cả BC1** (badge "Đã BC1 — chỉ xem") + lưới HV theo khóa (`usp_NguoiLX_Select_By_MaKH`) + tìm trong lưới (client, tên bỏ dấu / CCCD) + xem chi tiết. Kiểm: tool **85 test** · webui build + typecheck · verify live (khóa B-K149, 55 HV đúng tên/ngày/CCCD/ảnh). **Chờ lát 2:** mở **SỬA** hồ sơ (`usp_NguoiLX_Update`/`usp_NguoiLX_HoSo_Update` — ghi prod) + chặn sửa khi khóa đã BC1 (BR-012).
+**Trạng thái:** ⚠️ Partial — 02/10/2026. **Lát 1 (đọc, task 22) xong + verify live:** Tra cứu DB — tìm khóa mọi khóa kể cả BC1 + lưới HV theo khóa (`usp_NguoiLX_Select_By_MaKH`) + tìm trong lưới + xem chi tiết (verify live: khóa B-K149, 55 HV đúng). **Lát 2 (sửa, task 22) code xong — CHỜ VERIFY PROD:** sửa **thông tin nhân thân** (họ tên/ngày sinh/giới tính/CCCD/địa chỉ TT) qua `usp_NguoiLX_Update`, đọc lại full bản ghi để giữ cột không sửa; chặn sửa khi khóa đã BC1 (BR-012). **Thu hẹp phạm vi:** bỏ `usp_NguoiLX_HoSo_Update` khỏi QLY-01 (SP ghi đè 65 cột gồm kết quả thi/báo cáo → rủi ro) — ảnh để QLY-05, đổi khóa QLY-02 (CHANGES #17). Kiểm: tool **101 test** + webui **19 test** + build. Chờ bạn verify ghi prod thật + chặn BC1 live.
 **Story:** Là nhân viên nạp DB, tôi muốn tra cứu và sửa hồ sơ học viên đã có trong DB, để thay phần lớn thao tác của app cũ.
 
 **Done khi:**
 - ✅ **Chế độ "Tra cứu DB"** (CHANGES #6): **tìm khóa theo tên khóa hoặc mã khóa — MỌI khóa, kể cả đã lập BC1** (khác dropdown nạp của NAP-02 vốn ẩn khóa BC1). Chọn khóa → lưới học viên theo khóa (`usp_NguoiLX_Select_By_MaKH`) + tìm theo **tên (khớp cả có dấu lẫn không dấu)**/CCCD/số hồ sơ (`usp_NguoiLX_HoSo_Search`); ô tìm đặt trên đầu lưới, màn hẹp thu gọn thành **nút kính lúp**. (CHANGES #10)
-- ✅ Mở hồ sơ để sửa (`usp_NguoiLX_HoSo_Get_Sua_HS`), sửa thông tin/ảnh/địa chỉ qua `usp_NguoiLX_Update`/`usp_NguoiLX_HoSo_Update`.
-- ✅ Chặn sửa khi khóa đã lập BC1 (badge 🔒 "Đã BC1" — chỉ xem); khóa chưa BC1 sửa được.
+- ✅ Mở hồ sơ để sửa **thông tin nhân thân** (họ tên, ngày sinh, giới tính, số căn cước, địa chỉ thường trú) qua `usp_NguoiLX_Update`; đọc lại bản ghi hiện tại để giữ nguyên cột không sửa. Ảnh → QLY-05, đổi khóa → QLY-02 (KHÔNG dùng `usp_NguoiLX_HoSo_Update` ở đây — SP ghi đè 65 cột, CHANGES #17).
+- ✅ Chặn sửa khi khóa đã lập BC1 (badge "Đã BC1 — chỉ xem"); khóa chưa BC1 sửa được.
 - ❌ Không kết xuất báo cáo (NICE).
 
 **Edge cases:**
