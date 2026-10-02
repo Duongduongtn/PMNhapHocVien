@@ -14,6 +14,7 @@ Tool chỉ UPDATE thẳng 5 cột ẢNH (ngoại lệ ❌ PRD, CHANGES #5) — S
 """
 from __future__ import annotations
 import re
+import shutil
 import sqlite3
 from datetime import datetime
 from pathlib import Path
@@ -137,6 +138,26 @@ def ghi_anh_update(cur, ma_dk: str, ma_kh: str, jp2_bytes: bytes,
         (duong_dan, now, nguoi, ma_dk),
     )
     return duong_dan
+
+
+# ---- Di chuyển ảnh khi đổi khóa (QLY-02) -----------------------------------
+def di_chuyen_anh(duong_dan_cu: str | None, ma_kh_moi: str, ma_dk: str, img_path_base: str) -> str | None:
+    """Di chuyển .jp2 sang folder khóa mới, giữ tên = MaDK (QLY-02). Trả đường dẫn mới.
+
+    - DuongDanAnh trống (HV chưa có ảnh) → None (không có gì để chuyển).
+    - File nguồn còn → di chuyển sang `<img_path_base>\\<ma_kh_moi>\\<MaDK>.jp2`.
+    - File nguồn mất → vẫn trả đường dẫn mới (DB nhất quán với khóa mới; file thiếu như 'chưa ảnh').
+    - File bị khóa (app cũ đang mở) → shutil.move ném PermissionError → caller báo đóng app cũ.
+    """
+    if not (duong_dan_cu or "").strip():
+        return None
+    folder = Path(img_path_base) / ma_kh_moi
+    folder.mkdir(parents=True, exist_ok=True)
+    dest = folder / f"{ma_dk}.jp2"
+    src = Path(duong_dan_cu)
+    if src.exists() and src.resolve() != dest.resolve():
+        shutil.move(str(src), str(dest))
+    return str(dest)
 
 
 # ---- Chống mồ côi / chống trùng UUID (staging SQLite) ----------------------

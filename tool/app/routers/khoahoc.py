@@ -215,6 +215,32 @@ def tra_cuu_khoa(q: str = ""):
     ]
 
 
+@router.get("/cung-hang")
+def khoa_cung_hang(ma_kh: str = Query(..., min_length=1)):
+    """QLY-02 — khóa ĐÍCH để đổi khóa: cùng HangGPLX với khóa hiện tại, **chưa BC1**, khác chính nó.
+
+    Chỉ cùng hạng mới đổi trực tiếp được (BR-013); khác hạng phải xóa tạo lại."""
+    sql = (
+        "SELECT k.MaKH, k.TenKH, k.HangGPLX, k.HangDT FROM KhoaHoc k "
+        "WHERE k.MaCSDT = %s AND k.TrangThai = 1 AND k.MaKH <> %s "
+        "AND k.HangGPLX = (SELECT HangGPLX FROM KhoaHoc WHERE MaKH = %s) "
+        "AND NOT EXISTS (SELECT 1 FROM BaoCaoI b WHERE b.MaKH = k.MaKH) "
+        "ORDER BY k.NgayTao DESC"
+    )
+    try:
+        with sqlserver_cursor() as cur:
+            cur.execute(sql, (MA_CSDT, ma_kh, ma_kh))
+            rows = cur.fetchall()
+    except ConfigChuaDay as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=502, detail="Không truy vấn được SQL Server — kiểm kết nối.")
+    return [
+        {"ma_kh": r["MaKH"], "ten_kh": r["TenKH"], "hang_gplx": r["HangGPLX"], "hang_dt": r["HangDT"]}
+        for r in rows
+    ]
+
+
 @router.post("/tao")
 def tao_khoa(body: KhoaHocTao, phien: Phien = Depends(require_session)):
     """Tạo khóa học qua usp_KhoaHoc_Insert (KHO-01, GHI DB). Mã tự sinh → đọc lại trả về.

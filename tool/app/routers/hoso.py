@@ -18,12 +18,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, field_validator
 
 from app.db import sqlserver_cursor, sqlserver_conn, ConfigChuaDay
-from app.nap import tach_ho_ten, validate_do_dai
+from app.nap import tach_ho_ten, validate_do_dai, sinh_so_ho_so, di_chuyen_anh
 from app.session import Phien, require_session
 
 router = APIRouter(prefix="/local/ho-so", tags=["ho-so"])
 
 _NOITT_MAX = 50  # NguoiLX.NoiTT nvarchar(50) (chi tiết thường trú)
+_TEN_TS_IMG = "IMG_PATH_CSDT"  # tham số đường dẫn ảnh trong QTHT_ThamSoHT (đọc động)
 
 
 # ---- Hàm thuần (unit-test được, không chạm DB) ------------------------------
@@ -274,3 +275,108 @@ def sua_ho_so(body: HoSoSua, ma_dk: str = Query(..., min_length=1),
         raise HTTPException(status_code=502, detail="Không sửa được hồ sơ trên SQL Server — kiểm kết nối rồi thử lại.")
 
     return {"ok": True, "ma_dk": ma_dk}
+
+
+class DoiKhoaIn(BaseModel):
+    """Input đổi khóa (QLY-02): khóa đích (cùng hạng, chưa BC1)."""
+    ma_kh_dich: str
+
+    @field_validator("ma_kh_dich")
+    @classmethod
+    def _khong_rong(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("Chưa chọn khóa đích")
+        return v.strip()
+
+
+@router.post("/doi-khoa")
+def doi_khoa(body: DoiKhoaIn, ma_dk: str = Query(..., min_length=1),
+            phien: Phien = Depends(require_session)):
+    """QLY-02 — đổi khóa CÙNG HẠNG cho HV đã nạp (GHI PROD).
+
+    UPDATE nhắm 3 cột (MaKhoaHoc / SoHoSo / DuongDanAnh) WHERE MaDK — KHÔNG dùng
+    usp_NguoiLX_HoSo_Update (ghi đè 65 cột, rủi ro xóa kết quả thi; CHANGES #18). Chặn (BR-013):
+    khác hạng · khóa cũ hoặc khóa đích đã BC1 · HV đã có GPLX (có dòng NguoiLX_GPLX). SoHoSo sinh
+    lại trong applock khóa đích (không trùng). File .jp2 di chuyển sang folder khóa mới (giữ tên MaDK).
+    """
+    ma_kh_moi = body.ma_kh_dich.strip()
+    so_ho_so = None
+    try:
+        with sqlserver_conn(autocommit=True) as conn:
+            cur = conn.cursor(as_dict=True)
+            # 1) Hồ sơ hiện tại
+            cur.execute("SELECT MaKhoaHoc, SoHoSo, DuongDanAnh FROM NguoiLX_HoSo WHERE MaDK=%s", (ma_dk,))
+            hs = cur.fetchone()
+            if not hs:
+                raise HTTPException(status_code=404, detail="Không tìm thấy hồ sơ học viên.")
+            ma_kh_cu = hs["MaKhoaHoc"]
+            if ma_kh_cu == ma_kh_moi:
+                raise HTTPException(status_code=400, detail="Học viên đã ở khóa này rồi.")
+
+            # 2) Hai khóa + cờ BC1 + hạng
+            cur.execute(
+                "SELECT MaKH, HangGPLX, "
+                "CASE WHEN EXISTS (SELECT 1 FROM BaoCaoI b WHERE b.MaKH = k.MaKH) THEN 1 ELSE 0 END AS bc1 "
+                "FROM KhoaHoc k WHERE MaKH IN (%s, %s)",
+                (ma_kh_cu, ma_kh_moi),
+            )
+            khoas = {r["MaKH"]: r for r in cur.fetchall()}
+            cu, moi = khoas.get(ma_kh_cu), khoas.get(ma_kh_moi)
+            if not moi:
+                raise HTTPException(status_code=400, detail="Khóa đích không tồn tại.")
+            if not cu:
+                raise HTTPException(status_code=400, detail="Không đọc được khóa hiện tại của học viên.")
+            if (cu["HangGPLX"] or "") != (moi["HangGPLX"] or ""):
+                raise HTTPException(status_code=400, detail="Khác hạng — không đổi trực tiếp, phải xóa rồi tạo lại.")
+            if cu["bc1"]:
+                raise HTTPException(status_code=409, detail="Khóa hiện tại đã lập Báo cáo 1 — không đổi được.")
+            if moi["bc1"]:
+                raise HTTPException(status_code=409, detail="Khóa đích đã lập Báo cáo 1 — không nhận thêm được.")
+
+            # 3) HV đã có GPLX → chặn (FK NguoiLX_GPLX NO_ACTION, BR-013)
+            cur.execute("SELECT COUNT(*) AS n FROM NguoiLX_GPLX WHERE MaDK=%s", (ma_dk,))
+            if cur.fetchone()["n"] > 0:
+                raise HTTPException(status_code=409, detail="Học viên đã có GPLX — không đổi khóa được.")
+
+            # 4) Đường dẫn ảnh (đọc động)
+            cur.execute("SELECT GiaTriTS FROM QTHT_ThamSoHT WHERE TenTS=%s", (_TEN_TS_IMG,))
+            r = cur.fetchone()
+            img_path = (r and r["GiaTriTS"]) or ""
+            if (hs["DuongDanAnh"] or "").strip() and not img_path:
+                raise HTTPException(status_code=502, detail="Chưa cấu hình IMG_PATH_CSDT trên DB đích.")
+
+            # 5) applock khóa đích → SoHoSo mới → di chuyển ảnh → UPDATE 3 cột
+            cur.execute("EXEC sp_getapplock @Resource=%s, @LockMode='Exclusive', @LockTimeout=15000", (ma_kh_moi,))
+            try:
+                cur.execute("SELECT MAX(CAST(SoHoSo AS INT)) AS m FROM NguoiLX_HoSo WHERE MaKhoaHoc=%s", (ma_kh_moi,))
+                so_ho_so = sinh_so_ho_so(cur.fetchone()["m"] or 0)
+                duong_dan_moi = di_chuyen_anh(hs["DuongDanAnh"], ma_kh_moi, ma_dk, img_path)
+                try:
+                    cur.execute(
+                        "UPDATE NguoiLX_HoSo SET MaKhoaHoc=%s, SoHoSo=%s, DuongDanAnh=%s WHERE MaDK=%s",
+                        (ma_kh_moi, so_ho_so, duong_dan_moi, ma_dk),
+                    )
+                except Exception:
+                    # UPDATE lỗi sau khi đã di chuyển ảnh → chuyển file NGƯỢC về khóa cũ để
+                    # DB và filesystem nhất quán (DB chưa đổi). Lỗi hoàn tác thì nuốt, báo lỗi gốc.
+                    if duong_dan_moi and (hs["DuongDanAnh"] or "").strip():
+                        try:
+                            di_chuyen_anh(duong_dan_moi, ma_kh_cu, ma_dk, img_path)
+                        except Exception:
+                            pass
+                    raise
+            finally:
+                try:
+                    cur.execute("EXEC sp_releaseapplock @Resource=%s", (ma_kh_moi,))
+                except Exception:
+                    pass
+    except HTTPException:
+        raise
+    except ConfigChuaDay as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except PermissionError:
+        raise HTTPException(status_code=409, detail="File ảnh đang bị khóa (app cũ đang mở) — đóng app cũ rồi thử lại.")
+    except Exception:
+        raise HTTPException(status_code=502, detail="Không đổi được khóa trên SQL Server — kiểm kết nối rồi thử lại.")
+
+    return {"ok": True, "ma_dk": ma_dk, "ma_kh": ma_kh_moi, "so_ho_so": so_ho_so}

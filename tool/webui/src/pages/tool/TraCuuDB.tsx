@@ -7,7 +7,10 @@ import {
   dsHoSoTheoKhoa,
   chiTietHoSo,
   suaHoSo,
+  khoaCungHang,
+  doiKhoa,
   type KhoaTraCuu,
+  type KhoaDich,
   type HoSoRow,
   type HoSoSuaIn,
 } from "../../lib/api";
@@ -48,6 +51,13 @@ export default function TraCuuDB() {
   const [suaErr, setSuaErr] = useState("");
   const [okMsg, setOkMsg] = useState("");
 
+  // Đổi khóa (QLY-02)
+  const [doiMo, setDoiMo] = useState(false);
+  const [khoaDich, setKhoaDich] = useState<KhoaDich[] | null>(null);
+  const [maKhDich, setMaKhDich] = useState("");
+  const [doiBusy, setDoiBusy] = useState(false);
+  const [doiErr, setDoiErr] = useState("");
+
   async function timKhoa() {
     setErr("");
     setLoadingKhoa(true);
@@ -81,6 +91,42 @@ export default function TraCuuDB() {
     setSel(null);
     setSua(false);
     setSuaErr("");
+    setDoiMo(false);
+    setDoiErr("");
+    setKhoaDich(null);
+    setMaKhDich("");
+  }
+
+  async function moDoiKhoa() {
+    if (!khoa) return;
+    setDoiErr("");
+    setDoiMo(true);
+    setKhoaDich(null);
+    setMaKhDich("");
+    try {
+      const ds = await khoaCungHang(khoa.ma_kh);
+      setKhoaDich(ds);
+      setMaKhDich(ds[0]?.ma_kh ?? "");
+    } catch (e) {
+      setDoiErr(e instanceof Error ? e.message : "Không tải được khóa đích.");
+    }
+  }
+
+  async function chuyenKhoa() {
+    if (!sel || !maKhDich) return;
+    setDoiErr("");
+    setDoiBusy(true);
+    try {
+      await doiKhoa(sel.ma_dk, maKhDich);
+      if (khoa) setHoSo(await dsHoSoTheoKhoa(khoa.ma_kh)); // HV rời khóa → làm tươi lưới
+      setOkMsg("Đã đổi khóa học viên.");
+      setTimeout(() => setOkMsg(""), 2500);
+      dong();
+    } catch (e) {
+      setDoiErr(e instanceof Error ? e.message : "Đổi khóa không thành công.");
+    } finally {
+      setDoiBusy(false);
+    }
   }
 
   async function moSua() {
@@ -314,22 +360,69 @@ export default function TraCuuDB() {
                       <Icon name="warn" className="w-4 h-4 shrink-0" /> {suaErr}
                     </div>
                   )}
+
+                  {/* Đổi khóa (QLY-02) — cùng hạng, chưa BC1 */}
+                  {doiMo && (
+                    <div className="mt-3 rounded-lg border border-border bg-muted/40 p-3 space-y-2">
+                      <div className="text-[13px] font-semibold flex items-center gap-1.5">
+                        <Icon name="send" className="w-4 h-4" /> Đổi sang khóa khác (cùng hạng)
+                      </div>
+                      {khoaDich === null ? (
+                        <p className="text-[12px] text-muted-foreground flex items-center gap-1">
+                          <Icon name="refresh" className="w-3.5 h-3.5 animate-spin" /> Đang tải khóa…
+                        </p>
+                      ) : khoaDich.length === 0 ? (
+                        <p className="text-[12px] text-muted-foreground">Không có khóa cùng hạng (chưa BC1) để chuyển.</p>
+                      ) : (
+                        <>
+                          <select className="field-input" value={maKhDich} onChange={(e) => setMaKhDich(e.target.value)}>
+                            {khoaDich.map((k) => (
+                              <option key={k.ma_kh} value={k.ma_kh}>{k.ma_kh} — {k.ten_kh}</option>
+                            ))}
+                          </select>
+                          <p className="text-[11px] text-muted-foreground">Số hồ sơ cấp lại theo khóa mới; ảnh di chuyển sang thư mục khóa mới.</p>
+                          <div className="flex gap-2">
+                            <button onClick={() => { setDoiMo(false); setDoiErr(""); }} className="h-9 px-3 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Hủy</button>
+                            <button
+                              onClick={() => void chuyenKhoa()}
+                              disabled={doiBusy || !maKhDich}
+                              className="ml-auto h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center gap-2 hover:brightness-110 transition-all disabled:opacity-60"
+                            >
+                              <Icon name={doiBusy ? "refresh" : "send"} className={"w-4 h-4" + (doiBusy ? " animate-spin" : "")} /> Chuyển sang khóa này
+                            </button>
+                          </div>
+                        </>
+                      )}
+                      {doiErr && (
+                        <p className="text-[12px] text-destructive flex items-center gap-1"><Icon name="warn" className="w-3.5 h-3.5" /> {doiErr}</p>
+                      )}
+                    </div>
+                  )}
+
                   {khoa?.bc1 && (
                     <p className="text-[11px] text-warning mt-3 flex items-center gap-1">
-                      <Icon name="warn" className="w-3.5 h-3.5" /> Khóa đã lập Báo cáo 1 — chỉ xem, không sửa được.
+                      <Icon name="warn" className="w-3.5 h-3.5" /> Khóa đã lập Báo cáo 1 — chỉ xem, không sửa/đổi được.
                     </p>
                   )}
                 </div>
                 <div className="p-3 border-t border-border flex gap-2">
                   <button onClick={dong} className="h-10 px-4 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Đóng</button>
-                  {!khoa?.bc1 && (
-                    <button
-                      onClick={() => void moSua()}
-                      disabled={loadingCt}
-                      className="ml-auto h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center gap-2 hover:brightness-110 transition-all shadow-sm disabled:opacity-60"
-                    >
-                      <Icon name={loadingCt ? "refresh" : "edit"} className={"w-4 h-4" + (loadingCt ? " animate-spin" : "")} /> Sửa
-                    </button>
+                  {!khoa?.bc1 && !doiMo && (
+                    <>
+                      <button
+                        onClick={() => void moDoiKhoa()}
+                        className="ml-auto h-10 px-4 rounded-lg border border-border text-sm font-medium inline-flex items-center gap-1.5 hover:bg-muted transition-colors"
+                      >
+                        <Icon name="send" className="w-4 h-4" /> Đổi khóa
+                      </button>
+                      <button
+                        onClick={() => void moSua()}
+                        disabled={loadingCt}
+                        className="h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center gap-2 hover:brightness-110 transition-all shadow-sm disabled:opacity-60"
+                      >
+                        <Icon name={loadingCt ? "refresh" : "edit"} className={"w-4 h-4" + (loadingCt ? " animate-spin" : "")} /> Sửa
+                      </button>
+                    </>
                   )}
                 </div>
               </>

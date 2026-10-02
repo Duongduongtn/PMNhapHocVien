@@ -1,8 +1,8 @@
-"""QLY-01 — Tra cứu & sửa hồ sơ.
+"""QLY-01 (tra cứu & sửa) + QLY-02 (đổi khóa) — test không cần DB thật.
 
-Lát 1 (đọc): gate đăng nhập + validate tham số.
-Lát 2 (sửa): hàm thuần (đổi ngày sinh/giới tính, dựng tham số giữ cột cũ) + gate + validate.
-Ghi prod thật (usp_NguoiLX_Update) + chặn BC1 kiểm bằng tay/live (cần DB + khóa thật).
+QLY-01 lát 1 (đọc) + lát 2 (sửa): hàm thuần + gate + validate.
+QLY-02 (đổi khóa): hàm thuần `di_chuyen_anh` (thư mục tạm) + gate + validate.
+Ghi prod thật (UPDATE nhắm cột) + chặn BC1/GPLX/khác-hạng kiểm bằng tay/live (cần DB + khóa thật).
 """
 from datetime import datetime
 
@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from app.main import app
+from app.nap import di_chuyen_anh
 from app.routers.hoso import (
     HoSoSua,
     dung_tham_so_update,
@@ -188,4 +189,44 @@ def test_sua_cccd_sai_422(auth_headers):
     # CCCD chữ → chặn ở validate body, không chạm DB.
     r = client.post("/local/ho-so/sua?ma_dk=X", headers=auth_headers,
                     json={"ho_ten": "A", "so_cccd": "ABC"})
+    assert r.status_code == 422
+
+
+# ---- QLY-02: di chuyển ảnh (hàm thuần, dùng thư mục tạm) ----
+def test_di_chuyen_anh_khong_co_anh():
+    assert di_chuyen_anh("", "70004K26B099", "MADK1", "/bất kỳ") is None
+    assert di_chuyen_anh(None, "70004K26B099", "MADK1", "/bất kỳ") is None
+
+
+def test_di_chuyen_anh_di_chuyen_file(tmp_path):
+    base = tmp_path / "ANH"
+    cu = base / "KHOACU"
+    cu.mkdir(parents=True)
+    f = cu / "MADK1.jp2"
+    f.write_bytes(b"jp2-data")
+    moi = di_chuyen_anh(str(f), "KHOAMOI", "MADK1", str(base))
+    assert moi == str(base / "KHOAMOI" / "MADK1.jp2")
+    assert (base / "KHOAMOI" / "MADK1.jp2").read_bytes() == b"jp2-data"  # đã chuyển
+    assert not f.exists()  # file cũ không còn
+
+
+def test_di_chuyen_anh_file_mat_van_tra_duong_dan_moi(tmp_path):
+    base = tmp_path / "ANH"
+    # DuongDanAnh trỏ file không tồn tại → vẫn trả đường dẫn mới theo khóa mới
+    moi = di_chuyen_anh(str(base / "KHOACU" / "MADK9.jp2"), "KHOAMOI", "MADK9", str(base))
+    assert moi == str(base / "KHOAMOI" / "MADK9.jp2")
+
+
+# ---- QLY-02: gate + validate tầng API (không chạm DB) ----
+def test_doi_khoa_chua_dang_nhap_401():
+    assert client.post("/local/ho-so/doi-khoa?ma_dk=X", json={"ma_kh_dich": "Y"}).status_code == 401
+
+
+def test_doi_khoa_thieu_ma_dk_422(auth_headers):
+    r = client.post("/local/ho-so/doi-khoa", headers=auth_headers, json={"ma_kh_dich": "Y"})
+    assert r.status_code == 422
+
+
+def test_doi_khoa_thieu_khoa_dich_422(auth_headers):
+    r = client.post("/local/ho-so/doi-khoa?ma_dk=X", headers=auth_headers, json={})
     assert r.status_code == 422

@@ -178,6 +178,24 @@ export const suaHoSo = (maDk: string, body: HoSoSuaIn) =>
     body: JSON.stringify(body),
   }).then(json<{ ok: boolean; ma_dk: string }>);
 
+// QLY-02 — đổi khóa (cùng hạng). Danh sách khóa đích + thực hiện đổi.
+export interface KhoaDich {
+  ma_kh: string;
+  ten_kh: string;
+  hang_gplx: string;
+  hang_dt: string | null;
+}
+export const khoaCungHang = (maKh: string) =>
+  fetch(`${BASE}/local/khoa-hoc/cung-hang?ma_kh=${encodeURIComponent(maKh)}`, { headers: authHeaders() }).then(
+    json<KhoaDich[]>,
+  );
+export const doiKhoa = (maDk: string, maKhDich: string) =>
+  fetch(`${BASE}/local/ho-so/doi-khoa?ma_dk=${encodeURIComponent(maDk)}`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ ma_kh_dich: maKhDich }),
+  }).then(json<{ ok: boolean; ma_dk: string; ma_kh: string; so_ho_so: string }>);
+
 export interface Tinh {
   ma_dvql: string;
   ten_tinh: string;

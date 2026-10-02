@@ -322,7 +322,7 @@
 
 #### [QLY-02] Đổi khóa + di chuyển ảnh
 
-**Trạng thái:** ⏳ Todo
+**Trạng thái:** ⚠️ Partial — 02/10/2026 (task 23). Code xong: đổi khóa **cùng hạng** qua **UPDATE nhắm 3 cột** (`MaKhoaHoc`/`SoHoSo`/`DuongDanAnh`, KHÔNG dùng `usp_NguoiLX_HoSo_Update` — CHANGES #17/#18); `SoHoSo` sinh lại trong applock khóa đích; di chuyển `.jp2` sang folder khóa mới (hoàn tác nếu UPDATE lỗi). Chặn: khác hạng · khóa cũ/đích đã BC1 · HV đã có GPLX (`NguoiLX_GPLX`) · file ảnh bị khóa. UI: nút "Đổi khóa" ở Tra cứu DB + `GET /local/khoa-hoc/cung-hang`. Kiểm: tool **109 test** + webui build · review-nghiệp-vụ **6/6 Done**. **Chờ verify đổi khóa thật.** (PRD Steps bước 2 còn ghi SP cũ — cập nhật qua `/capnhat`.)
 **Story:** Là nhân viên nạp DB, tôi muốn chuyển học viên sang khóa khác, để sửa khi gán nhầm khóa.
 
 **Steps to Complete:**

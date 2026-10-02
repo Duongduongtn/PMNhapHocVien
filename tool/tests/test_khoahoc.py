@@ -107,6 +107,14 @@ def test_tra_cuu_chua_dang_nhap_401():
     assert client.get("/local/khoa-hoc/tra-cuu?q=B").status_code == 401
 
 
+def test_cung_hang_chua_dang_nhap_401():
+    assert client.get("/local/khoa-hoc/cung-hang?ma_kh=70004K26B010").status_code == 401
+
+
+def test_cung_hang_thieu_ma_kh_422(auth_headers):
+    assert client.get("/local/khoa-hoc/cung-hang", headers=auth_headers).status_code == 422
+
+
 def test_tao_ngay_bg_truoc_kg_400(auth_headers):
     # Kiểm ngày nằm TRƯỚC khi chạm DB → 400 không cần SQL Server.
     r = client.post(
