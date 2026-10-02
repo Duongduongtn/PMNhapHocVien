@@ -399,13 +399,27 @@ def xoa_ho_so(ma_dk: str = Query(..., min_length=1), phien: Phien = Depends(requ
     try:
         with sqlserver_conn(autocommit=True) as conn:
             cur = conn.cursor(as_dict=True)
-            # 1) Hồ sơ hiện tại (lấy khóa + ảnh trước khi xóa)
-            cur.execute("SELECT MaKhoaHoc, DuongDanAnh FROM NguoiLX_HoSo WHERE MaDK=%s", (ma_dk,))
+            # 1) Hồ sơ hiện tại (lấy khóa + ảnh + cờ BC1 trước khi xóa)
+            cur.execute(
+                "SELECT hs.MaKhoaHoc, hs.DuongDanAnh, "
+                "CASE WHEN EXISTS (SELECT 1 FROM BaoCaoI b WHERE b.MaKH = hs.MaKhoaHoc) THEN 1 ELSE 0 END AS bc1 "
+                "FROM NguoiLX_HoSo hs WHERE hs.MaDK=%s",
+                (ma_dk,),
+            )
             hs = cur.fetchone()
             if not hs:
                 raise HTTPException(status_code=404, detail="Không tìm thấy hồ sơ học viên.")
             ma_kh = hs["MaKhoaHoc"]
             duong_dan_cu = hs["DuongDanAnh"]
+
+            # 1b) Khóa đã lập BC1 → CHẶN xóa ở backend (CHANGES #22, TDD §11.3). Xóa HV đã vào
+            # Báo cáo làm mất liên kết NguoiLX_HoSo.MaBC1/MaBC2 → HV biến mất khỏi Báo cáo 1/2.
+            # UI đã ẩn nút khi khóa BC1, nhưng phải chặn ở backend (không chỉ dựa vào UI).
+            if hs["bc1"]:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Khóa đã lập Báo cáo 1 — không xóa học viên được (sẽ mất khỏi Báo cáo 1/2).",
+                )
 
             # 2) HV đã có GPLX → chặn (FK NO_ACTION, BR-014). Pre-check cho thông báo rõ.
             cur.execute("SELECT COUNT(*) AS n FROM NguoiLX_GPLX WHERE MaDK=%s", (ma_dk,))

@@ -354,7 +354,7 @@
 
 #### [QLY-03] Xóa học viên + xóa mềm ảnh
 
-**Trạng thái:** ⏳ Todo — mở rộng 02/10/2026 (CHANGES #22: chặn xóa HV khóa BC1 ở BACKEND + đưa xóa nhanh ra list). Phần đã code trước đó (task 24): `POST /local/ho-so/xoa` → `usp_NguoiLX_Delete` (cascade HoSo+GiayTo); chặn HV đã có GPLX (pre-check `NguoiLX_GPLX` + verify sau xóa vì SP không raiserror); ảnh **xóa mềm** chuyển sang folder `_DELETED` (giữ tên MaDK, không xóa cứng) + ghi log staging. UI: nút "Xóa" xác nhận 2 bước ở Tra cứu DB. Kiểm: tool **111 test** + webui build · review-nghiệp-vụ **6/6 Done**. **Chờ verify xóa thật.** (CHANGES #22: ĐÃ CHỐT cấm xóa HV khóa BC1 — chặn ở BACKEND, không chỉ ẩn nút UI; lý do: bảo toàn liên kết `NguoiLX_HoSo.MaBC1/MaBC2` với Báo cáo 1/2.)
+**Trạng thái:** ⚠️ Partial — chờ verify xóa thật prod. task 37 XONG (chặn xóa HV khóa BC1 ở BACKEND: cờ `bc1` = `EXISTS(BaoCaoI theo MaKH)` gộp vào query step 1 → 409 trước `usp_NguoiLX_Delete`; +2 test mock, 127 pytest; review-nghiepvu đủ). Nút xóa nhanh ra lưới đã xong ở task 36 (QLY-01). Phần đã code trước đó (task 24): `POST /local/ho-so/xoa` → `usp_NguoiLX_Delete` (cascade HoSo+GiayTo); chặn HV đã có GPLX (pre-check `NguoiLX_GPLX` + verify sau xóa vì SP không raiserror); ảnh **xóa mềm** chuyển sang folder `_DELETED` (giữ tên MaDK, không xóa cứng) + ghi log staging. UI: nút "Xóa" xác nhận 2 bước ở Tra cứu DB. Kiểm: tool **111 test** + webui build · review-nghiệp-vụ **6/6 Done**. **Chờ verify xóa thật.** (CHANGES #22: ĐÃ CHỐT cấm xóa HV khóa BC1 — chặn ở BACKEND, không chỉ ẩn nút UI; lý do: bảo toàn liên kết `NguoiLX_HoSo.MaBC1/MaBC2` với Báo cáo 1/2.)
 **Story:** Là nhân viên nạp DB, tôi muốn xóa học viên nhập nhầm, để dọn hồ sơ sai mà không mất ảnh vĩnh viễn.
 
 **Done khi:**

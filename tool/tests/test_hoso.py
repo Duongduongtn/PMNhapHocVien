@@ -241,6 +241,60 @@ def test_xoa_thieu_ma_dk_422(auth_headers):
     assert client.post("/local/ho-so/xoa", headers=auth_headers).status_code == 422
 
 
+# ---- QLY-03 task 37 (CHANGES #22): chặn xóa HV khóa đã BC1 ở BACKEND (mock DB) ----
+class _FakeCurXoa:
+    """Ghi lại SQL đã chạy; fetchone trả sẵn các dòng theo thứ tự truy vấn của xoa_ho_so."""
+
+    def __init__(self, rows, executed):
+        self._rows = list(rows)
+        self._executed = executed
+
+    def execute(self, sql, params=None):
+        self._executed.append(sql)
+
+    def fetchone(self):
+        return self._rows.pop(0)
+
+
+class _FakeConnXoa:
+    def __init__(self, rows, executed):
+        self._cur = _FakeCurXoa(rows, executed)
+
+    def cursor(self, as_dict=False):
+        return self._cur
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+def test_xoa_khoa_da_bc1_chan_409(auth_headers, monkeypatch):
+    """Khóa đã lập BC1 → 409 TRƯỚC khi gọi usp_NguoiLX_Delete (bảo toàn Báo cáo 1/2)."""
+    executed = []
+    rows = [{"MaKhoaHoc": "70004K26B010", "DuongDanAnh": "D:/ANH/x.jp2", "bc1": 1}]
+    monkeypatch.setattr("app.routers.hoso.sqlserver_conn", lambda **k: _FakeConnXoa(rows, executed))
+    r = client.post("/local/ho-so/xoa?ma_dk=MADK-1", headers=auth_headers)
+    assert r.status_code == 409
+    assert "Báo cáo 1" in r.json()["detail"]
+    assert not any("usp_NguoiLX_Delete" in s for s in executed)  # KHÔNG xóa khi đã BC1
+
+
+def test_xoa_khoa_chua_bc1_qua_guard(auth_headers, monkeypatch):
+    """Khóa chưa BC1 → qua guard BC1, tiếp tục kiểm GPLX (ở đây có GPLX → 409 GPLX, không phải BC1)."""
+    executed = []
+    rows = [
+        {"MaKhoaHoc": "70004K26B010", "DuongDanAnh": None, "bc1": 0},  # step 1: chưa BC1
+        {"n": 1},  # step 2: có GPLX → chặn ở nhánh khác
+    ]
+    monkeypatch.setattr("app.routers.hoso.sqlserver_conn", lambda **k: _FakeConnXoa(rows, executed))
+    r = client.post("/local/ho-so/xoa?ma_dk=MADK-2", headers=auth_headers)
+    assert r.status_code == 409
+    assert "GPLX" in r.json()["detail"]  # guard BC1 cho qua, dừng ở guard GPLX
+    assert not any("usp_NguoiLX_Delete" in s for s in executed)
+
+
 # ---- QLY-06: đọc đủ dữ liệu để điền sẵn (gate; đọc thật + nạp mới kiểm live qua NAP-05) ----
 def test_day_du_chua_dang_nhap_401():
     assert client.get("/local/ho-so/day-du?ma_dk=X").status_code == 401
