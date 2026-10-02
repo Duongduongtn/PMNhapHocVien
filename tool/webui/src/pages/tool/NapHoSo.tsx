@@ -5,6 +5,7 @@ import AddressCombo, { type DiaChiMoi } from "../../components/AddressCombo";
 import AnhModal from "../../components/AnhModal";
 import TraCuuDB from "./TraCuuDB";
 import { boDau, nghiSaiChinhTa, ymdToVN } from "../../lib/format";
+import { tachDiaChiGoc } from "../../lib/diachi";
 import {
   getKhoaHoc,
   getGiayTo,
@@ -201,6 +202,16 @@ export default function NapHoSo() {
 
   const capNhatNhap = (uuid: string, patch: Partial<Nhap>) =>
     setNhap((prev) => ({ ...prev, [uuid]: { ...layNhap(uuid), ...patch } }));
+
+  // NAP-03 (CHANGES #19): chọn hồ sơ → tự điền sẵn ô "Chi tiết thường trú" từ phần dư của địa
+  // chỉ gốc (số nhà/thôn), chỉ khi chưa có nháp (không đè giá trị operator đã gõ).
+  useEffect(() => {
+    if (!selUuid || nhap[selUuid]) return;
+    const row = keoVe.find((r) => r.uuid === selUuid);
+    const ct = tachDiaChiGoc(row?.noi_tt_raw).chiTiet;
+    if (ct) capNhatNhap(selUuid, { chiTiet: ct });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selUuid]);
 
   const toggleChon = (uuid: string) =>
     setChon((prev) => {
@@ -546,7 +557,7 @@ export default function NapHoSo() {
                         Nơi thường trú <span className="text-destructive">*</span>{" "}
                         <span className="text-muted-foreground font-normal">(map/chọn tay để lấy đúng mã DVHC)</span>
                       </label>
-                      <AddressCombo key={selRow.uuid} onChon={(dc) => capNhatNhap(selRow.uuid, { diaChi: dc })} />
+                      <AddressCombo key={selRow.uuid} diaChiGoc={selRow.noi_tt_raw ?? ""} onChon={(dc) => capNhatNhap(selRow.uuid, { diaChi: dc })} />
                       {layNhap(selRow.uuid).diaChi && (
                         <div className="mt-1.5 text-[11px] text-success font-medium flex items-center gap-1">
                           <Icon name="check" className="w-3.5 h-3.5" sw={3} /> Đã map: {layNhap(selRow.uuid).diaChi!.ten_xa}, {layNhap(selRow.uuid).diaChi!.ten_tinh} (mã {layNhap(selRow.uuid).diaChi!.ma_dvhc})
@@ -655,7 +666,11 @@ export default function NapHoSo() {
       {mode === "tracuu" && <TraCuuDB />}
 
       {anhOpen && selRow && (
-        <AnhModal onDong={() => setAnhOpen(false)} onXong={(b64) => capNhatNhap(selRow.uuid, { jp2: b64 })} />
+        <AnhModal
+          onDong={() => setAnhOpen(false)}
+          onXong={(b64) => capNhatNhap(selRow.uuid, { jp2: b64 })}
+          anhBanDau={selRow.co_anh ? anhUrl : null}
+        />
       )}
     </>
   );

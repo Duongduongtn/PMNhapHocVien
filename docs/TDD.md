@@ -507,12 +507,17 @@ APScheduler quét mỗi giờ: `pending`/`imported` quá 30 ngày → xóa dòng
 
 ### 8.1 Luồng
 ```
+[Kéo-về] noi_tt_raw ("…, Xã X, Huyện Y, Tỉnh Z") → TỰ TÁCH theo dấu phẩy + từ khóa
+   (Tỉnh/Thành phố→tỉnh · Quận/Huyện/Thị xã→huyện · Phường/Xã/Thị trấn→xã · phần dư→Chi tiết)
+   → ĐIỀN SẴN 3 ô Tỉnh/Huyện/Xã cũ (operator sửa được) → operator bấm "Chuyển đổi"
+   (tách rỗng/không rõ → để trống, gõ tay — không chặn)
 Địa chỉ text (cũ/mới) → chuẩn hóa (NFC, lower, bỏ tiền tố Tỉnh/Thành phố/Quận/Huyện/Thị xã/Phường/Xã/Thị trấn, chuẩn dấu nháy)
   → tra DM_DVHC_MAP theo (TenTinhCu,TenHuyenCu,TenXaCu)
      ├─ khớp & không chia → lấy MaDvhcMoi + MaDVQLMoi
      ├─ IsDividedWard=1 hoặc không khớp → popup chọn tay (Tỉnh→Xã từ DM_DVHC TrangThai=1)
   → điền NoiTT_MaDVHC + NoiTT_MaDVQL (+ NoiCT_* = NoiTT_* mặc định, BR-004)
 ```
+*Tách là best-effort phía client (không gọi DB), chỉ để đỡ gõ — luôn cho sửa trước khi map, không tự map cứng (địa chỉ QR hay viết tắt/thiếu dấu). Phục vụ NAP-03 luồng kéo-về (CHANGES #19).*
 
 ### 8.2 Nguồn & đối soát
 - Bảng `dm_dvhc_map` (SQLite cục bộ) do tool **tự dựng**: đọc `DM_DVHC (TrangThai=1)` của máy đích (chỉ đọc) + dataset `vietnamadminunits` (`convert_legacy_2025_simple.csv`) **đóng kèm tool**, nối theo TÊN (tỉnh mới + xã mới ngắn) để lấy đúng mã của **chính máy đích** (đã verify phủ 3321/3321 xã trên DB mẫu DESKTOP-UBV2GQI).
@@ -528,11 +533,13 @@ APScheduler quét mỗi giờ: `pending`/`imported` quá 30 ngày → xóa dòng
 
 ### 9.1 Luồng
 ```
-Ảnh thô (từ VPS) → hiển thị + khung crop CỐ ĐỊNH 3:4
+Ảnh thô (từ VPS, đã kéo về) → NẠP SẴN vào trình chỉnh (AnhModal) làm ảnh crop ban đầu
+  → hiển thị + khung crop CỐ ĐỊNH 3:4 (không bắt chọn lại file; vẫn cho chọn file khác để thay)
   → auto gợi ý theo nhận diện mặt → grab di chuyển + zoom (chỉnh tay) / thay ảnh
   → rembg xóa phông → nền TRẮNG → preview
   → (khi bấm Nạp) Pillow xuất .jp2
 ```
+*Ảnh thô kéo về nạp thẳng vào trình chỉnh (AnhModal nhận ảnh khởi tạo tùy chọn) — luồng kéo-về NAP-04 (CHANGES #19). Prop ảnh khởi tạo là TÙY CHỌN để QLY-05/QLY-06 mở không-ảnh-sẵn vẫn chạy như cũ.*
 
 ### 9.2 Chuẩn xuất (đo 300 ảnh thật)
 - Tỷ lệ **3:4**, RGB, **nền trắng**; kích thước **mặc định 353×471 (~48 KB, khớp cụm phổ biến nhất của app cũ)**. (480×640 chỉ dùng khi có yêu cầu nét hơn — không phải mặc định, không cần nút chọn ở MVP.)
@@ -841,3 +848,4 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 | 01/10/2026 | 1.5 | Sửa sau review TDD (đọc thân SP + verify DB thật): **SP không ghi ảnh** → thêm bước UPDATE 5 cột ảnh (hướng A) nâng `TT_XuLy` `01`→`03`, chưa ảnh giữ `01` (§10.1, §10.1b, §10.3); chốt `@p_MaDK=NULL`→SP sinh (OUTPUT), `SoHoSo` caller truyền, SP tự tách họ tên; xử lý mã lỗi `@p_out` (-1..-4, SP không raiserror) + `SET XACT_ABORT ON`; sửa `GiayCNSK` (theo giấy 3) + `MaLoaiHs` (thêm case 3) + tên tham số `IMG_PATH_CSDT`. Biên bản `docs/tdd-review-01-10-2026.md`. |
 | 01/10/2026 | 1.9 | Xác thực tool cho `/local/*` (task 17, HTG-01③): thêm §5.5 + TDD-decisions §4a — option A (tool gọi VPS `/api/auth/login` thay mặt → phát session cục bộ; collector 403), A1 miễn token `/local/config*` + `/local/auth/*`; §4.2/§4.6 thêm endpoint `/local/auth/*`. Còn mở: 1 hay n phiên. Xem CHANGES.md #8. |
 | 02/10/2026 | 2.0 | Quản lý tài khoản app web (HTG-04/05/06): §4.2 thêm `POST /api/auth/doi-mat-khau`, `GET|POST|PUT /api/admin/users*`, `POST /api/admin/users/:id/reset-mat-khau`, `GET /api/admin/tool-key` + ghi chú bảo mật (chỉ admin, băm bcrypt, không log secret, khóa bằng `is_active` không xóa cứng, chặn admin tự khóa). +5 sửa UI khung (header cố định, khung cao ổn định, phân trang 20/trang, tool master–detail panel ảnh ghim, fix kính lúp đè chữ bằng `@layer components`). Xem CHANGES.md #18. |
+| 02/10/2026 | 2.1 | Tận dụng dữ liệu kéo-về (CHANGES #19): §8.1 thêm bước tự tách `noi_tt_raw` → điền sẵn ô map (NAP-03); §9.1 nạp thẳng ảnh thô VPS vào trình chỉnh, AnhModal nhận ảnh khởi tạo tùy chọn (NAP-04). |

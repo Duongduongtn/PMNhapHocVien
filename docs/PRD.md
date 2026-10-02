@@ -175,7 +175,7 @@
 
 #### [NAP-03] Map địa chỉ cũ→mới + chọn tay
 
-**Trạng thái:** ✅ Done
+**Trạng thái:** ⚠️ Partial — 02/10/2026 (CHANGES #19). Thêm tự tách địa chỉ gốc kéo về → điền sẵn Tỉnh/Huyện/Xã + Chi tiết (lượt 3 bắt cả xã không tiền tố), operator bấm Chuyển đổi; giữ map cốt lõi + chọn tay. Kiểm: webui 29 test (tách địa chỉ) + build + Playwright (tự điền đúng). **Chờ verify trên tool thật.**
 **Story:** Là nhân viên nạp DB, tôi muốn nhập địa chỉ cũ hoặc mới và hệ thống tự đổi sang đơn vị hành chính mới, để không sai địa chỉ sau sáp nhập 2025.
 
 **Steps to Complete:**
@@ -184,6 +184,8 @@
 3. Nối theo tên (tỉnh mới, xã mới) về `DM_DVHC` (`TrangThai=1`) lấy `MaDvhc`+`MaDVQL` của DB.
 
 **Done khi:**
+- ✅ **Tự tách địa chỉ gốc kéo về từ VPS** (`noi_tt_raw`, dạng "…, Xã X, Huyện Y, Tỉnh Z") thành Tỉnh/Huyện/Xã **điền sẵn** vào ô map, phần dư (số nhà/thôn) điền sẵn ô Chi tiết; operator chỉ bấm "Chuyển đổi sang xã mới". (CHANGES #19)
+- ✅ Tách không ra / địa chỉ viết tắt / thiếu → để ô trống cho gõ tay (không chặn); operator luôn sửa được các ô trước khi map.
 - ✅ Địa chỉ mới hoặc cũ khớp map → điền đúng `NoiTT_MaDVHC`+`NoiTT_MaDVQL` (và `NoiCT_*`).
 - ✅ Tên hiển thị theo DB (vd "Thành phố Đồng Nai"), không theo dataset.
 - ✅ Dropdown chọn tay Tỉnh→Xã: Tỉnh lấy từ `DM_DVHC` (DISTINCT `MaDVQL`, `TrangThai=1`); Xã qua `usp_DM_DVHC_SelectDanhSachXaPhuongTheoTinh` + lọc `TrangThai=1`. (SP `usp_DM_DVHC_SelectAll_Tinh` chỉ trả đơn vị cũ TW/TI — không dùng được cho model 2 cấp mới; xem CHANGES #2.)
@@ -198,7 +200,7 @@
 
 #### [NAP-04] Căn ảnh + xóa phông trắng + xuất .jp2
 
-**Trạng thái:** ⚠️ Partial — xử lý ảnh (crop 3:4 + rembg nền trắng + `.jp2` 353×471 RGB) đã verify; CÒN: mở thử `.jp2` bằng app cũ thật (1c) — kiểm tay 1 lần khi triển khai
+**Trạng thái:** ⚠️ Partial — 02/10/2026 (CHANGES #19). Ảnh thô kéo về từ VPS nạp sẵn vào trình chỉnh (AnhModal prop ảnh tùy chọn, QLY-05/06 không vỡ) + vẫn chọn file khác. Kiểm: webui build + Playwright (ảnh nạp vào khung crop). **Còn kiểm tay 'mở .jp2 bằng app cũ' (1c) + verify trên tool thật.**
 **Story:** Là nhân viên nạp DB, tôi muốn căn khung chân dung, xóa phông thành nền trắng và xuất `.jp2`, để ảnh đúng chuẩn app cũ.
 
 **Steps to Complete:**
@@ -207,6 +209,7 @@
 3. Khi bấm Nạp mới xuất `.jp2` (`Pillow`) và ghi file.
 
 **Done khi:**
+- ✅ **Ảnh thô đã kéo về từ VPS được nạp sẵn vào trình chỉnh** (có ngay trong khung crop 3:4 để căn + đổi nền), không bắt operator chọn lại file; vẫn cho chọn file khác nếu muốn thay. (CHANGES #19)
 - ✅ File `.jp2` (JPEG 2000) **tỷ lệ 3:4, nền trắng, RGB**; kích thước **353×471 (~48 KB, khớp cụm phổ biến nhất của app cũ)** — hoặc 480×640 nếu chọn nét hơn; mở được bằng app cũ.
 - ✅ Ghi file tại `<IMG_PATH_CSDT>\<MaKhoaHoc>\<MaDK>.jp2` (**dùng lại `MaDK` do SP trả về**, không sinh timestamp mới — verify 39.648 HV khớp 100%, TDD §9.2); DB lưu `DuongDanAnh`, `ChatLuongAnh=1`.
 - ✅ `IMG_PATH_CSDT` đọc từ `QTHT_ThamSoHT`, không hard-code.

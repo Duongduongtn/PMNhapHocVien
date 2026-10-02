@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Icon } from "./Icon";
 import { getTinh, getXa, mapDiaChi, type Tinh, type Xa } from "../lib/api";
+import { tachDiaChiGoc } from "../lib/diachi";
 
 export interface DiaChiMoi {
   ma_dvhc: string;
@@ -11,10 +12,13 @@ export interface DiaChiMoi {
 
 // NAP-03: nhập địa chỉ CŨ (tỉnh/huyện/xã) → tự map sang xã mới 2025.
 // Không khớp hoặc xã bị chia → chuyển sang chọn tay Tỉnh→Xã (không tự đoán).
-export default function AddressCombo({ onChon }: { onChon?: (dc: DiaChiMoi) => void }) {
-  const [cuTinh, setCuTinh] = useState("");
-  const [cuHuyen, setCuHuyen] = useState("");
-  const [cuXa, setCuXa] = useState("");
+// diaChiGoc (CHANGES #19): địa chỉ thô kéo về từ VPS → tự tách ĐIỀN SẴN 3 ô (operator sửa được).
+// Component remount theo key={uuid} ở NapHoSo nên init theo từng hồ sơ.
+export default function AddressCombo({ diaChiGoc, onChon }: { diaChiGoc?: string; onChon?: (dc: DiaChiMoi) => void }) {
+  const g = tachDiaChiGoc(diaChiGoc);
+  const [cuTinh, setCuTinh] = useState(g.tinh);
+  const [cuHuyen, setCuHuyen] = useState(g.huyen);
+  const [cuXa, setCuXa] = useState(g.xa);
   const [ketQua, setKetQua] = useState<DiaChiMoi | null>(null);
   const [tay, setTay] = useState(false);
   const [msg, setMsg] = useState("");

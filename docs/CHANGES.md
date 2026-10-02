@@ -4,6 +4,7 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 19 | 02/10/2026 | ✏️ Sửa | `NAP-03`, `NAP-04` | Tận dụng dữ liệu đã kéo từ VPS ở màn Nạp (kéo-về): NAP-03 tự tách `noi_tt_raw` → điền sẵn ô map (operator chỉ bấm Chuyển đổi; tách không chắc thì gõ tay) · NAP-04 nạp thẳng ảnh thô VPS vào trình chỉnh (không bắt chọn lại file). NAP-03 ✅→⏳, NAP-04 ⚠️→⏳ (yêu cầu đổi, code lại phần này) | ✅ | ✅ | — tinh chỉnh màn tool có sẵn | ⬜ |
 | 18 | 02/10/2026 | ➕ Thêm + ✏️ Sửa | `HTG-04`, `HTG-05`, `HTG-06` | Quản lý tài khoản app web: admin xem API key VPS (HTG-04, SHOULD) · admin tạo/khóa tài khoản nhân viên + reset mật khẩu (HTG-05, MUST) · mọi người tự đổi mật khẩu (HTG-06, MUST). + **5 sửa UI (cả 2 app):** header cố định hết giật · khung cao ổn định không co theo nội dung · phân trang list (20/trang) · tool master–detail panel info+ảnh ghim · kính lúp đè chữ hint (fix `@layer components`) | ✅ | ✅ | ⬜ | 🟡 HTG-04/05/06 + UI-1/2/3/4/5 xong (code; server 82 test, build 2 app); chờ deploy VPS + verify |
 | 17 | 02/10/2026 | ✏️ Sửa | `QLY-01` | Lát 2 (sửa hồ sơ) — **thu hẹp phạm vi: chỉ sửa NHÂN THÂN** (họ tên, ngày sinh, giới tính, CCCD, địa chỉ TT) qua `usp_NguoiLX_Update`; **bỏ `usp_NguoiLX_HoSo_Update` khỏi QLY-01** (SP ghi đè 65 cột gồm kết quả thi/BC1/BC2 → rủi ro xóa trắng); ảnh→QLY-05, đổi khóa→QLY-02. Ghi an toàn: đọc lại full bản ghi giữ cột không sửa. Chặn khi khóa BC1 (BR-012) | ✅ | ✅ | ⬜ | ✅ code+test, chờ verify prod |
 | 16 | 01/10/2026 | ✏️ Sửa | `QLY-06` | Kiểm DB thật (chỉ đọc) chốt thiết kế QLY-06: SP `ThemMoiCapNhat` nạp mới **luôn tạo NguoiLX mới** (không dò người cũ); dữ liệu thật nhiều HV có **2–8 khóa chung SoCMT** → nạp khác khóa = nạp mới bình thường, không cần nối người. Gỡ 📝 Draft → ⏳ Todo | ✅ | — | ⬜ | ⬜ |
@@ -26,6 +27,16 @@
 Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên quan
 
 ---
+
+## #19 — Tận dụng dữ liệu kéo về VPS (tự điền địa chỉ + nạp ảnh sẵn) · 02/10/2026
+
+- **Mã:** `NAP-03`, `NAP-04` — tinh chỉnh hành vi ở luồng kéo-về (chế độ Nạp), không story mới.
+- **Vì sao:** user test tool phản ánh — hồ sơ kéo từ VPS về đã có địa chỉ (`noi_tt_raw`) và ảnh thô, nhưng tool vẫn bắt **gõ lại** địa chỉ vào ô map và **chọn lại file ảnh** trong trình chỉnh. Lãng phí dữ liệu đã có. TDD §8.1 (map từ "địa chỉ text") + §9.1 ("Ảnh thô từ VPS → khung crop") vốn đã định hướng tận dụng — code chưa hiện thực đủ.
+- **Mới — NAP-03:** chọn hồ sơ kéo về → tự tách `noi_tt_raw` ("…, Xã X, Huyện Y, Tỉnh Z") theo dấu phẩy + từ khóa (Tỉnh/TP→tỉnh, Quận/Huyện/Thị xã→huyện, Phường/Xã/Thị trấn→xã, phần dư→Chi tiết) → **điền sẵn** 3 ô map; operator bấm "Chuyển đổi sang xã mới". Tách là best-effort client (không gọi DB), **luôn cho sửa**; rỗng/không rõ → gõ tay như cũ. Giữ nguyên nút Chọn tay + map cốt lõi (đã verify 3321/3321).
+- **Mới — NAP-04:** ảnh thô đã kéo về nạp **thẳng vào trình chỉnh** (AnhModal) làm ảnh crop ban đầu — căn 3:4 + đổi nền ngay, không bắt chọn lại file; vẫn cho chọn file khác để thay. `AnhModal` nhận **prop ảnh khởi tạo TÙY CHỌN** → QLY-05/QLY-06 (cũng dùng AnhModal) mở không-ảnh-sẵn vẫn chạy như cũ.
+- **Đã sửa:** PRD `NAP-03`/`NAP-04` (Done khi + hạ trạng thái ⏳) · TDD §8.1 (bước tự tách) + §9.1 (nạp ảnh sẵn) + Changelog 2.1.
+- **Còn nợ:** code (tool/webui) — `/tieptheo` sẽ nhặt NAP-03/NAP-04 (đang ⏳) để code lại phần này.
+- **Code sẽ đụng:** `tool/webui/src/components/AddressCombo.tsx` (nhận địa chỉ gốc + điền sẵn + hàm tách) · `tool/webui/src/components/AnhModal.tsx` (nhận ảnh khởi tạo tùy chọn) · `tool/webui/src/pages/tool/NapHoSo.tsx` (truyền `noi_tt_raw` + ảnh đã tải vào 2 component).
 
 ## #18 — Quản lý tài khoản app web + 5 sửa UI · 02/10/2026
 
@@ -276,7 +287,7 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 > `/capnhat` đọc mục này ở Bước 0b để biết có thay đổi nào chưa ghi sổ không.
 > So bằng **danh sách mã**, không so bằng thời gian sửa file.
 
-- **Cập nhật:** 02/10/2026 (CHANGES #18)
-- **Số story trong PRD:** 21 (20 MUST/SHOULD gồm `THU-04` SHOULD + `HTG-04` SHOULD + `QLY-06` ⏳; chưa tính NICE `QLY-04`, `THU-03`)
+- **Cập nhật:** 02/10/2026 (CHANGES #19)
+- **Số story trong PRD:** 21 (20 MUST/SHOULD gồm `THU-04` SHOULD + `HTG-04` SHOULD + `QLY-06` ⏳; chưa tính NICE `QLY-04`, `THU-03`) — #19 không thêm/bớt story, chỉ sửa NAP-03/NAP-04
 - **Mã story hiện có:** `HTG-01`…`HTG-06`, `THU-01`, `THU-02`, `THU-04`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06` (NICE: `QLY-04`, `THU-03`)
 - **Mã đã nghỉ hưu:** (chưa có)

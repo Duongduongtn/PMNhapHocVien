@@ -1,18 +1,22 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon } from "./Icon";
 import { xuLyAnh, type AnhKetQua } from "../lib/api";
 
 // NAP-04: chọn ảnh thô → khung crop CỐ ĐỊNH 3:4 (kéo + zoom) → xóa phông nền trắng → .jp2.
 // Khung hiển thị 288×384 (3:4). Box crop tính theo pixel ảnh GỐC rồi gửi backend.
+// anhBanDau (CHANGES #19): URL ảnh thô đã kéo về từ VPS → nạp SẴN vào khung (không bắt chọn
+// lại file). TÙY CHỌN để QLY-05/QLY-06 mở không-ảnh-sẵn vẫn chạy như cũ.
 const FW = 288;
 const FH = 384;
 
 export default function AnhModal({
   onDong,
   onXong,
+  anhBanDau,
 }: {
   onDong: () => void;
   onXong?: (jp2_b64: string) => void;
+  anhBanDau?: string | null;
 }) {
   const [src, setSrc] = useState("");
   const [nat, setNat] = useState({ w: 0, h: 0 });
@@ -50,6 +54,22 @@ export default function AnhModal({
     };
     im.src = url;
   };
+
+  // Nạp sẵn ảnh thô kéo về từ VPS (CHANGES #19): tải URL → Blob → File → đưa vào khung crop.
+  // Lỗi tải (ảnh mất/đổi) chỉ bỏ qua — operator vẫn chọn file tay được.
+  useEffect(() => {
+    if (!anhBanDau) return;
+    let huy = false;
+    fetch(anhBanDau)
+      .then((r) => (r.ok ? r.blob() : Promise.reject()))
+      .then((b) => {
+        if (huy) return;
+        chonFile(new File([b], "anh-vps.jpg", { type: b.type || "image/jpeg" }));
+      })
+      .catch(() => {});
+    return () => { huy = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [anhBanDau]);
 
   const onZoom = (z: number) => {
     setZoom(z);
@@ -98,7 +118,7 @@ export default function AnhModal({
           </button>
         </div>
         <p className="text-[12px] text-muted-foreground mb-4">
-          Chọn ảnh, kéo và phóng to để canh mặt vào khung 3:4, rồi xóa phông → nền trắng.
+          Ảnh thô kéo về từ VPS được nạp sẵn (nếu có) — hoặc bấm "Chọn ảnh" để tải file khác. Kéo và phóng to canh mặt vào khung 3:4, rồi xóa phông → nền trắng.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-5">
