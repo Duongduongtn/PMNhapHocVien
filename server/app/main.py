@@ -14,7 +14,7 @@ from sqlalchemy import text
 from app.config import get_settings
 from app.db import engine
 from app.jobs.scheduler import tao_scheduler
-from app.routers import admin_users, auth, ho_so, nap
+from app.routers import admin, admin_users, auth, ho_so, nap
 
 
 @asynccontextmanager
@@ -34,6 +34,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Thu nhận hồ sơ — API VPS", version="0.1.0", lifespan=lifespan)
 
 app.include_router(auth.router)
+app.include_router(admin.router)
 app.include_router(admin_users.router)
 app.include_router(ho_so.router)
 app.include_router(nap.router)

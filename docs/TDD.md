@@ -257,9 +257,15 @@ Auth:      Bearer JWT (app web + tool đăng nhập người dùng)
 POST /api/auth/login            Đăng nhập → JWT
 POST /api/auth/logout           Thu hồi phiên
 GET  /api/auth/me               Thông tin user hiện tại
-POST /api/admin/users           (admin) tạo tài khoản
-PUT  /api/admin/users/:id       (admin) sửa vai trò/khóa
+POST /api/auth/doi-mat-khau     Tự đổi mật khẩu (kiểm mật khẩu hiện tại)        [HTG-06]
+GET  /api/admin/users           (admin) DS tài khoản, phân trang                [HTG-05]
+POST /api/admin/users           (admin) tạo tài khoản                           [HTG-05]
+PUT  /api/admin/users/:id       (admin) sửa vai trò / khóa-mở (is_active)       [HTG-05]
+POST /api/admin/users/:id/reset-mat-khau  (admin) đặt mật khẩu mới              [HTG-05]
+GET  /api/admin/tool-key        (admin) xem TOOL_API_KEY để cấu hình tool       [HTG-04]
 ```
+
+> **HTG-04/05/06 — bảo mật (§5.3):** `GET /api/admin/tool-key`, `GET|POST|PUT /api/admin/users*`, reset mật khẩu → `require_role("admin")`. `POST /api/auth/doi-mat-khau` cho mọi vai trò nhưng **chỉ đổi của chính mình** (theo `sub` trong JWT, không nhận user_id ngoài). Mật khẩu **băm bcrypt** trước khi lưu; **không log** giá trị `TOOL_API_KEY` lẫn mật khẩu. Khóa/mở bằng `is_active` (KHÔNG xóa cứng — giữ dấu vết PII); chặn admin tự khóa chính mình (so `id` với user hiện tại). `tool-key` đọc `get_settings().tool_api_key`; endpoint này **mở rộng bề mặt lộ secret** — đánh đổi đã chốt ở PRD `HTG-04`, bù lại chỉ admin + không cache/không log.
 
 ### 4.3 Hồ sơ thu thập (app web — collector)
 ```
@@ -834,3 +840,4 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 | 01/10/2026 | 1.6 | Thêm §11.5 Nạp/thay ảnh cho HV đã có (QLY-05) — dùng lại hướng A §10.3, làm sau NAP-05. Xem CHANGES.md #5. |
 | 01/10/2026 | 1.5 | Sửa sau review TDD (đọc thân SP + verify DB thật): **SP không ghi ảnh** → thêm bước UPDATE 5 cột ảnh (hướng A) nâng `TT_XuLy` `01`→`03`, chưa ảnh giữ `01` (§10.1, §10.1b, §10.3); chốt `@p_MaDK=NULL`→SP sinh (OUTPUT), `SoHoSo` caller truyền, SP tự tách họ tên; xử lý mã lỗi `@p_out` (-1..-4, SP không raiserror) + `SET XACT_ABORT ON`; sửa `GiayCNSK` (theo giấy 3) + `MaLoaiHs` (thêm case 3) + tên tham số `IMG_PATH_CSDT`. Biên bản `docs/tdd-review-01-10-2026.md`. |
 | 01/10/2026 | 1.9 | Xác thực tool cho `/local/*` (task 17, HTG-01③): thêm §5.5 + TDD-decisions §4a — option A (tool gọi VPS `/api/auth/login` thay mặt → phát session cục bộ; collector 403), A1 miễn token `/local/config*` + `/local/auth/*`; §4.2/§4.6 thêm endpoint `/local/auth/*`. Còn mở: 1 hay n phiên. Xem CHANGES.md #8. |
+| 02/10/2026 | 2.0 | Quản lý tài khoản app web (HTG-04/05/06): §4.2 thêm `POST /api/auth/doi-mat-khau`, `GET|POST|PUT /api/admin/users*`, `POST /api/admin/users/:id/reset-mat-khau`, `GET /api/admin/tool-key` + ghi chú bảo mật (chỉ admin, băm bcrypt, không log secret, khóa bằng `is_active` không xóa cứng, chặn admin tự khóa). +5 sửa UI khung (header cố định, khung cao ổn định, phân trang 20/trang, tool master–detail panel ảnh ghim, fix kính lúp đè chữ bằng `@layer components`). Xem CHANGES.md #18. |

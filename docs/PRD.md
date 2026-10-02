@@ -401,6 +401,54 @@
 
 > Nguồn: CAP-015 · BR-016
 
+#### [HTG-04] Admin xem khóa kết nối tool (API key VPS)
+
+**Trạng thái:** ⚠️ Partial — 02/10/2026. Code xong: endpoint `GET /api/admin/tool-key` (chỉ admin) + khối API key ở màn Tài khoản (che/Hiện/Sao chép, chỉ tải key khi bấm). Kiểm: server 82 test + webapp build. **Chờ deploy VPS + verify** (admin đăng nhập app web thấy key, dán vào tool).
+**Story:** Là quản trị, tôi muốn xem khóa kết nối tool (API key VPS) ngay trên app web, để cấu hình tool mà không phải SSH vào máy chủ.
+
+**Done khi:**
+- ✅ Màn Tài khoản có khối "Khóa kết nối tool" **chỉ admin thấy**; key che sẵn (••••), nút **Hiện** + **Sao chép**; kèm dòng hướng dẫn dán vào tool → Cấu hình → API key.
+- ✅ Endpoint `GET /api/admin/tool-key` chỉ admin (`require_role("admin")`) trả `TOOL_API_KEY` từ cấu hình server; **không ghi log** giá trị key.
+- ❌ Không xoay/đổi key tự động (chỉ hiển thị cái đang có); không hiện cho collector/operator.
+
+**Đánh đổi (bảo mật — chủ dự án đã duyệt):** key là khóa máy dùng chung; ai chiếm được tài khoản admin hoặc nhìn lén màn hình là lấy được, lộ thì phải xoay lại thủ công (`.env` + cấu hình tool). Chấp nhận để đổi lấy tiện lợi cấu hình.
+
+> Nguồn: user 02/10/2026 (CHANGES #18) · thay việc SSH lấy TOOL_API_KEY
+
+#### [HTG-05] Admin quản lý tài khoản nhân viên
+
+**Trạng thái:** ⚠️ Partial — 02/10/2026. Code xong: màn "Quản lý tài khoản" (danh sách + phân trang 20/50/100) · tạo (họ tên/username/vai trò/mật khẩu + nút ngẫu nhiên) · reset mật khẩu · khóa/mở (`is_active`, chặn tự khóa). Server `GET|POST|PUT /api/admin/users*` + reset endpoint + 13 test. **Còn nợ:** "buộc đổi mật khẩu lần đầu" (hoãn — cần thêm cột DB `must_change_password` + xử lý ở cả tool login). **Chờ deploy VPS + verify.**
+**Story:** Là quản trị, tôi muốn tạo và quản lý tài khoản nhân viên (thu nhận / nạp DB), để cấp quyền dùng hệ thống mà không phải đụng cơ sở dữ liệu.
+
+**Done khi:**
+- ✅ Màn "Quản lý tài khoản" (chỉ admin): danh sách tài khoản (tên, tài khoản, vai trò, trạng thái) có **phân trang**.
+- ✅ Tạo nhân viên: họ tên · tài khoản (username) · vai trò (thu nhận / nạp DB / quản trị) · mật khẩu ban đầu (có nút tạo ngẫu nhiên) · tùy chọn "buộc đổi mật khẩu lần đăng nhập đầu".
+- ✅ Reset mật khẩu nhân viên: admin đặt mật khẩu mới trực tiếp (hệ thống không có email).
+- ✅ Khóa/mở tài khoản (`is_active`) thay cho xóa — giữ dấu vết ai gửi/nạp hồ sơ (PII).
+- ✅ Mọi endpoint chỉ admin (`require_role("admin")`); mật khẩu **băm** trước khi lưu; tài khoản trùng → báo lỗi.
+- ❌ Không xóa cứng tài khoản.
+
+**Edge cases:**
+| Tình huống | Hành vi mong muốn |
+|---|---|
+| Admin tự khóa chính mình | Chặn — không cho khóa/vô hiệu tài khoản đang đăng nhập |
+| Username đã tồn tại | Báo lỗi, không tạo |
+
+> Nguồn: user 02/10/2026 (CHANGES #18) · HTG-01 ba vai trò collector/operator/admin
+
+#### [HTG-06] Tự đổi mật khẩu
+
+**Trạng thái:** ⚠️ Partial — 02/10/2026. Code xong: khối "Đổi mật khẩu" ở màn Tài khoản (mọi vai trò) + endpoint `POST /api/auth/doi-mat-khau` (kiểm mật khẩu hiện tại, chỉ đổi của chính mình). Kiểm: server 82 test + webapp build. **Chờ deploy VPS + verify.**
+**Story:** Là người dùng bất kỳ (gồm admin), tôi muốn tự đổi mật khẩu của mình ở màn Tài khoản, để giữ an toàn đăng nhập.
+
+**Done khi:**
+- ✅ Màn Tài khoản có khối "Đổi mật khẩu": mật khẩu hiện tại · mật khẩu mới · nhập lại.
+- ✅ Endpoint đổi mật khẩu của chính mình: kiểm mật khẩu hiện tại đúng mới cho đổi; mật khẩu mới **băm** trước khi lưu.
+- ✅ Sai mật khẩu hiện tại → báo rõ; "nhập lại" không khớp → chặn phía UI trước khi gửi.
+- ❌ Không đổi mật khẩu người khác (đó là HTG-05 của admin).
+
+> Nguồn: user 02/10/2026 (CHANGES #18)
+
 ---
 
 ### 🟠 NICE TO HAVE (sau này thêm)

@@ -4,6 +4,7 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 18 | 02/10/2026 | ➕ Thêm + ✏️ Sửa | `HTG-04`, `HTG-05`, `HTG-06` | Quản lý tài khoản app web: admin xem API key VPS (HTG-04, SHOULD) · admin tạo/khóa tài khoản nhân viên + reset mật khẩu (HTG-05, MUST) · mọi người tự đổi mật khẩu (HTG-06, MUST). + **5 sửa UI (cả 2 app):** header cố định hết giật · khung cao ổn định không co theo nội dung · phân trang list (20/trang) · tool master–detail panel info+ảnh ghim · kính lúp đè chữ hint (fix `@layer components`) | ✅ | ✅ | ⬜ | 🟡 HTG-04/05/06 + UI-5 xong (server 82 test, webapp build); UI-1/2/3/4 + deploy còn |
 | 17 | 02/10/2026 | ✏️ Sửa | `QLY-01` | Lát 2 (sửa hồ sơ) — **thu hẹp phạm vi: chỉ sửa NHÂN THÂN** (họ tên, ngày sinh, giới tính, CCCD, địa chỉ TT) qua `usp_NguoiLX_Update`; **bỏ `usp_NguoiLX_HoSo_Update` khỏi QLY-01** (SP ghi đè 65 cột gồm kết quả thi/BC1/BC2 → rủi ro xóa trắng); ảnh→QLY-05, đổi khóa→QLY-02. Ghi an toàn: đọc lại full bản ghi giữ cột không sửa. Chặn khi khóa BC1 (BR-012) | ✅ | ✅ | ⬜ | ✅ code+test, chờ verify prod |
 | 16 | 01/10/2026 | ✏️ Sửa | `QLY-06` | Kiểm DB thật (chỉ đọc) chốt thiết kế QLY-06: SP `ThemMoiCapNhat` nạp mới **luôn tạo NguoiLX mới** (không dò người cũ); dữ liệu thật nhiều HV có **2–8 khóa chung SoCMT** → nạp khác khóa = nạp mới bình thường, không cần nối người. Gỡ 📝 Draft → ⏳ Todo | ✅ | — | ⬜ | ⬜ |
 | 15 | 01/10/2026 | ✏️ Sửa | `THU-02` | Ảnh app web: tách **2 nút "Chụp ảnh" (camera) / "Chọn từ máy" (file·thư viện)** ở màn chụp + đổi ảnh hồ sơ Chờ nạp (trước ép camera, mobile không chọn được thư viện); bấm ảnh chân dung ở chi tiết → **phóng to popup (lightbox)** | ✅ | — | ⬜ | ✅ deploy |
@@ -23,6 +24,25 @@
 | 1 | 01/10/2026 | ✏️ Sửa | — | Đổi nơi lưu bảng ánh xạ `DM_DVHC_MAP`: GPLX_CSDT → SQLite cục bộ của tool | — | ✅ | — | ✅ (task 5) |
 
 Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên quan
+
+---
+
+## #18 — Quản lý tài khoản app web + 5 sửa UI · 02/10/2026
+
+- **Mã:** `HTG-04` (SHOULD), `HTG-05` (MUST), `HTG-06` (MUST) — thêm vào nhóm HTG.
+- **Vì sao:** chủ dự án cần tự vận hành tài khoản (tạo nhân viên, đổi mật khẩu) + lấy API key tool khỏi phải SSH; đồng thời phản ánh vài lỗi khung UI.
+- **HTG-04 — Admin xem API key VPS:** endpoint `GET /api/admin/tool-key` (chỉ admin) + khối ở màn Tài khoản (che/Hiện/Sao chép). **Đánh đổi bảo mật đã ghi ở PRD** (khóa dùng chung, lộ phải xoay). Không đổi `require_tool_key`, không xoay key.
+- **HTG-05 — Quản lý tài khoản nhân viên:** màn admin (danh sách + phân trang) · tạo (họ tên/username/vai trò/mật khẩu ban đầu/buộc đổi lần đầu) · reset mật khẩu · khóa/mở (`is_active`, **không xóa cứng** để giữ dấu vết PII). Chặn admin tự khóa mình.
+- **HTG-06 — Tự đổi mật khẩu:** khối ở màn Tài khoản (mọi vai trò); kiểm mật khẩu hiện tại trước khi đổi.
+- **5 sửa UI (polish, không phải story):**
+  - UI-1 Header cố định, hết giật — khóa khung = chiều cao màn hình, chỉ pane cuộn (nguyên nhân cũ: `h-[100dvh]` nhảy theo thanh địa chỉ; desktop thiếu header).
+  - UI-2 Khung desktop cao ổn định — bỏ co theo nội dung (`lg:h-auto` → chiều cao tối thiểu đầy viewport).
+  - UI-3 Phân trang list 20/trang (app web `DaGui` server-side; tool list client-side), đổi cỡ 20/50/100.
+  - UI-4 Tool giống app Windows — master–detail: list trái cuộn, panel info+ảnh phải **ghim**; màn hẹp xếp dọc.
+  - UI-5 Kính lúp đè chữ hint (cả 2 app) — gốc: `.field-input` đặt `padding` ngoài `@layer` nên thắng tiện ích `pl-*` của Tailwind → padding trái bị bỏ. Fix: bọc class component vào `@layer components`.
+- **Chạm story đã xong:** UI-3 thêm phân trang cho `THU-02` (✅) và `QLY-01` (⚠️); UI-1/2/5 chạm khung chung (`HTG-01`). Code sửa trong cùng đợt này → cập nhật trạng thái sau khi build xong, không để ✅ sai.
+- **Đã code (02/10):** server HTG-04/05/06 (`admin.py` tool-key · `admin_users.py` list/reset/chặn tự khóa · `auth.py` đổi mật khẩu) + 13 test (server 82 pass); webapp (màn Tài khoản: đổi mật khẩu + API key admin + link quản lý · màn Quản lý tài khoản: list phân trang/tạo/reset/khóa) + route admin-only; UI-5 fix kính lúp (`@layer components`, cả 2 app).
+- **Còn nợ:** UI-1/2 (header cố định + khung cao ổn định 2 app) · UI-3 phân trang `DaGui` app web + list tool · UI-4 tool master–detail panel ảnh ghim · "buộc đổi mật khẩu lần đầu" của HTG-05 (hoãn — cần cột DB `must_change_password` + xử lý tool login) · **deploy VPS** để HTG-04/05/06 chạy thật.
 
 ---
 
@@ -254,7 +274,7 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 > `/capnhat` đọc mục này ở Bước 0b để biết có thay đổi nào chưa ghi sổ không.
 > So bằng **danh sách mã**, không so bằng thời gian sửa file.
 
-- **Cập nhật:** 02/10/2026 (CHANGES #17)
-- **Số story trong PRD:** 18 (17 MUST/SHOULD gồm `THU-04` + `QLY-06` 📝 Draft; chưa tính NICE `QLY-04`, `THU-03`)
-- **Mã story hiện có:** `HTG-01`, `HTG-02`, `HTG-03`, `THU-01`, `THU-02`, `THU-04`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06` (NICE: `QLY-04`, `THU-03`)
+- **Cập nhật:** 02/10/2026 (CHANGES #18)
+- **Số story trong PRD:** 21 (20 MUST/SHOULD gồm `THU-04` SHOULD + `HTG-04` SHOULD + `QLY-06` ⏳; chưa tính NICE `QLY-04`, `THU-03`)
+- **Mã story hiện có:** `HTG-01`…`HTG-06`, `THU-01`, `THU-02`, `THU-04`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06` (NICE: `QLY-04`, `THU-03`)
 - **Mã đã nghỉ hưu:** (chưa có)

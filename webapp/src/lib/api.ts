@@ -57,6 +57,63 @@ export const layMe = () => fetch(`${BASE}/api/auth/me`, { headers: authHeaders()
 export const dangXuat = () =>
   fetch(`${BASE}/api/auth/logout`, { method: "POST", headers: authHeaders() });
 
+// Phản hồi không có nội dung (204) — kiểm lỗi, không parse JSON.
+async function ok(r: Response): Promise<void> {
+  if (!r.ok) {
+    const d = await r.json().catch(() => null);
+    throw new ApiError(r.status, d?.detail || `${r.status} ${r.statusText}`);
+  }
+}
+
+// ---- HTG-06: tự đổi mật khẩu ----
+export const doiMatKhau = (mat_khau_hien_tai: string, mat_khau_moi: string) =>
+  fetch(`${BASE}/api/auth/doi-mat-khau`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ mat_khau_hien_tai, mat_khau_moi }),
+  }).then(ok);
+
+// ---- HTG-04: admin xem khóa kết nối tool (API key VPS) ----
+export const layToolKey = () =>
+  fetch(`${BASE}/api/admin/tool-key`, { headers: authHeaders() }).then(json<{ tool_key: string }>);
+
+// ---- HTG-05: admin quản lý tài khoản nhân viên ----
+export interface TaiKhoan {
+  id: string;
+  username: string;
+  ho_ten: string | null;
+  vai_tro: string;
+  is_active: boolean;
+}
+export interface TaoTaiKhoanIn {
+  username: string;
+  password: string;
+  ho_ten?: string | null;
+  vai_tro: string;
+}
+export const dsTaiKhoan = (limit = 20, offset = 0) =>
+  fetch(`${BASE}/api/admin/users?limit=${limit}&offset=${offset}`, { headers: authHeaders() }).then(
+    json<{ items: TaiKhoan[]; total: number }>,
+  );
+export const taoTaiKhoan = (body: TaoTaiKhoanIn) =>
+  fetch(`${BASE}/api/admin/users`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(body),
+  }).then(json<TaiKhoan>);
+export const suaTaiKhoan = (id: string, body: Partial<{ ho_ten: string; vai_tro: string; is_active: boolean }>) =>
+  fetch(`${BASE}/api/admin/users/${id}`, {
+    method: "PUT",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(body),
+  }).then(json<TaiKhoan>);
+export const resetMatKhauTaiKhoan = (id: string, password: string) =>
+  fetch(`${BASE}/api/admin/users/${id}/reset-mat-khau`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ password }),
+  }).then(json<TaiKhoan>);
+
 // ---- Hồ sơ thu thập (THU-02) ----
 // Khớp HoSoIn của server (server/app/routers/ho_so.py). uuid do client sinh (idempotent).
 export interface HoSoGui {
