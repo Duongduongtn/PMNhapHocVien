@@ -4,7 +4,9 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
-| 22 | 02/10/2026 | ➕ Thêm + ✏️ Sửa + 🐛 | `QLY-01`, `QLY-03`, `QLY-05`, `QLY-07`, `NAP-01` | Mở rộng quản lý ảnh Tra cứu DB + bảo toàn Báo cáo 1/2: xem ảnh+đường dẫn+avatar+thống kê (QLY-01) · 🐛 giữ `TT_XuLy` khi thay ảnh HV đã Báo cáo (QLY-05, tránh rơi khỏi BC2) + click ảnh từ Tra cứu DB · chặn xóa HV khóa BC1 ở backend (QLY-03) · "Bỏ khỏi hàng đợi"+"Nạp lại nhanh" (NAP-01) · **story mới QLY-07** đổi nền cả khóa | ✅ | ✅ | ⬜ wireframe chốt | ⬜ |
+| 24 | 02/10/2026 | ➕ Thêm + ✏️ Sửa | `QLY-08`, `THU-05`, `NAP-01` | Đồng bộ gỡ/xóa hồ sơ (verify #22): **QLY-08 mới** — nút "Gỡ về chờ nạp" ở tool (gỡ HV khỏi CSDT + VPS imported→pending + về hàng chờ), tách bạch "Xóa" bỏ hẳn, chỉ khóa chưa BC1, ảnh dùng ảnh thô VPS · **THU-05 mới** — app web collector xóa hồ sơ đã gửi (chỉ pending, soft-delete VPS, của mình/admin) · **NAP-01 mở rộng** — "Kéo về từ VPS" đồng bộ bỏ hồ sơ đã xóa khỏi hàng chờ. Đụng cả tool + **server VPS** (đường mới) + app web | ✅ | ✅ | ✅ ghi UX (không dựng màn) | ⬜ |
+| 23 | 02/10/2026 | ✏️ Sửa (UI) | `NAP-04`, `QLY-05`, `QLY-06` | Sửa UX quản lý ảnh + nhãn nút (phát hiện khi verify #22): sau "Dùng ảnh này" **hiện ảnh đã chỉnh** (bản PNG, không chỉ icon check) + **mở lại trình chỉnh nạp sẵn ảnh đã chỉnh** để chỉnh tiếp (NAP-04/QLY-05) · nút áp dụng ảnh **nổi bật + nhãn rõ** (tránh dừng ở "Xử lý ảnh" tưởng đã lưu) · nút **"Mở khóa khác" → "Tạo thêm hồ sơ ở khóa học khác hạng"**, giữ hiển thị cả ở khóa BC1 (QLY-06). Thuần UI, backend `/local/anh/xu-ly` đã trả `preview` sẵn | ✅ | ✅ ghi chú §9.1 | ✅ ghi UX (không dựng màn) | ⬜ |
+| 22 | 02/10/2026 | ➕ Thêm + ✏️ Sửa + 🐛 | `QLY-01`, `QLY-03`, `QLY-05`, `QLY-07`, `NAP-01` | Mở rộng quản lý ảnh Tra cứu DB + bảo toàn Báo cáo 1/2: xem ảnh+đường dẫn+avatar+thống kê (QLY-01) · 🐛 giữ `TT_XuLy` khi thay ảnh HV đã Báo cáo (QLY-05, tránh rơi khỏi BC2) + click ảnh từ Tra cứu DB · chặn xóa HV khóa BC1 ở backend (QLY-03) · "Bỏ khỏi hàng đợi"+"Nạp lại nhanh" (NAP-01) · **story mới QLY-07** đổi nền cả khóa | ✅ | ✅ | ⬜ wireframe chốt | ✅ code+push, chờ verify prod |
 | 21 | 02/10/2026 | ✏️ Sửa | `NAP-04` | Zoom trình chỉnh ảnh (phản hồi test): cho **thu nhỏ dưới cỡ ban đầu** (trước lấy ảnh gốc làm mốc nhỏ nhất) · thang zoom **mặc định ở GIỮA** (trái thu nhỏ, phải phóng to, mũ 3^t) · **lăn chuột** trên khung để phóng/thu | ✅ | ✅ | — tinh chỉnh AnhModal | ✅ code+build+Playwright, ⚠️ chờ verify |
 | 20 | 02/10/2026 | ➕ Thêm + ⚙️ | `NAP-04` | Nâng cấp trình chỉnh ảnh (phản hồi test tool): +xoay ảnh (−90°/+90° + tinh chỉnh độ nghiêng) · +khung chân dung mẫu overlay (ô-van+đường căn, không dính ảnh xuất) · tăng tốc xóa phông = bật warm-up rembg (bỏ `TOOL_SKIP_WARMUP=1` ở `tool-start.bat`), GIỮ model u2net (phương án A). NAP-04 ⚠️→⏳ | ✅ | ✅ | — tinh chỉnh AnhModal có sẵn | ⬜ |
 | 19 | 02/10/2026 | ✏️ Sửa | `NAP-03`, `NAP-04` | Tận dụng dữ liệu đã kéo từ VPS ở màn Nạp (kéo-về): NAP-03 tự tách `noi_tt_raw` → điền sẵn ô map (operator chỉ bấm Chuyển đổi; tách không chắc thì gõ tay) · NAP-04 nạp thẳng ảnh thô VPS vào trình chỉnh (không bắt chọn lại file). NAP-03 ✅→⏳, NAP-04 ⚠️→⏳ (yêu cầu đổi, code lại phần này) | ✅ | ✅ | — tinh chỉnh màn tool có sẵn | ⬜ |
@@ -28,6 +30,45 @@
 | 1 | 01/10/2026 | ✏️ Sửa | — | Đổi nơi lưu bảng ánh xạ `DM_DVHC_MAP`: GPLX_CSDT → SQLite cục bộ của tool | — | ✅ | — | ✅ (task 5) |
 
 Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên quan
+
+---
+
+## #24 — Đồng bộ gỡ/xóa hồ sơ: tool ↔ VPS ↔ app web · 02/10/2026
+
+- **Mã:** `QLY-08` (MỚI), `THU-05` (MỚI), `NAP-01` (mở rộng). Prefix cũ, không nghỉ hưu mã.
+- **Vì sao:** buổi verify #22, chủ dự án nêu 2 nhu cầu đồng bộ chưa có:
+  - Nạp nhầm khóa → muốn **gỡ HV ra và trả về danh sách chờ nạp** (nạp lại đúng khóa), VPS cập nhật theo, ảnh vẫn hiện. Nút "Xóa" hiện tại chỉ bỏ hẳn ở CSDT, không trả về.
+  - Collector gửi nhầm ở app web → muốn **xóa hồ sơ đã gửi**, và tool kéo về thì hồ sơ đó **biến mất khỏi hàng chờ**.
+- **Chốt (chủ dự án, 02/10/2026):**
+  - **QLY-08** là nút **RIÊNG** ("Gỡ về chờ nạp"), **giữ "Xóa"** để bỏ hẳn hồ sơ rác/trùng. Chỉ khóa **chưa BC1** (BC1 cấm như QLY-03). HV đã có GPLX → FK chặn. Bản ghi VPS đã dọn PII → báo không gỡ được.
+  - **Nâng cấp server VPS**: thêm đường `tra-ve-cho-nap` (imported→pending, gỡ ma_dk). Ảnh khi về chờ nạp dùng **ảnh thô còn trên VPS** (không chuyển ngược .jp2).
+  - **THU-05**: chỉ xóa hồ sơ **chưa nạp** (`pending`); **soft-delete** trên VPS (trạng thái `deleted` + audit_log, giữ vết); phân quyền **collector của mình / admin bất kỳ**.
+  - **NAP-01**: "Kéo về từ VPS" đồng bộ **bỏ** dòng staging `pending` đã thành `deleted` trên VPS.
+- **Đã sửa:** PRD +story `QLY-08` (nhóm QLY) · +story `THU-05` (nhóm THU) · `NAP-01` +Done khi (đồng bộ xóa, hạ ✅→⏳). TDD §4.3 +DELETE hồ sơ · §4.4 +tra-ve-cho-nap · §7.1 +2 chuyển trạng thái · §11.7 mới · §6 +nút Xóa app web · Changelog 2.7. SCREENS +2 quyết định UX (lượt 15, không dựng màn).
+- **Hạ trạng thái:** `NAP-01` ✅→⏳ (thêm đồng bộ xóa — phần cũ vẫn đúng, story quay lại hàng đợi).
+- **Code sẽ đụng:** **server VPS** `server/app` (endpoint `DELETE /api/ho-so/:uuid` soft-delete + `POST /api/nap/:uuid/tra-ve-cho-nap` + kéo trả tập uuid đã deleted) · **tool** `tool/app/vps.py` (hàm gọi mới) + `tool/app/routers/hoso.py` (`go-ve-cho-nap`) + `tool/app/nap.py` (staging: về pending / đồng bộ bỏ deleted) + `tool/webui/.../TraCuuDB.tsx` (nút Gỡ) · **app web** `webapp/src` (`DaGui` nút Xóa). Dùng lại trạng thái `deleted` + `audit_log` sẵn có — không bảng mới.
+- **Còn nợ:** `/reviewtdd` (TDD đổi API + nghiệp vụ + state machine VPS) · `/kehoach` bổ sung (task mới đụng 3 nơi: server VPS + tool + app web) · code · verify thật.
+- **Không đụng:** schema DB CSDT (chỉ đọc/xóa qua SP có sẵn) · bảng VPS mới (tái dùng trạng thái `deleted`).
+
+---
+
+## #23 — Sửa UX quản lý ảnh + nhãn nút (phát hiện khi verify #22) · 02/10/2026
+
+- **Mã:** `NAP-04` (sửa), `QLY-05` (sửa), `QLY-06` (đổi nhãn). Không thêm/nghỉ hưu mã.
+- **Vì sao:** buổi verify #22 trên máy CSDT, chủ dự án gặp 3 vướng ở phần ảnh:
+  - **Chỉnh ảnh xong không xem lại được + mở lại phải chỉnh từ đầu:** sau "Dùng ảnh này", khung ảnh chỉ hiện **icon check** (không hiện ảnh thật), và "Mở trình chỉnh ảnh" lần sau nạp lại **ảnh thô VPS** thay vì ảnh đã chỉnh. Kỳ vọng đúng: xem lại được ảnh vừa chỉnh + mở ra chỉnh tiếp trên ảnh mới nhất.
+  - **Dễ tưởng đã lưu ở bước "Xử lý ảnh":** nút áp dụng ("Dùng ảnh này") mờ (viền) + nhãn không rõ là bước lưu → operator dừng ở "Xử lý ảnh", ảnh chưa vào hồ sơ.
+  - **Nhãn nút "Mở khóa khác" (QLY-06) gây hiểu nhầm** là *chuyển* HV sang khóa khác (nguy hiểm với khóa đã báo cáo) — thực chất nó **tạo hồ sơ MỚI ở khóa khác hạng, giữ hồ sơ cũ** (học thêm hạng).
+- **Chốt (chủ dự án, 02/10/2026):**
+  - Giữ **bản xem trước PNG** (backend `/local/anh/xu-ly` đã trả ở field `preview`) cạnh `jp2` trong nháp → khung ảnh hiện **ảnh đã chỉnh**; mở lại trình chỉnh ưu tiên **ảnh đã chỉnh gần nhất**. Lý do dùng PNG: `.jp2` trình duyệt không render trực tiếp.
+  - Nút áp dụng ảnh để **nổi bật (nút đặc màu chính)** + badge kết quả ghi rõ *"đã xử lý — bấm để áp dụng"*.
+  - Nút đổi nhãn **"Tạo thêm hồ sơ ở khóa học khác hạng"**, **giữ hiển thị cả ở khóa đã BC1** (không đụng báo cáo cũ) — phân biệt với "Đổi khóa" (QLY-02, chuyển cùng hạng, đã ẩn khi BC1).
+  - Lưu ý nghiệp vụ: ở **tab Nạp**, "Dùng ảnh này" chỉ đưa ảnh vào **nháp trong trình duyệt**; ảnh chỉ thật sự ghi khi bấm "Nạp HV vào khóa".
+- **Đã sửa:** PRD `NAP-04` (+3 Done khi, hạ ⏳) · PRD `QLY-05` (+Done khi, hạ ⏳) · PRD `QLY-06` (nhãn nút + giữ ở BC1, hạ ⏳) · TDD §9.1 ghi chú giữ `preview` + Changelog 2.6 · SCREENS +2 quyết định UX (lượt 14, không dựng màn).
+- **Hạ trạng thái:** `NAP-04` ⚠️→⏳ · `QLY-05` 🔄→⏳ · `QLY-06` ⚠️→⏳ (yêu cầu UI đổi — code cũ chạy đúng nhưng phần UI phải làm lại, story quay lại hàng đợi).
+- **Code sẽ đụng:** `tool/webui/src/components/AnhModal.tsx` (nút áp dụng nổi bật + nhãn; trả kèm `preview`) · `tool/webui/src/pages/tool/NapHoSo.tsx` (lưu `preview` vào `nhap[uuid]`, khung ảnh hiện preview, `anhBanDau` ưu tiên preview) · `tool/webui/src/pages/tool/TraCuuDB.tsx` (hiện ảnh mới sau lưu + mở lại chỉnh tiếp; đổi nhãn nút "khóa khác") · có thể `lib/api.ts` (kiểu trả `xuLyAnh`).
+- **TÁCH riêng (KHÔNG trong đợt này):** ❓ D — gỡ HV khỏi khóa → trả về **chờ nạp** + cập nhật VPS + giữ ảnh. Tính năng mới lớn (đụng DB CSDT + VPS), bàn `/capnhat` riêng.
+- **Không đụng:** backend xử lý/ghi ảnh (đã trả `preview` sẵn) · DB đích · server VPS · app web.
 
 ---
 
@@ -331,7 +372,7 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 > `/capnhat` đọc mục này ở Bước 0b để biết có thay đổi nào chưa ghi sổ không.
 > So bằng **danh sách mã**, không so bằng thời gian sửa file.
 
-- **Cập nhật:** 02/10/2026 (CHANGES #22)
-- **Số story trong PRD:** 22 (21 MUST/SHOULD gồm `THU-04` SHOULD + `HTG-04` SHOULD + `QLY-06` ⏳ + `QLY-07` MỚI; chưa tính NICE `QLY-04`, `THU-03`) — #22 thêm story `QLY-07`
-- **Mã story hiện có:** `HTG-01`…`HTG-06`, `THU-01`, `THU-02`, `THU-04`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07` (NICE: `QLY-04`, `THU-03`)
+- **Cập nhật:** 02/10/2026 (CHANGES #24 — +2 story: QLY-08, THU-05)
+- **Số story trong PRD:** 24 (23 MUST/SHOULD gồm `THU-04` SHOULD + `THU-05` + `HTG-04` SHOULD + `QLY-06` ⏳ + `QLY-07` + `QLY-08`; chưa tính NICE `QLY-04`, `THU-03`)
+- **Mã story hiện có:** `HTG-01`…`HTG-06`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08` (NICE: `QLY-04`, `THU-03`)
 - **Mã đã nghỉ hưu:** (chưa có)

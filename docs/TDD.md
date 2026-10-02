@@ -275,6 +275,7 @@ PUT  /api/ho-so/:uuid           Sửa (khi pending)
 POST /api/ho-so/:uuid/anh       Upload ảnh thô (multipart)
 GET  /api/ho-so/:uuid/anh       Tải lại ảnh thô CỦA MÌNH (hiện thumbnail list/chi tiết — THU-02, CHANGES #12)
 GET  /api/ho-so/kiem-trung?cccd=<>  Kiểm CCCD đã có hồ sơ pending/importing trong hàng đợi CSDT — cảnh báo mềm (THU-04, CHANGES #13)
+DELETE /api/ho-so/:uuid         Xóa hồ sơ đã gửi — SOFT-DELETE (trang_thai→'deleted'), CHỈ khi 'pending'; collector CHỈ của mình (kiểm created_by, chống IDOR), admin bất kỳ; 'importing'/'imported'→409. Ghi audit_log (THU-05, CHANGES #24)
 ```
 
 ### 4.4 Nạp (tool — operator, kèm X-Tool-Key)
@@ -283,6 +284,7 @@ GET  /api/nap/keo?limit=200     Kéo DS pending (không lấy imported/deleted);
 POST /api/nap/:uuid/lock        Khóa bản ghi (→ importing) trước khi nạp
 POST /api/nap/:uuid/da-nap      Đánh dấu da_nap (kèm ma_dk) + mở khóa
 POST /api/nap/:uuid/unlock      Mở khóa khi nạp lỗi (→ pending)
+POST /api/nap/:uuid/tra-ve-cho-nap  Trả hồ sơ ĐÃ NẠP về chờ nạp (imported→pending, gỡ ma_dk) — tool gọi sau khi gỡ HV khỏi CSDT (QLY-08, CHANGES #24). Bản ghi đã 'deleted' → 409 (không còn để trả về)
 ```
 
 ### 4.5 Quản trị PII (admin)
@@ -465,6 +467,7 @@ Lọc **phía client** trên danh sách `/api/ho-so/cua-toi` đã tải (không 
 - **Badge "Thiếu ảnh" + bộ lọc** (THU-02): lọc **phía client** trên `co_anh` của `/api/ho-so/cua-toi` (đã có field). Badge ở list card/table + chi tiết; thêm một lựa chọn lọc "Thiếu ảnh" cạnh tab trạng thái. Chụp bù vẫn qua nút "Thêm ảnh" khi `pending` (đã có). Không thêm endpoint. Thuần client `DaGui.tsx`.
 - **Cảnh báo trùng CCCD** (THU-04): thêm `GET /api/ho-so/kiem-trung?cccd=` (collector) → đếm hồ sơ `pending`/`importing` cùng CSDT có `so_cccd` khớp (loại trừ chính `uuid` đang gửi). >0 → trả thông tin (ai gửi, lúc nào) để app hiện **banner cảnh báo mềm** (chuẩn ⑥), **vẫn cho gửi**. Mất mạng/khi gọi lỗi → bỏ qua, không chặn. KHÔNG đối chiếu SQL Server (app web không nối DB) — chốt trùng thật ở NAP-06. Server validate `cccd` (12 số) từ chối sớm; client hủy request cũ bằng `AbortController`.
 - **UX nhập liệu** (THU-01/THU-02, CHANGES #14): **ẩn ô CMND cũ** khỏi form (giá trị từ QR vẫn giữ trong nháp + gửi như cũ — không đổi payload/schema); ô ngày là **component gõ tay dd/mm/yyyy + nút lịch** (native date popover ghi ngược vào ô text; vẫn nhập năm-only → `yyyy0000`); **desktop** tách vị trí 2 nút + phím tắt (autofocus, Enter→nút chính). Thuần client.
+- **Xóa hồ sơ đã gửi** (THU-05, CHANGES #24): ở `/app/da-gui`, hồ sơ **`pending`** có nút **Xóa** (xác nhận 2 bước) → `DELETE /api/ho-so/:uuid` (soft-delete). Hồ sơ `importing`/`imported` **ẩn/khóa nút** (server cũng chặn 409). Phân quyền: collector chỉ xóa `created_by` = mình (chống IDOR như `_cua_minh`); admin bất kỳ. Sau xóa, bỏ dòng khỏi danh sách (client `DaGui.tsx`). Đồng bộ sang tool ở bước kéo (NAP-01, §11.7).
 
 ---
 
@@ -479,15 +482,18 @@ Lọc **phía client** trên danh sách `/api/ho-so/cua-toi` đã tải (không 
     │ gửi — POST /api/ho-so (idempotent theo uuid)
     ▼
  pending ──lock (CAS: pending→importing)──▶ importing ──da_nap(+MaDK)──▶ imported
-    ▲                                          │                            │
-    │  unlock: nạp lỗi/mất DB → compensation ──┘                            │
-    │  job mở khóa nếu importing > 15' (EC-002) ─────▶ pending              │
-    │                                                                       │
-    └─ pending/imported > 30 ngày ──┐   importing: job PII BỎ QUA (EC-040)  │
-                                     ▼                    admin xóa tay ─────┤
-                                  deleted  ◀──────────────────────────────── ┘
+    ▲   ▲                                      │                            │
+    │   │  unlock: nạp lỗi/mất DB ─────────────┘                            │
+    │   │  job mở khóa nếu importing > 15' (EC-002) ─────▶ pending           │
+    │   └─ tra-ve-cho-nap: tool gỡ HV khỏi CSDT (QLY-08) imported→pending ───┘
+    │      (gỡ ma_dk; bản ghi 'deleted' → 409, không trả về được)
+    │                                                                        
+    └─ pending/imported > 30 ngày ──┐   importing: job PII BỎ QUA (EC-040)   
+                                     ▼         admin xóa tay / collector xóa (THU-05, chỉ pending của mình)
+                                  deleted  ◀───────────────────────────────── 
 ```
 > NAP-06 trùng CCCD trong khóa → **GIỮ `pending`** + cảnh báo (operator tự xử: bỏ qua / đổi khóa / xóa). KHÔNG có trạng thái `duplicate`.
+> **QLY-08 (CHANGES #24):** `imported→pending` chỉ dùng khi operator GỠ HV đã nạp nhầm khỏi CSDT — khác `unlock` (chỉ `importing→pending` khi nạp lỗi). **THU-05 (CHANGES #24):** collector xóa hồ sơ `pending` của mình → `deleted` (soft-delete, giữ vết audit_log); `importing`/`imported` collector KHÔNG xóa được (409). Kéo về (NAP-01) bỏ qua `deleted` + **đồng bộ bỏ** dòng staging `pending` đã thành `deleted` trên VPS.
 
 ### 7.2 Khóa & chống trùng (EC-003, EC-010, EC-011)
 - Kéo: chỉ trả `pending` chưa bị khóa (`locked_by IS NULL`).
@@ -546,6 +552,7 @@ APScheduler quét mỗi giờ: `pending`/`imported` quá 30 ngày → xóa dòng
 ```
 *Ảnh thô kéo về nạp thẳng vào trình chỉnh (AnhModal nhận ảnh khởi tạo tùy chọn) — luồng kéo-về NAP-04 (CHANGES #19). Prop ảnh khởi tạo là TÙY CHỌN để QLY-05/QLY-06 mở không-ảnh-sẵn vẫn chạy như cũ.*
 *Xoay + khung chân dung mẫu (CHANGES #20): xoay client-side (canvas) trước khi gửi backend crop, box tính trong hệ ảnh đã xoay; khung mẫu chỉ là overlay CSS/SVG để căn, không đưa vào ảnh `.jp2`.*
+*Giữ bản preview PNG để xem lại/chỉnh tiếp (CHANGES #23): `/local/anh/xu-ly` đã trả cả `preview` (PNG data-URL, trình duyệt render được) lẫn `jp2_b64` (để ghi file). Khi "Dùng ảnh này", client lưu **cả `preview`** cạnh `jp2` trong nháp (`nhap[uuid]` ở NapHoSo; state ảnh ở TraCuuDB) để: (1) khung ảnh hiển thị ảnh đã chỉnh — KHÔNG dùng `jp2` vì `.jp2` không render trực tiếp trên trình duyệt; (2) mở lại trình chỉnh thì `anhBanDau` ưu tiên preview đã chỉnh gần nhất (có) thay vì ảnh thô. Nút áp dụng ("Dùng ảnh này") để **nổi bật** (nút đặc màu chính), badge kết quả ghi rõ cần bấm để áp dụng — chống dừng ở bước "Xử lý ảnh". Không đổi endpoint; thuần client.*
 
 ### 9.2 Chuẩn xuất (đo 300 ảnh thật)
 - Tỷ lệ **3:4**, RGB, **nền trắng**; kích thước **mặc định 353×471 (~48 KB, khớp cụm phổ biến nhất của app cũ)**. (480×640 chỉ dùng khi có yêu cầu nét hơn — không phải mặc định, không cần nút chọn ở MVP.)
@@ -758,6 +765,25 @@ Xử lý hàng loạt ảnh của 1 khóa (chủ yếu ảnh cũ từ app cũ ch
 - *Ca lỗi từng HV* (file bị khóa app cũ, ghi lỗi) → bỏ qua HV đó, ghi danh sách lỗi, chạy tiếp — 1 HV lỗi không hỏng cả lô.
 - *Chống chạy trùng:* bọc job bằng `sp_getapplock(MaKhoaHoc)` (như nạp lô §10.3) để 2 tool không cùng xử lý một khóa (hiếm — thường 1 máy CSDT).
 
+### 11.7 Gỡ HV về chờ nạp (QLY-08) + đồng bộ xóa khi kéo (NAP-01/THU-05) — CHANGES #24
+
+**Gỡ HV về chờ nạp (QLY-08) — nạp nhầm khóa.** Khác "Xóa bỏ hẳn" (QLY-03): sau khi xóa khỏi CSDT thì **trả bản ghi gốc về hàng chờ** để nạp lại đúng khóa. Nút RIÊNG ở Tra cứu DB, chỉ khóa **chưa BC1**.
+```
+Tool: POST /local/ho-so/go-ve-cho-nap?ma_dk=<>
+  1) Chặn khóa BC1 (EXISTS BaoCaoI theo MaKH) → 409 (như QLY-03).
+  2) Tra uuid gốc theo ma_dk (liên kết nạp: staging nap_xong(uuid, ma_dk); fallback hỏi VPS theo ma_dk).
+  3) usp_NguoiLX_Delete (cascade HoSo+GiayTo) + ảnh .jp2 → _DELETED (xóa mềm, dùng lại di_chuyen_anh) + log.
+     HV đã có GPLX → FK chặn (như QLY-03) → 409, KHÔNG xóa.
+  4) Gọi VPS tra-ve-cho-nap(uuid): imported→pending, gỡ ma_dk. VPS 'deleted'/không còn → 409
+     "không còn bản gốc trên VPS" (bước 3 đã xóa CSDT rồi → báo rõ cho operator, cho thử lại bước 4).
+  5) Staging local: dòng uuid về 'cho'/pending + gỡ ma_dk; nếu đã "Bỏ khỏi hàng đợi" → kéo lại từ VPS.
+```
+*Thứ tự xóa-CSDT-trước-rồi-VPS:* nếu VPS lỗi sau khi đã xóa CSDT thì HV đã rời khóa (đúng ý "gỡ") nhưng chưa về hàng chờ → báo rõ + cho thử lại riêng bước đồng bộ VPS (không tạo lại HV ở CSDT). Ảnh khi về chờ nạp dùng **ảnh thô còn trên VPS** (`GET /api/nap/keo` trả lại như HV mới), KHÔNG chuyển ngược `.jp2`.
+
+**Đồng bộ xóa khi kéo (NAP-01 + THU-05).** Collector xóa hồ sơ `pending` ở app web → VPS `deleted` (soft, §7.1). "Kéo về từ VPS" ngoài THÊM mới + làm tươi (CHANGES #11) nay còn **bỏ dòng staging đã xóa**: với mỗi dòng staging còn `pending` (chưa nạp), nếu VPS báo bản ghi đó **không còn `pending`** (đã `deleted`) → **xóa dòng khỏi staging**. Chỉ áp dòng chưa nạp; dòng đã nạp/đã lỗi giữ nguyên (không bị collector đụng tới).
+- *Vì sao so ở bước kéo* (không webhook): tool chạy LAN sau tunnel, không nhận push từ VPS → đồng bộ theo nhịp kéo (operator chủ động). Nguồn chân lý là VPS.
+- *Cách so:* `keo` đã chỉ trả `pending`; bổ sung cho tool biết uuid nào trong staging không còn trong tập `pending` trả về (hoặc endpoint nhẹ trả danh sách uuid `deleted` gần đây) → tool xóa khỏi staging.
+
 ---
 
 ## 12. Security
@@ -893,6 +919,8 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 |---|---|---|
+| 02/10/2026 | 2.7 | Gỡ HV về chờ nạp + đồng bộ xóa (CHANGES #24): §4.3 +`DELETE /api/ho-so/:uuid` (soft-delete, chỉ pending, phân quyền — THU-05); §4.4 +`POST /api/nap/:uuid/tra-ve-cho-nap` (imported→pending — QLY-08); §7.1 +2 chuyển trạng thái (imported→pending gỡ về; collector xóa pending→deleted); §11.7 mới (gỡ HV về chờ nạp + kéo về đồng bộ bỏ dòng đã xóa); §6 +nút Xóa app web. Dùng lại trạng thái `deleted` + `audit_log` sẵn có, không bảng mới. NAP-01 hạ ⏳; +story QLY-08, THU-05. |
+| 02/10/2026 | 2.6 | UX giữ ảnh đã chỉnh để xem lại/chỉnh tiếp (CHANGES #23): §9.1 client lưu thêm bản `preview` PNG cạnh `jp2` trong nháp → khung ảnh hiện ảnh đã chỉnh (`.jp2` không render trực tiếp) + mở lại trình chỉnh nạp sẵn ảnh đã chỉnh gần nhất; nút áp dụng nổi bật. Thuần client, không đổi endpoint. NAP-04/QLY-05 hạ ⏳; QLY-06 đổi nhãn nút → ⏳. |
 | 02/10/2026 | 2.5 | Sau review TDD (CHANGES #22, biên bản `tdd-review-02-10-2026.md`): §11.5 `TT_XuLy` đổi sang quy tắc **"không bao giờ HẠ"** (whitelist `'01'/'02'`, bỏ ngưỡng `< '11'`) + ghi ảnh atomic + click sửa ảnh file-mất fallback + **sơ đồ vòng đời `TT_XuLy`**; §11.3 +**sơ đồ liên kết HV↔Báo cáo**; §11.6 `_BACKUP` chỉ-nếu-chưa-có + heuristic phát hiện ảnh-trắng (4 góc) + applock bulk; §11.1 avatar file-mất→icon ảnh-vỡ + transcode lỗi→422 + cache PII cục bộ + lazy-load; §4.6 +4 endpoint; §10.4 +"nạp lại nhanh". |
 | 02/10/2026 | 2.4 | Mở rộng quản lý ảnh + bảo toàn Báo cáo 1/2 (CHANGES #22): §11.1 +endpoint phục vụ ảnh `.jp2`→PNG + thumbnail/avatar + kiểm file tồn tại + thống kê đầu khóa; §11.3 chặn xóa HV khóa BC1 ở BACKEND (FK `MaBC1`/`MaBC2` → `BaoCaoI`/`BaoCaoII`); §11.5 🐛 giữ `TT_XuLy` khi HV đã Báo cáo (`'11'`–`'19'`) tránh rơi khỏi `usp_BaoCao2_DSHS` + mở trình chỉnh ảnh từ Tra cứu DB; §11.6 mới QLY-07 đổi nền cả khóa (chạy nền + `_BACKUP` + giữ `TT_XuLy`); §7.2 "Bỏ khỏi hàng đợi" staging. QLY-01/QLY-03/QLY-05 + NAP-01 hạ ⏳. |
 | 01/10/2026 | 2.1 | Sửa UX app web sau test điện thoại (CHANGES #12): §4.3 thêm `GET /api/ho-so/:uuid/anh` (collector tải ảnh của mình); §6.5 mới (màn vào không tự mở camera, khung bám QR `cornerPoints`, layout `100dvh` dính đáy, xem/sửa/chụp lại hồ sơ chờ nạp). THU-01/THU-02 hạ ⏳. |

@@ -129,7 +129,7 @@
 
 #### [NAP-01] Tool kéo hàng đợi + chống trùng
 
-**Trạng thái:** ✅ Done — task 38 (CHANGES #22) xong 02/10/2026: "Bỏ khỏi hàng đợi" (`DELETE /local/keo-ve/:uuid`, guard chỉ dòng đã nạp `'xong'`, tool-local — KHÔNG đụng prod) + "Nạp lại nhanh" dòng lỗi (tái dùng nạp lô 1 uuid). Kiểm: +5 test (132 pytest, gồm endpoint 401/404/409/200) · build · 29 vitest · review-nghiepvu 2/2. 2 nút UI là reuse mỏng của luồng đã live-verify — xác nhận thao tác khi chạy tool. Phần đã xong trước đó: ✅ Done 01/10/2026 — ① backend (kéo→staging, nạp lô lock→nạp→da-nap, +2 vá server) + ② UI 2 chế độ (ô tìm/IN HOA/chính tả/badge) + AC "kéo lại làm tươi bản chờ nạp" (CHANGES #11). Kiểm: tool 72 + server 56 test · Playwright 3vp · review-nghiepvu 9/9. (Tra cứu DB = QLY-01 task 22)
+**Trạng thái:** ⏳ Todo — yêu cầu thêm 02/10/2026 (CHANGES #24: "Kéo về từ VPS" đồng bộ bỏ hồ sơ collector đã xóa ở app web — THU-05); phần đã code vẫn đúng, story quay lại hàng đợi để thêm đồng bộ xóa. task 38 (CHANGES #22) xong 02/10/2026: "Bỏ khỏi hàng đợi" (`DELETE /local/keo-ve/:uuid`, guard chỉ dòng đã nạp `'xong'`, tool-local — KHÔNG đụng prod) + "Nạp lại nhanh" dòng lỗi (tái dùng nạp lô 1 uuid). Kiểm: +5 test (132 pytest, gồm endpoint 401/404/409/200) · build · 29 vitest · review-nghiepvu 2/2. 2 nút UI là reuse mỏng của luồng đã live-verify — xác nhận thao tác khi chạy tool. Phần đã xong trước đó: ✅ Done 01/10/2026 — ① backend (kéo→staging, nạp lô lock→nạp→da-nap, +2 vá server) + ② UI 2 chế độ (ô tìm/IN HOA/chính tả/badge) + AC "kéo lại làm tươi bản chờ nạp" (CHANGES #11). Kiểm: tool 72 + server 56 test · Playwright 3vp · review-nghiepvu 9/9. (Tra cứu DB = QLY-01 task 22)
 **Story:** Là nhân viên nạp DB, tôi muốn kéo danh sách học viên chờ nạp về tool, để xử lý và nạp vào DB.
 
 **Steps to Complete:**
@@ -150,6 +150,7 @@
 - ✅ **Nạp lô:** HV lỗi (trùng CCCD cùng khóa / thiếu dữ liệu…) **tô đỏ + nêu rõ lý do**; HV nạp được **tô xanh (kèm Số hồ sơ)**; HV khác trong lô vẫn nạp (EC-071).
 - ⬜ **"Bỏ khỏi hàng đợi"** (CHANGES #22): xóa dòng 🟢 Đã nạp khỏi hàng đợi staging của tool (SQLite cục bộ) — KHÔNG đụng DB prod; VPS đã đánh dấu đã nạp nên kéo lại không mang về. Tên nhẹ, TÁCH BẠCH với "Xóa khỏi DB" của Tra cứu DB (tránh xóa nhầm prod).
 - ⬜ **"Nạp lại nhanh"** dòng 🔴 lỗi (CHANGES #22): nút nạp lại ngay trên dòng lỗi (không phải chọn lại thủ công).
+- ⬜ **Kéo về đồng bộ bỏ hồ sơ đã xóa** (CHANGES #24): bấm "Kéo về từ VPS", hồ sơ collector đã **xóa ở app web** (đánh dấu đã xóa trên VPS — THU-05) → **biến mất khỏi hàng chờ nạp** của tool (bỏ dòng staging `pending` tương ứng). Chỉ áp dòng **chưa nạp**; dòng đã nạp/đã lỗi giữ nguyên.
 - ❌ Không kéo bản ghi đã nạp/đã xóa.
 
 **Edge cases:**
@@ -202,7 +203,7 @@
 
 #### [NAP-04] Căn ảnh + xóa phông trắng + xuất .jp2
 
-**Trạng thái:** ⚠️ Partial — 02/10/2026 (CHANGES #19+#20). Trình chỉnh ảnh: nạp sẵn ảnh VPS + grab 2 trục + xoay (−90/+90 + nghiêng) + khung chân dung mẫu + warm-up rembg (u2net); xử lý qua canvas (WYSIWYG). Kiểm: webui build + 29 test + Playwright. **Còn kiểm tay 'mở .jp2 bằng app cũ' (1c) + verify trên tool thật.**
+**Trạng thái:** ⏳ Todo — yêu cầu bổ sung UI ảnh 02/10/2026 (CHANGES #23: hiện ảnh đã chỉnh + mở lại chỉnh tiếp + nhãn nút lưu rõ); code cũ (CHANGES #19+#20) vẫn đúng, story quay lại hàng đợi để làm phần UI mới. Trình chỉnh ảnh: nạp sẵn ảnh VPS + grab 2 trục + xoay (−90/+90 + nghiêng) + khung chân dung mẫu + warm-up rembg (u2net); xử lý qua canvas (WYSIWYG). Kiểm: webui build + 29 test + Playwright. **Còn kiểm tay 'mở .jp2 bằng app cũ' (1c) + verify trên tool thật.**
 **Story:** Là nhân viên nạp DB, tôi muốn căn khung chân dung, xoay cho thẳng, xóa phông thành nền trắng và xuất `.jp2`, để ảnh đúng chuẩn app cũ.
 
 **Steps to Complete:**
@@ -220,6 +221,9 @@
 - ✅ File `.jp2` (JPEG 2000) **tỷ lệ 3:4, nền trắng, RGB**; kích thước **353×471 (~48 KB, khớp cụm phổ biến nhất của app cũ)** — hoặc 480×640 nếu chọn nét hơn; mở được bằng app cũ.
 - ✅ Ghi file tại `<IMG_PATH_CSDT>\<MaKhoaHoc>\<MaDK>.jp2` (**dùng lại `MaDK` do SP trả về**, không sinh timestamp mới — verify 39.648 HV khớp 100%, TDD §9.2); DB lưu `DuongDanAnh`, `ChatLuongAnh=1`.
 - ✅ `IMG_PATH_CSDT` đọc từ `QTHT_ThamSoHT`, không hard-code.
+- ⬜ **Hiện ảnh đã chỉnh sau khi "Dùng ảnh này"** (CHANGES #23): bấm "Dùng ảnh này" xong, khung ảnh ở panel hiển thị **đúng ảnh vừa chỉnh** (bản xem trước PNG từ `/local/anh/xu-ly`), **không chỉ hiện icon check** — để operator xem lại ảnh mình đã chuẩn bị. (Lý do kỹ thuật: `.jp2` trình duyệt không render được nên phải dùng bản PNG.)
+- ⬜ **Mở lại trình chỉnh nạp sẵn ảnh đã chỉnh mới nhất** (CHANGES #23): bấm "Mở trình chỉnh ảnh" lần sau → nạp **ảnh đã chỉnh gần nhất** (nếu đã có) để chỉnh tiếp/thay, thay vì quay về ảnh thô VPS; chưa chỉnh lần nào thì vẫn nạp ảnh thô như cũ.
+- ⬜ **Nút lưu ảnh rõ + nổi bật** (CHANGES #23): trong trình chỉnh, nút áp dụng ảnh ("Dùng ảnh này") đặt **nổi bật** + badge kết quả ghi rõ ảnh **đã xử lý, bấm nút để áp dụng** — tránh operator dừng ở bước "Xử lý ảnh" rồi tưởng đã xong.
 - ❌ Không xử lý ảnh ở điện thoại.
 
 **Edge cases:**
@@ -312,6 +316,27 @@
 
 > Nguồn: user 01/10/2026 (CHANGES #13) · liên quan NAP-06 · chuẩn cảnh báo ⑥
 
+#### [THU-05] Xóa hồ sơ đã gửi (app web)
+
+**Trạng thái:** ⏳ Todo — yêu cầu mới 02/10/2026 (CHANGES #24).
+**Story:** Là nhân viên thu nhận, tôi muốn xóa hồ sơ mình đã gửi nhầm/không dùng trong danh sách "Hồ sơ đã gửi", để nó biến mất khỏi hàng chờ nạp của tool khi nạp DB kéo về.
+
+**Done khi:**
+- ⬜ Màn **"Hồ sơ đã gửi"** (`/app/da-gui`) có nút **Xóa** cho mỗi hồ sơ **chưa nạp** (⚪ Chờ nạp); xác nhận 2 bước trước khi xóa.
+- ⬜ **Chỉ xóa hồ sơ CHƯA NẠP** (`pending`); hồ sơ **đã nạp/đang nạp** (`importing`/`done`) **không xóa được** ở app web (phải xử lý ở tool — QLY-03/QLY-08), ẩn/khóa nút + báo lý do.
+- ⬜ **Phân quyền:** nhân viên thu nhận chỉ xóa **hồ sơ của chính mình**; **admin** xóa được bất kỳ hồ sơ nào.
+- ⬜ **Xóa mềm trên VPS** (đánh dấu "đã xóa" + ai xóa/lúc nào), KHÔNG xóa cứng → giữ vết truy; hồ sơ đã xóa không còn trả về khi tool kéo.
+- ⬜ **Đồng bộ sang tool:** khi tool bấm **"Kéo về từ VPS"**, hồ sơ đã xóa ở app web **biến mất khỏi hàng chờ nạp** của tool (xem NAP-01 — kéo về đồng bộ bỏ).
+- ❌ Không cho collector xóa hồ sơ đã nạp. ❌ Không xóa cứng bản ghi VPS (giữ vết).
+
+**Edge cases:**
+| Tình huống | Hành vi mong muốn |
+|---|---|
+| Hồ sơ vừa được tool nạp (đổi sang `importing`/`done`) đúng lúc collector bấm xóa | Chặn xóa, báo "hồ sơ đã/đang được nạp, không xóa được ở đây" |
+| Collector xóa hồ sơ của người khác (không phải admin) | Chặn (403), chỉ xóa của mình |
+
+> Nguồn: user 02/10/2026 (CHANGES #24, buổi verify #22) · liên quan NAP-01 (kéo về đồng bộ xóa) · phân quyền HTG
+
 #### [QLY-01] Tra cứu & sửa hồ sơ đã có
 
 **Trạng thái:** ⚠️ Partial — chờ verify máy CSDT. Toàn bộ 6 task code XONG: task 22 (tra cứu + sửa nhân thân) · 34 (backend `/anh`+`/anh-thumb` `.jp2`→PNG) · 35 (UI: avatar lưới lazy 3-ca · modal ảnh lớn + đường dẫn `DuongDanAnh` + cảnh báo 404/422 · click ảnh→AnhModal) · 36 (thống kê Tổng·Thiếu ảnh + badge BC1 cấp khóa [phương án A] + nút đổi-khóa/xóa nhanh ra lưới, ẩn khi BC1). Kiểm mức 1: 125 pytest · 29 vitest · build sạch · review-nghiepvu task 35 3/3 + task 36 2/2. **Chờ verify máy CSDT (SQL Server GPLX_CSDT live):** render ảnh thật + 3 ca avatar + cảnh báo 404/422 + click→chỉnh→lưu đè + đổi-khóa/xóa nhanh trên HV thật (ghi prod + chặn BC1). Đã verify live trước đó: tra cứu khóa + lưới HV (khóa B-K149, 55 HV). Mở rộng yêu cầu 02/10/2026 (CHANGES #22: hiện ảnh chân dung + avatar lưới + đường dẫn ảnh + cảnh báo file thiếu + thống kê đầu khóa + nút đổi-khóa/xóa nhanh ra list). Phần đã code trước đó (chờ verify prod): **Lát 1 (đọc, task 22) xong + verify live:** Tra cứu DB — tìm khóa mọi khóa kể cả BC1 + lưới HV theo khóa (`usp_NguoiLX_Select_By_MaKH`) + tìm trong lưới + xem chi tiết (verify live: khóa B-K149, 55 HV đúng). **Lát 2 (sửa, task 22) code xong — CHỜ VERIFY PROD:** sửa **thông tin nhân thân** (họ tên/ngày sinh/giới tính/CCCD/địa chỉ TT) qua `usp_NguoiLX_Update`, đọc lại full bản ghi để giữ cột không sửa; chặn sửa khi khóa đã BC1 (BR-012). **Thu hẹp phạm vi:** bỏ `usp_NguoiLX_HoSo_Update` khỏi QLY-01 (SP ghi đè 65 cột gồm kết quả thi/báo cáo → rủi ro) — ảnh để QLY-05, đổi khóa QLY-02 (CHANGES #17). Kiểm: tool **101 test** + webui **19 test** + build. Chờ bạn verify ghi prod thật + chặn BC1 live.
@@ -367,7 +392,7 @@
 
 #### [QLY-05] Nạp/thay ảnh cho học viên đã có
 
-**Trạng thái:** 🔄 In Progress — task 33 (🐛 vá `TT_XuLy` + ghi ảnh atomic) XONG + 123 test (2 hồi quy); còn task 34-35 (xem ảnh/click từ Tra cứu DB). Nền (CHANGES #22: 🐛 sửa bug `TT_XuLy='03'` làm rơi HV khỏi Báo cáo 2 + cho click ảnh từ Tra cứu DB mở trình chỉnh). Phần đã code trước đó (task 27): màn Tra cứu DB thêm lọc tình trạng ảnh (Tất cả/Chưa ảnh/Đã có ảnh) + nút Nạp/Thay ảnh → tái dùng `AnhModal` (NAP-04: crop 3:4 + nền trắng + .jp2 353×471) → `POST /local/ho-so/nap-anh` ghi `.jp2` (ghi đè khi thay) + UPDATE 5 cột ảnh hướng A (`ghi_anh_update` dùng chung NAP-05); cảnh báo trước khi ghi đè; retry UPDATE 1 lần theo MaDK khi lỗi (EC §11.5), file bị khóa app cũ → báo đóng (409). Nạp/thay ảnh dùng được cả khóa đã BC1 (chỉ cập nhật ảnh). Kiểm: tool 119 test (11 QLY-05) · webui build · Playwright 3vp (0 tràn) · review-nghiepvu Done khi 5/5 + edge case retry đã vá. **Chờ verify ghi ảnh thật trên SQL Server.**
+**Trạng thái:** ⏳ Todo — yêu cầu bổ sung UI ảnh 02/10/2026 (CHANGES #23: sau khi lưu/chỉnh hiện ảnh đã chỉnh + mở lại chỉnh tiếp + nút lưu rõ); code task 33 (vá `TT_XuLy`) vẫn đúng, story quay lại hàng đợi để làm phần UI mới. task 33 (🐛 vá `TT_XuLy` + ghi ảnh atomic) XONG + 123 test (2 hồi quy); còn task 34-35 (xem ảnh/click từ Tra cứu DB). Nền (CHANGES #22: 🐛 sửa bug `TT_XuLy='03'` làm rơi HV khỏi Báo cáo 2 + cho click ảnh từ Tra cứu DB mở trình chỉnh). Phần đã code trước đó (task 27): màn Tra cứu DB thêm lọc tình trạng ảnh (Tất cả/Chưa ảnh/Đã có ảnh) + nút Nạp/Thay ảnh → tái dùng `AnhModal` (NAP-04: crop 3:4 + nền trắng + .jp2 353×471) → `POST /local/ho-so/nap-anh` ghi `.jp2` (ghi đè khi thay) + UPDATE 5 cột ảnh hướng A (`ghi_anh_update` dùng chung NAP-05); cảnh báo trước khi ghi đè; retry UPDATE 1 lần theo MaDK khi lỗi (EC §11.5), file bị khóa app cũ → báo đóng (409). Nạp/thay ảnh dùng được cả khóa đã BC1 (chỉ cập nhật ảnh). Kiểm: tool 119 test (11 QLY-05) · webui build · Playwright 3vp (0 tràn) · review-nghiepvu Done khi 5/5 + edge case retry đã vá. **Chờ verify ghi ảnh thật trên SQL Server.**
 **Story:** Là nhân viên nạp DB, tôi muốn bổ sung ảnh cho học viên đã nạp hồ sơ nhưng chưa có ảnh, hoặc thay ảnh mới cho học viên đã có ảnh, để hoàn tất/chuẩn hóa hồ sơ mà không phải nhập lại từ đầu.
 
 **Steps to Complete:**
@@ -382,6 +407,7 @@
 - ✅ Dùng lại đúng luồng xử lý ảnh NAP-04 (crop 3:4 + nền trắng + 353×471).
 - ⬜ **Giữ `TT_XuLy` khi HV đã ở Báo cáo 1/2** (CHANGES #22, 🐛): thay ảnh cho HV `'11'`–`'19'` KHÔNG hạ về `'03'` (sẽ làm HV biến mất khỏi Báo cáo 2) — chỉ thay file + `DuongDanAnh`/`NgayThuNhanAnh`.
 - ⬜ **Mở trình chỉnh ảnh từ màn Tra cứu DB** (CHANGES #22): click avatar/ảnh HV đã có → AnhModal (ảnh `.jp2` đã transcode→PNG làm ảnh gốc) → đổi nền/chỉnh → lưu đè.
+- ⬜ **Sau khi lưu ảnh, hiện ngay ảnh mới + mở lại chỉnh tiếp** (CHANGES #23): lưu đè xong (`/nap-anh` thành công), khung ảnh HV hiện **ảnh mới** (làm tươi, không trả bản cũ từ bộ đệm); bấm chỉnh lần sau nạp sẵn **ảnh mới nhất** để chỉnh tiếp. Nút áp dụng trong trình chỉnh **nổi bật + nhãn rõ** (như NAP-04) — tránh dừng ở bước "Xử lý ảnh" tưởng đã lưu.
 - ❌ Không tạo bản ghi HV mới (chỉ cập nhật HV đã có).
 
 **Edge cases:**
@@ -395,13 +421,13 @@
 
 #### [QLY-06] Mở hồ sơ khóa khác cho học viên đã có (cấp mới khác hạng, song song)
 
-**Trạng thái:** ⚠️ Partial — 02/10/2026 (task 32). Code xong: nút "Mở khóa khác" ở Tra cứu DB → `MoKhoaKhacDialog` điền sẵn thông tin cá nhân (`GET /local/ho-so/day-du` đọc NguoiLX) → chọn loại + khóa đích chưa BC1 (khác hạng) → tick giấy tờ + ảnh tùy chọn → nạp MỚI qua SP gộp `@p_MaDK=NULL` (MaDK mới, chung SoCMT, đăng ký cũ giữ nguyên); chặn trùng cùng khóa đích (kiemTrung disable nút + server `@p_out=-2`). KHÔNG nâng hạng. Kiểm: tool 121 test (2 gate day-du) · webui build · Playwright 1440/375 (0 tràn) · review-nghiepvu 3/3 Done khi. **Chờ verify nạp thật trên SQL Server.**
+**Trạng thái:** ⏳ Todo — đổi nhãn nút 02/10/2026 (CHANGES #23: "Mở khóa khác" → **"Tạo thêm hồ sơ ở khóa học khác hạng"** cho đúng bản chất tạo hồ sơ MỚI, giữ hồ sơ cũ; GIỮ hiển thị cả ở khóa đã BC1 vì học thêm hạng không đụng báo cáo cũ); code task 32 vẫn đúng, chỉ sửa nhãn. Code xong: nút "Mở khóa khác" ở Tra cứu DB → `MoKhoaKhacDialog` điền sẵn thông tin cá nhân (`GET /local/ho-so/day-du` đọc NguoiLX) → chọn loại + khóa đích chưa BC1 (khác hạng) → tick giấy tờ + ảnh tùy chọn → nạp MỚI qua SP gộp `@p_MaDK=NULL` (MaDK mới, chung SoCMT, đăng ký cũ giữ nguyên); chặn trùng cùng khóa đích (kiemTrung disable nút + server `@p_out=-2`). KHÔNG nâng hạng. Kiểm: tool 121 test (2 gate day-du) · webui build · Playwright 1440/375 (0 tràn) · review-nghiepvu 3/3 Done khi. **Chờ verify nạp thật trên SQL Server.**
 **Story:** Là nhân viên nạp DB, tôi muốn mở hồ sơ ở một khóa khác (khác hạng) cho học viên đã có trong DB, để học viên học thêm hạng mà không phải nhập lại thông tin từ đầu.
 
 **Căn cứ DB (kiểm thật 01/10, CHANGES #16):** SP `ThemMoiCapNhat` khi nạp mới (`@p_MaDK` rỗng) **luôn tạo `NguoiLX` mới** (MaDK mới) — không dò người cũ. Dữ liệu thật: nhiều HV có 2–8 khóa, mỗi khóa 1 hồ sơ, **chung SoCMT** → nhiều dòng cùng SoCMT là đúng thiết kế, KHÔNG phải trùng. Nên nạp khác khóa = **nạp mới bình thường**, không cần nối người cũ.
 
 **Done khi:**
-- ⬜ Từ màn Tra cứu DB (QLY-01), chọn HV đã có → "Mở hồ sơ khóa khác" → điền sẵn thông tin cá nhân từ bản ghi cũ (đọc theo SoCMT/MaDK) để đỡ gõ lại.
+- ⬜ Từ màn Tra cứu DB (QLY-01), chọn HV đã có → **nút "Tạo thêm hồ sơ ở khóa học khác hạng"** (CHANGES #23: nhãn cũ "Mở khóa khác"/"Mở hồ sơ khóa khác" gây hiểu nhầm là *chuyển* khóa) → điền sẵn thông tin cá nhân từ bản ghi cũ (đọc theo SoCMT/MaDK) để đỡ gõ lại. Nút **hiển thị cả khi khóa đã BC1** (tạo hồ sơ mới ở khóa khác hạng, KHÔNG đụng hồ sơ/báo cáo cũ) — khác nút "Đổi khóa" (QLY-02, chuyển cùng hạng) vốn đã ẩn khi BC1.
 - ⬜ Chọn khóa đích (khác hạng, vẫn là cấp mới — `MaLoaiHs` 1/2 theo khóa NAP-02) → nạp mới qua SP gộp (`@p_MaDK=NULL`) → tạo MaDK mới + hồ sơ ở khóa đích; đăng ký cũ giữ nguyên.
 - ⬜ Chặn trùng trong **cùng khóa đích** (NAP-06 theo khóa): HV đã có trong khóa đó → báo trùng, không tạo thêm.
 - ❌ Không làm nâng hạng (B→C/D/E) — ngoài MVP (SP có tham số thâm niên/km nhưng chưa thu thập).
@@ -430,6 +456,35 @@
 | Tắt tool/mất điện giữa chừng | Ảnh đã xử lý giữ nguyên; chạy lại bỏ qua ảnh đã trắng |
 
 > Nguồn: user 02/10/2026 (CHANGES #22) · dùng lại NAP-04 · liên quan QLY-05 · bảo toàn Báo cáo 1/2 (schema DBcu: `NguoiLX_HoSo.MaBC1/MaBC2`, `usp_BaoCao2_DSHS` lọc `TT_XuLy`)
+
+#### [QLY-08] Gỡ học viên về chờ nạp (nạp nhầm khóa)
+
+**Trạng thái:** ⏳ Todo — yêu cầu mới 02/10/2026 (CHANGES #24).
+**Story:** Là nhân viên nạp DB, tôi muốn gỡ một học viên đã nạp nhầm khóa ra khỏi DB và trả về danh sách chờ nạp, để nạp lại đúng khóa mà không phải nhập lại từ app web.
+
+**Steps to Complete:**
+1. Ở Tra cứu DB, chọn HV (khóa **chưa BC1**) → nút **"Gỡ về chờ nạp"** (TÁCH BẠCH với "Xóa" bỏ hẳn — QLY-03) → xác nhận 2 bước.
+2. Tool gỡ HV khỏi CSDT (`usp_NguoiLX_Delete`, cascade HoSo+GiayTo như QLY-03; ảnh `.jp2` xóa mềm → `_DELETED`).
+3. Tool gọi VPS **"trả về chờ nạp"** (bản ghi gốc `done`→`pending`, gỡ liên kết `ma_dk`) theo `uuid` suy từ liên kết nạp (`nap_xong`/VPS).
+4. Hàng chờ của tool đưa dòng HV về **"chờ nạp" (⚪)** ngay; nếu dòng đã bị "Bỏ khỏi hàng đợi" trước đó → kéo lại từ VPS.
+
+**Done khi:**
+- ⬜ Nút **"Gỡ về chờ nạp"** chỉ hiện/chạy được ở **khóa chưa BC1** (khóa đã BC1 cấm — gỡ sẽ phá liên kết Báo cáo 1/2, như QLY-03).
+- ⬜ Gỡ xong: HV **biến mất khỏi khóa trong CSDT** và **hiện lại ở danh sách chờ nạp** của tool với badge **"chờ nạp"** như HV mới kéo về.
+- ⬜ **VPS cập nhật theo:** bản ghi gốc về `pending` (gỡ `ma_dk`) → mọi máy nạp kéo về đều thấy HV ở hàng chờ (cần **đường mới ở server VPS** "trả về chờ nạp").
+- ⬜ **Ảnh:** HV về chờ nạp hiển thị lại **ảnh thô còn trên VPS** (như lúc mới kéo); KHÔNG chuyển ngược ảnh `.jp2` đã xử lý.
+- ⬜ **Bản ghi gốc VPS đã bị dọn PII** (HTG-03) → không còn để trả về → **báo rõ "không còn bản gốc trên VPS, chỉ có thể Xóa hẳn"**, không gỡ.
+- ⬜ HV **đã có GPLX** → FK chặn xóa (như QLY-03) → không gỡ được, báo rõ.
+- ❌ Không áp cho khóa đã BC1. ❌ Không xóa cứng ảnh (xóa mềm `_DELETED` như QLY-03).
+
+**Edge cases:**
+| Tình huống | Hành vi mong muốn |
+|---|---|
+| Gỡ khỏi CSDT xong nhưng gọi VPS "trả về" lỗi | Báo lỗi rõ; HV đã xóa khỏi CSDT nhưng chưa về hàng chờ — cho thử lại bước đồng bộ VPS |
+| Dòng staging đã bị "Bỏ khỏi hàng đợi" | Sau khi VPS về `pending`, kéo lại dòng đó từ VPS về hàng chờ |
+| Bản ghi gốc VPS đã dọn PII | Không gỡ được về chờ nạp (báo rõ); muốn bỏ hẳn thì dùng "Xóa" |
+
+> Nguồn: user 02/10/2026 (CHANGES #24, buổi verify #22) · tách bạch QLY-03 · liên quan NAP-01 (hàng chờ) · HTG-02/NAP-05 (trạng thái VPS) · HTG-03 (dọn PII)
 
 #### [HTG-03] Bộ lọc & xóa PII thủ công trên VPS
 

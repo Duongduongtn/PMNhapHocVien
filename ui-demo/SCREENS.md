@@ -6,7 +6,7 @@
 - **Bản HTML chuẩn:** ui-demo-options/detailed.html
 - **Stack:** Vite + React + TypeScript + Tailwind v3 (token shadcn) + react-router-dom · font Be Vietnam Pro
 - **Cổng dev:** 3021 (sổ `~/.claude/local-ports.md`)
-- **Cập nhật lần cuối:** 02/10/2026 (lượt 13 — dựng màn #14 Tra cứu DB mở rộng + #15 đổi nền cả khóa theo CHANGES #22; Playwright 375/800/1440 sạch, 0 tràn/0 console. Lượt 12 trước đó: ảnh app web CHANGES #15)
+- **Cập nhật lần cuối:** 02/10/2026 (lượt 15 — ghi quyết định UX CHANGES #24: nút "Gỡ về chờ nạp" (tool, QLY-08) + nút "Xóa hồ sơ" app web (THU-05); đều THÊM NÚT vào màn đã có, KHÔNG dựng màn mới. Lượt 14 trước đó: quyết định UX CHANGES #23)
 
 ## ⚠️ Prototype gộp 1 project — KIẾN TRÚC THẬT là 2 app riêng (TDD §2.4)
 
@@ -83,6 +83,10 @@ Chú thích: ✅ Xong · 🟡 Placeholder · ⬜ Chưa có route
 | /tool/nap (tab DB) | Avatar + xem ảnh (CHANGES #22) | Lưới HV thêm **cột avatar** (ảnh thu nhỏ từ DB qua endpoint thumbnail; chưa ảnh → icon người). Modal chi tiết hiện **ảnh lớn + dòng đường dẫn `.jp2`**; **click ảnh → mở trình chỉnh** (đổi nền, QLY-05). File DB có path mà mất file → **cảnh báo "không tìm thấy file ảnh"**. Ảnh `.jp2` phải transcode→PNG (trình duyệt không mở `.jp2`). Wireframe ở Ghi chú | 13 |
 | /tool/nap (tab DB) | Thống kê + thao tác nhanh (CHANGES #22) | Đầu khóa hiện **tổng HV · thiếu ảnh · đã BC1**. Nút **đổi khóa/xóa nhanh** ra lưới (xác nhận 2 bước, **chặn BC1**). Tab Nạp (staging): nút **"Bỏ khỏi hàng đợi"** dòng 🟢 (nhẹ, TÁCH BẠCH "Xóa khỏi DB") + **"Nạp lại nhanh"** dòng 🔴 | 13 |
 | /tool/nap (tab DB) | Đổi nền cả khóa QLY-07 (CHANGES #22) | Dialog: **phạm vi** (chỉ ảnh chưa trắng [mặc định] / tất cả HV có ảnh) · tùy chọn **sao lưu `_BACKUP`** (mặc định bật) · nút Bắt đầu → **thanh tiến độ N/tổng + số lỗi** (chạy nền, không treo). Giữ `TT_XuLy`. Wireframe ở Ghi chú | 13 |
+| /tool/nap (cả 2 tab) | Xem lại/chỉnh tiếp ảnh đã chỉnh (CHANGES #23) | Sau "Dùng ảnh này": khung ảnh hiện **đúng ảnh vừa chỉnh** (bản xem trước PNG, KHÔNG chỉ icon check — vì `.jp2` không render được). Mở trình chỉnh lần sau **nạp sẵn ảnh đã chỉnh gần nhất** để chỉnh tiếp. Nút áp dụng **nổi bật + nhãn rõ** (badge ghi "đã xử lý — bấm để áp dụng") tránh dừng ở bước "Xử lý ảnh" tưởng đã lưu. Lưu ý: ở tab Nạp vẫn là **nháp** cho tới khi bấm "Nạp HV vào khóa" | 14 |
+| /tool/nap (tab DB) | Nhãn nút "khóa khác" (CHANGES #23) | Đổi **"Mở khóa khác"** → **"Tạo thêm hồ sơ ở khóa học khác hạng"** (QLY-06, tạo hồ sơ MỚI khác hạng, GIỮ hồ sơ cũ) cho khỏi nhầm là *chuyển* khóa. **Giữ hiển thị cả ở khóa đã BC1** (không đụng báo cáo cũ) — khác nút "Đổi khóa" (QLY-02) đã ẩn khi BC1 | 14 |
+| /tool/nap (tab DB) | Gỡ HV về chờ nạp QLY-08 (CHANGES #24) | Nút **RIÊNG "Gỡ về chờ nạp"** cạnh "Xóa" (chỉ khóa chưa BC1, xác nhận 2 bước) — gỡ HV khỏi CSDT **rồi trả về hàng chờ** để nạp lại đúng khóa. TÁCH BẠCH với "Xóa" (bỏ hẳn). Bản ghi VPS đã dọn PII → báo không gỡ được | 15 |
+| /app/da-gui | Xóa hồ sơ đã gửi THU-05 (CHANGES #24) | Hồ sơ **Chờ nạp** có nút **Xóa** (xác nhận 2 bước) → soft-delete trên VPS; hồ sơ **đã/đang nạp** ẩn/khóa nút. Collector chỉ xóa của mình, admin bất kỳ. Xóa xong tool kéo về sẽ **đồng bộ bỏ** khỏi hàng chờ | 15 |
 | /tool/nap (tab DB) | Avatar 3 trạng thái (lượt 13 dựng) | Có ảnh → vòng tròn màu + user · chưa ảnh → xám + user · **mất file (DB có path, ổ không có) → đỏ + icon ảnh-vỡ + badge "mất ảnh"**. Bấm avatar/ảnh → trình chỉnh (được cả khóa BC1 — chỉ đụng ảnh, giữ TT_XuLy). Thao tác nhanh đổi-khóa/xóa chỉ hiện khi khóa chưa BC1 | 13 |
 
 ## Component dùng chung
