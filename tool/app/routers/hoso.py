@@ -15,11 +15,13 @@ from __future__ import annotations
 import base64
 import re
 from datetime import datetime
+from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, field_validator
 
 from app.db import sqlserver_cursor, sqlserver_conn, ConfigChuaDay
+from app.image import jp2_sang_png, thumb_jp2
 from app.nap import tach_ho_ten, validate_do_dai, sinh_so_ho_so, di_chuyen_anh, ghi_anh_update, log_xoa_hv
 from app.session import Phien, require_session
 
@@ -549,3 +551,55 @@ def ho_so_day_du(ma_dk: str = Query(..., min_length=1), phien: Phien = Depends(r
         "noi_tt_ma_dvhc": r["NoiTT_MaDVHC"],
         "noi_tt_ma_dvql": r["NoiTT_MaDVQL"],
     }
+
+
+# ---- QLY-01 (task 34): phục vụ ảnh chân dung đã lưu cho màn Tra cứu DB (§11.1) ----
+def _doc_duong_dan_anh(ma_dk: str) -> str | None:
+    """Đọc DuongDanAnh của HV. Không có HV → 404. Trả None nếu HV chưa có ảnh."""
+    with sqlserver_cursor() as cur:
+        cur.execute("SELECT DuongDanAnh FROM NguoiLX_HoSo WHERE MaDK=%s", (ma_dk,))
+        r = cur.fetchone()
+    if not r:
+        raise HTTPException(status_code=404, detail="Không tìm thấy hồ sơ học viên.")
+    return (r["DuongDanAnh"] or "").strip() or None
+
+
+def _lay_file_anh(ma_dk: str) -> Path:
+    """Chung cho 2 endpoint ảnh: tra đường dẫn → kiểm tồn tại. Chưa ảnh/mất file → 404."""
+    try:
+        duong_dan = _doc_duong_dan_anh(ma_dk)
+    except HTTPException:
+        raise
+    except ConfigChuaDay as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=502, detail="Không truy vấn được SQL Server — kiểm kết nối.")
+    if not duong_dan:
+        raise HTTPException(status_code=404, detail="Học viên chưa có ảnh.")
+    p = Path(duong_dan)
+    if not p.exists():
+        raise HTTPException(status_code=404,
+                            detail="Không tìm thấy file ảnh trên ổ (DB có đường dẫn nhưng file đã mất).")
+    return p
+
+
+@router.get("/anh")
+def xem_anh(ma_dk: str = Query(..., min_length=1), phien: Phien = Depends(require_session)):
+    """Ảnh chân dung đã lưu (.jp2) → PNG để trình duyệt xem. File mất → 404; file hỏng → 422."""
+    p = _lay_file_anh(ma_dk)
+    try:
+        png = jp2_sang_png(p.read_bytes())
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Ảnh hỏng, không đọc được — cần nạp lại ảnh.")
+    return Response(content=png, media_type="image/png")
+
+
+@router.get("/anh-thumb")
+def xem_anh_thumb(ma_dk: str = Query(..., min_length=1), phien: Phien = Depends(require_session)):
+    """Thumbnail PNG (avatar lưới), cache in-memory theo mtime. File mất → 404; hỏng → 422."""
+    p = _lay_file_anh(ma_dk)
+    try:
+        png = thumb_jp2(str(p))
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Ảnh hỏng, không đọc được.")
+    return Response(content=png, media_type="image/png")

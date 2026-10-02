@@ -3,9 +3,11 @@
 Unit: hàm ghi ảnh hướng A `ghi_anh_update` (ghi file + dựng câu UPDATE 5 cột) với cursor giả +
 thư mục tạm; kiểm cả ghi mới lẫn ghi đè. Gate/validate tầng API. Ghi prod thật kiểm bằng tay/live.
 """
+import io
 from datetime import datetime
 
 from fastapi.testclient import TestClient
+from PIL import Image
 
 from app.main import app
 from app.nap import ghi_anh_update
@@ -135,3 +137,36 @@ def test_nap_anh_file_khoa_khong_retry_409(auth_headers, monkeypatch):
     r = client.post("/local/ho-so/nap-anh?ma_dk=MADK-1", headers=auth_headers, json={"jp2_b64": "YWJj"})
     assert r.status_code == 409          # báo đóng app cũ
     assert calls["n"] == 1               # KHÔNG thử lại khi file bị khóa
+
+
+# ---- task 34 (CHANGES #22): endpoint phục vụ ảnh — gate + 404 + 422 + 200 ----
+def test_xem_anh_chua_dang_nhap_401():
+    assert client.get("/local/ho-so/anh?ma_dk=X").status_code == 401
+    assert client.get("/local/ho-so/anh-thumb?ma_dk=X").status_code == 401
+
+
+def test_xem_anh_chua_co_anh_404(auth_headers, monkeypatch):
+    monkeypatch.setattr("app.routers.hoso._doc_duong_dan_anh", lambda ma_dk: None)
+    assert client.get("/local/ho-so/anh?ma_dk=X", headers=auth_headers).status_code == 404
+
+
+def test_xem_anh_file_mat_404(auth_headers, monkeypatch):
+    monkeypatch.setattr("app.routers.hoso._doc_duong_dan_anh", lambda ma_dk: r"D:\khong-ton-tai\x.jp2")
+    assert client.get("/local/ho-so/anh?ma_dk=X", headers=auth_headers).status_code == 404
+
+
+def test_xem_anh_ok_200(auth_headers, monkeypatch, tmp_path):
+    f = tmp_path / "ok.jp2"
+    b = io.BytesIO()
+    Image.new("RGB", (353, 471), "white").save(b, format="JPEG2000")
+    f.write_bytes(b.getvalue())
+    monkeypatch.setattr("app.routers.hoso._doc_duong_dan_anh", lambda ma_dk: str(f))
+    r = client.get("/local/ho-so/anh?ma_dk=X", headers=auth_headers)
+    assert r.status_code == 200 and r.headers["content-type"] == "image/png"
+
+
+def test_xem_anh_file_hong_422(auth_headers, monkeypatch, tmp_path):
+    f = tmp_path / "hong.jp2"
+    f.write_bytes(b"khong-phai-anh")
+    monkeypatch.setattr("app.routers.hoso._doc_duong_dan_anh", lambda ma_dk: str(f))
+    assert client.get("/local/ho-so/anh?ma_dk=X", headers=auth_headers).status_code == 422

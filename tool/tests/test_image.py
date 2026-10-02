@@ -1,6 +1,6 @@
-"""NAP-04 — test xử lý ảnh (không rembg, xoa_phong=False): validate + crop 3:4 + .jp2.
+"""QLY-01 (task 34) — transcode ảnh .jp2 → PNG + thumbnail cho màn Tra cứu DB.
 
-rembg (xóa phông) cần model u2net 170MB → kiểm live, không unit test ở đây.
+Mức 2, không cần SQL Server: kiểm hàm thuần `jp2_sang_png` / `thumb_jp2` của app.image.
 """
 import io
 
@@ -10,52 +10,34 @@ from PIL import Image
 from app import image
 
 
-def _img_bytes(w: int, h: int, fmt: str = "JPEG", color=(120, 90, 60)) -> bytes:
-    buf = io.BytesIO()
-    Image.new("RGB", (w, h), color).save(buf, format=fmt)
-    return buf.getvalue()
+def _jp2(w: int = 353, h: int = 471) -> bytes:
+    b = io.BytesIO()
+    Image.new("RGB", (w, h), "white").save(b, format="JPEG2000")
+    return b.getvalue()
 
 
-# ---- validate --------------------------------------------------------------
-def test_validate_qua_lon():
+def test_jp2_sang_png_giai_ma_ok():
+    png = image.jp2_sang_png(_jp2())
+    assert png[:8] == b"\x89PNG\r\n\x1a\n"            # magic PNG (trình duyệt xem được)
+    with Image.open(io.BytesIO(png)) as im:
+        assert im.size == (353, 471)
+
+
+def test_jp2_sang_png_thumbnail_giu_ty_le():
+    png = image.jp2_sang_png(_jp2(353, 471), max_canh=96)
+    with Image.open(io.BytesIO(png)) as im:
+        assert max(im.size) == 96                     # cạnh dài = 96
+        assert im.width < im.height                   # giữ chiều dọc 3:4
+
+
+def test_jp2_sang_png_file_hong_raise():
     with pytest.raises(ValueError):
-        image.validate_raw(b"\xff\xd8\xff" + b"0" * (image.MAX_BYTES + 1))
+        image.jp2_sang_png(b"day-khong-phai-anh-jp2")
 
 
-def test_validate_sai_dinh_dang():
-    with pytest.raises(ValueError):
-        image.validate_raw(b"GIF89a....")  # không phải JPEG/PNG
-
-
-def test_validate_ok():
-    image.validate_raw(_img_bytes(10, 10))  # không raise
-
-
-# ---- crop 3:4 + xuất .jp2 (không phông) ------------------------------------
-def _ra_jp2(data, box=None):
-    kq = image.xu_ly(data, box=box, xoa_phong=False)
-    return kq, Image.open(io.BytesIO(kq["jp2"]))
-
-
-def test_xuat_dung_kich_thuoc_rgb():
-    kq, im = _ra_jp2(_img_bytes(1000, 600))  # ảnh rộng → cắt ngang về 3:4
-    assert kq["w"] == 353 and kq["h"] == 471
-    im.load()
-    assert im.size == (353, 471)
-    assert im.mode == "RGB"
-
-
-def test_crop_tu_anh_vuong():
-    _, im = _ra_jp2(_img_bytes(800, 800))  # vuông → ép 3:4
-    assert im.size == (353, 471)
-
-
-def test_crop_theo_box():
-    _, im = _ra_jp2(_img_bytes(1200, 1600), box=(100, 100, 600, 800))
-    assert im.size == (353, 471)  # box rồi ép 3:4 → vẫn 353×471
-
-
-def test_jp2_mo_lai_duoc():
-    kq, im = _ra_jp2(_img_bytes(600, 900, fmt="PNG"))
-    im.load()  # mở + giải mã lại được (JPEG2000 hợp lệ)
-    assert kq["jp2"][:4] != b""  # có dữ liệu
+def test_thumb_jp2_cache_hit(tmp_path):
+    f = tmp_path / "a.jp2"
+    f.write_bytes(_jp2())
+    png1 = image.thumb_jp2(str(f))
+    assert max(Image.open(io.BytesIO(png1)).size) == 96
+    assert image.thumb_jp2(str(f)) == png1            # cache hit (cùng mtime) trả cùng bytes

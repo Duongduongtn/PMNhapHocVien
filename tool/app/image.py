@@ -6,6 +6,7 @@ thuộc NAP-05 (cần MaDK do SP trả). rembg import trễ để test phần kh
 from __future__ import annotations
 import io
 from functools import lru_cache
+from pathlib import Path
 
 from PIL import Image
 
@@ -77,3 +78,37 @@ def xu_ly(data: bytes, box: tuple | None = None, xoa_phong: bool = True) -> dict
     png = io.BytesIO()
     img.save(png, format="PNG")
     return {"jp2": jp2.getvalue(), "png": png.getvalue(), "w": OUT_W, "h": OUT_H}
+
+
+# ---- QLY-01 (task 34): phục vụ ảnh đã lưu — .jp2 → PNG cho trình duyệt (§11.1) ----
+THUMB_CANH = 96   # px — cạnh dài thumbnail cho avatar lưới
+
+
+def jp2_sang_png(anh_bytes: bytes, max_canh: int | None = None) -> bytes:
+    """Giải mã ảnh đã lưu (.jp2 — trình duyệt không mở được) → PNG bytes.
+
+    max_canh: có → thu nhỏ về cạnh dài ≤ max_canh (thumbnail/avatar).
+    File hỏng/không giải mã được → ValueError (caller map 422).
+    """
+    try:
+        with Image.open(io.BytesIO(anh_bytes)) as im:
+            im = im.convert("RGB")
+            if max_canh:
+                im.thumbnail((max_canh, max_canh), Image.LANCZOS)
+            out = io.BytesIO()
+            im.save(out, format="PNG")
+            return out.getvalue()
+    except Exception as e:  # noqa: BLE001 — file .jp2 hỏng/không phải ảnh
+        raise ValueError(f"Không giải mã được ảnh: {e}") from e
+
+
+@lru_cache(maxsize=512)
+def _thumb_cache(path: str, mtime_ns: int) -> bytes:
+    """Cache thumbnail theo (path, mtime) — đổi file thì mtime đổi → tự invalidate.
+    In-memory (ảnh là PII, KHÔNG ghi cache ra đĩa — §11.1)."""
+    return jp2_sang_png(Path(path).read_bytes(), max_canh=THUMB_CANH)
+
+
+def thumb_jp2(path: str) -> bytes:
+    """Thumbnail PNG cho avatar — cache theo mtime. Caller đã kiểm file tồn tại."""
+    return _thumb_cache(path, Path(path).stat().st_mtime_ns)
