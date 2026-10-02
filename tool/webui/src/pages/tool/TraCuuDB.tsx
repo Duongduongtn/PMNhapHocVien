@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Icon } from "../../components/Icon";
+import { PhanTrang } from "../../components/PhanTrang";
 import { boDau, ymdToVN, maskNgay, nghiSaiChinhTa } from "../../lib/format";
 import {
   traCuuKhoa,
@@ -132,6 +133,11 @@ export default function TraCuuDB() {
     if (!t) return true;
     return boDau(h.ho_ten ?? "").includes(boDau(t)) || (h.so_cccd ?? "").includes(t);
   });
+  // UI-3: phân trang lưới HV (client). Đổi khóa/ô tìm/cỡ trang → về trang 1.
+  const [trang, setTrang] = useState(0);
+  const [coTrang, setCoTrang] = useState(20);
+  useEffect(() => { setTrang(0); }, [khoa, qHv, coTrang]);
+  const rowsTrang = rows.slice(trang * coTrang, (trang + 1) * coTrang);
   const canhBaoTen = sua ? nghiSaiChinhTa(form.ho_ten) : "";
 
   return (
@@ -241,7 +247,7 @@ export default function TraCuuDB() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((h) => (
+                  {rowsTrang.map((h) => (
                     <tr key={h.ma_dk} onClick={() => setSel(h)} className="border-t border-border cursor-pointer hover:bg-muted/60 transition-colors">
                       <td className="px-3 py-2 tabular-nums">{h.so_ho_so || "—"}</td>
                       <td className="px-3 py-2 font-semibold">{h.ho_ten || "(chưa có tên)"}</td>
@@ -262,7 +268,12 @@ export default function TraCuuDB() {
               )}
             </div>
           )}
-          {hoSo && <p className="text-[12px] text-muted-foreground mt-2">{rows.length}/{hoSo.length} học viên</p>}
+          {hoSo && (
+            <>
+              <PhanTrang total={rows.length} trang={trang} coTrang={coTrang} onTrang={setTrang} onCoTrang={setCoTrang} />
+              <p className="text-[12px] text-muted-foreground mt-1">{rows.length}/{hoSo.length} học viên trong khóa</p>
+            </>
+          )}
         </div>
       )}
 

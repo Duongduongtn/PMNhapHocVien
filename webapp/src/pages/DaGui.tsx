@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Icon } from "../components/Icon";
 import { ODate } from "../components/ODate";
+import { PhanTrang } from "../components/PhanTrang";
 import { ApiError, dsDaGui, guiAnh, suaHoSo, taiAnhCuaToi, type HoSoOut, type HoSoSua } from "../lib/api";
 import { dsNhap } from "../lib/draft";
 import { dangKyGuiLai, guiLaiTatCa } from "../lib/gui";
@@ -176,6 +177,8 @@ export default function DaGui() {
   const [soNhap, setSoNhap] = useState(0);
   const [q, setQ] = useState("");
   const [moTim, setMoTim] = useState(false);
+  const [trang, setTrang] = useState(0);
+  const [coTrang, setCoTrang] = useState(20);
 
   async function tai() {
     setLoi(null);
@@ -200,6 +203,9 @@ export default function DaGui() {
   // Lọc "no_photo" (CHANGES #13) theo co_anh — khác trục trạng thái; các lọc khác theo trang_thai.
   const khopLoc = (h: HoSoOut) => (loc === "no_photo" ? !h.co_anh : loc === "all" || h.trang_thai === loc);
   const rows = (ds ?? []).filter((h) => khopLoc(h) && khopTim(q, h.ho_ten, h.so_cccd));
+  // UI-3: phân trang phía client (danh sách của chính mình, không lớn). Đổi lọc/tìm → về trang 1.
+  useEffect(() => { setTrang(0); }, [loc, q, coTrang]);
+  const rowsTrang = rows.slice(trang * coTrang, (trang + 1) * coTrang);
   const dem = (t: string) => (ds ?? []).filter((h) => h.trang_thai === t).length;
   const demThieuAnh = (ds ?? []).filter((h) => !h.co_anh).length;
   const rong = q.trim()
@@ -288,7 +294,7 @@ export default function DaGui() {
         <>
           {/* MOBILE: card list */}
           <div className="lg:hidden divide-y divide-border border-t border-border">
-            {rows.map((h) => (
+            {rowsTrang.map((h) => (
               <button
                 key={h.uuid}
                 onClick={() => setSel(h)}
@@ -326,7 +332,7 @@ export default function DaGui() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((h) => (
+                {rowsTrang.map((h) => (
                   <tr key={h.uuid} onClick={() => setSel(h)} className="border-t border-border cursor-pointer hover:bg-muted/60 transition-colors">
                     <td className="px-4 py-2 font-semibold">
                       <div className="flex items-center gap-2.5">
@@ -351,6 +357,8 @@ export default function DaGui() {
             </table>
             {!rows.length && <div className="px-4 py-10 text-center text-sm text-muted-foreground">{rong}</div>}
           </div>
+
+          <PhanTrang total={rows.length} trang={trang} coTrang={coTrang} onTrang={setTrang} onCoTrang={setCoTrang} />
         </>
       )}
 
