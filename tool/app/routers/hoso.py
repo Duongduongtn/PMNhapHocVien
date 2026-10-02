@@ -12,13 +12,15 @@ An toàn: usp_NguoiLX_Update ghi đè TOÀN BỘ 22 cột, mà SP không nhận 
 Chặn sửa khi khóa đã lập BC1 (BR-012). Mọi SQL parameterized (TDD §12).
 """
 from __future__ import annotations
+import base64
 import re
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, field_validator
 
 from app.db import sqlserver_cursor, sqlserver_conn, ConfigChuaDay
-from app.nap import tach_ho_ten, validate_do_dai, sinh_so_ho_so, di_chuyen_anh, log_xoa_hv
+from app.nap import tach_ho_ten, validate_do_dai, sinh_so_ho_so, di_chuyen_anh, ghi_anh_update, log_xoa_hv
 from app.session import Phien, require_session
 
 router = APIRouter(prefix="/local/ho-so", tags=["ho-so"])
@@ -442,3 +444,71 @@ def xoa_ho_so(ma_dk: str = Query(..., min_length=1), phien: Phien = Depends(requ
     if anh_loi:
         kq["anh_loi"] = anh_loi  # đã xóa DB nhưng chuyển ảnh _DELETED lỗi (file còn ở folder cũ)
     return kq
+
+
+class NapAnhIn(BaseModel):
+    jp2_b64: str  # ảnh .jp2 đã xử lý (crop 3:4 + nền trắng) từ /local/anh/xu-ly
+
+    @field_validator("jp2_b64")
+    @classmethod
+    def _khong_rong(cls, v: str) -> str:
+        if not (v or "").strip():
+            raise ValueError("Thiếu dữ liệu ảnh.")
+        return v
+
+
+@router.post("/nap-anh")
+def nap_anh(body: NapAnhIn, ma_dk: str = Query(..., min_length=1),
+            phien: Phien = Depends(require_session)):
+    """QLY-05 — nạp/thay ảnh cho HV đã có (GHI PROD).
+
+    Dùng lại cơ chế ghi ảnh hướng A (§10.3): ghi `.jp2` tại <IMG_PATH_CSDT>\\<MaKhoaHoc>\\<MaDK>.jp2
+    (ghi đè nếu đã có — thay ảnh) + UPDATE 5 cột ảnh `NguoiLX_HoSo` nâng `TT_XuLy='03'` WHERE MaDK.
+    KHÔNG gọi SP tạo, KHÔNG tạo bản ghi mới. Ảnh đã được /local/anh/xu-ly xử lý sẵn (NAP-04);
+    cảnh báo ghi đè ảnh cũ do UI lo (Done khi). Ca lỗi: file bị app cũ khóa → 409 báo đóng app cũ.
+    """
+    nguoi = (phien.ho_ten or phien.username or "tool")[:60]
+    try:
+        jp2_bytes = base64.b64decode(body.jp2_b64, validate=True)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Ảnh không hợp lệ.")
+    if not jp2_bytes:
+        raise HTTPException(status_code=400, detail="Thiếu dữ liệu ảnh.")
+
+    try:
+        with sqlserver_conn(autocommit=True) as conn:
+            cur = conn.cursor(as_dict=True)
+            # 1) Hồ sơ hiện tại → khóa (folder ảnh theo MaKhoaHoc)
+            cur.execute("SELECT MaKhoaHoc FROM NguoiLX_HoSo WHERE MaDK=%s", (ma_dk,))
+            hs = cur.fetchone()
+            if not hs:
+                raise HTTPException(status_code=404, detail="Không tìm thấy hồ sơ học viên.")
+            ma_kh = hs["MaKhoaHoc"]
+
+            # 2) Đường dẫn ảnh gốc (đọc động từ DB đích)
+            cur.execute("SELECT GiaTriTS FROM QTHT_ThamSoHT WHERE TenTS=%s", (_TEN_TS_IMG,))
+            r = cur.fetchone()
+            img_path = (r and r["GiaTriTS"]) or ""
+            if not img_path:
+                raise HTTPException(status_code=502, detail="Chưa cấu hình IMG_PATH_CSDT trên DB đích.")
+
+            # 3) Ghi .jp2 (ghi đè nếu có) + UPDATE 5 cột ảnh (hướng A). now = giờ máy DB.
+            # EC (§11.5/§10.3): UPDATE lỗi sau khi đã ghi file → thử lại 1 lần theo MaDK
+            # (ghi_anh_update ghi đè lại cùng file + UPDATE lại, không tạo HV mới). File bị khóa
+            # (PermissionError) KHÔNG thử lại — retry cũng vô ích khi app cũ còn giữ file.
+            try:
+                duong_dan = ghi_anh_update(cur, ma_dk, ma_kh, jp2_bytes, img_path, datetime.now(), nguoi)
+            except PermissionError:
+                raise
+            except Exception:
+                duong_dan = ghi_anh_update(cur, ma_dk, ma_kh, jp2_bytes, img_path, datetime.now(), nguoi)
+    except HTTPException:
+        raise
+    except ConfigChuaDay as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except PermissionError:
+        raise HTTPException(status_code=409, detail="File ảnh đang bị khóa (app cũ đang mở) — đóng app cũ rồi thử lại.")
+    except Exception:
+        raise HTTPException(status_code=502, detail="Không ghi được ảnh trên SQL Server — kiểm kết nối rồi thử lại.")
+
+    return {"ok": True, "ma_dk": ma_dk, "duong_dan_anh": duong_dan, "co_anh": True}

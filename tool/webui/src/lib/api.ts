@@ -203,6 +203,14 @@ export const xoaHoSo = (maDk: string) =>
     headers: authHeaders(),
   }).then(json<{ ok: boolean; ma_dk: string; anh_loi?: string }>);
 
+// QLY-05 — nạp/thay ảnh cho HV đã có. Ảnh đã xử lý qua xuLyAnh (NAP-04) → gửi jp2_b64.
+export const napAnh = (maDk: string, jp2B64: string) =>
+  fetch(`${BASE}/local/ho-so/nap-anh?ma_dk=${encodeURIComponent(maDk)}`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ jp2_b64: jp2B64 }),
+  }).then(json<{ ok: boolean; ma_dk: string; duong_dan_anh: string; co_anh: boolean }>);
+
 export interface Tinh {
   ma_dvql: string;
   ten_tinh: string;

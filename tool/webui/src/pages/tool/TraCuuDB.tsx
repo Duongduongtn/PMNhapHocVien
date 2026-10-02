@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Icon } from "../../components/Icon";
+import AnhModal from "../../components/AnhModal";
 import { PhanTrang } from "../../components/PhanTrang";
 import { boDau, ymdToVN, maskNgay, nghiSaiChinhTa } from "../../lib/format";
 import {
@@ -10,6 +11,7 @@ import {
   khoaCungHang,
   doiKhoa,
   xoaHoSo,
+  napAnh,
   type KhoaTraCuu,
   type KhoaDich,
   type HoSoRow,
@@ -64,6 +66,13 @@ export default function TraCuuDB() {
   const [xoaBusy, setXoaBusy] = useState(false);
   const [xoaErr, setXoaErr] = useState("");
 
+  // Nạp/thay ảnh (QLY-05)
+  const [locAnh, setLocAnh] = useState<"all" | "chua" | "roi">("all"); // lọc tình trạng ảnh
+  const [anhMo, setAnhMo] = useState(false);   // panel xác nhận nạp/thay ảnh
+  const [anhModal, setAnhModal] = useState(false); // AnhModal (căn + xóa phông)
+  const [anhBusy, setAnhBusy] = useState(false);
+  const [anhErr, setAnhErr] = useState("");
+
   async function timKhoa() {
     setErr("");
     setLoadingKhoa(true);
@@ -103,6 +112,27 @@ export default function TraCuuDB() {
     setMaKhDich("");
     setXoaMo(false);
     setXoaErr("");
+    setAnhMo(false);
+    setAnhModal(false);
+    setAnhErr("");
+  }
+
+  async function napAnhHv(jp2B64: string) {
+    if (!sel) return;
+    setAnhModal(false);
+    setAnhErr("");
+    setAnhBusy(true);
+    try {
+      await napAnh(sel.ma_dk, jp2B64);
+      if (khoa) setHoSo(await dsHoSoTheoKhoa(khoa.ma_kh)); // làm tươi để cột Ảnh đổi sang "đã có"
+      setOkMsg(sel.co_anh ? "Đã thay ảnh chân dung." : "Đã nạp ảnh chân dung.");
+      setTimeout(() => setOkMsg(""), 2800);
+      dong();
+    } catch (e) {
+      setAnhErr(e instanceof Error ? e.message : "Nạp ảnh không thành công.");
+    } finally {
+      setAnhBusy(false);
+    }
   }
 
   async function xoaHv() {
@@ -200,14 +230,16 @@ export default function TraCuuDB() {
   }
 
   const rows = (hoSo ?? []).filter((h) => {
+    if (locAnh === "chua" && h.co_anh) return false;   // QLY-05: lọc theo tình trạng ảnh
+    if (locAnh === "roi" && !h.co_anh) return false;
     const t = qHv.trim();
     if (!t) return true;
     return boDau(h.ho_ten ?? "").includes(boDau(t)) || (h.so_cccd ?? "").includes(t);
   });
-  // UI-3: phân trang lưới HV (client). Đổi khóa/ô tìm/cỡ trang → về trang 1.
+  // UI-3: phân trang lưới HV (client). Đổi khóa/ô tìm/lọc ảnh/cỡ trang → về trang 1.
   const [trang, setTrang] = useState(0);
   const [coTrang, setCoTrang] = useState(20);
-  useEffect(() => { setTrang(0); }, [khoa, qHv, coTrang]);
+  useEffect(() => { setTrang(0); }, [khoa, qHv, locAnh, coTrang]);
   const rowsTrang = rows.slice(trang * coTrang, (trang + 1) * coTrang);
   const canhBaoTen = sua ? nghiSaiChinhTa(form.ho_ten) : "";
 
@@ -290,14 +322,29 @@ export default function TraCuuDB() {
             {khoa.bc1 && <Bc1Chip />}
           </div>
 
-          <div className="relative mb-2 max-w-sm">
-            <Icon name="search" className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <input
-              className="field-input pl-9"
-              value={qHv}
-              onChange={(e) => setQHv(e.target.value)}
-              placeholder="Tìm trong khóa: tên (không dấu được) hoặc CCCD"
-            />
+          <div className="flex items-center gap-2 flex-wrap mb-2">
+            <div className="relative max-w-sm flex-1 min-w-[220px]">
+              <Icon name="search" className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                className="field-input pl-9"
+                value={qHv}
+                onChange={(e) => setQHv(e.target.value)}
+                placeholder="Tìm trong khóa: tên (không dấu được) hoặc CCCD"
+              />
+            </div>
+            {/* QLY-05: lọc tình trạng ảnh */}
+            <div className="inline-flex rounded-lg bg-muted p-1">
+              {([["all", "Tất cả"], ["chua", "Chưa ảnh"], ["roi", "Đã có ảnh"]] as const).map(([k, label]) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setLocAnh(k)}
+                  className={"px-3 py-1.5 text-[13px] rounded-md transition-colors " + (locAnh === k ? "bg-primary text-primary-foreground font-semibold" : "text-muted-foreground font-medium hover:text-foreground")}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {loadingHv ? (
@@ -447,15 +494,53 @@ export default function TraCuuDB() {
                     </div>
                   )}
 
+                  {/* Nạp/thay ảnh (QLY-05) — dùng được cả khi khóa đã BC1 (chỉ cập nhật ảnh) */}
+                  {anhMo && (
+                    <div className="mt-3 rounded-lg border border-border bg-muted/40 p-3 space-y-2">
+                      <div className="text-[13px] font-semibold flex items-center gap-1.5">
+                        <Icon name="image" className="w-4 h-4" /> {sel.co_anh ? "Thay ảnh chân dung" : "Nạp ảnh chân dung"}
+                      </div>
+                      {sel.co_anh ? (
+                        <p className="text-[12px] text-warning flex items-start gap-1">
+                          <Icon name="warn" className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                          Học viên đã có ảnh — nạp ảnh mới sẽ <b>ghi đè ảnh cũ</b>, không khôi phục được.
+                        </p>
+                      ) : (
+                        <p className="text-[12px] text-muted-foreground">Chọn ảnh → căn khung 3:4 + xóa phông → lưu vào hồ sơ.</p>
+                      )}
+                      {anhErr && (
+                        <p className="text-[12px] text-destructive flex items-center gap-1"><Icon name="warn" className="w-3.5 h-3.5" /> {anhErr}</p>
+                      )}
+                      <div className="flex gap-2">
+                        <button onClick={() => { setAnhMo(false); setAnhErr(""); }} className="h-9 px-3 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Hủy</button>
+                        <button
+                          onClick={() => { setAnhErr(""); setAnhModal(true); }}
+                          disabled={anhBusy}
+                          className="ml-auto h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center gap-2 hover:brightness-110 transition-all disabled:opacity-60"
+                        >
+                          <Icon name={anhBusy ? "refresh" : "image"} className={"w-4 h-4" + (anhBusy ? " animate-spin" : "")} /> {anhBusy ? "Đang lưu…" : "Chọn & xử lý ảnh"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {khoa?.bc1 && (
                     <p className="text-[11px] text-warning mt-3 flex items-center gap-1">
-                      <Icon name="warn" className="w-3.5 h-3.5" /> Khóa đã lập Báo cáo 1 — chỉ xem, không sửa/đổi được.
+                      <Icon name="warn" className="w-3.5 h-3.5" /> Khóa đã lập Báo cáo 1 — chỉ xem, không sửa/đổi được (vẫn nạp/thay ảnh được).
                     </p>
                   )}
                 </div>
                 <div className="p-3 border-t border-border flex gap-2 flex-wrap">
                   <button onClick={dong} className="h-10 px-4 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Đóng</button>
-                  {!khoa?.bc1 && !doiMo && !xoaMo && (
+                  {!doiMo && !xoaMo && !anhMo && (
+                    <button
+                      onClick={() => { setAnhMo(true); setAnhErr(""); }}
+                      className="h-10 px-4 rounded-lg border border-border text-sm font-medium inline-flex items-center gap-1.5 hover:bg-muted transition-colors"
+                    >
+                      <Icon name="image" className="w-4 h-4" /> {sel.co_anh ? "Thay ảnh" : "Nạp ảnh"}
+                    </button>
+                  )}
+                  {!khoa?.bc1 && !doiMo && !xoaMo && !anhMo && (
                     <>
                       <button
                         onClick={() => { setXoaMo(true); setXoaErr(""); }}
@@ -561,6 +646,11 @@ export default function TraCuuDB() {
             )}
           </div>
         </div>
+      )}
+
+      {/* AnhModal (QLY-05) — căn khung 3:4 + xóa phông; onXong trả jp2_b64 → nạp vào hồ sơ */}
+      {anhModal && sel && (
+        <AnhModal onDong={() => setAnhModal(false)} onXong={(b64) => void napAnhHv(b64)} />
       )}
     </div>
   );

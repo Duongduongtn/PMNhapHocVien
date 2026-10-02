@@ -351,7 +351,7 @@
 
 #### [QLY-05] Nạp/thay ảnh cho học viên đã có
 
-**Trạng thái:** ⏳ Todo — thêm 01/10/2026 (CHANGES #5), làm SAU NAP-05
+**Trạng thái:** ⚠️ Partial — 02/10/2026 (task 27). Code xong: màn Tra cứu DB thêm lọc tình trạng ảnh (Tất cả/Chưa ảnh/Đã có ảnh) + nút Nạp/Thay ảnh → tái dùng `AnhModal` (NAP-04: crop 3:4 + nền trắng + .jp2 353×471) → `POST /local/ho-so/nap-anh` ghi `.jp2` (ghi đè khi thay) + UPDATE 5 cột ảnh hướng A (`ghi_anh_update` dùng chung NAP-05); cảnh báo trước khi ghi đè; retry UPDATE 1 lần theo MaDK khi lỗi (EC §11.5), file bị khóa app cũ → báo đóng (409). Nạp/thay ảnh dùng được cả khóa đã BC1 (chỉ cập nhật ảnh). Kiểm: tool 119 test (11 QLY-05) · webui build · Playwright 3vp (0 tràn) · review-nghiepvu Done khi 5/5 + edge case retry đã vá. **Chờ verify ghi ảnh thật trên SQL Server.**
 **Story:** Là nhân viên nạp DB, tôi muốn bổ sung ảnh cho học viên đã nạp hồ sơ nhưng chưa có ảnh, hoặc thay ảnh mới cho học viên đã có ảnh, để hoàn tất/chuẩn hóa hồ sơ mà không phải nhập lại từ đầu.
 
 **Steps to Complete:**
