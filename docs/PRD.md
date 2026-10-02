@@ -377,7 +377,7 @@
 
 #### [QLY-06] Mở hồ sơ khóa khác cho học viên đã có (cấp mới khác hạng, song song)
 
-**Trạng thái:** ⏳ Todo — thêm 01/10/2026 (CHANGES #13), đã kiểm DB thật chốt thiết kế 01/10 (CHANGES #16). Phạm vi: **cấp mới khác hạng song song** (vd có B, học thêm A1). KHÔNG gồm **nâng hạng** (B→C/D/E — ngoài MVP, cần thâm niên/km/GPLX đã có).
+**Trạng thái:** ⚠️ Partial — 02/10/2026 (task 32). Code xong: nút "Mở khóa khác" ở Tra cứu DB → `MoKhoaKhacDialog` điền sẵn thông tin cá nhân (`GET /local/ho-so/day-du` đọc NguoiLX) → chọn loại + khóa đích chưa BC1 (khác hạng) → tick giấy tờ + ảnh tùy chọn → nạp MỚI qua SP gộp `@p_MaDK=NULL` (MaDK mới, chung SoCMT, đăng ký cũ giữ nguyên); chặn trùng cùng khóa đích (kiemTrung disable nút + server `@p_out=-2`). KHÔNG nâng hạng. Kiểm: tool 121 test (2 gate day-du) · webui build · Playwright 1440/375 (0 tràn) · review-nghiepvu 3/3 Done khi. **Chờ verify nạp thật trên SQL Server.**
 **Story:** Là nhân viên nạp DB, tôi muốn mở hồ sơ ở một khóa khác (khác hạng) cho học viên đã có trong DB, để học viên học thêm hạng mà không phải nhập lại thông tin từ đầu.
 
 **Căn cứ DB (kiểm thật 01/10, CHANGES #16):** SP `ThemMoiCapNhat` khi nạp mới (`@p_MaDK` rỗng) **luôn tạo `NguoiLX` mới** (MaDK mới) — không dò người cũ. Dữ liệu thật: nhiều HV có 2–8 khóa, mỗi khóa 1 hồ sơ, **chung SoCMT** → nhiều dòng cùng SoCMT là đúng thiết kế, KHÔNG phải trùng. Nên nạp khác khóa = **nạp mới bình thường**, không cần nối người cũ.

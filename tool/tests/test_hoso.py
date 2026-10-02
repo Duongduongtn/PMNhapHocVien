@@ -239,3 +239,12 @@ def test_xoa_chua_dang_nhap_401():
 
 def test_xoa_thieu_ma_dk_422(auth_headers):
     assert client.post("/local/ho-so/xoa", headers=auth_headers).status_code == 422
+
+
+# ---- QLY-06: đọc đủ dữ liệu để điền sẵn (gate; đọc thật + nạp mới kiểm live qua NAP-05) ----
+def test_day_du_chua_dang_nhap_401():
+    assert client.get("/local/ho-so/day-du?ma_dk=X").status_code == 401
+
+
+def test_day_du_thieu_ma_dk_422(auth_headers):
+    assert client.get("/local/ho-so/day-du", headers=auth_headers).status_code == 422

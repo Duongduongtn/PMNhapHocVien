@@ -211,6 +211,23 @@ export const napAnh = (maDk: string, jp2B64: string) =>
     body: JSON.stringify({ jp2_b64: jp2B64 }),
   }).then(json<{ ok: boolean; ma_dk: string; duong_dan_anh: string; co_anh: boolean }>);
 
+// QLY-06 — đọc đủ dữ liệu cá nhân HV để điền sẵn khi mở hồ sơ khóa khác (nạp mới khóa đích).
+export interface HoSoDayDu {
+  ho_ten: string;
+  ngay_sinh: string; // yyyymmdd (hoặc yyyy)
+  gioi_tinh: string; // M/F/U
+  so_cmt: string;
+  ngay_cap_cmt: string | null; // yyyymmdd
+  noi_cap_cmt: string | null;
+  noi_tt: string | null;
+  noi_tt_ma_dvhc: string;
+  noi_tt_ma_dvql: string;
+}
+export const hoSoDayDu = (maDk: string) =>
+  fetch(`${BASE}/local/ho-so/day-du?ma_dk=${encodeURIComponent(maDk)}`, { headers: authHeaders() }).then(
+    json<HoSoDayDu>,
+  );
+
 export interface Tinh {
   ma_dvql: string;
   ten_tinh: string;

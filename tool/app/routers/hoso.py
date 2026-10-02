@@ -512,3 +512,40 @@ def nap_anh(body: NapAnhIn, ma_dk: str = Query(..., min_length=1),
         raise HTTPException(status_code=502, detail="Không ghi được ảnh trên SQL Server — kiểm kết nối rồi thử lại.")
 
     return {"ok": True, "ma_dk": ma_dk, "duong_dan_anh": duong_dan, "co_anh": True}
+
+
+@router.get("/day-du")
+def ho_so_day_du(ma_dk: str = Query(..., min_length=1), phien: Phien = Depends(require_session)):
+    """QLY-06 — đọc ĐỦ dữ liệu cá nhân HV để điền sẵn khi mở hồ sơ khóa khác (nạp mới khóa đích).
+
+    Trả các trường cần cho NapIn (SP gộp): họ tên, ngày sinh (yyyymmdd đã lưu), giới tính,
+    số căn cước + ngày/nơi cấp, mã DVHC thường trú. Chỉ đọc NguoiLX, KHÔNG ghi.
+    """
+    sql = (
+        "SELECT HoVaTen, NgaySinh, GioiTinh, SoCMT, NgayCapCMT, NoiCapCMT, "
+        "NoiTT, NoiTT_MaDVHC, NoiTT_MaDVQL FROM NguoiLX WHERE MaDK=%s"
+    )
+    try:
+        with sqlserver_cursor() as cur:
+            cur.execute(sql, (ma_dk,))
+            r = cur.fetchone()
+    except ConfigChuaDay as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=502, detail="Không truy vấn được SQL Server — kiểm kết nối.")
+
+    if not r:
+        raise HTTPException(status_code=404, detail="Không tìm thấy hồ sơ học viên.")
+    gt = (r["GioiTinh"] or "").strip().upper()
+    ngay_cap = r["NgayCapCMT"]
+    return {
+        "ho_ten": r["HoVaTen"],
+        "ngay_sinh": (r["NgaySinh"] or "").strip(),  # yyyymmdd (hoặc yyyy) như đã lưu
+        "gioi_tinh": gt if gt in ("M", "F", "U") else "U",
+        "so_cmt": r["SoCMT"],
+        "ngay_cap_cmt": ngay_cap.strftime("%Y%m%d") if hasattr(ngay_cap, "strftime") else (ngay_cap or None),
+        "noi_cap_cmt": r["NoiCapCMT"],
+        "noi_tt": r["NoiTT"],
+        "noi_tt_ma_dvhc": r["NoiTT_MaDVHC"],
+        "noi_tt_ma_dvql": r["NoiTT_MaDVQL"],
+    }

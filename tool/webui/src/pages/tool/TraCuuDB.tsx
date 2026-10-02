@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Icon } from "../../components/Icon";
 import AnhModal from "../../components/AnhModal";
+import MoKhoaKhacDialog from "../../components/MoKhoaKhacDialog";
 import { PhanTrang } from "../../components/PhanTrang";
 import { boDau, ymdToVN, maskNgay, nghiSaiChinhTa } from "../../lib/format";
 import {
@@ -73,6 +74,9 @@ export default function TraCuuDB() {
   const [anhBusy, setAnhBusy] = useState(false);
   const [anhErr, setAnhErr] = useState("");
 
+  // Mở hồ sơ khóa khác (QLY-06)
+  const [moKhoaKhac, setMoKhoaKhac] = useState(false);
+
   async function timKhoa() {
     setErr("");
     setLoadingKhoa(true);
@@ -115,6 +119,7 @@ export default function TraCuuDB() {
     setAnhMo(false);
     setAnhModal(false);
     setAnhErr("");
+    setMoKhoaKhac(false);
   }
 
   async function napAnhHv(jp2B64: string) {
@@ -540,6 +545,14 @@ export default function TraCuuDB() {
                       <Icon name="image" className="w-4 h-4" /> {sel.co_anh ? "Thay ảnh" : "Nạp ảnh"}
                     </button>
                   )}
+                  {!doiMo && !xoaMo && !anhMo && (
+                    <button
+                      onClick={() => setMoKhoaKhac(true)}
+                      className="h-10 px-4 rounded-lg border border-border text-sm font-medium inline-flex items-center gap-1.5 hover:bg-muted transition-colors"
+                    >
+                      <Icon name="plus" className="w-4 h-4" /> Mở khóa khác
+                    </button>
+                  )}
                   {!khoa?.bc1 && !doiMo && !xoaMo && !anhMo && (
                     <>
                       <button
@@ -651,6 +664,16 @@ export default function TraCuuDB() {
       {/* AnhModal (QLY-05) — căn khung 3:4 + xóa phông; onXong trả jp2_b64 → nạp vào hồ sơ */}
       {anhModal && sel && (
         <AnhModal onDong={() => setAnhModal(false)} onXong={(b64) => void napAnhHv(b64)} />
+      )}
+
+      {/* Mở hồ sơ khóa khác (QLY-06) */}
+      {moKhoaKhac && sel && (
+        <MoKhoaKhacDialog
+          maDk={sel.ma_dk}
+          hoTen={sel.ho_ten || "(chưa có tên)"}
+          onDong={() => setMoKhoaKhac(false)}
+          onXong={(msg) => { setOkMsg(msg); setTimeout(() => setOkMsg(""), 3500); dong(); }}
+        />
       )}
     </div>
   );
