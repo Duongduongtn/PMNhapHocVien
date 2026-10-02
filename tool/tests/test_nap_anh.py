@@ -14,13 +14,20 @@ client = TestClient(app)
 
 
 class FakeCursor:
-    """Cursor giả: ghi lại (sql, params) để kiểm câu UPDATE mà không cần SQL Server."""
+    """Cursor giả: ghi lại (sql, params) để kiểm câu UPDATE mà không cần SQL Server.
 
-    def __init__(self):
+    fetchone() trả TT_XuLy hiện tại cho SELECT mà ghi_anh_update chạy trước UPDATE (CHANGES #22).
+    """
+
+    def __init__(self, tt_xuly="01"):
         self.calls = []
+        self._tt = tt_xuly
 
     def execute(self, sql, params=None):
         self.calls.append((sql, params))
+
+    def fetchone(self):
+        return {"TT_XuLy": self._tt}
 
 
 # ---- Unit: ghi ảnh hướng A ----
@@ -33,10 +40,11 @@ def test_ghi_anh_update_ghi_file_moi(tmp_path):
     f = tmp_path / "70004K26B010" / "MADK-1.jp2"
     assert f.read_bytes() == jp2                       # file ghi đúng chỗ (tên = MaDK)
     assert duong_dan == str(f)
-    assert len(cur.calls) == 1
-    sql, params = cur.calls[0]
-    assert "UPDATE NguoiLX_HoSo" in sql and "TT_XuLy='03'" in sql
-    assert params == (str(f), now, "NV Nạp", "MADK-1")  # 5 cột ảnh, WHERE MaDK
+    upd = [c for c in cur.calls if "UPDATE NguoiLX_HoSo" in c[0]]
+    assert len(upd) == 1
+    sql, params = upd[0]
+    assert "TT_XuLy=%s" in sql                          # TT_XuLy parameterized (CHANGES #22)
+    assert params == (str(f), "03", now, "NV Nạp", "MADK-1")  # HV '01' → nâng '03', WHERE MaDK
 
 
 def test_ghi_anh_update_ghi_de_anh_cu(tmp_path):

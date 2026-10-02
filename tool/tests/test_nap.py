@@ -134,7 +134,8 @@ def _tat_staging(monkeypatch):
 
 def _ok_fetches():
     # thứ tự fetchone: COUNT trùng CMT (NAP-06) → MAX(SoHoSo) → kết quả SP gộp (@p_out, @p_MaDK)
-    return [{"n": 0}, {"m": 55}, {"@p_out": 0, "@p_MaDK": "70004-TEST"}]
+    #   → TT_XuLy hiện tại (ghi_anh_update SELECT trước UPDATE; HV mới = '01') — CHANGES #22
+    return [{"n": 0}, {"m": 55}, {"@p_out": 0, "@p_MaDK": "70004-TEST"}, {"TT_XuLy": "01"}]
 
 
 def test_nap_mot_hv_khong_anh_truyen_giay_to_qua_sp(monkeypatch):
@@ -167,10 +168,11 @@ def test_nap_mot_hv_co_anh_update_5_cot(monkeypatch, tmp_path):
     jp2 = tmp_path / "70004K26B010" / "70004-TEST.jp2"
     assert jp2.read_bytes() == b"JP2DATA"
     assert r["duong_dan_anh"] == str(jp2)
-    # UPDATE 5 cột ảnh, nâng TT_XuLy='03' (hướng A)
+    # UPDATE cột ảnh, nâng TT_XuLy '01'→'03' (hướng A; TT_XuLy parameterized — CHANGES #22)
     upd = [c for c in cur.calls if "UPDATE NguoiLX_HoSo" in c[0]]
-    assert len(upd) == 1 and "TT_XuLy='03'" in upd[0][0]
-    assert upd[0][1][3] == "70004-TEST"         # WHERE MaDK
+    assert len(upd) == 1 and "TT_XuLy=%s" in upd[0][0]
+    assert upd[0][1][1] == "03"                  # HV mới ('01') → nâng '03'
+    assert upd[0][1][4] == "70004-TEST"          # WHERE MaDK
 
 
 def test_nap_mot_hv_loi_nghiep_vu_pout(monkeypatch):
@@ -254,9 +256,29 @@ def test_nap_mot_hv_ghi_anh_update_loi_giu_hv(monkeypatch, tmp_path):
     """U-08: ghi .jp2 OK nhưng UPDATE 5 cột ảnh lỗi → HV VẪN tạo (giữ '01'), trả cờ anh_loi,
     .jp2 KHÔNG bị xóa (để retry UPDATE, §10.3), applock vẫn nhả — khác EC-022 (SP lỗi → dọn)."""
     _tat_staging(monkeypatch)
-    cur = _FakeCursorUpdateFail([{"n": 0}, {"m": 55}, {"@p_out": 0, "@p_MaDK": "70004-TEST"}])
+    cur = _FakeCursorUpdateFail([{"n": 0}, {"m": 55}, {"@p_out": 0, "@p_MaDK": "70004-TEST"}, {"TT_XuLy": "01"}])
     r = nap.nap_mot_hv(_FakeConn(cur), _HV, _KHOA, b"JP2DATA", str(tmp_path), "op", "uuid-8")
     assert r["ma_dk"] == "70004-TEST"          # HV đã tạo, không xóa
     assert "anh_loi" in r and r["duong_dan_anh"] is None
     assert (tmp_path / "70004K26B010" / "70004-TEST.jp2").exists()   # .jp2 giữ lại để retry
     assert any("sp_releaseapplock" in c[0] for c in cur.calls)
+
+
+# ---- task 33 (CHANGES #22): ghi_anh_update giữ TT_XuLy — hồi quy bug Báo cáo 2 ----
+def test_ghi_anh_update_giu_tt_xuly_khi_da_bao_cao(tmp_path):
+    """🐛 Hồi quy (CHANGES #22): thay ảnh HV đã ở Báo cáo (TT_XuLy '11') → UPDATE GIỮ '11',
+    KHÔNG hạ về '03'. Nếu hạ, HV rơi khỏi usp_BaoCao2_DSHS (lọc TT_XuLy in '11'..'19')."""
+    cur = _FakeCursor([{"TT_XuLy": "11"}])
+    nap.ghi_anh_update(cur, "70004-BC2", "K1", b"JP2", str(tmp_path), None, "op")
+    upd = [c for c in cur.calls if "UPDATE NguoiLX_HoSo" in c[0]]
+    assert len(upd) == 1 and "TT_XuLy=%s" in upd[0][0]
+    assert upd[0][1][1] == "11"     # GIỮ NGUYÊN, tuyệt đối không '03'
+    assert (tmp_path / "K1" / "70004-BC2.jp2").read_bytes() == b"JP2"
+
+
+def test_ghi_anh_update_nang_tt_xuly_khi_chua_anh(tmp_path):
+    """HV chưa ảnh (TT_XuLy '01') → nâng lên '03' (hành vi NAP-05/QLY-05 cho HV chưa ảnh)."""
+    cur = _FakeCursor([{"TT_XuLy": "01"}])
+    nap.ghi_anh_update(cur, "70004-MOI", "K1", b"JP2", str(tmp_path), None, "op")
+    upd = [c for c in cur.calls if "UPDATE NguoiLX_HoSo" in c[0]]
+    assert upd[0][1][1] == "03"

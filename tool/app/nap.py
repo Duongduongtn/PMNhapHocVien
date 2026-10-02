@@ -122,20 +122,44 @@ def build_params_sp_gop(hv: dict, khoa: dict, so_ho_so: str, ten: dict,
 # ---- Ghi ảnh (hướng A) — DÙNG CHUNG cho NAP-05 và QLY-05 --------------------
 def ghi_anh_update(cur, ma_dk: str, ma_kh: str, jp2_bytes: bytes,
                    img_path_base: str, now: datetime, nguoi: str = "") -> str:
-    """Ghi file .jp2 (tên = MaDK) + UPDATE 5 cột ảnh NguoiLX_HoSo, nâng TT_XuLy='03' (hướng A).
+    """Ghi file .jp2 (tên = MaDK) + UPDATE cột ảnh NguoiLX_HoSo (hướng A).
 
     Đường dẫn TUYỆT ĐỐI <IMG_PATH_CSDT>\\<MaKhoaHoc>\\<MaDK>.jp2 (verify DB thật 01/10).
-    Dùng lại ở QLY-05 (nạp/thay ảnh cho HV đã có). Trả đường dẫn đã ghi.
+    Dùng lại ở QLY-05 (nạp/thay ảnh cho HV đã có) và QLY-07 (đổi nền cả khóa).
+
+    **TT_XuLy — KHÔNG BAO GIỜ HẠ (bug CHANGES #22):** chỉ nâng '01'/'02' → '03' khi HV CHƯA
+    có ảnh; HV đã ở trạng thái khác ('03' hoặc mã Báo cáo '11'..'19') → GIỮ NGUYÊN TT_XuLy.
+    Nếu hạ HV đã Báo cáo về '03' thì HV rơi khỏi usp_BaoCao2_DSHS (lọc TT_XuLy in '11'..'19').
+    NAP-05 nạp HV mới (SP set '01') → vẫn lên '03' đúng. Trả đường dẫn đã ghi.
+
+    Ghi file ATOMIC (temp → replace) để crash/mất điện giữa chừng không để lại .jp2 cụt.
     """
     folder = Path(img_path_base) / ma_kh
     folder.mkdir(parents=True, exist_ok=True)
     jp2_path = folder / f"{ma_dk}.jp2"
-    jp2_path.write_bytes(jp2_bytes)          # ghi đè nếu đã có (thay ảnh — QLY-05)
+    # Ghi atomic: file tạm cùng thư mục → replace (nguyên tử, ghi đè nếu đã có — thay ảnh)
+    tmp_path = folder / f"{ma_dk}.jp2.tmp"
+    tmp_path.write_bytes(jp2_bytes)
+    try:
+        tmp_path.replace(jp2_path)   # app cũ khóa file đích → PermissionError (caller xử 409)
+    except Exception:
+        try:
+            tmp_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+        raise
     duong_dan = str(jp2_path)
+
+    # TT_XuLy: chỉ nâng khi HV CHƯA có ảnh ('01'/'02'); đã có ảnh/đã Báo cáo → giữ nguyên
+    cur.execute("SELECT TT_XuLy FROM NguoiLX_HoSo WHERE MaDK=%s", (ma_dk,))
+    r = cur.fetchone()
+    tt_cu = ((r or {}).get("TT_XuLy") or "").strip()
+    tt_moi = "03" if tt_cu in ("", "01", "02") else tt_cu
+
     cur.execute(
-        "UPDATE NguoiLX_HoSo SET DuongDanAnh=%s, ChatLuongAnh=1, TT_XuLy='03', "
+        "UPDATE NguoiLX_HoSo SET DuongDanAnh=%s, ChatLuongAnh=1, TT_XuLy=%s, "
         "NgayThuNhanAnh=%s, NguoiThuNhanAnh=%s WHERE MaDK=%s",
-        (duong_dan, now, nguoi, ma_dk),
+        (duong_dan, tt_moi, now, nguoi, ma_dk),
     )
     return duong_dan
 
