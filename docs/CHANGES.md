@@ -4,6 +4,7 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 20 | 02/10/2026 | ➕ Thêm + ⚙️ | `NAP-04` | Nâng cấp trình chỉnh ảnh (phản hồi test tool): +xoay ảnh (−90°/+90° + tinh chỉnh độ nghiêng) · +khung chân dung mẫu overlay (ô-van+đường căn, không dính ảnh xuất) · tăng tốc xóa phông = bật warm-up rembg (bỏ `TOOL_SKIP_WARMUP=1` ở `tool-start.bat`), GIỮ model u2net (phương án A). NAP-04 ⚠️→⏳ | ✅ | ✅ | — tinh chỉnh AnhModal có sẵn | ⬜ |
 | 19 | 02/10/2026 | ✏️ Sửa | `NAP-03`, `NAP-04` | Tận dụng dữ liệu đã kéo từ VPS ở màn Nạp (kéo-về): NAP-03 tự tách `noi_tt_raw` → điền sẵn ô map (operator chỉ bấm Chuyển đổi; tách không chắc thì gõ tay) · NAP-04 nạp thẳng ảnh thô VPS vào trình chỉnh (không bắt chọn lại file). NAP-03 ✅→⏳, NAP-04 ⚠️→⏳ (yêu cầu đổi, code lại phần này) | ✅ | ✅ | — tinh chỉnh màn tool có sẵn | ⬜ |
 | 18 | 02/10/2026 | ➕ Thêm + ✏️ Sửa | `HTG-04`, `HTG-05`, `HTG-06` | Quản lý tài khoản app web: admin xem API key VPS (HTG-04, SHOULD) · admin tạo/khóa tài khoản nhân viên + reset mật khẩu (HTG-05, MUST) · mọi người tự đổi mật khẩu (HTG-06, MUST). + **5 sửa UI (cả 2 app):** header cố định hết giật · khung cao ổn định không co theo nội dung · phân trang list (20/trang) · tool master–detail panel info+ảnh ghim · kính lúp đè chữ hint (fix `@layer components`) | ✅ | ✅ | ⬜ | 🟡 HTG-04/05/06 + UI-1/2/3/4/5 xong (code; server 82 test, build 2 app); chờ deploy VPS + verify |
 | 17 | 02/10/2026 | ✏️ Sửa | `QLY-01` | Lát 2 (sửa hồ sơ) — **thu hẹp phạm vi: chỉ sửa NHÂN THÂN** (họ tên, ngày sinh, giới tính, CCCD, địa chỉ TT) qua `usp_NguoiLX_Update`; **bỏ `usp_NguoiLX_HoSo_Update` khỏi QLY-01** (SP ghi đè 65 cột gồm kết quả thi/BC1/BC2 → rủi ro xóa trắng); ảnh→QLY-05, đổi khóa→QLY-02. Ghi an toàn: đọc lại full bản ghi giữ cột không sửa. Chặn khi khóa BC1 (BR-012) | ✅ | ✅ | ⬜ | ✅ code+test, chờ verify prod |
@@ -27,6 +28,18 @@
 Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên quan
 
 ---
+
+## #20 — Nâng cấp trình chỉnh ảnh: xoay + khung mẫu + tăng tốc xóa phông · 02/10/2026
+
+- **Mã:** `NAP-04` — nâng cấp UX trình chỉnh ảnh (AnhModal), không story mới. NAP-04 ⚠️→⏳.
+- **Vì sao:** user test tool phản ánh — (1) chưa xoay ảnh linh hoạt (mới kéo di chuyển/zoom), (2) chưa có khung chân dung mẫu để biết căn mặt, (3) đổi nền trắng chạy khá lâu.
+- **Mới — Grab tự do 4 hướng:** nới `clamp` (giữ tối thiểu 1/4 ảnh trong khung) để kéo được cả trái/phải lẫn lên/xuống. Trước đây `clamp` ghim ảnh phủ kín khung nên ở zoom gốc một trục (rW=FW hoặc rH=FH) bị khóa → chỉ kéo được 1 chiều (user phản ánh). Vùng lộ khi kéo → nền trắng ở canvas.
+- **Mới — Xoay ảnh:** nút **−90°/+90°** + thanh **tinh chỉnh độ nghiêng** (vài độ) để làm thẳng mặt. Xoay **client-side (canvas)** trước khi gửi backend crop; box tính trong hệ ảnh đã xoay.
+- **Mới — Khung chân dung mẫu:** overlay mờ chồng lên khung crop (ô-van đầu + đường căn mắt/cằm) để operator biết đặt mặt. **Chỉ là hướng dẫn, KHÔNG dính vào ảnh `.jp2` xuất ra.**
+- **Tăng tốc xóa phông (phương án A — user chốt):** bật **warm-up rembg lúc khởi động tool** = **bỏ `TOOL_SKIP_WARMUP=1` khỏi `tool-start.bat`**. Ảnh đầu chỉ chờ nạp model 1 lần lúc mở tool, ảnh sau <5s (TDD §9.2). **GIỮ model u2net** (không đổi chất lượng, không dùng model nhẹ). `TOOL_SKIP_WARMUP` vẫn giữ trong test (conftest) để khỏi tải model ~170MB khi chạy test.
+- **Đã sửa:** PRD `NAP-04` (Steps + Done khi + hạ ⏳) · TDD §9.1 (xoay + khung mẫu) + §9.2 (không tắt warm-up) + Changelog 2.2.
+- **Còn nợ:** code (tool/webui + tool-start.bat) — `/tieptheo` nhặt NAP-04 (⏳) code lại.
+- **Code sẽ đụng:** `tool/webui/src/components/AnhModal.tsx` (state xoay + transform + overlay khung mẫu + xoay canvas trước khi gửi; cân nhắc gửi ảnh đã xoay thay vì chỉ box) · `tool-start.bat` (bỏ dòng `set TOOL_SKIP_WARMUP=1`). Backend `tool/app/image.py`/`routers/anh.py` nếu chọn truyền ảnh-đã-xoay (multipart) thay vì box — quyết lúc code.
 
 ## #19 — Tận dụng dữ liệu kéo về VPS (tự điền địa chỉ + nạp ảnh sẵn) · 02/10/2026
 
@@ -287,7 +300,7 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 > `/capnhat` đọc mục này ở Bước 0b để biết có thay đổi nào chưa ghi sổ không.
 > So bằng **danh sách mã**, không so bằng thời gian sửa file.
 
-- **Cập nhật:** 02/10/2026 (CHANGES #19)
-- **Số story trong PRD:** 21 (20 MUST/SHOULD gồm `THU-04` SHOULD + `HTG-04` SHOULD + `QLY-06` ⏳; chưa tính NICE `QLY-04`, `THU-03`) — #19 không thêm/bớt story, chỉ sửa NAP-03/NAP-04
+- **Cập nhật:** 02/10/2026 (CHANGES #20)
+- **Số story trong PRD:** 21 (20 MUST/SHOULD gồm `THU-04` SHOULD + `HTG-04` SHOULD + `QLY-06` ⏳; chưa tính NICE `QLY-04`, `THU-03`) — #19/#20 không thêm/bớt story, chỉ sửa NAP-03/NAP-04
 - **Mã story hiện có:** `HTG-01`…`HTG-06`, `THU-01`, `THU-02`, `THU-04`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06` (NICE: `QLY-04`, `THU-03`)
 - **Mã đã nghỉ hưu:** (chưa có)

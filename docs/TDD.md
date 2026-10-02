@@ -534,12 +534,13 @@ APScheduler quét mỗi giờ: `pending`/`imported` quá 30 ngày → xóa dòng
 ### 9.1 Luồng
 ```
 Ảnh thô (từ VPS, đã kéo về) → NẠP SẴN vào trình chỉnh (AnhModal) làm ảnh crop ban đầu
-  → hiển thị + khung crop CỐ ĐỊNH 3:4 (không bắt chọn lại file; vẫn cho chọn file khác để thay)
-  → auto gợi ý theo nhận diện mặt → grab di chuyển + zoom (chỉnh tay) / thay ảnh
+  → hiển thị + khung crop CỐ ĐỊNH 3:4 + KHUNG CHÂN DUNG MẪU mờ chồng lên (ô-van đầu + đường căn mắt/cằm)
+  → auto gợi ý theo nhận diện mặt → grab di chuyển + zoom + XOAY (−90°/+90° + tinh chỉnh độ nghiêng) / thay ảnh
   → rembg xóa phông → nền TRẮNG → preview
-  → (khi bấm Nạp) Pillow xuất .jp2
+  → (khi bấm Nạp) Pillow xuất .jp2 (ảnh đã xoay rồi mới crop; khung mẫu KHÔNG dính vào ảnh xuất)
 ```
 *Ảnh thô kéo về nạp thẳng vào trình chỉnh (AnhModal nhận ảnh khởi tạo tùy chọn) — luồng kéo-về NAP-04 (CHANGES #19). Prop ảnh khởi tạo là TÙY CHỌN để QLY-05/QLY-06 mở không-ảnh-sẵn vẫn chạy như cũ.*
+*Xoay + khung chân dung mẫu (CHANGES #20): xoay client-side (canvas) trước khi gửi backend crop, box tính trong hệ ảnh đã xoay; khung mẫu chỉ là overlay CSS/SVG để căn, không đưa vào ảnh `.jp2`.*
 
 ### 9.2 Chuẩn xuất (đo 300 ảnh thật)
 - Tỷ lệ **3:4**, RGB, **nền trắng**; kích thước **mặc định 353×471 (~48 KB, khớp cụm phổ biến nhất của app cũ)**. (480×640 chỉ dùng khi có yêu cầu nét hơn — không phải mặc định, không cần nút chọn ở MVP.)
@@ -551,7 +552,7 @@ APScheduler quét mỗi giờ: `pending`/`imported` quá 30 ngày → xóa dòng
 - **Tạo folder nếu chưa có** (`makedirs(exist_ok=True)`) trước khi ghi — khóa mới chưa có ảnh thì folder chưa tồn tại; tool tự tạo (giống app cũ tạo khi lưu ảnh đầu tiên).
 - Ghi DB: `DuongDanAnh` = đường dẫn đầy đủ vừa ghi (cột này là **nguồn sự thật** của đường dẫn ảnh), `ChatLuongAnh=1`, `NgayThuNhanAnh`=now, `NguoiThuNhanAnh`=operator.
 - **Đọc/hiển thị ảnh** (tra cứu, đổi khóa): luôn lấy đường dẫn từ `NguoiLX_HoSo.DuongDanAnh`, KHÔNG dò theo tên folder/tên file.
-- **Hiệu năng rembg:** nạp `rembg` session (model u2net ~170 MB) **một lần lúc khởi động tool** (warm-up), giữ trong bộ nhớ. Mốc <5s/ảnh (§13) tính từ ảnh **thứ 2**; ảnh đầu (cold-start) đo riêng, chấp nhận cao hơn.
+- **Hiệu năng rembg:** nạp `rembg` session (model u2net ~170 MB) **một lần lúc khởi động tool** (warm-up), giữ trong bộ nhớ. Mốc <5s/ảnh (§13) tính từ ảnh **thứ 2**; ảnh đầu (cold-start) đo riêng, chấp nhận cao hơn. **Script chạy tool (`tool-start.bat`) KHÔNG đặt `TOOL_SKIP_WARMUP=1`** — cờ đó chỉ dành cho test (conftest) để khỏi tải model; đặt nó lúc chạy thật khiến ảnh đầu mỗi phiên đều cold-start chậm (CHANGES #20, phương án A). Giữ model `u2net` (chất lượng), không đổi sang model nhẹ.
 
 ### 9.3 Lưu tạm & dọn (staging tool)
 - Ảnh kéo về (thô) + ảnh đang chỉnh lưu trong **staging cục bộ máy DB** (`%LOCALAPPDATA%\pmcsdtlx-tool\staging\anh\<uuid>.*`), cạnh `staging.sqlite`. Đây là bản tạm.
@@ -849,3 +850,4 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 | 01/10/2026 | 1.9 | Xác thực tool cho `/local/*` (task 17, HTG-01③): thêm §5.5 + TDD-decisions §4a — option A (tool gọi VPS `/api/auth/login` thay mặt → phát session cục bộ; collector 403), A1 miễn token `/local/config*` + `/local/auth/*`; §4.2/§4.6 thêm endpoint `/local/auth/*`. Còn mở: 1 hay n phiên. Xem CHANGES.md #8. |
 | 02/10/2026 | 2.0 | Quản lý tài khoản app web (HTG-04/05/06): §4.2 thêm `POST /api/auth/doi-mat-khau`, `GET|POST|PUT /api/admin/users*`, `POST /api/admin/users/:id/reset-mat-khau`, `GET /api/admin/tool-key` + ghi chú bảo mật (chỉ admin, băm bcrypt, không log secret, khóa bằng `is_active` không xóa cứng, chặn admin tự khóa). +5 sửa UI khung (header cố định, khung cao ổn định, phân trang 20/trang, tool master–detail panel ảnh ghim, fix kính lúp đè chữ bằng `@layer components`). Xem CHANGES.md #18. |
 | 02/10/2026 | 2.1 | Tận dụng dữ liệu kéo-về (CHANGES #19): §8.1 thêm bước tự tách `noi_tt_raw` → điền sẵn ô map (NAP-03); §9.1 nạp thẳng ảnh thô VPS vào trình chỉnh, AnhModal nhận ảnh khởi tạo tùy chọn (NAP-04). |
+| 02/10/2026 | 2.2 | Nâng cấp trình chỉnh ảnh (CHANGES #20): §9.1 thêm xoay ảnh (−90°/+90° + tinh chỉnh độ nghiêng, xoay client-side trước khi crop) + khung chân dung mẫu overlay (không dính ảnh xuất); §9.2 ghi rõ `tool-start.bat` KHÔNG đặt `TOOL_SKIP_WARMUP=1` (warm-up để ảnh sau nhanh, giữ model u2net — phương án A). |

@@ -22,6 +22,8 @@ export default function AnhModal({
   const [nat, setNat] = useState({ w: 0, h: 0 });
   const [zoom, setZoom] = useState(1);
   const [pos, setPos] = useState({ x: 0, y: 0 });
+  const [xoay, setXoay] = useState(0);      // bước 90° (nút ⟲ ⟳)
+  const [nghieng, setNghieng] = useState(0); // tinh chỉnh độ nghiêng (−15..15°)
   const [xoaPhong, setXoaPhong] = useState(true);
   const [kq, setKq] = useState<AnhKetQua | null>(null);
   const [busy, setBusy] = useState(false);
@@ -34,9 +36,13 @@ export default function AnhModal({
   const rW = nat.w * scale;
   const rH = nat.h * scale;
 
+  // Grab tự do CẢ 4 HƯỚNG (CHANGES #20): chỉ giữ tối thiểu KEEP phần ảnh trong khung để không
+  // kéo mất hẳn ảnh; vùng lộ ra → nền trắng ở canvas. Trước đây ghim 1 trục ở zoom gốc (rW=FW
+  // hoặc rH=FH) nên chỉ kéo được 1 chiều.
+  const KEEP = 0.25;
   const clamp = (x: number, y: number) => ({
-    x: Math.min(0, Math.max(FW - rW, x)),
-    y: Math.min(0, Math.max(FH - rH, y)),
+    x: Math.max(rW * KEEP - rW, Math.min(FW - rW * KEEP, x)),
+    y: Math.max(rH * KEEP - rH, Math.min(FH - rH * KEEP, y)),
   });
 
   const chonFile = (f: File) => {
@@ -49,6 +55,8 @@ export default function AnhModal({
       const bs = Math.max(FW / im.naturalWidth, FH / im.naturalHeight);
       setNat({ w: im.naturalWidth, h: im.naturalHeight });
       setZoom(1);
+      setXoay(0);
+      setNghieng(0);
       setPos({ x: (FW - im.naturalWidth * bs) / 2, y: (FH - im.naturalHeight * bs) / 2 });
       setSrc(url);
     };
@@ -73,11 +81,13 @@ export default function AnhModal({
 
   const onZoom = (z: number) => {
     setZoom(z);
-    // giữ ảnh phủ khung sau khi đổi zoom
+    // giữ vị trí hợp lệ sau khi đổi zoom (cùng ràng buộc KEEP với clamp)
     const s = baseScale * z;
+    const w = nat.w * s;
+    const h = nat.h * s;
     setPos((p) => ({
-      x: Math.min(0, Math.max(FW - nat.w * s, p.x)),
-      y: Math.min(0, Math.max(FH - nat.h * s, p.y)),
+      x: Math.max(w * KEEP - w, Math.min(FW - w * KEEP, p.x)),
+      y: Math.max(h * KEEP - h, Math.min(FH - h * KEEP, p.y)),
     }));
   };
 
@@ -89,16 +99,40 @@ export default function AnhModal({
     setPos(clamp(nx, ny));
   };
 
+  // Dựng đúng khung 3:4 đang thấy (pan + zoom + XOAY) ra canvas → gửi backend (đã crop sẵn 3:4,
+  // backend chỉ xóa phông + resize 353×471). WYSIWYG: ảnh xuất = đúng ảnh trong khung. CHANGES #20.
+  const dungCanvasBlob = (): Promise<Blob> =>
+    new Promise((resolve, reject) => {
+      if (!src) return reject(new Error("chưa có ảnh"));
+      const im = new Image();
+      im.onload = () => {
+        const c = document.createElement("canvas");
+        c.width = FW;
+        c.height = FH;
+        const ctx = c.getContext("2d");
+        if (!ctx) return reject(new Error("no ctx"));
+        ctx.fillStyle = "#ffffff"; // vùng lộ ra khi xoay → nền trắng (khớp chuẩn ảnh thẻ)
+        ctx.fillRect(0, 0, FW, FH);
+        // khớp CSS: img đặt tại (pos), kích thước rW×rH, xoay quanh TÂM img (transform-origin mặc định)
+        ctx.save();
+        ctx.translate(pos.x + rW / 2, pos.y + rH / 2);
+        ctx.rotate(((xoay + nghieng) * Math.PI) / 180);
+        ctx.drawImage(im, -rW / 2, -rH / 2, rW, rH);
+        ctx.restore();
+        c.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob null"))), "image/jpeg", 0.95);
+      };
+      im.onerror = () => reject(new Error("load ảnh lỗi"));
+      im.src = src;
+    });
+
   const xuLy = async () => {
-    if (!fileRef.current) return;
+    if (!src) return;
     setBusy(true);
     setErr("");
     try {
-      const left = Math.round(-pos.x / scale);
-      const top = Math.round(-pos.y / scale);
-      const w = Math.round(FW / scale);
-      const h = Math.round(FH / scale);
-      const r = await xuLyAnh(fileRef.current, `${left},${top},${w},${h}`, xoaPhong);
+      const blob = await dungCanvasBlob();
+      const file = new File([blob], "anh.jpg", { type: "image/jpeg" });
+      const r = await xuLyAnh(file, "", xoaPhong); // box rỗng — canvas đã là 3:4, backend không cắt thêm
       setKq(r);
     } catch {
       setErr("Xử lý ảnh thất bại — thử ảnh khác hoặc kiểm backend.");
@@ -137,18 +171,49 @@ export default function AnhModal({
                   src={src}
                   alt="crop"
                   draggable={false}
-                  style={{ position: "absolute", left: pos.x, top: pos.y, width: rW, height: rH, maxWidth: "none" }}
+                  style={{ position: "absolute", left: pos.x, top: pos.y, width: rW, height: rH, maxWidth: "none", transform: `rotate(${xoay + nghieng}deg)` }}
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-[12px] text-muted-foreground px-4 text-center">
                   Chưa chọn ảnh
                 </div>
               )}
+              {/* Khung chân dung mẫu (CHANGES #20) — chỉ để căn, KHÔNG dính vào ảnh xuất */}
+              {src && (
+                <svg viewBox={`0 0 ${FW} ${FH}`} className="absolute inset-0 w-full h-full pointer-events-none" aria-hidden="true">
+                  <ellipse cx={FW / 2} cy={FH * 0.46} rx={FW * 0.30} ry={FH * 0.30} fill="none" stroke="#ffffff" strokeOpacity="0.85" strokeWidth="2" strokeDasharray="6 5" />
+                  <line x1={FW * 0.5} y1="4" x2={FW * 0.5} y2={FH - 4} stroke="#ffffff" strokeOpacity="0.35" strokeWidth="1" strokeDasharray="4 6" />
+                  <line x1="8" y1={FH * 0.40} x2={FW - 8} y2={FH * 0.40} stroke="#ffffff" strokeOpacity="0.45" strokeWidth="1" strokeDasharray="4 6" />
+                  <line x1="8" y1={FH * 0.72} x2={FW - 8} y2={FH * 0.72} stroke="#ffffff" strokeOpacity="0.45" strokeWidth="1" strokeDasharray="4 6" />
+                </svg>
+              )}
             </div>
             {src && (
               <div className="flex items-center gap-2 w-full">
                 <Icon name="search" className="w-4 h-4 text-muted-foreground" />
                 <input type="range" min={1} max={3} step={0.02} value={zoom} onChange={(e) => onZoom(Number(e.target.value))} className="flex-1" />
+              </div>
+            )}
+            {src && (
+              <div className="w-full space-y-2">
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => setXoay((x) => x - 90)} className="h-8 px-2.5 rounded-lg border border-border text-[12px] font-medium hover:bg-muted transition-colors inline-flex items-center gap-1">
+                    <Icon name="refresh" className="w-3.5 h-3.5 -scale-x-100" /> Xoay trái
+                  </button>
+                  <button type="button" onClick={() => setXoay((x) => x + 90)} className="h-8 px-2.5 rounded-lg border border-border text-[12px] font-medium hover:bg-muted transition-colors inline-flex items-center gap-1">
+                    Xoay phải <Icon name="refresh" className="w-3.5 h-3.5" />
+                  </button>
+                  {(xoay !== 0 || nghieng !== 0) && (
+                    <button type="button" onClick={() => { setXoay(0); setNghieng(0); }} className="ml-auto h-8 px-2 rounded-lg text-[12px] text-muted-foreground hover:text-foreground">
+                      Đặt lại
+                    </button>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-muted-foreground w-14 shrink-0">Nghiêng</span>
+                  <input type="range" min={-15} max={15} step={0.5} value={nghieng} onChange={(e) => setNghieng(Number(e.target.value))} className="flex-1" />
+                  <span className="text-[11px] tabular-nums w-9 text-right shrink-0">{nghieng}°</span>
+                </div>
               </div>
             )}
             <label className="inline-flex items-center gap-2 h-9 px-3 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors cursor-pointer">

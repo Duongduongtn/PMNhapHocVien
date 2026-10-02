@@ -200,16 +200,20 @@
 
 #### [NAP-04] Căn ảnh + xóa phông trắng + xuất .jp2
 
-**Trạng thái:** ⚠️ Partial — 02/10/2026 (CHANGES #19). Ảnh thô kéo về từ VPS nạp sẵn vào trình chỉnh (AnhModal prop ảnh tùy chọn, QLY-05/06 không vỡ) + vẫn chọn file khác. Kiểm: webui build + Playwright (ảnh nạp vào khung crop). **Còn kiểm tay 'mở .jp2 bằng app cũ' (1c) + verify trên tool thật.**
-**Story:** Là nhân viên nạp DB, tôi muốn căn khung chân dung, xóa phông thành nền trắng và xuất `.jp2`, để ảnh đúng chuẩn app cũ.
+**Trạng thái:** ⚠️ Partial — 02/10/2026 (CHANGES #19+#20). Trình chỉnh ảnh: nạp sẵn ảnh VPS + grab 2 trục + xoay (−90/+90 + nghiêng) + khung chân dung mẫu + warm-up rembg (u2net); xử lý qua canvas (WYSIWYG). Kiểm: webui build + 29 test + Playwright. **Còn kiểm tay 'mở .jp2 bằng app cũ' (1c) + verify trên tool thật.**
+**Story:** Là nhân viên nạp DB, tôi muốn căn khung chân dung, xoay cho thẳng, xóa phông thành nền trắng và xuất `.jp2`, để ảnh đúng chuẩn app cũ.
 
 **Steps to Complete:**
-1. Hiện ảnh thô; **khung crop cố định tỷ lệ 3:4**, tự nhận diện mặt gợi ý vị trí; **grab di chuyển + phóng to/thu nhỏ khung** (kéo chuột/chạm) để canh mặt vào giữa; chỉnh tay hoặc thay ảnh khác.
+1. Hiện ảnh thô; **khung crop cố định tỷ lệ 3:4** + **khung chân dung mẫu mờ chồng lên** (ô-van đầu + đường căn mắt/cằm) để biết đặt mặt vào đâu; tự nhận diện mặt gợi ý vị trí; **grab di chuyển + phóng to/thu nhỏ + xoay** (kéo chuột/chạm) để canh mặt vào giữa; chỉnh tay hoặc thay ảnh khác.
 2. Xóa phông → **nền trắng** (`rembg`); xem trước.
 3. Khi bấm Nạp mới xuất `.jp2` (`Pillow`) và ghi file.
 
 **Done khi:**
 - ✅ **Ảnh thô đã kéo về từ VPS được nạp sẵn vào trình chỉnh** (có ngay trong khung crop 3:4 để căn + đổi nền), không bắt operator chọn lại file; vẫn cho chọn file khác nếu muốn thay. (CHANGES #19)
+- ✅ **Grab tự do 4 hướng:** kéo ảnh trái/phải **và** lên/xuống để căn mặt (không bị ghim một trục ở mức zoom gốc); vùng lộ ra khi kéo → nền trắng. (CHANGES #20)
+- ✅ **Xoay ảnh:** nút xoay nhanh **−90°/+90°** + thanh **tinh chỉnh độ nghiêng** (vài độ) để làm thẳng mặt; ảnh xoay rồi mới crop + xuất. (CHANGES #20)
+- ✅ **Khung chân dung mẫu** mờ chồng lên khung crop (ô-van đầu + đường căn) để operator biết căn; **chỉ là hướng dẫn, KHÔNG dính vào ảnh `.jp2` xuất ra**. (CHANGES #20)
+- ✅ **Xóa phông nhanh:** bật **warm-up rembg lúc khởi động tool** (bỏ `TOOL_SKIP_WARMUP=1` ở `tool-start.bat`) → ảnh đầu chỉ chờ 1 lần lúc mở tool, ảnh sau <5s (TDD §9.2); GIỮ model u2net (không đổi chất lượng). (CHANGES #20)
 - ✅ File `.jp2` (JPEG 2000) **tỷ lệ 3:4, nền trắng, RGB**; kích thước **353×471 (~48 KB, khớp cụm phổ biến nhất của app cũ)** — hoặc 480×640 nếu chọn nét hơn; mở được bằng app cũ.
 - ✅ Ghi file tại `<IMG_PATH_CSDT>\<MaKhoaHoc>\<MaDK>.jp2` (**dùng lại `MaDK` do SP trả về**, không sinh timestamp mới — verify 39.648 HV khớp 100%, TDD §9.2); DB lưu `DuongDanAnh`, `ChatLuongAnh=1`.
 - ✅ `IMG_PATH_CSDT` đọc từ `QTHT_ThamSoHT`, không hard-code.
