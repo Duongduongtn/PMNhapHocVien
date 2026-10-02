@@ -410,7 +410,7 @@
 
 #### [QLY-07] Đổi nền trắng ảnh cho cả khóa
 
-**Trạng thái:** ⏳ Todo — thêm mới 02/10/2026 (CHANGES #22). Làm SAU nhóm QLY-01/QLY-05 mở rộng.
+**Trạng thái:** 🔄 In Progress — task 39 (backend) XONG: job đổi nền cả khóa chạy thread + tiến độ (`POST`/`GET /local/khoa/:ma_kh/doi-nen`) · applock `sp_getapplock` chống chạy trùng · `_BACKUP` chỉ-nếu-chưa-có (`<khóa>/_BACKUP/`) · heuristic 4 góc phát hiện ảnh-trắng · giữ `TT_XuLy` (tái dùng `ghi_anh_update`) · HV không ảnh bỏ qua · 1 HV lỗi không hỏng cả lô. Kiểm: +14 test (146 pytest); review-nghiepvu đủ (đã sửa 2 lệch TDD: applock + path backup). **Còn task 40 (UI: dialog phạm vi + thanh tiến độ).** Thêm mới 02/10/2026 (CHANGES #22).
 **Story:** Là nhân viên nạp DB, tôi muốn đổi nền trắng hàng loạt cho ảnh của cả một khóa, để chuẩn hóa ảnh cũ (nạp từ app cũ, nền chưa trắng) mà không phải xử lý từng học viên.
 
 **Done khi:**

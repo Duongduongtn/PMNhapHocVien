@@ -64,6 +64,41 @@ def _nen_trang(img: Image.Image) -> Image.Image:
     return bg.convert("RGB")
 
 
+# ---- QLY-07 (task 39): đổi nền trắng ảnh ĐÃ LƯU hàng loạt (§11.6) ----
+def anh_da_trang(data: bytes, nguong: int = 238) -> bool:
+    """Heuristic 'ảnh đã nền trắng': lấy mẫu pixel 4 góc (có lề), tất cả gần trắng → True.
+
+    DB không có cờ nền trắng → đoán bằng 4 góc (nền chân dung nằm ở viền). Sai sót nhỏ bù
+    bằng tùy chọn 'tất cả HV có ảnh'. File hỏng/không đọc được → False (để vẫn đưa vào xử lý)."""
+    try:
+        with Image.open(io.BytesIO(data)) as im:
+            im = im.convert("RGB")
+            w, h = im.size
+            m = max(2, min(w, h) // 20)  # lề lấy mẫu ~5% cạnh
+            goc = [(m, m), (w - 1 - m, m), (m, h - 1 - m), (w - 1 - m, h - 1 - m)]
+            for x, y in goc:
+                r, g, b = im.getpixel((max(0, min(w - 1, x)), max(0, min(h - 1, y))))
+                if r < nguong or g < nguong or b < nguong:
+                    return False
+            return True
+    except Exception:  # noqa: BLE001 — file hỏng → coi như CHƯA trắng, để xử lý lại
+        return False
+
+
+def doi_nen_anh(data: bytes) -> bytes:
+    """Đổi nền trắng 1 ảnh ĐÃ LƯU (QLY-07): giải mã → ép 3:4 → rembg nền trắng → 353×471 → .jp2.
+
+    Nguồn là file .jp2 của ta (BỎ validate_raw — vốn chỉ nhận JPEG/PNG magic). File hỏng → lỗi
+    (caller ghi vào danh sách lỗi, chạy tiếp HV khác)."""
+    img = Image.open(io.BytesIO(data)).convert("RGB")
+    img = _crop_3_4(img, None)           # ảnh cũ có thể lệch tỷ lệ → ép lại 3:4 (giữ giữa)
+    img = _nen_trang(img)
+    img = img.resize((OUT_W, OUT_H), Image.LANCZOS)
+    jp2 = io.BytesIO()
+    img.save(jp2, format="JPEG2000", quality_mode="rates", quality_layers=[_JP2_RATE])
+    return jp2.getvalue()
+
+
 def xu_ly(data: bytes, box: tuple | None = None, xoa_phong: bool = True) -> dict:
     """Validate → crop 3:4 → (rembg nền trắng) → resize 353×471 → .jp2 + preview PNG."""
     validate_raw(data)

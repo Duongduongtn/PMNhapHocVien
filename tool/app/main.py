@@ -18,6 +18,7 @@ from app.routers import hoso as hoso_router
 from app.routers import dvhc as dvhc_router
 from app.routers import anh as anh_router
 from app.routers import nap as nap_router
+from app.routers import doinen as doinen_router
 
 app = FastAPI(
     title="Tool nạp DB — Thu nhận hồ sơ học viên",
@@ -49,6 +50,7 @@ app.include_router(hoso_router.router, dependencies=_gac)
 app.include_router(dvhc_router.router, dependencies=_gac)
 app.include_router(anh_router.router, dependencies=_gac)
 app.include_router(nap_router.router, dependencies=_gac)
+app.include_router(doinen_router.router, dependencies=_gac)
 
 
 @app.on_event("startup")
