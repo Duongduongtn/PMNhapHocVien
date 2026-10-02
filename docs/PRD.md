@@ -211,6 +211,7 @@
 **Done khi:**
 - ✅ **Ảnh thô đã kéo về từ VPS được nạp sẵn vào trình chỉnh** (có ngay trong khung crop 3:4 để căn + đổi nền), không bắt operator chọn lại file; vẫn cho chọn file khác nếu muốn thay. (CHANGES #19)
 - ✅ **Grab tự do 4 hướng:** kéo ảnh trái/phải **và** lên/xuống để căn mặt (không bị ghim một trục ở mức zoom gốc); vùng lộ ra khi kéo → nền trắng. (CHANGES #20)
+- ✅ **Phóng to/thu nhỏ linh hoạt:** thang zoom **mặc định ở GIỮA = cỡ gốc** (kéo trái = thu nhỏ **dưới cỡ ban đầu**, kéo phải = phóng to); **lăn chuột** trên khung cũng phóng/thu. (CHANGES #21)
 - ✅ **Xoay ảnh:** nút xoay nhanh **−90°/+90°** + thanh **tinh chỉnh độ nghiêng** (vài độ) để làm thẳng mặt; ảnh xoay rồi mới crop + xuất. (CHANGES #20)
 - ✅ **Khung chân dung mẫu** mờ chồng lên khung crop (ô-van đầu + đường căn) để operator biết căn; **chỉ là hướng dẫn, KHÔNG dính vào ảnh `.jp2` xuất ra**. (CHANGES #20)
 - ✅ **Xóa phông nhanh:** bật **warm-up rembg lúc khởi động tool** (bỏ `TOOL_SKIP_WARMUP=1` ở `tool-start.bat`) → ảnh đầu chỉ chờ 1 lần lúc mở tool, ảnh sau <5s (TDD §9.2); GIỮ model u2net (không đổi chất lượng). (CHANGES #20)

@@ -535,7 +535,7 @@ APScheduler quét mỗi giờ: `pending`/`imported` quá 30 ngày → xóa dòng
 ```
 Ảnh thô (từ VPS, đã kéo về) → NẠP SẴN vào trình chỉnh (AnhModal) làm ảnh crop ban đầu
   → hiển thị + khung crop CỐ ĐỊNH 3:4 + KHUNG CHÂN DUNG MẪU mờ chồng lên (ô-van đầu + đường căn mắt/cằm)
-  → auto gợi ý theo nhận diện mặt → grab di chuyển + zoom + XOAY (−90°/+90° + tinh chỉnh độ nghiêng) / thay ảnh
+  → auto gợi ý theo nhận diện mặt → grab di chuyển (4 hướng) + ZOOM (thang mũ 3^t, t∈[−1,1], giữa=cỡ gốc, cho thu nhỏ <1× + lăn chuột) + XOAY (−90°/+90° + tinh chỉnh độ nghiêng) / thay ảnh
   → rembg xóa phông → nền TRẮNG → preview
   → (khi bấm Nạp) Pillow xuất .jp2 (ảnh đã xoay rồi mới crop; khung mẫu KHÔNG dính vào ảnh xuất)
 ```
@@ -851,3 +851,4 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 | 02/10/2026 | 2.0 | Quản lý tài khoản app web (HTG-04/05/06): §4.2 thêm `POST /api/auth/doi-mat-khau`, `GET|POST|PUT /api/admin/users*`, `POST /api/admin/users/:id/reset-mat-khau`, `GET /api/admin/tool-key` + ghi chú bảo mật (chỉ admin, băm bcrypt, không log secret, khóa bằng `is_active` không xóa cứng, chặn admin tự khóa). +5 sửa UI khung (header cố định, khung cao ổn định, phân trang 20/trang, tool master–detail panel ảnh ghim, fix kính lúp đè chữ bằng `@layer components`). Xem CHANGES.md #18. |
 | 02/10/2026 | 2.1 | Tận dụng dữ liệu kéo-về (CHANGES #19): §8.1 thêm bước tự tách `noi_tt_raw` → điền sẵn ô map (NAP-03); §9.1 nạp thẳng ảnh thô VPS vào trình chỉnh, AnhModal nhận ảnh khởi tạo tùy chọn (NAP-04). |
 | 02/10/2026 | 2.2 | Nâng cấp trình chỉnh ảnh (CHANGES #20): §9.1 thêm xoay ảnh (−90°/+90° + tinh chỉnh độ nghiêng, xoay client-side trước khi crop) + khung chân dung mẫu overlay (không dính ảnh xuất); §9.2 ghi rõ `tool-start.bat` KHÔNG đặt `TOOL_SKIP_WARMUP=1` (warm-up để ảnh sau nhanh, giữ model u2net — phương án A). |
+| 02/10/2026 | 2.3 | Zoom trình chỉnh ảnh (CHANGES #21): §9.1 thang zoom mũ (3^t, t∈[−1,1], giữa=cỡ gốc) cho thu nhỏ dưới 1× + lăn chuột; grab tự do 4 hướng (nới clamp giữ ≥1/4 ảnh). |

@@ -20,7 +20,7 @@ export default function AnhModal({
 }) {
   const [src, setSrc] = useState("");
   const [nat, setNat] = useState({ w: 0, h: 0 });
-  const [zoom, setZoom] = useState(1);
+  const [mucZoom, setMucZoom] = useState(0); // thang −1..1, 0 = GIỮA = cỡ ban đầu (1×); trái thu nhỏ, phải phóng to
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const [xoay, setXoay] = useState(0);      // bước 90° (nút ⟲ ⟳)
   const [nghieng, setNghieng] = useState(0); // tinh chỉnh độ nghiêng (−15..15°)
@@ -32,6 +32,7 @@ export default function AnhModal({
   const drag = useRef<{ x: number; y: number } | null>(null);
 
   const baseScale = nat.w ? Math.max(FW / nat.w, FH / nat.h) : 1;
+  const zoom = Math.pow(3, mucZoom); // 0→1× (cỡ ban đầu) · −1→1/3 (thu nhỏ) · +1→3× (phóng to)
   const scale = baseScale * zoom;
   const rW = nat.w * scale;
   const rH = nat.h * scale;
@@ -54,7 +55,7 @@ export default function AnhModal({
     im.onload = () => {
       const bs = Math.max(FW / im.naturalWidth, FH / im.naturalHeight);
       setNat({ w: im.naturalWidth, h: im.naturalHeight });
-      setZoom(1);
+      setMucZoom(0);
       setXoay(0);
       setNghieng(0);
       setPos({ x: (FW - im.naturalWidth * bs) / 2, y: (FH - im.naturalHeight * bs) / 2 });
@@ -79,16 +80,23 @@ export default function AnhModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [anhBanDau]);
 
-  const onZoom = (z: number) => {
-    setZoom(z);
+  const datZoom = (m: number) => {
+    const mm = Math.max(-1, Math.min(1, m)); // thang −1..1
+    setMucZoom(mm);
     // giữ vị trí hợp lệ sau khi đổi zoom (cùng ràng buộc KEEP với clamp)
-    const s = baseScale * z;
+    const s = baseScale * Math.pow(3, mm);
     const w = nat.w * s;
     const h = nat.h * s;
     setPos((p) => ({
       x: Math.max(w * KEEP - w, Math.min(FW - w * KEEP, p.x)),
       y: Math.max(h * KEEP - h, Math.min(FH - h * KEEP, p.y)),
     }));
+  };
+
+  // Lăn chuột trên khung → phóng to/thu nhỏ (CHANGES #21). deltaY>0 (lăn xuống) = thu nhỏ.
+  const onWheel = (e: React.WheelEvent) => {
+    if (!src) return;
+    datZoom(mucZoom - e.deltaY * 0.0015);
   };
 
   const onMove = (e: React.MouseEvent) => {
@@ -165,6 +173,7 @@ export default function AnhModal({
               onMouseUp={() => (drag.current = null)}
               onMouseLeave={() => (drag.current = null)}
               onMouseMove={onMove}
+              onWheel={onWheel}
             >
               {src ? (
                 <img
@@ -189,9 +198,13 @@ export default function AnhModal({
               )}
             </div>
             {src && (
-              <div className="flex items-center gap-2 w-full">
-                <Icon name="search" className="w-4 h-4 text-muted-foreground" />
-                <input type="range" min={1} max={3} step={0.02} value={zoom} onChange={(e) => onZoom(Number(e.target.value))} className="flex-1" />
+              <div className="w-full">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-muted-foreground shrink-0">Thu nhỏ</span>
+                  <input type="range" min={-1} max={1} step={0.02} value={mucZoom} onChange={(e) => datZoom(Number(e.target.value))} className="flex-1" />
+                  <span className="text-[11px] text-muted-foreground shrink-0">Phóng to</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground text-center mt-0.5">Giữa = cỡ gốc · lăn chuột trên khung để phóng/thu</p>
               </div>
             )}
             {src && (

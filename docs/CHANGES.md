@@ -4,6 +4,7 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 21 | 02/10/2026 | ✏️ Sửa | `NAP-04` | Zoom trình chỉnh ảnh (phản hồi test): cho **thu nhỏ dưới cỡ ban đầu** (trước lấy ảnh gốc làm mốc nhỏ nhất) · thang zoom **mặc định ở GIỮA** (trái thu nhỏ, phải phóng to, mũ 3^t) · **lăn chuột** trên khung để phóng/thu | ✅ | ✅ | — tinh chỉnh AnhModal | ✅ code+build+Playwright, ⚠️ chờ verify |
 | 20 | 02/10/2026 | ➕ Thêm + ⚙️ | `NAP-04` | Nâng cấp trình chỉnh ảnh (phản hồi test tool): +xoay ảnh (−90°/+90° + tinh chỉnh độ nghiêng) · +khung chân dung mẫu overlay (ô-van+đường căn, không dính ảnh xuất) · tăng tốc xóa phông = bật warm-up rembg (bỏ `TOOL_SKIP_WARMUP=1` ở `tool-start.bat`), GIỮ model u2net (phương án A). NAP-04 ⚠️→⏳ | ✅ | ✅ | — tinh chỉnh AnhModal có sẵn | ⬜ |
 | 19 | 02/10/2026 | ✏️ Sửa | `NAP-03`, `NAP-04` | Tận dụng dữ liệu đã kéo từ VPS ở màn Nạp (kéo-về): NAP-03 tự tách `noi_tt_raw` → điền sẵn ô map (operator chỉ bấm Chuyển đổi; tách không chắc thì gõ tay) · NAP-04 nạp thẳng ảnh thô VPS vào trình chỉnh (không bắt chọn lại file). NAP-03 ✅→⏳, NAP-04 ⚠️→⏳ (yêu cầu đổi, code lại phần này) | ✅ | ✅ | — tinh chỉnh màn tool có sẵn | ⬜ |
 | 18 | 02/10/2026 | ➕ Thêm + ✏️ Sửa | `HTG-04`, `HTG-05`, `HTG-06` | Quản lý tài khoản app web: admin xem API key VPS (HTG-04, SHOULD) · admin tạo/khóa tài khoản nhân viên + reset mật khẩu (HTG-05, MUST) · mọi người tự đổi mật khẩu (HTG-06, MUST). + **5 sửa UI (cả 2 app):** header cố định hết giật · khung cao ổn định không co theo nội dung · phân trang list (20/trang) · tool master–detail panel info+ảnh ghim · kính lúp đè chữ hint (fix `@layer components`) | ✅ | ✅ | ⬜ | 🟡 HTG-04/05/06 + UI-1/2/3/4/5 xong (code; server 82 test, build 2 app); chờ deploy VPS + verify |
@@ -28,6 +29,14 @@
 Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên quan
 
 ---
+
+## #21 — Zoom trình chỉnh ảnh: thu nhỏ dưới cỡ gốc + lăn chuột + thang giữa · 02/10/2026
+
+- **Mã:** `NAP-04` — tinh chỉnh zoom AnhModal (phản hồi test), không story mới.
+- **Vì sao:** user test — (1) zoom lấy ảnh ban đầu làm mốc NHỎ nhất, không thu nhỏ thêm được; (2) muốn lăn chuột để phóng/thu; (3) thang zoom nên mặc định ở giữa (trái thu nhỏ, phải phóng to).
+- **Mới:** thang zoom đổi sang **mũ `3^t`, t ∈ [−1, 1]** — `t=0` (GIỮA) = cỡ gốc 1×, `t=−1` ≈ 1/3× (thu nhỏ), `t=+1` = 3× (phóng to). Slider nhãn "Thu nhỏ ← → Phóng to", mặc định giữa. Thêm **lăn chuột** (onWheel) trên khung: lăn xuống thu nhỏ, lăn lên phóng to. Vùng lộ khi thu nhỏ/kéo → nền trắng (canvas).
+- **Đã sửa:** PRD `NAP-04` (Done khi) · TDD §9.1 + Changelog 2.3.
+- **Code sẽ đụng:** `tool/webui/src/components/AnhModal.tsx` (state `mucZoom` thay `zoom`, `datZoom`, `onWheel`, slider −1..1).
 
 ## #20 — Nâng cấp trình chỉnh ảnh: xoay + khung mẫu + tăng tốc xóa phông · 02/10/2026
 
@@ -300,7 +309,7 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 > `/capnhat` đọc mục này ở Bước 0b để biết có thay đổi nào chưa ghi sổ không.
 > So bằng **danh sách mã**, không so bằng thời gian sửa file.
 
-- **Cập nhật:** 02/10/2026 (CHANGES #20)
-- **Số story trong PRD:** 21 (20 MUST/SHOULD gồm `THU-04` SHOULD + `HTG-04` SHOULD + `QLY-06` ⏳; chưa tính NICE `QLY-04`, `THU-03`) — #19/#20 không thêm/bớt story, chỉ sửa NAP-03/NAP-04
+- **Cập nhật:** 02/10/2026 (CHANGES #21)
+- **Số story trong PRD:** 21 (20 MUST/SHOULD gồm `THU-04` SHOULD + `HTG-04` SHOULD + `QLY-06` ⏳; chưa tính NICE `QLY-04`, `THU-03`) — #19/#20/#21 không thêm/bớt story, chỉ sửa NAP-03/NAP-04
 - **Mã story hiện có:** `HTG-01`…`HTG-06`, `THU-01`, `THU-02`, `THU-04`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06` (NICE: `QLY-04`, `THU-03`)
 - **Mã đã nghỉ hưu:** (chưa có)
