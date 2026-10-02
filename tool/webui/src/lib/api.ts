@@ -196,6 +196,13 @@ export const doiKhoa = (maDk: string, maKhDich: string) =>
     body: JSON.stringify({ ma_kh_dich: maKhDich }),
   }).then(json<{ ok: boolean; ma_dk: string; ma_kh: string; so_ho_so: string }>);
 
+// QLY-03 — xóa học viên (xóa mềm ảnh sang _DELETED). anh_loi: đã xóa DB nhưng chuyển ảnh lỗi.
+export const xoaHoSo = (maDk: string) =>
+  fetch(`${BASE}/local/ho-so/xoa?ma_dk=${encodeURIComponent(maDk)}`, {
+    method: "POST",
+    headers: authHeaders(),
+  }).then(json<{ ok: boolean; ma_dk: string; anh_loi?: string }>);
+
 export interface Tinh {
   ma_dvql: string;
   ten_tinh: string;

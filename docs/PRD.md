@@ -339,7 +339,7 @@
 
 #### [QLY-03] Xóa học viên + xóa mềm ảnh
 
-**Trạng thái:** ⏳ Todo
+**Trạng thái:** ⚠️ Partial — 02/10/2026 (task 24). Code xong: `POST /local/ho-so/xoa` → `usp_NguoiLX_Delete` (cascade HoSo+GiayTo); chặn HV đã có GPLX (pre-check `NguoiLX_GPLX` + verify sau xóa vì SP không raiserror); ảnh **xóa mềm** chuyển sang folder `_DELETED` (giữ tên MaDK, không xóa cứng) + ghi log staging. UI: nút "Xóa" xác nhận 2 bước ở Tra cứu DB. Kiểm: tool **111 test** + webui build · review-nghiệp-vụ **6/6 Done**. **Chờ verify xóa thật.** (Ghi chú: UI ẩn nút Xóa khi khóa BC1 — ngoài AC, backend chưa chặn tương ứng; cần `/capnhat` nếu muốn cấm xóa HV khóa BC1.)
 **Story:** Là nhân viên nạp DB, tôi muốn xóa học viên nhập nhầm, để dọn hồ sơ sai mà không mất ảnh vĩnh viễn.
 
 **Done khi:**

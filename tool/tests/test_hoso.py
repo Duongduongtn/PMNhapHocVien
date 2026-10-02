@@ -230,3 +230,12 @@ def test_doi_khoa_thieu_ma_dk_422(auth_headers):
 def test_doi_khoa_thieu_khoa_dich_422(auth_headers):
     r = client.post("/local/ho-so/doi-khoa?ma_dk=X", headers=auth_headers, json={})
     assert r.status_code == 422
+
+
+# ---- QLY-03: gate + validate (xóa thật kiểm live) ----
+def test_xoa_chua_dang_nhap_401():
+    assert client.post("/local/ho-so/xoa?ma_dk=X").status_code == 401
+
+
+def test_xoa_thieu_ma_dk_422(auth_headers):
+    assert client.post("/local/ho-so/xoa", headers=auth_headers).status_code == 422

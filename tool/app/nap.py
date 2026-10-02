@@ -160,6 +160,30 @@ def di_chuyen_anh(duong_dan_cu: str | None, ma_kh_moi: str, ma_dk: str, img_path
     return str(dest)
 
 
+# ---- Log xóa HV (QLY-03) — ghi vào staging SQLite để truy vết xóa mềm --------
+_XOA_DDL = (
+    "CREATE TABLE IF NOT EXISTS xoa_hv ("
+    "ma_dk TEXT, ma_kh TEXT, duong_dan_cu TEXT, duong_dan_moi TEXT, nguoi TEXT, thoi_gian TEXT)"
+)
+
+
+def log_xoa_hv(ma_dk: str, ma_kh: str, duong_dan_cu: str | None,
+               duong_dan_moi: str | None, nguoi: str) -> None:
+    """Ghi 1 dòng log xóa HV (xóa mềm ảnh) để sau truy vết được ai xóa, file chuyển đi đâu."""
+    ORPHAN_DB.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(ORPHAN_DB))
+    try:
+        conn.execute(_XOA_DDL)
+        conn.execute(
+            "INSERT INTO xoa_hv (ma_dk, ma_kh, duong_dan_cu, duong_dan_moi, nguoi, thoi_gian) "
+            "VALUES (?,?,?,?,?,?)",
+            (ma_dk, ma_kh, duong_dan_cu, duong_dan_moi, nguoi, datetime.now().isoformat(timespec="seconds")),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 # ---- Chống mồ côi / chống trùng UUID (staging SQLite) ----------------------
 def _orphan_set(uuid: str, ma_dk: str) -> None:
     ORPHAN_DB.parent.mkdir(parents=True, exist_ok=True)

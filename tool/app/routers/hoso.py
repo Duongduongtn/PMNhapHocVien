@@ -18,7 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, field_validator
 
 from app.db import sqlserver_cursor, sqlserver_conn, ConfigChuaDay
-from app.nap import tach_ho_ten, validate_do_dai, sinh_so_ho_so, di_chuyen_anh
+from app.nap import tach_ho_ten, validate_do_dai, sinh_so_ho_so, di_chuyen_anh, log_xoa_hv
 from app.session import Phien, require_session
 
 router = APIRouter(prefix="/local/ho-so", tags=["ho-so"])
@@ -380,3 +380,65 @@ def doi_khoa(body: DoiKhoaIn, ma_dk: str = Query(..., min_length=1),
         raise HTTPException(status_code=502, detail="Không đổi được khóa trên SQL Server — kiểm kết nối rồi thử lại.")
 
     return {"ok": True, "ma_dk": ma_dk, "ma_kh": ma_kh_moi, "so_ho_so": so_ho_so}
+
+
+@router.post("/xoa")
+def xoa_ho_so(ma_dk: str = Query(..., min_length=1), phien: Phien = Depends(require_session)):
+    """QLY-03 — xóa học viên nhập nhầm (GHI PROD).
+
+    `usp_NguoiLX_Delete` DELETE `NguoiLX` → cascade `NguoiLX_HoSo` + `NguoiLXHS_GiayTo`.
+    HV đã có GPLX → FK `NguoiLX_GPLX` NO_ACTION chặn (pre-check + verify sau xóa, SP không raiserror).
+    File `.jp2` KHÔNG xóa cứng → **xóa mềm**: chuyển sang folder `_DELETED` (giữ tên MaDK) + ghi log.
+    """
+    nguoi = (phien.ho_ten or phien.username or "tool")[:60]
+    try:
+        with sqlserver_conn(autocommit=True) as conn:
+            cur = conn.cursor(as_dict=True)
+            # 1) Hồ sơ hiện tại (lấy khóa + ảnh trước khi xóa)
+            cur.execute("SELECT MaKhoaHoc, DuongDanAnh FROM NguoiLX_HoSo WHERE MaDK=%s", (ma_dk,))
+            hs = cur.fetchone()
+            if not hs:
+                raise HTTPException(status_code=404, detail="Không tìm thấy hồ sơ học viên.")
+            ma_kh = hs["MaKhoaHoc"]
+            duong_dan_cu = hs["DuongDanAnh"]
+
+            # 2) HV đã có GPLX → chặn (FK NO_ACTION, BR-014). Pre-check cho thông báo rõ.
+            cur.execute("SELECT COUNT(*) AS n FROM NguoiLX_GPLX WHERE MaDK=%s", (ma_dk,))
+            if cur.fetchone()["n"] > 0:
+                raise HTTPException(status_code=409, detail="Học viên đã có GPLX — không xóa được.")
+
+            # 3) Đường dẫn ảnh (đọc động) — cần trước khi xóa để xóa mềm file
+            cur.execute("SELECT GiaTriTS FROM QTHT_ThamSoHT WHERE TenTS=%s", (_TEN_TS_IMG,))
+            r = cur.fetchone()
+            img_path = (r and r["GiaTriTS"]) or ""
+
+            # 4) Xóa DB (cascade). SP không raiserror → verify bản ghi đã mất.
+            cur.execute("EXEC dbo.usp_NguoiLX_Delete @MaDK=%s", (ma_dk,))
+            cur.execute("SELECT COUNT(*) AS n FROM NguoiLX WHERE MaDK=%s", (ma_dk,))
+            if cur.fetchone()["n"] > 0:
+                raise HTTPException(status_code=409, detail="Không xóa được — học viên có ràng buộc (vd đã có GPLX).")
+
+            # 5) Xóa mềm ảnh: chuyển .jp2 sang folder _DELETED + log (DB đã xóa → lỗi file chỉ cảnh báo)
+            duong_dan_moi = None
+            anh_loi = None
+            if (duong_dan_cu or "").strip():
+                if img_path:
+                    try:
+                        duong_dan_moi = di_chuyen_anh(duong_dan_cu, "_DELETED", ma_dk, img_path)
+                    except Exception as e:  # noqa: BLE001 — DB đã xóa, file lỗi không hoàn tác được
+                        anh_loi = str(e)
+                else:
+                    # Thiếu cấu hình đường dẫn ảnh → không chuyển được, báo rõ (không im lặng)
+                    anh_loi = "Chưa cấu hình IMG_PATH_CSDT — ảnh chưa chuyển sang _DELETED (còn ở thư mục cũ)."
+            log_xoa_hv(ma_dk, ma_kh, duong_dan_cu, duong_dan_moi, nguoi)
+    except HTTPException:
+        raise
+    except ConfigChuaDay as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=502, detail="Không xóa được học viên trên SQL Server — kiểm kết nối rồi thử lại.")
+
+    kq = {"ok": True, "ma_dk": ma_dk}
+    if anh_loi:
+        kq["anh_loi"] = anh_loi  # đã xóa DB nhưng chuyển ảnh _DELETED lỗi (file còn ở folder cũ)
+    return kq

@@ -9,6 +9,7 @@ import {
   suaHoSo,
   khoaCungHang,
   doiKhoa,
+  xoaHoSo,
   type KhoaTraCuu,
   type KhoaDich,
   type HoSoRow,
@@ -58,6 +59,11 @@ export default function TraCuuDB() {
   const [doiBusy, setDoiBusy] = useState(false);
   const [doiErr, setDoiErr] = useState("");
 
+  // Xóa HV (QLY-03)
+  const [xoaMo, setXoaMo] = useState(false);
+  const [xoaBusy, setXoaBusy] = useState(false);
+  const [xoaErr, setXoaErr] = useState("");
+
   async function timKhoa() {
     setErr("");
     setLoadingKhoa(true);
@@ -95,6 +101,25 @@ export default function TraCuuDB() {
     setDoiErr("");
     setKhoaDich(null);
     setMaKhDich("");
+    setXoaMo(false);
+    setXoaErr("");
+  }
+
+  async function xoaHv() {
+    if (!sel) return;
+    setXoaErr("");
+    setXoaBusy(true);
+    try {
+      const kq = await xoaHoSo(sel.ma_dk);
+      if (khoa) setHoSo(await dsHoSoTheoKhoa(khoa.ma_kh)); // HV biến mất khỏi lưới
+      setOkMsg(kq.anh_loi ? "Đã xóa học viên (ảnh chưa chuyển được — xem log)." : "Đã xóa học viên.");
+      setTimeout(() => setOkMsg(""), 2800);
+      dong();
+    } catch (e) {
+      setXoaErr(e instanceof Error ? e.message : "Xóa không thành công.");
+    } finally {
+      setXoaBusy(false);
+    }
   }
 
   async function moDoiKhoa() {
@@ -399,16 +424,45 @@ export default function TraCuuDB() {
                     </div>
                   )}
 
+                  {/* Xóa HV (QLY-03) — xác nhận 2 bước, không dùng dialog chặn */}
+                  {xoaMo && (
+                    <div className="mt-3 rounded-lg border border-destructive/40 bg-destructive/10 p-3 space-y-2">
+                      <div className="text-[13px] font-semibold text-destructive flex items-center gap-1.5">
+                        <Icon name="warn" className="w-4 h-4" /> Xóa học viên này?
+                      </div>
+                      <p className="text-[12px] text-muted-foreground">Xóa hồ sơ + giấy tờ khỏi DB. Ảnh chuyển sang thư mục <b>_DELETED</b> (xóa mềm, còn khôi phục được). HV đã có GPLX sẽ không xóa được.</p>
+                      {xoaErr && (
+                        <p className="text-[12px] text-destructive flex items-center gap-1"><Icon name="warn" className="w-3.5 h-3.5" /> {xoaErr}</p>
+                      )}
+                      <div className="flex gap-2">
+                        <button onClick={() => { setXoaMo(false); setXoaErr(""); }} className="h-9 px-3 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Hủy</button>
+                        <button
+                          onClick={() => void xoaHv()}
+                          disabled={xoaBusy}
+                          className="ml-auto h-9 px-4 rounded-lg bg-destructive text-white text-sm font-semibold inline-flex items-center gap-2 hover:brightness-110 transition-all disabled:opacity-60"
+                        >
+                          <Icon name={xoaBusy ? "refresh" : "x"} className={"w-4 h-4" + (xoaBusy ? " animate-spin" : "")} /> Xóa hẳn
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {khoa?.bc1 && (
                     <p className="text-[11px] text-warning mt-3 flex items-center gap-1">
                       <Icon name="warn" className="w-3.5 h-3.5" /> Khóa đã lập Báo cáo 1 — chỉ xem, không sửa/đổi được.
                     </p>
                   )}
                 </div>
-                <div className="p-3 border-t border-border flex gap-2">
+                <div className="p-3 border-t border-border flex gap-2 flex-wrap">
                   <button onClick={dong} className="h-10 px-4 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Đóng</button>
-                  {!khoa?.bc1 && !doiMo && (
+                  {!khoa?.bc1 && !doiMo && !xoaMo && (
                     <>
+                      <button
+                        onClick={() => { setXoaMo(true); setXoaErr(""); }}
+                        className="h-10 px-4 rounded-lg border border-destructive/40 text-destructive text-sm font-medium inline-flex items-center gap-1.5 hover:bg-destructive/10 transition-colors"
+                      >
+                        <Icon name="x" className="w-4 h-4" /> Xóa
+                      </button>
                       <button
                         onClick={() => void moDoiKhoa()}
                         className="ml-auto h-10 px-4 rounded-lg border border-border text-sm font-medium inline-flex items-center gap-1.5 hover:bg-muted transition-colors"
