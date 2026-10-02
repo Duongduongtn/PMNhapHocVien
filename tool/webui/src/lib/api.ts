@@ -161,6 +161,28 @@ async function taiAnhPNG(path: string): Promise<KetQuaAnh> {
 export const taiAnhHoSo = (maDk: string) => taiAnhPNG(`/local/ho-so/anh?ma_dk=${encodeURIComponent(maDk)}`);
 export const taiAnhThumb = (maDk: string) => taiAnhPNG(`/local/ho-so/anh-thumb?ma_dk=${encodeURIComponent(maDk)}`);
 
+// QLY-07 task 40 — đổi nền trắng cả khóa (job nền + polling tiến độ).
+export interface DoiNenTienDo {
+  tong: number;
+  xong: number;
+  bo_qua: number;
+  loi: number;
+  ds_loi: { ma_dk: string; ly_do: string }[];
+  dang_chay: boolean;
+  xong_het: boolean;
+  thong_bao: string;
+}
+export const batDauDoiNen = (maKh: string, pham_vi: "chua_trang" | "tat_ca", sao_luu: boolean) =>
+  fetch(`${BASE}/local/khoa/${encodeURIComponent(maKh)}/doi-nen`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ pham_vi, sao_luu }),
+  }).then(json<{ ok: boolean; ma_kh: string }>);
+export const tienDoDoiNen = (maKh: string) =>
+  fetch(`${BASE}/local/khoa/${encodeURIComponent(maKh)}/doi-nen`, { headers: authHeaders() }).then(
+    json<DoiNenTienDo>,
+  );
+
 // QLY-01 lát 2 — sửa nhân thân HV. Đọc chi tiết để mở form + cờ BC1 (chặn sửa).
 export interface HoSoChiTiet {
   ma_dk: string;

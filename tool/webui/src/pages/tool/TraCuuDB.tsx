@@ -15,7 +15,10 @@ import {
   napAnh,
   taiAnhHoSo,
   taiAnhThumb,
+  batDauDoiNen,
+  tienDoDoiNen,
   type KetQuaAnh,
+  type DoiNenTienDo,
   type KhoaTraCuu,
   type KhoaDich,
   type HoSoRow,
@@ -80,6 +83,132 @@ function AnhAvatar({ maDk, coAnh }: { maDk: string; coAnh: boolean }) {
   return <div ref={ref} className={box + " border-border bg-muted"}><Icon name="image" className="w-4 h-4 text-muted-foreground/40" /></div>;
 }
 
+// QLY-07 task 40 — dialog đổi nền trắng cả khóa: chọn phạm vi + sao lưu → chạy nền → polling tiến độ.
+function DoiNenDialog({ maKh, tenKh, onDong, onXong }: {
+  maKh: string; tenKh: string; onDong: () => void; onXong: () => void;
+}) {
+  const [pha, setPha] = useState<"form" | "chay" | "xong">("form");
+  const [phamVi, setPhamVi] = useState<"chua_trang" | "tat_ca">("chua_trang");
+  const [saoLuu, setSaoLuu] = useState(true);
+  const [td, setTd] = useState<DoiNenTienDo | null>(null);
+  const [err, setErr] = useState("");
+
+  // Polling tiến độ khi đang chạy; dừng khi job báo xong_het.
+  useEffect(() => {
+    if (pha !== "chay") return;
+    let huy = false;
+    const timer = setInterval(async () => {
+      try {
+        const t = await tienDoDoiNen(maKh);
+        if (huy) return;
+        setTd(t);
+        if (t.xong_het) { clearInterval(timer); setPha("xong"); }
+      } catch { /* tạm thời lỗi mạng → thử lại nhịp sau */ }
+    }, 1500);
+    return () => { huy = true; clearInterval(timer); };
+  }, [pha, maKh]);
+
+  async function batDau() {
+    setErr("");
+    try {
+      await batDauDoiNen(maKh, phamVi, saoLuu);
+      setTd(null);
+      setPha("chay");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Không bắt đầu được.");
+    }
+  }
+
+  const daXuLy = td ? td.xong + td.bo_qua + td.loi : 0;
+  const pct = td && td.tong > 0 ? Math.round((daXuLy / td.tong) * 100) : 0;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget && pha !== "chay") onDong(); }}>
+      <div className="bg-card w-full max-w-md rounded-xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+          <h3 className="font-bold text-sm">Đổi nền trắng cả khóa</h3>
+          {pha !== "chay" && (
+            <button onClick={onDong} aria-label="Đóng" className="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center transition-colors">
+              <Icon name="x" className="w-5 h-5" />
+            </button>
+          )}
+        </div>
+        <div className="p-5 overflow-y-auto">
+          <p className="text-[13px] text-muted-foreground">Khóa <b className="text-foreground">{tenKh}</b> ({maKh})</p>
+
+          {pha === "form" && (
+            <div className="mt-4 space-y-4">
+              <div>
+                <label className="field-label">Phạm vi</label>
+                <div className="mt-1 space-y-1.5">
+                  {([["chua_trang", "Chỉ ảnh chưa nền trắng (khuyên dùng)"], ["tat_ca", "Tất cả học viên có ảnh"]] as const).map(([v, label]) => (
+                    <label key={v} className="flex items-center gap-2 text-[13px] cursor-pointer">
+                      <input type="radio" name="pv" checked={phamVi === v} onChange={() => setPhamVi(v)} className="accent-primary w-4 h-4" />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <label className="flex items-center gap-2 text-[13px] cursor-pointer">
+                <input type="checkbox" checked={saoLuu} onChange={(e) => setSaoLuu(e.target.checked)} className="accent-primary w-4 h-4" />
+                Sao lưu ảnh gốc vào <b>_BACKUP</b> trước khi ghi đè
+              </label>
+              <p className="text-[12px] text-muted-foreground">Chạy nền, mỗi ảnh ~1-3 giây. Giữ trạng thái báo cáo của học viên (không ảnh hưởng Báo cáo 1/2).</p>
+              {err && (
+                <p className="text-[12px] text-destructive flex items-center gap-1"><Icon name="warn" className="w-3.5 h-3.5" /> {err}</p>
+              )}
+            </div>
+          )}
+
+          {pha !== "form" && (
+            <div className="mt-4 space-y-3">
+              <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+                <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+              </div>
+              <div className="flex items-center justify-between text-[13px]">
+                <span className="text-muted-foreground tabular-nums">{daXuLy}/{td?.tong ?? 0} ảnh · {pct}%</span>
+                {pha === "chay" && <span className="inline-flex items-center gap-1 text-primary font-medium"><Icon name="refresh" className="w-3.5 h-3.5 animate-spin" /> đang chạy…</span>}
+                {pha === "xong" && <span className="inline-flex items-center gap-1 text-success font-medium"><Icon name="check" className="w-3.5 h-3.5" sw={3} /> xong</span>}
+              </div>
+              <div className="flex gap-3 text-[12px]">
+                <span className="text-success">Đã đổi: <b className="tabular-nums">{td?.xong ?? 0}</b></span>
+                <span className="text-muted-foreground">Bỏ qua: <b className="tabular-nums">{td?.bo_qua ?? 0}</b></span>
+                <span className={td && td.loi > 0 ? "text-destructive" : "text-muted-foreground"}>Lỗi: <b className="tabular-nums">{td?.loi ?? 0}</b></span>
+              </div>
+              {td?.thong_bao && (
+                <p className="text-[12px] text-warning flex items-start gap-1"><Icon name="warn" className="w-3.5 h-3.5 shrink-0 mt-0.5" /> {td.thong_bao}</p>
+              )}
+              {td && td.ds_loi.length > 0 && (
+                <div className="max-h-28 overflow-y-auto rounded-lg border border-destructive/30 bg-destructive/5 p-2 text-[11px] space-y-1">
+                  {td.ds_loi.map((l, i) => (
+                    <div key={i} className="text-destructive"><b className="tabular-nums">{l.ma_dk}</b>: {l.ly_do}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="p-3 border-t border-border flex gap-2">
+          {pha === "form" && (
+            <>
+              <button onClick={onDong} className="h-10 px-4 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Hủy</button>
+              <button onClick={() => void batDau()} className="ml-auto h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center gap-2 hover:brightness-110 transition-all shadow-sm">
+                <Icon name="image" className="w-4 h-4" /> Bắt đầu
+              </button>
+            </>
+          )}
+          {pha === "chay" && (
+            <p className="text-[12px] text-muted-foreground px-1 py-2">Đang xử lý — có thể đóng khi chạy xong.</p>
+          )}
+          {pha === "xong" && (
+            <button onClick={onXong} className="ml-auto h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition-all shadow-sm">Xong</button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function TraCuuDB() {
   const [q, setQ] = useState("");
   const [khoaList, setKhoaList] = useState<KhoaTraCuu[] | null>(null);
@@ -126,6 +255,9 @@ export default function TraCuuDB() {
 
   // Mở hồ sơ khóa khác (QLY-06)
   const [moKhoaKhac, setMoKhoaKhac] = useState(false);
+
+  // Đổi nền trắng cả khóa (QLY-07 task 40)
+  const [doiNenMo, setDoiNenMo] = useState(false);
 
   async function timKhoa() {
     setErr("");
@@ -415,6 +547,14 @@ export default function TraCuuDB() {
             <span className="text-[13px] font-bold">{khoa.ten_kh}</span>
             <span className="text-[12px] text-muted-foreground tabular-nums">{khoa.ma_kh} · hạng {khoa.hang_gplx}</span>
             {khoa.bc1 && <Bc1Chip />}
+            {/* QLY-07 task 40 — đổi nền trắng cả khóa (được phép cả khi BC1: ảnh không nằm trong báo cáo) */}
+            <button
+              type="button"
+              onClick={() => setDoiNenMo(true)}
+              className="ml-auto inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-border text-[13px] font-medium hover:bg-muted transition-colors"
+            >
+              <Icon name="image" className="w-4 h-4" /> Đổi nền cả khóa
+            </button>
           </div>
 
           {/* QLY-01 task 36 — thống kê nhanh đầu khóa (client, trên lưới đã tải; BC1 ở cấp khóa) */}
@@ -844,6 +984,21 @@ export default function TraCuuDB() {
           hoTen={sel.ho_ten || "(chưa có tên)"}
           onDong={() => setMoKhoaKhac(false)}
           onXong={(msg) => { setOkMsg(msg); setTimeout(() => setOkMsg(""), 3500); dong(); }}
+        />
+      )}
+
+      {/* Đổi nền trắng cả khóa (QLY-07 task 40) */}
+      {doiNenMo && khoa && (
+        <DoiNenDialog
+          maKh={khoa.ma_kh}
+          tenKh={khoa.ten_kh || "(không tên)"}
+          onDong={() => setDoiNenMo(false)}
+          onXong={async () => {
+            setDoiNenMo(false);
+            setOkMsg("Đã đổi nền trắng cho khóa.");
+            setTimeout(() => setOkMsg(""), 3500);
+            if (khoa) setHoSo(await dsHoSoTheoKhoa(khoa.ma_kh)); // làm tươi avatar lưới
+          }}
         />
       )}
     </div>
