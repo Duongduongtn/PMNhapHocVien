@@ -15,7 +15,7 @@ export default function AnhModal({
   anhBanDau,
 }: {
   onDong: () => void;
-  onXong?: (jp2_b64: string) => void;
+  onXong?: (jp2_b64: string, preview: string) => void; // preview: PNG data-URL để xem lại/chỉnh tiếp (CHANGES #23)
   anhBanDau?: string | null;
 }) {
   const [src, setSrc] = useState("");
@@ -254,6 +254,9 @@ export default function AnhModal({
                   <p className="text-[12px] text-success font-semibold mt-2">
                     <Icon name="check" className="w-4 h-4 inline" sw={3} /> {kq.w}×{kq.h} · nền trắng · .jp2
                   </p>
+                  {onXong && (
+                    <p className="text-[11px] text-warning font-medium mt-1">Ảnh đã xử lý — bấm <b>"Dùng ảnh này"</b> bên dưới để áp dụng.</p>
+                  )}
                 </div>
               ) : (
                 <span className="text-[12px] text-muted-foreground">Kết quả xem trước hiện ở đây</span>
@@ -266,8 +269,8 @@ export default function AnhModal({
             )}
             {kq && onXong && (
               <button
-                onClick={() => { onXong(kq.jp2_b64); onDong(); }}
-                className="mt-3 w-full inline-flex items-center justify-center gap-2 h-10 rounded-lg border border-primary text-primary font-semibold text-sm hover:bg-primary/5 transition-colors"
+                onClick={() => { onXong(kq.jp2_b64, kq.preview); onDong(); }}
+                className="mt-3 w-full inline-flex items-center justify-center gap-2 h-11 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:brightness-110 transition-all shadow-sm"
               >
                 <Icon name="check" className="w-4 h-4" sw={3} /> Dùng ảnh này
               </button>

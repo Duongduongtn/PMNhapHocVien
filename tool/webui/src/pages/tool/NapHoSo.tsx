@@ -26,6 +26,7 @@ interface Nhap {
   diaChi: DiaChiMoi | null; // NAP-03: operator map/chọn tay — bắt buộc mới nạp được
   chiTiet: string;
   jp2: string | null;
+  anhPreview: string | null; // CHANGES #23: PNG xem trước ảnh đã chỉnh (xem lại + mở lại chỉnh tiếp); .jp2 không render trực tiếp
   tick: number[] | null; // giấy tờ đã tick; null = chưa khởi tạo theo khóa
 }
 
@@ -199,7 +200,7 @@ export default function NapHoSo() {
 
   // Nháp của 1 HV (khởi tạo giấy tờ theo khóa nếu chưa có).
   const layNhap = (uuid: string): Nhap =>
-    nhap[uuid] ?? { diaChi: null, chiTiet: "", jp2: null, tick: null };
+    nhap[uuid] ?? { diaChi: null, chiTiet: "", jp2: null, anhPreview: null, tick: null };
 
   const capNhatNhap = (uuid: string, patch: Partial<Nhap>) =>
     setNhap((prev) => ({ ...prev, [uuid]: { ...layNhap(uuid), ...patch } }));
@@ -665,7 +666,12 @@ export default function NapHoSo() {
               <h3 className="text-sm font-bold mb-1">Ảnh chân dung</h3>
               <p className="text-[11px] text-muted-foreground mb-3">3:4 · 353×471 · nền trắng (NAP-04)</p>
               <div className="aspect-[3/4] w-full max-w-[240px] mx-auto xl:mx-0 rounded-lg bg-white border border-input flex items-center justify-center relative overflow-hidden mb-3 shadow-sm">
-                {selRow && layNhap(selRow.uuid).jp2 ? (
+                {selRow && layNhap(selRow.uuid).anhPreview ? (
+                  <>
+                    <img src={layNhap(selRow.uuid).anhPreview!} alt="Ảnh đã chỉnh (nền trắng)" className="w-full h-full object-cover" />
+                    <span className="absolute top-2 left-2 text-[10px] bg-success text-white px-1.5 py-0.5 rounded">Đã xử lý .jp2</span>
+                  </>
+                ) : selRow && layNhap(selRow.uuid).jp2 ? (
                   <>
                     <Icon name="check" className="w-16 h-16 text-success/50" />
                     <span className="absolute top-2 left-2 text-[10px] bg-success text-white px-1.5 py-0.5 rounded">Đã xử lý .jp2</span>
@@ -705,8 +711,8 @@ export default function NapHoSo() {
       {anhOpen && selRow && (
         <AnhModal
           onDong={() => setAnhOpen(false)}
-          onXong={(b64) => capNhatNhap(selRow.uuid, { jp2: b64 })}
-          anhBanDau={selRow.co_anh ? anhUrl : null}
+          onXong={(b64, preview) => capNhatNhap(selRow.uuid, { jp2: b64, anhPreview: preview })}
+          anhBanDau={layNhap(selRow.uuid).anhPreview ?? (selRow.co_anh ? anhUrl : null)}
         />
       )}
     </>

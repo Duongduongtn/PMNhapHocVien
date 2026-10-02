@@ -44,7 +44,7 @@ const FORM_RONG: HoSoSuaIn = { ho_ten: "", ngay_sinh: "", gioi_tinh: "U", so_ccc
 // QLY-01 task 35 — avatar mỗi dòng lưới, lazy-load (IntersectionObserver): chỉ tải thumbnail khi
 // dòng lọt viewport, không request cả khóa. 3 ca (TDD §11.1):
 //   co_anh=false → icon người (chưa ảnh) · thumb OK → ảnh · 404/422 → icon ảnh-vỡ (khác icon người).
-function AnhAvatar({ maDk, coAnh }: { maDk: string; coAnh: boolean }) {
+function AnhAvatar({ maDk, coAnh, ver = 0 }: { maDk: string; coAnh: boolean; ver?: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const [url, setUrl] = useState<string | null>(null);
   const [loi, setLoi] = useState(false);     // file mất/hỏng
@@ -66,12 +66,13 @@ function AnhAvatar({ maDk, coAnh }: { maDk: string; coAnh: boolean }) {
     if (!hien || !coAnh) return;
     let huy = false;
     let obj: string | null = null;
-    void taiAnhThumb(maDk).then((kq) => {
+    setLoi(false);
+    void taiAnhThumb(maDk, ver).then((kq) => {
       if (huy) return;
       if ("url" in kq) { obj = kq.url; setUrl(kq.url); } else setLoi(true);
     });
     return () => { huy = true; if (obj) URL.revokeObjectURL(obj); };
-  }, [hien, coAnh, maDk]);
+  }, [hien, coAnh, maDk, ver]);
 
   const box = "w-9 h-9 rounded-md border flex items-center justify-center overflow-hidden shrink-0";
   if (!coAnh)
@@ -305,15 +306,20 @@ export default function TraCuuDB() {
     setMoKhoaKhac(false);
   }
 
+  // CHANGES #23 — tăng sau khi lưu/thay ảnh để ép tải lại ảnh MỚI (ảnh lớn + avatar), tránh
+  // trình duyệt trả bản cũ từ bộ đệm (URL ảnh cố định theo MaDK).
+  const [anhVer, setAnhVer] = useState(0);
+
   // Tải ảnh lớn khi mở modal chi tiết (QLY-01 task 35). Fetch kèm session header → object URL;
   // revoke khi đổi HV/đóng. File mất (404) / hỏng (422) → giữ trong anhXem để báo cảnh báo.
+  // Phụ thuộc anhVer: thay ảnh xong → refetch ảnh mới ngay trong modal (CHANGES #23).
   useEffect(() => {
     setAnhXem(null);
     if (!sel || !sel.co_anh) return;
     let huy = false;
     let obj: string | null = null;
     setAnhXemBusy(true);
-    void taiAnhHoSo(sel.ma_dk)
+    void taiAnhHoSo(sel.ma_dk, anhVer)
       .then((kq) => {
         if (huy) return;
         if ("url" in kq) obj = kq.url;
@@ -321,7 +327,7 @@ export default function TraCuuDB() {
       })
       .finally(() => { if (!huy) setAnhXemBusy(false); });
     return () => { huy = true; if (obj) URL.revokeObjectURL(obj); };
-  }, [sel]);
+  }, [sel, anhVer]);
 
   // Click ảnh → mở trình chỉnh (QLY-05). Ảnh cũ còn → nạp sẵn vào khung; mất/hỏng (404/422) →
   // mở chế độ chọn-file mới (TDD §11.5). Ảnh đã nạp sẽ ghi đè qua napAnhHv.
@@ -334,15 +340,23 @@ export default function TraCuuDB() {
 
   async function napAnhHv(jp2B64: string) {
     if (!sel) return;
+    const coAnhTruoc = sel.co_anh;
+    const maDk = sel.ma_dk;
     setAnhModal(false);
     setAnhErr("");
     setAnhBusy(true);
     try {
-      await napAnh(sel.ma_dk, jp2B64);
-      if (khoa) setHoSo(await dsHoSoTheoKhoa(khoa.ma_kh)); // làm tươi để cột Ảnh đổi sang "đã có"
-      setOkMsg(sel.co_anh ? "Đã thay ảnh chân dung." : "Đã nạp ảnh chân dung.");
-      setTimeout(() => setOkMsg(""), 2800);
-      dong();
+      await napAnh(maDk, jp2B64);
+      // CHANGES #23: KHÔNG đóng modal — hiện ảnh MỚI trong modal + cho chỉnh tiếp. HV giờ có ảnh;
+      // tăng anhVer để refetch ảnh mới (tránh bộ đệm); đóng panel "thay ảnh" để quay về xem.
+      setSel((prev) => (prev && prev.ma_dk === maDk ? { ...prev, co_anh: true } : prev));
+      setAnhVer((v) => v + 1);
+      setAnhMo(false);
+      if (khoa) setHoSo(await dsHoSoTheoKhoa(khoa.ma_kh)); // lưới đổi "đã có" + avatar refetch (ver mới)
+      setOkMsg(coAnhTruoc
+        ? "Đã thay ảnh — xem ảnh mới bên dưới; bấm \"Thay ảnh\" để chỉnh tiếp."
+        : "Đã nạp ảnh — xem bên dưới; bấm \"Thay ảnh\" để chỉnh tiếp.");
+      setTimeout(() => setOkMsg(""), 3500);
     } catch (e) {
       setAnhErr(e instanceof Error ? e.message : "Nạp ảnh không thành công.");
     } finally {
@@ -620,7 +634,7 @@ export default function TraCuuDB() {
                 <tbody>
                   {rowsTrang.map((h) => (
                     <tr key={h.ma_dk} onClick={() => setSel(h)} className="border-t border-border cursor-pointer hover:bg-muted/60 transition-colors">
-                      <td className="px-2 py-1.5"><AnhAvatar maDk={h.ma_dk} coAnh={h.co_anh} /></td>
+                      <td className="px-2 py-1.5"><AnhAvatar maDk={h.ma_dk} coAnh={h.co_anh} ver={anhVer} /></td>
                       <td className="px-3 py-2 tabular-nums">{h.so_ho_so || "—"}</td>
                       <td className="px-3 py-2 font-semibold">{h.ho_ten || "(chưa có tên)"}</td>
                       <td className="px-3 py-2">{gioiTinhVN(h.gioi_tinh)}</td>
@@ -856,7 +870,7 @@ export default function TraCuuDB() {
                       onClick={() => setMoKhoaKhac(true)}
                       className="h-10 px-4 rounded-lg border border-border text-sm font-medium inline-flex items-center gap-1.5 hover:bg-muted transition-colors"
                     >
-                      <Icon name="plus" className="w-4 h-4" /> Mở khóa khác
+                      <Icon name="plus" className="w-4 h-4" /> Tạo thêm hồ sơ ở khóa học khác hạng
                     </button>
                   )}
                   {!khoa?.bc1 && !doiMo && !xoaMo && !anhMo && (

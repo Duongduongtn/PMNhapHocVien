@@ -158,8 +158,9 @@ async function taiAnhPNG(path: string): Promise<KetQuaAnh> {
   if (r.status === 422) return { loi: "hong" };
   return { loi: "khac" };
 }
-export const taiAnhHoSo = (maDk: string) => taiAnhPNG(`/local/ho-so/anh?ma_dk=${encodeURIComponent(maDk)}`);
-export const taiAnhThumb = (maDk: string) => taiAnhPNG(`/local/ho-so/anh-thumb?ma_dk=${encodeURIComponent(maDk)}`);
+// v: cache-bust (CHANGES #23) — tăng sau khi lưu/thay ảnh để trình duyệt lấy ảnh MỚI, không trả bản cũ từ bộ đệm. v=0 → URL ổn định (cache bình thường).
+export const taiAnhHoSo = (maDk: string, v = 0) => taiAnhPNG(`/local/ho-so/anh?ma_dk=${encodeURIComponent(maDk)}${v ? `&v=${v}` : ""}`);
+export const taiAnhThumb = (maDk: string, v = 0) => taiAnhPNG(`/local/ho-so/anh-thumb?ma_dk=${encodeURIComponent(maDk)}${v ? `&v=${v}` : ""}`);
 
 // QLY-07 task 40 — đổi nền trắng cả khóa (job nền + polling tiến độ).
 export interface DoiNenTienDo {
