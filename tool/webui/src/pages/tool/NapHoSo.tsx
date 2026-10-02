@@ -11,6 +11,7 @@ import {
   getGiayTo,
   keoHangDoi,
   getDanhSachKeoVe,
+  boKhoiHangDoi,
   taiAnhKeoVe,
   napLo,
   type KhoaHoc,
@@ -268,6 +269,19 @@ export default function NapHoSo() {
     }
   };
 
+  // NAP-01 task 38 — nút trên dòng: nạp lại nhanh (🔴) tái dùng nạp lô 1 uuid; bỏ khỏi hàng đợi (🟢).
+  const napLaiNhanh = (r: KeoVeRow) => { void chayNapLo([r]); };
+  const boDong = async (r: KeoVeRow) => {
+    setNapErr("");
+    try {
+      await boKhoiHangDoi(r.uuid);
+      setKeoVe(await getDanhSachKeoVe());
+      if (selUuid === r.uuid) setSelUuid(null);
+    } catch (e) {
+      setNapErr(e instanceof Error ? e.message : "Không bỏ được khỏi hàng đợi.");
+    }
+  };
+
   const chonSanSang = daLoc.canXuly.filter((r) => chon.has(r.uuid) && rowSanSang(r));
   const selRow = keoVe.find((r) => r.uuid === selUuid) ?? null;
 
@@ -490,6 +504,29 @@ export default function NapHoSo() {
                           <span className="hidden sm:inline-flex items-center gap-1 text-[10px] text-success font-medium">
                             <Icon name="check" className="w-3 h-3" sw={3} /> sẵn sàng
                           </span>
+                        )}
+                        {/* NAP-01 task 38 — nạp lại nhanh dòng lỗi */}
+                        {r.trang_thai === "loi" && (
+                          <button
+                            type="button"
+                            title="Nạp lại nhanh"
+                            disabled={napBusy || !rowSanSang(r)}
+                            onClick={(e) => { e.stopPropagation(); napLaiNhanh(r); }}
+                            className="h-7 px-2 rounded-md border border-primary/40 text-primary text-[11px] font-semibold inline-flex items-center gap-1 hover:bg-primary/5 transition-colors disabled:opacity-50"
+                          >
+                            <Icon name="refresh" className={"w-3.5 h-3.5" + (napBusy ? " animate-spin" : "")} /> Nạp lại
+                          </button>
+                        )}
+                        {/* NAP-01 task 38 — bỏ dòng đã nạp khỏi hàng đợi (staging, không đụng prod) */}
+                        {r.trang_thai === "xong" && (
+                          <button
+                            type="button"
+                            title="Bỏ khỏi hàng đợi (không xóa khỏi DB)"
+                            onClick={(e) => { e.stopPropagation(); void boDong(r); }}
+                            className="w-7 h-7 rounded-md inline-flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                          >
+                            <Icon name="x" className="w-4 h-4" />
+                          </button>
                         )}
                         <NapBadge tt={r.trang_thai} />
                       </div>

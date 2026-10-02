@@ -208,6 +208,20 @@ def danh_sach_keo_ve():
     return nap.keo_ve_danh_sach()
 
 
+@router.delete("/keo-ve/{uuid}")
+def bo_khoi_hang_doi(uuid: str, phien: Phien = Depends(require_session)):
+    """NAP-01 task 38 — 'Bỏ khỏi hàng đợi': xóa 1 dòng ĐÃ NẠP ('xong') khỏi staging keo_ve
+    cục bộ (SQLite). TOOL-LOCAL, KHÔNG đụng DB prod/VPS (tách bạch 'Xóa khỏi DB' của Tra cứu DB).
+    Chỉ cho bỏ dòng 'xong' — tránh bỏ nhầm dòng đang chờ còn nháp (VPS vẫn pending, kéo lại về)."""
+    tt = nap.keo_ve_trang_thai(uuid)
+    if tt is None:
+        raise HTTPException(status_code=404, detail="Không tìm thấy hồ sơ trong hàng đợi.")
+    if tt != "xong":
+        raise HTTPException(status_code=409, detail="Chỉ bỏ được hồ sơ đã nạp khỏi hàng đợi.")
+    nap.keo_ve_xoa(uuid)
+    return {"ok": True, "uuid": uuid}
+
+
 @router.get("/nap/keo/{uuid}/anh")
 def tai_anh_keo_ve(uuid: str, phien: Phien = Depends(require_session)):
     """Tải ảnh thô 1 hồ sơ từ VPS về (hiển thị + để xử lý .jp2). Chưa có ảnh → 404."""

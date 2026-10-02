@@ -217,3 +217,36 @@ def test_nap_lo_lock_409_ghi_loi(staging_tmp, op_headers, monkeypatch):
     assert kq["that_bai"] == 1
     assert unlock_goi == []  # lock thất bại → KHÔNG mở khóa (không phải mình khóa)
     assert nap.keo_ve_danh_sach()[0]["trang_thai"] == "loi"
+
+
+# ---- NAP-01 task 38: bỏ khỏi hàng đợi (DELETE /local/keo-ve/{uuid}) ----------
+def test_keo_ve_xoa_va_trang_thai(staging_tmp):
+    nap.keo_ve_upsert([_keo_row("u1"), _keo_row("u2")])
+    assert nap.keo_ve_trang_thai("u1") == "cho"
+    assert nap.keo_ve_trang_thai("khong-co") is None
+    nap.keo_ve_xoa("u1")
+    assert nap.keo_ve_trang_thai("u1") is None
+    assert {r["uuid"] for r in nap.keo_ve_danh_sach()} == {"u2"}
+
+
+def test_bo_khoi_hang_doi_chua_dang_nhap_401(staging_tmp):
+    assert client.delete("/local/keo-ve/u1").status_code in (401, 403)
+
+
+def test_bo_khoi_hang_doi_khong_co_404(staging_tmp, op_headers):
+    assert client.delete("/local/keo-ve/khong-co", headers=op_headers).status_code == 404
+
+
+def test_bo_khoi_hang_doi_chua_nap_409(staging_tmp, op_headers):
+    nap.keo_ve_upsert([_keo_row("u1")])  # còn 'cho' → không được bỏ
+    r = client.delete("/local/keo-ve/u1", headers=op_headers)
+    assert r.status_code == 409
+    assert nap.keo_ve_trang_thai("u1") == "cho"  # KHÔNG bị xóa
+
+
+def test_bo_khoi_hang_doi_da_nap_xoa(staging_tmp, op_headers):
+    nap.keo_ve_upsert([_keo_row("u1")])
+    nap.keo_ve_cap_nhat("u1", trang_thai="xong", ma_dk="M1", so_ho_so="056")
+    r = client.delete("/local/keo-ve/u1", headers=op_headers)
+    assert r.status_code == 200 and r.json()["ok"] is True
+    assert nap.keo_ve_trang_thai("u1") is None  # đã bỏ khỏi staging

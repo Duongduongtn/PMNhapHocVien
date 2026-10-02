@@ -368,6 +368,27 @@ def keo_ve_cap_nhat(uuid: str, *, trang_thai: str, loi: str | None = None,
         conn.close()
 
 
+def keo_ve_trang_thai(uuid: str) -> str | None:
+    """Trạng thái cục bộ 1 bản ghi staging (None nếu không có). NAP-01 task 38 — guard 'Bỏ khỏi hàng đợi'."""
+    conn = _keo_conn()
+    try:
+        row = conn.execute("SELECT trang_thai FROM keo_ve WHERE uuid=?", (str(uuid),)).fetchone()
+    finally:
+        conn.close()
+    return row[0] if row else None
+
+
+def keo_ve_xoa(uuid: str) -> None:
+    """Xóa 1 bản ghi khỏi staging keo_ve (NAP-01 task 38 'Bỏ khỏi hàng đợi'). Chỉ đụng SQLite
+    cục bộ của tool — KHÔNG chạm DB prod/VPS. Caller (router) tự guard chỉ xóa dòng đã nạp."""
+    conn = _keo_conn()
+    try:
+        conn.execute("DELETE FROM keo_ve WHERE uuid=?", (str(uuid),))
+        conn.commit()
+    finally:
+        conn.close()
+
+
 # ---- Orchestration (chạy live — GHI PRODUCTION) ----------------------------
 def nap_mot_hv(conn, hv: dict, khoa: dict, jp2_bytes: bytes | None,
                img_path_base: str, nguoi: str, uuid: str,

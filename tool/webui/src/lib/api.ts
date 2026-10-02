@@ -385,6 +385,12 @@ export const keoHangDoi = () =>
 export const getDanhSachKeoVe = () =>
   fetch(`${BASE}/local/nap/danh-sach`, { headers: authHeaders() }).then(json<KeoVeRow[]>);
 
+// NAP-01 task 38 — "Bỏ khỏi hàng đợi": xóa 1 dòng đã nạp khỏi staging cục bộ (không đụng prod).
+export const boKhoiHangDoi = (uuid: string) =>
+  fetch(`${BASE}/local/keo-ve/${encodeURIComponent(uuid)}`, { method: "DELETE", headers: authHeaders() }).then(
+    json<{ ok: boolean; uuid: string }>,
+  );
+
 // Ảnh thô cần Bearer → tải bằng fetch rồi tạo object URL (thẻ <img> không gửi header được).
 // Chưa có ảnh (404) → null.
 export const taiAnhKeoVe = async (uuid: string): Promise<string | null> => {

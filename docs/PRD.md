@@ -129,7 +129,7 @@
 
 #### [NAP-01] Tool kéo hàng đợi + chống trùng
 
-**Trạng thái:** ⏳ Todo — mở rộng yêu cầu 02/10/2026 (CHANGES #22: "Bỏ khỏi hàng đợi" dòng đã nạp + "Nạp lại nhanh" dòng lỗi). Phần đã xong trước đó: ✅ Done 01/10/2026 — ① backend (kéo→staging, nạp lô lock→nạp→da-nap, +2 vá server) + ② UI 2 chế độ (ô tìm/IN HOA/chính tả/badge) + AC "kéo lại làm tươi bản chờ nạp" (CHANGES #11). Kiểm: tool 72 + server 56 test · Playwright 3vp · review-nghiepvu 9/9. (Tra cứu DB = QLY-01 task 22)
+**Trạng thái:** ✅ Done — task 38 (CHANGES #22) xong 02/10/2026: "Bỏ khỏi hàng đợi" (`DELETE /local/keo-ve/:uuid`, guard chỉ dòng đã nạp `'xong'`, tool-local — KHÔNG đụng prod) + "Nạp lại nhanh" dòng lỗi (tái dùng nạp lô 1 uuid). Kiểm: +5 test (132 pytest, gồm endpoint 401/404/409/200) · build · 29 vitest · review-nghiepvu 2/2. 2 nút UI là reuse mỏng của luồng đã live-verify — xác nhận thao tác khi chạy tool. Phần đã xong trước đó: ✅ Done 01/10/2026 — ① backend (kéo→staging, nạp lô lock→nạp→da-nap, +2 vá server) + ② UI 2 chế độ (ô tìm/IN HOA/chính tả/badge) + AC "kéo lại làm tươi bản chờ nạp" (CHANGES #11). Kiểm: tool 72 + server 56 test · Playwright 3vp · review-nghiepvu 9/9. (Tra cứu DB = QLY-01 task 22)
 **Story:** Là nhân viên nạp DB, tôi muốn kéo danh sách học viên chờ nạp về tool, để xử lý và nạp vào DB.
 
 **Steps to Complete:**
