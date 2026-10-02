@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Icon } from "../../components/Icon";
+import { PhanTrang } from "../../components/PhanTrang";
 import AddressCombo, { type DiaChiMoi } from "../../components/AddressCombo";
 import AnhModal from "../../components/AnhModal";
 import TraCuuDB from "./TraCuuDB";
@@ -185,6 +186,11 @@ export default function NapHoSo() {
   }, [keoVe, q]);
 
   const rows = napFilter === "canxuly" ? daLoc.canXuly : daLoc.daNap;
+  // UI-3/4: phân trang cột list (client). Đổi nhóm/ô tìm/cỡ → về trang 1.
+  const [trangNap, setTrangNap] = useState(0);
+  const [coTrangNap, setCoTrangNap] = useState(20);
+  useEffect(() => { setTrangNap(0); }, [napFilter, q, coTrangNap]);
+  const rowsTrang = rows.slice(trangNap * coTrangNap, (trangNap + 1) * coTrangNap);
   const tongXong = keoVe.filter((r) => r.trang_thai === "xong").length;
   const soLoi = keoVe.filter((r) => r.trang_thai === "loi").length;
   const soChinhTa = daLoc.canXuly.filter((r) => nghiSaiChinhTa(r.ho_ten || "")).length;
@@ -342,7 +348,9 @@ export default function NapHoSo() {
             </div>
           )}
 
-          <div className="flex flex-col xl:flex-row xl:h-[720px]">
+          {/* UI-4: ghim theo chiều cao màn hình (thay 720px cứng) — cột detail + ảnh đứng yên,
+              chỉ cột list cuộn, giống app Windows. */}
+          <div className="flex flex-col xl:flex-row xl:h-[calc(100svh-8.5rem)]">
             {/* CỘT 1: hàng chờ nạp lô */}
             <div className="flex-1 min-w-0 border-b xl:border-b-0 xl:border-r border-border flex flex-col min-h-0">
               <div className="px-4 py-3 flex items-center gap-3 flex-wrap border-b border-border shrink-0">
@@ -425,7 +433,7 @@ export default function NapHoSo() {
 
               {/* rows — chỉ cột này cuộn */}
               <div className="flex-1 overflow-y-auto min-h-0">
-                {rows.map((r) => {
+                {rowsTrang.map((r) => {
                   const chinhTa = nghiSaiChinhTa(r.ho_ten || "");
                   const tenIn = (r.ho_ten || "").toUpperCase(); // IN HOA giữ dấu
                   return (
@@ -483,6 +491,12 @@ export default function NapHoSo() {
                   </div>
                 )}
               </div>
+
+              {rows.length > 0 && (
+                <div className="px-4 shrink-0 border-t border-border">
+                  <PhanTrang total={rows.length} trang={trangNap} coTrang={coTrangNap} onTrang={setTrangNap} onCoTrang={setCoTrangNap} />
+                </div>
+              )}
 
               {/* footer tiến độ */}
               {keoVe.length > 0 && (
