@@ -175,15 +175,16 @@ def ds_ho_so(makh: str = Query(..., min_length=1)):
     "Chưa ảnh" (QLY-05) không bao giờ hiện gì. Thay bằng SELECT riêng, bỏ lọc TT_XuLy.
     Không sửa SP cũ (dùng chung app cũ — sửa là vỡ báo cáo cũ). Giữ nguyên shape trả về."""
     sql = (
+        # Tên nơi cấp/thường trú/cư trú lấy bằng SCALAR SUBQUERY (TOP 1) — KHÔNG dùng LEFT JOIN:
+        # MaDvhc trong DM_DVHC không duy nhất → join sẽ NHÂN dòng HV (BUG-11, lặp học viên).
         "SELECT A.MaDK, A.HoVaTen, A.NgaySinh, A.GioiTinh, A.SoCMT, A.SO_CMND_CU, "
         "B.SoHoSo, A.NoiTT, A.NoiCT, A.NoiCapCMT, "
-        "CONVERT(varchar(8), A.NgayCapCMT, 112) AS NgayCapCMT, "  # datetime → yyyymmdd
-        "dv.TenDV AS NoiCapTen, tt.TenDayDu AS HKTT, ct.TenDayDu AS HKCT, "
+        "CONVERT(varchar(8), A.NgayCapCMT, 112) AS NgayCapCMT, "
+        "(SELECT TOP 1 dv.TenDV FROM dbo.DM_DonViGTVT dv WHERE dv.MaDVQL = A.NoiCapCMT AND dv.LoaiDV = 'SO') AS NoiCapTen, "
+        "(SELECT TOP 1 tt.TenDayDu FROM dbo.DM_DVHC tt WHERE tt.MaDvhc = A.NoiTT_MaDVHC) AS HKTT, "
+        "(SELECT TOP 1 ct.TenDayDu FROM dbo.DM_DVHC ct WHERE ct.MaDvhc = A.NoiCT_MaDVHC) AS HKCT, "
         "B.DuongDanAnh, B.MaLoaiHs "
         "FROM dbo.NguoiLX A JOIN dbo.NguoiLX_HoSo B ON A.MaDK = B.MaDK "
-        "LEFT JOIN dbo.DM_DonViGTVT dv ON dv.MaDVQL = A.NoiCapCMT AND dv.LoaiDV = 'SO' "  # nơi cấp = Sở GTVT
-        "LEFT JOIN dbo.DM_DVHC tt ON tt.MaDvhc = A.NoiTT_MaDVHC "
-        "LEFT JOIN dbo.DM_DVHC ct ON ct.MaDvhc = A.NoiCT_MaDVHC "
         "WHERE B.MaKhoaHoc = %s AND B.TrangThai = 1 "
         "ORDER BY CAST(B.SoHoSo AS INT)"
     )
