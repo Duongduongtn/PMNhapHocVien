@@ -34,9 +34,20 @@ ORPHAN_DB = Path(__file__).resolve().parent.parent / "db" / "data" / "staging.sq
 
 
 # ---- Hàm thuần --------------------------------------------------------------
-def sinh_so_ho_so(max_hien_tai: int) -> str:
-    """SoHoSo = RIGHT('000' + (MAX+1), 3). Khóa 55 HV → '056' (TDD §10.1)."""
-    return f"{max_hien_tai + 1:03d}"
+def sinh_so_ho_so(da_co) -> str:
+    """SoHoSo = số nhỏ nhất CHƯA dùng trong khóa (lấp khe trống), KHÔNG dùng MAX+1 (BUG-09).
+
+    Vì sao đổi: lúc "gỡ về chờ nạp" (QLY-08) gọi usp_NguoiLX_Delete xóa CỨNG dòng NguoiLX_HoSo
+    kèm SoHoSo; MAX+1 không thu hồi số đã xóa → nếu giữa các lần nạp-gỡ-nạp lại có HV khác chen
+    vào (hoặc phantom BUG-01), MAX trèo cao hơn số HV thực → SoHoSo nhảy quá (ca Lê Thị Hồng:
+    khóa 57 HV mà số 58). Lấp số nhỏ nhất chưa dùng → khớp số lượng HV, không trùng, tái dùng số đã gỡ.
+    `da_co` = tập SoHoSo (int) đang có trong khóa. Trả 3 chữ số (TDD §10.1); khóa 55 HV liên tục → '056'.
+    """
+    da = set(da_co)
+    n = 1
+    while n in da:
+        n += 1
+    return f"{n:03d}"
 
 
 def tach_ho_ten(ho_ten: str) -> dict:
@@ -508,10 +519,12 @@ def nap_mot_hv(conn, hv: dict, khoa: dict, jp2_bytes: bytes | None,
         if cur.fetchone()["n"] > 0:
             raise ValueError("CCCD/CMND đã có học viên trong khóa")
 
-        # 1) SoHoSo = MAX+1 trong khóa (đọc trong applock)
-        cur.execute("SELECT MAX(CAST(SoHoSo AS INT)) AS m FROM NguoiLX_HoSo WHERE MaKhoaHoc=%s",
+        # 1) SoHoSo = số nhỏ nhất chưa dùng trong khóa (lấp khe do nạp→gỡ→nạp lại — BUG-09).
+        #    Đọc TOÀN BỘ SoHoSo trong khóa (trong applock → không đua với insert sau).
+        cur.execute("SELECT CAST(SoHoSo AS INT) AS n FROM NguoiLX_HoSo WHERE MaKhoaHoc=%s",
                     (khoa["ma_kh"],))
-        so_ho_so = sinh_so_ho_so(cur.fetchone()["m"] or 0)
+        da_co = {r["n"] for r in cur.fetchall() if r["n"] is not None}
+        so_ho_so = sinh_so_ho_so(da_co)
 
         # 2) EXEC SP gộp — @p_MaDK=NULL OUT → SP tự sinh; @p_out OUT (lỗi nghiệp vụ)
         p = build_params_sp_gop(hv, khoa, so_ho_so, ten, giay_to_str, nguoi)

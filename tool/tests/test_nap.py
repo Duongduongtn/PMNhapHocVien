@@ -11,10 +11,20 @@ from app import nap
 
 # ---- sinh SoHoSo ----
 def test_sinh_so_ho_so():
-    assert nap.sinh_so_ho_so(55) == "056"   # khóa 55 HV → HV mới 056
-    assert nap.sinh_so_ho_so(0) == "001"
-    assert nap.sinh_so_ho_so(9) == "010"
-    assert nap.sinh_so_ho_so(99) == "100"
+    # Liên tục: số nhỏ nhất chưa dùng = max+1 (hành vi cũ khi KHÔNG có khe)
+    assert nap.sinh_so_ho_so(set()) == "001"
+    assert nap.sinh_so_ho_so(set(range(1, 56))) == "056"   # 1..55 → 056
+    assert nap.sinh_so_ho_so(set(range(1, 10))) == "010"
+    assert nap.sinh_so_ho_so(set(range(1, 100))) == "100"
+
+
+def test_sinh_so_ho_so_lap_khe_bug09():
+    # BUG-09: nạp→gỡ→nạp lại để lại khe → LẤP số nhỏ nhất chưa dùng, không nhảy quá số HV.
+    assert nap.sinh_so_ho_so({1, 2, 4}) == "003"            # khe ở 3
+    # Ca Lê Thị Hồng: khóa còn 57 HV {1..56, 58} (khe ở 57) → lấp 057, KHÔNG ra 059
+    assert nap.sinh_so_ho_so(set(range(1, 57)) | {58}) == "057"
+    # Gỡ số lớn nhất rồi nạp lại → tái dùng số đó
+    assert nap.sinh_so_ho_so(set(range(1, 57))) == "057"
 
 
 # ---- tách họ tên (IN HOA giữ dấu — AS-003) ----

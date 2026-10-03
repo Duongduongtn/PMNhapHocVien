@@ -368,8 +368,9 @@ def doi_khoa(body: DoiKhoaIn, ma_dk: str = Query(..., min_length=1),
             # 5) applock khóa đích → SoHoSo mới → di chuyển ảnh → UPDATE 3 cột
             cur.execute("EXEC sp_getapplock @Resource=%s, @LockMode='Exclusive', @LockTimeout=15000", (ma_kh_moi,))
             try:
-                cur.execute("SELECT MAX(CAST(SoHoSo AS INT)) AS m FROM NguoiLX_HoSo WHERE MaKhoaHoc=%s", (ma_kh_moi,))
-                so_ho_so = sinh_so_ho_so(cur.fetchone()["m"] or 0)
+                # SoHoSo = số nhỏ nhất chưa dùng (lấp khe, không MAX+1 — BUG-09, như nạp mới)
+                cur.execute("SELECT CAST(SoHoSo AS INT) AS n FROM NguoiLX_HoSo WHERE MaKhoaHoc=%s", (ma_kh_moi,))
+                so_ho_so = sinh_so_ho_so({r["n"] for r in cur.fetchall() if r["n"] is not None})
                 duong_dan_moi = di_chuyen_anh(hs["DuongDanAnh"], ma_kh_moi, ma_dk, img_path)
                 try:
                     cur.execute(
