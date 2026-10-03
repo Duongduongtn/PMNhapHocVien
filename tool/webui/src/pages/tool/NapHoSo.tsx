@@ -87,6 +87,7 @@ export default function NapHoSo() {
   const [giayTo, setGiayTo] = useState<GiayTo[]>([]);
   const [anhUrl, setAnhUrl] = useState<string | null>(null);
   const [anhOpen, setAnhOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false); // task 46 — ngăn "Chuẩn bị" trượt từ phải
 
   // Nạp lô
   const [napBusy, setNapBusy] = useState(false);
@@ -223,8 +224,27 @@ export default function NapHoSo() {
       return next;
     });
 
+  // Task 46 — trạng thái sẵn sàng mỗi dòng. Sẵn sàng = đủ ĐỊA CHỈ + GIẤY TỜ (ảnh KHÔNG bắt buộc,
+  // BR-011 — thiếu ảnh chỉ cảnh báo phụ, chủ dự án chốt 03/10). tick===null = mặc định tick hết =
+  // đủ; tick===[] = bỏ hết = thiếu. thieuAnh = chưa có ảnh đã xử lý (nháp) lẫn ảnh thô VPS.
+  const tinhSanSang = (r: KeoVeRow) => {
+    const n = nhap[r.uuid];
+    const thieu: string[] = [];
+    if (!n?.diaChi) thieu.push("địa chỉ");
+    if (n?.tick != null && n.tick.length === 0) thieu.push("giấy tờ");
+    const thieuAnh = !n?.jp2 && !n?.anhPreview && !r.co_anh;
+    return { ok: thieu.length === 0, thieu, thieuAnh };
+  };
+
   // 'cho' và 'loi' đều nạp được (lỗi đã unlock về pending trên VPS → sửa rồi nạp lại); 'xong' thì thôi.
-  const rowSanSang = (r: KeoVeRow) => r.trang_thai !== "xong" && !!nhap[r.uuid]?.diaChi;
+  const rowSanSang = (r: KeoVeRow) => r.trang_thai !== "xong" && tinhSanSang(r).ok;
+
+  // Task 46 — "Chọn tất cả sẵn sàng": tick mọi dòng Cần xử lý đủ điều kiện (bỏ qua dòng còn thiếu).
+  const chonTatCaSanSang = () =>
+    setChon(new Set(daLoc.canXuly.filter(rowSanSang).map((r) => r.uuid)));
+
+  // Mở ngăn Chuẩn bị cho 1 HV (chọn dòng + trượt ngăn phải).
+  const moChuanBi = (uuid: string) => { setSelUuid(uuid); setDrawerOpen(true); };
 
   // Dựng NapIn từ 1 hàng kéo về + nháp.
   const dungNapIn = (r: KeoVeRow): NapIn | null => {
@@ -377,9 +397,9 @@ export default function NapHoSo() {
 
           {/* UI-4: ghim theo chiều cao màn hình (thay 720px cứng) — cột detail + ảnh đứng yên,
               chỉ cột list cuộn, giống app Windows. */}
-          <div className="flex flex-col xl:flex-row xl:h-[calc(100svh-8.5rem)]">
-            {/* CỘT 1: hàng chờ nạp lô */}
-            <div className="flex-1 min-w-0 border-b xl:border-b-0 xl:border-r border-border flex flex-col min-h-0">
+          <div className="flex flex-col h-[calc(100svh-8.5rem)] min-h-0">
+            {/* Hàng chờ nạp lô — 1 danh sách, chuẩn bị qua ngăn trượt phải (task 46 redesign) */}
+            <div className="flex-1 min-w-0 flex flex-col min-h-0">
               <div className="px-4 py-3 flex items-center gap-3 flex-wrap border-b border-border shrink-0">
                 <div className="inline-flex rounded-lg bg-muted p-1">
                   <button
@@ -420,42 +440,21 @@ export default function NapHoSo() {
                 </div>
               </div>
 
-              {/* Batch bar + banners (chỉ nhóm Cần xử lý) */}
-              {napFilter === "canxuly" && (
-                <>
-                  <div className="px-4 py-2.5 flex items-center gap-3 flex-wrap border-b border-border shrink-0">
-                    <span className="text-[12px] text-muted-foreground">
-                      Đã chọn <b className="text-primary">{chonSanSang.length}</b>/{daLoc.canXuly.length}
-                      {chon.size > chonSanSang.length && (
-                        <span className="text-warning"> · {chon.size - chonSanSang.length} chưa sẵn sàng (thiếu địa chỉ)</span>
-                      )}
-                    </span>
-                    <button
-                      onClick={() => chayNapLo(chonSanSang)}
-                      disabled={napBusy || chonSanSang.length === 0 || !khoa}
-                      className="ml-auto h-9 px-4 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center gap-2 hover:brightness-110 transition-all shadow-sm disabled:opacity-60"
-                    >
-                      <Icon name={napBusy ? "refresh" : "plus"} className={"w-4 h-4" + (napBusy ? " animate-spin" : "")} />
-                      {napBusy ? "Đang nạp lô…" : `Nạp ${chonSanSang.length} HV${khoa ? ` vào ${khoa.ma_kh}` : ""}`}
-                    </button>
-                  </div>
-
-                  {(soLoi > 0 || soChinhTa > 0 || napErr) && (
-                    <div className="px-4 py-3 space-y-2 border-b border-border shrink-0">
-                      {napErr && <Banner tone="error">{napErr}</Banner>}
-                      {soLoi > 0 && (
-                        <Banner tone="error">
-                          <b>{soLoi} hồ sơ nạp lỗi</b> (🔴 bên dưới) — lý do ghi ngay trên từng dòng. Lô vẫn chạy hết; sửa xong nạp lại riêng dòng lỗi.
-                        </Banner>
-                      )}
-                      {soChinhTa > 0 && (
-                        <Banner tone="warning">
-                          <b>{soChinhTa} hồ sơ tên nghi sai chính tả</b> (mức A: thiếu dấu / ký tự lạ / khoảng trắng thừa) — kiểm lại họ tên trước khi nạp, hệ thống không chặn.
-                        </Banner>
-                      )}
-                    </div>
+              {/* Banners lỗi/chính tả (chỉ nhóm Cần xử lý); thanh nạp lô dời xuống ĐÁY (task 46) */}
+              {napFilter === "canxuly" && (soLoi > 0 || soChinhTa > 0 || napErr) && (
+                <div className="px-4 py-3 space-y-2 border-b border-border shrink-0">
+                  {napErr && <Banner tone="error">{napErr}</Banner>}
+                  {soLoi > 0 && (
+                    <Banner tone="error">
+                      <b>{soLoi} hồ sơ nạp lỗi</b> (🔴 bên dưới) — lý do ghi ngay trên từng dòng. Lô vẫn chạy hết; sửa xong nạp lại riêng dòng lỗi.
+                    </Banner>
                   )}
-                </>
+                  {soChinhTa > 0 && (
+                    <Banner tone="warning">
+                      <b>{soChinhTa} hồ sơ tên nghi sai chính tả</b> (mức A: thiếu dấu / ký tự lạ / khoảng trắng thừa) — kiểm lại họ tên trước khi nạp, hệ thống không chặn.
+                    </Banner>
+                  )}
+                </div>
               )}
 
               {/* rows — chỉ cột này cuộn */}
@@ -502,10 +501,30 @@ export default function NapHoSo() {
                         )}
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
-                        {rowSanSang(r) && (
-                          <span className="hidden sm:inline-flex items-center gap-1 text-[10px] text-success font-medium">
-                            <Icon name="check" className="w-3 h-3" sw={3} /> sẵn sàng
-                          </span>
+                        {/* Task 46 — trạng thái sẵn sàng / thiếu gì ngay trên dòng */}
+                        {r.trang_thai !== "xong" && (() => {
+                          const ss = tinhSanSang(r);
+                          return ss.ok ? (
+                            <span className="hidden sm:inline-flex items-center gap-1 text-[10.5px] text-success font-semibold">
+                              <Icon name="check" className="w-3 h-3" sw={3} /> Sẵn sàng
+                              {ss.thieuAnh && <span className="text-warning font-medium"> · ⚠ thiếu ảnh</span>}
+                            </span>
+                          ) : (
+                            <span className="hidden sm:inline-flex items-center gap-1 text-[10.5px] text-warning font-medium" title={"Thiếu: " + ss.thieu.join(", ")}>
+                              <Icon name="warn" className="w-3 h-3" /> Thiếu {ss.thieu.join(" + ")}
+                            </span>
+                          );
+                        })()}
+                        {/* Task 46 — mở ngăn Chuẩn bị (địa chỉ + giấy tờ + ảnh) */}
+                        {r.trang_thai !== "xong" && (
+                          <button
+                            type="button"
+                            title="Chuẩn bị hồ sơ"
+                            onClick={(e) => { e.stopPropagation(); moChuanBi(r.uuid); }}
+                            className="h-7 px-2.5 rounded-md border border-border text-[11px] font-semibold inline-flex items-center gap-1 hover:bg-muted transition-colors"
+                          >
+                            <Icon name="edit" className="w-3.5 h-3.5" /> Chuẩn bị
+                          </button>
                         )}
                         {/* NAP-01 task 38 — nạp lại nhanh dòng lỗi */}
                         {r.trang_thai === "loi" && (
@@ -560,21 +579,53 @@ export default function NapHoSo() {
                   </div>
                 </div>
               )}
-            </div>
 
-            {/* CỘT 2: chuẩn bị HV đang chọn */}
-            <div className="w-full xl:w-[460px] shrink-0 border-b xl:border-b-0 xl:border-r border-border bg-muted/15 flex flex-col min-h-0">
-              <div className="px-4 py-3 border-b border-border flex items-center justify-between shrink-0">
-                <h3 className="text-sm font-bold">Chuẩn bị hồ sơ</h3>
-                {selRow && <NapBadge tt={selRow.trang_thai} />}
-              </div>
-              {!selRow ? (
-                <div className="flex-1 flex items-center justify-center p-6 text-center text-[13px] text-muted-foreground">
-                  Chọn một hồ sơ bên trái để map địa chỉ, chọn giấy tờ và ảnh trước khi nạp.
+              {/* THANH DÍNH ĐÁY — Chọn tất cả sẵn sàng + Nạp N học viên (task 46) */}
+              {napFilter === "canxuly" && (
+                <div className="px-4 py-3 border-t border-border bg-card shrink-0 flex items-center gap-3 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={chonTatCaSanSang}
+                    disabled={daLoc.canXuly.filter(rowSanSang).length === 0}
+                    className="h-9 px-3 rounded-lg border border-border text-sm font-medium inline-flex items-center gap-1.5 hover:bg-muted transition-colors disabled:opacity-50"
+                  >
+                    <Icon name="check" className="w-4 h-4" /> Chọn tất cả sẵn sàng
+                  </button>
+                  <span className="text-[12px] text-muted-foreground">
+                    Đã chọn <b className="text-primary">{chonSanSang.length}</b>/{daLoc.canXuly.length}
+                    {chon.size > chonSanSang.length && (
+                      <span className="text-warning"> · {chon.size - chonSanSang.length} chưa sẵn sàng</span>
+                    )}
+                  </span>
+                  <button
+                    onClick={() => chayNapLo(chonSanSang)}
+                    disabled={napBusy || chonSanSang.length === 0 || !khoa}
+                    className="ml-auto h-10 px-5 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center gap-2 hover:brightness-110 transition-all shadow-sm disabled:opacity-60"
+                  >
+                    <Icon name={napBusy ? "refresh" : "plus"} className={"w-4 h-4" + (napBusy ? " animate-spin" : "")} />
+                    {napBusy ? "Đang nạp lô…" : `Nạp ${chonSanSang.length} học viên${khoa ? ` vào ${khoa.ma_kh}` : ""}`}
+                  </button>
                 </div>
-              ) : (
+              )}
+            </div>
+          </div>
+
+          {/* NGĂN "CHUẨN BỊ" — trượt từ phải (task 46): địa chỉ + giấy tờ + ảnh, thay 2 cột cố định */}
+          {drawerOpen && selRow && (
+            <div className="fixed inset-0 z-40 flex justify-end">
+              <div className="absolute inset-0 bg-black/40" onClick={() => setDrawerOpen(false)} />
+              <div className="relative w-full max-w-[460px] h-full bg-card shadow-xl flex flex-col min-h-0">
+                <div className="px-4 py-3 border-b border-border flex items-center justify-between shrink-0">
+                  <h3 className="text-sm font-bold">Chuẩn bị hồ sơ</h3>
+                  <div className="flex items-center gap-2">
+                    <NapBadge tt={selRow.trang_thai} />
+                    <button onClick={() => setDrawerOpen(false)} aria-label="Đóng" className="text-muted-foreground hover:text-foreground">
+                      <Icon name="x" className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
                 <>
-                  <div className="flex-1 xl:overflow-y-auto p-4 space-y-3 min-h-0">
+                  <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
                     <div className="rounded-md bg-secondary/70 border border-border px-2.5 py-2 text-[12px] leading-relaxed">
                       <div className="font-bold text-[14px]">{(selRow.ho_ten || "").toUpperCase() || "(chưa có tên)"}</div>
                       <div className="text-muted-foreground mt-0.5">
@@ -640,11 +691,44 @@ export default function NapHoSo() {
                         </div>
                       )}
                     </div>
+                    {/* Ảnh chân dung — chuyển vào ngăn (task 46); NAP-04 + "Dùng lại ảnh gốc" (task 45) */}
+                    <div className="rounded-lg border border-border bg-card p-3">
+                      <h4 className="text-[13px] font-bold mb-0.5">Ảnh chân dung</h4>
+                      <p className="text-[11px] text-muted-foreground mb-2">3:4 · 353×471 · nền trắng (NAP-04)</p>
+                      <div className="aspect-[3/4] w-full max-w-[200px] rounded-lg bg-white border border-input flex items-center justify-center relative overflow-hidden mb-3 shadow-sm">
+                        {layNhap(selRow.uuid).anhPreview ? (
+                          <>
+                            <img src={layNhap(selRow.uuid).anhPreview!} alt="Ảnh đã chỉnh (nền trắng)" className="w-full h-full object-cover" />
+                            <span className="absolute top-2 left-2 text-[10px] bg-success text-white px-1.5 py-0.5 rounded">Đã xử lý .jp2</span>
+                          </>
+                        ) : layNhap(selRow.uuid).jp2 ? (
+                          <>
+                            <Icon name="check" className="w-16 h-16 text-success/50" />
+                            <span className="absolute top-2 left-2 text-[10px] bg-success text-white px-1.5 py-0.5 rounded">Đã xử lý .jp2</span>
+                          </>
+                        ) : anhUrl ? (
+                          <img src={anhUrl} alt="Ảnh thô từ VPS" className="w-full h-full object-cover" />
+                        ) : (
+                          <Icon name="user" className="w-16 h-16 text-muted-foreground/40" sw={1.5} />
+                        )}
+                      </div>
+                      {selRow.co_anh ? (
+                        <p className="text-[11px] text-muted-foreground mb-2">Ảnh thô do người thu nhận chụp. Chỉnh (crop 3:4, nền trắng) để xuất .jp2.</p>
+                      ) : (
+                        <p className="text-[11px] text-muted-foreground mb-2">Hồ sơ không có ảnh — vẫn nạp được (TT_XuLy 01, BR-011).</p>
+                      )}
+                      <button
+                        onClick={() => setAnhOpen(true)}
+                        className="w-full h-9 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition-all shadow-sm flex items-center justify-center gap-2"
+                      >
+                        <Icon name="camera" className="w-4 h-4" /> Mở trình chỉnh ảnh
+                      </button>
+                    </div>
                   </div>
 
                   <div className="p-3 border-t border-border shrink-0">
                     <button
-                      onClick={() => chayNapLo([selRow])}
+                      onClick={() => { void chayNapLo([selRow]); }}
                       disabled={napBusy || !rowSanSang(selRow) || !khoa}
                       className="w-full h-10 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-sm disabled:opacity-60"
                     >
@@ -659,50 +743,9 @@ export default function NapHoSo() {
                     </button>
                   </div>
                 </>
-              )}
-            </div>
-
-            {/* CỘT 3: ảnh */}
-            <div className="w-full xl:w-[300px] shrink-0 bg-muted/5 p-4 flex flex-col">
-              <h3 className="text-sm font-bold mb-1">Ảnh chân dung</h3>
-              <p className="text-[11px] text-muted-foreground mb-3">3:4 · 353×471 · nền trắng (NAP-04)</p>
-              <div className="aspect-[3/4] w-full max-w-[240px] mx-auto xl:mx-0 rounded-lg bg-white border border-input flex items-center justify-center relative overflow-hidden mb-3 shadow-sm">
-                {selRow && layNhap(selRow.uuid).anhPreview ? (
-                  <>
-                    <img src={layNhap(selRow.uuid).anhPreview!} alt="Ảnh đã chỉnh (nền trắng)" className="w-full h-full object-cover" />
-                    <span className="absolute top-2 left-2 text-[10px] bg-success text-white px-1.5 py-0.5 rounded">Đã xử lý .jp2</span>
-                  </>
-                ) : selRow && layNhap(selRow.uuid).jp2 ? (
-                  <>
-                    <Icon name="check" className="w-16 h-16 text-success/50" />
-                    <span className="absolute top-2 left-2 text-[10px] bg-success text-white px-1.5 py-0.5 rounded">Đã xử lý .jp2</span>
-                  </>
-                ) : anhUrl ? (
-                  <img src={anhUrl} alt="Ảnh thô từ VPS" className="w-full h-full object-cover" />
-                ) : (
-                  <Icon name="user" className="w-16 h-16 text-muted-foreground/40" sw={1.5} />
-                )}
               </div>
-              {selRow ? (
-                <>
-                  {selRow.co_anh ? (
-                    <p className="text-[11px] text-muted-foreground mb-2">Ảnh thô do người thu nhận chụp. Chỉnh (crop 3:4, nền trắng) để xuất .jp2.</p>
-                  ) : (
-                    <p className="text-[11px] text-muted-foreground mb-2">Hồ sơ không có ảnh — vẫn nạp được (TT_XuLy 01, BR-011).</p>
-                  )}
-                  <button
-                    onClick={() => setAnhOpen(true)}
-                    className="w-full h-10 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition-all shadow-sm flex items-center justify-center gap-2"
-                  >
-                    <Icon name="camera" className="w-4 h-4" /> Mở trình chỉnh ảnh
-                  </button>
-                  <p className="text-[11px] text-muted-foreground mt-2">Tên file = MaDK, lưu vào thư mục ảnh của khóa.</p>
-                </>
-              ) : (
-                <p className="text-[12px] text-muted-foreground">Chọn hồ sơ để xem/chỉnh ảnh.</p>
-              )}
             </div>
-          </div>
+          )}
         </>
       )}
 
