@@ -4,10 +4,24 @@
 
 | # | Ngày | Mức | Story | Bug | Trạng thái | Deploy |
 |---|---|---|---|---|---|---|
+| 3 | 03/10/2026 | 🟠 Nặng | `QLY-08` · `NAP-01` | Gỡ HV về chờ nạp xong, màn Nạp không tự hiện lại ở "chờ nạp" — phải bấm "Kéo từ VPS" | ✅ Đã sửa | ⬜ (tool chưa lên VPS — có hiệu lực khi chạy lại tool) |
 | 2 | 03/10/2026 | 🟠 Nặng | `QLY-01` · `NAP-01` | Tra cứu DB ẩn mọi HV chưa ảnh (TT_XuLy='01') → "Xem trong DB" không thấy HV nạp không ảnh; bộ lọc "Chưa ảnh" luôn rỗng | ✅ Đã sửa | ⬜ (tool chưa lên VPS — có hiệu lực khi chạy lại tool) |
 | 1 | 03/10/2026 | 🔴 Chặn | `QLY-08` | Gỡ về chờ nạp rồi nạp lại cùng uuid → HV KHÔNG vào DB nhưng tool báo thành công | ✅ Đã sửa | ⬜ (tool chưa lên VPS — có hiệu lực khi chạy lại tool) |
 
 Chú thích trạng thái: ✅ Đã sửa · 🔄 Đang sửa · ⏳ Đã xếp task · ⬜ Chưa xử
+
+---
+
+## BUG-03 — Màn Nạp không tự làm tươi "chờ nạp" sau khi gỡ HV · 03/10/2026
+
+- **Mức:** 🟠 Nặng (có đường vòng: bấm "Kéo từ VPS"; nhưng sai luồng hằng ngày + dễ tưởng gỡ hỏng)
+- **Story:** `QLY-08` (gỡ về chờ nạp) · `NAP-01` (danh sách chờ nạp)
+- **Ai báo:** chủ dự án, khi gỡ HV ở Tra cứu DB rồi sang tab Nạp không thấy HV ở hàng chờ
+- **Tái hiện:** Tra cứu DB → "Gỡ về chờ nạp" 1 HV (dòng còn trong hàng đợi) → sang tab "Nạp hồ sơ" → HV KHÔNG hiện ở "chờ nạp" cho tới khi bấm "Kéo từ VPS".
+- **Nguyên nhân gốc:** `NapHoSo.tsx` tải danh sách chờ nạp (`getDanhSachKeoVe`) **chỉ 1 lần lúc mount** (`useEffect([])`). Thao tác "Gỡ về chờ nạp" nằm ở component `TraCuuDB` (tab Tra cứu) — gọi backend `keo_ve_ve_cho` đưa dòng staging về `'cho'` ĐÚNG, nhưng không chạm state `keoVe` của `NapHoSo`. Chuyển tab chỉ `setMode("nap")`, không tải lại → danh sách cũ. Dữ liệu đúng, chỉ UI không làm tươi.
+- **Đã sửa:** `tool/webui/src/pages/tool/NapHoSo.tsx` — đổi effect tải danh sách sang phụ thuộc `[mode]`: khi `mode==='nap'` thì `getDanhSachKeoVe()` (gồm cả lần mở màn). Chỉ đọc SQLite cục bộ, không gọi VPS.
+- **Test hồi quy:** KHÔNG viết được test tự động — dự án chưa có hạ tầng test React component (`@testing-library/react`/jsdom chưa cài; vitest chạy node env, chỉ test hàm thuần). Dựng cả bộ cho 1 effect là quá mức. **Bước kiểm tay:** mở tool → Tra cứu DB → "Gỡ về chờ nạp" 1 HV còn trong hàng đợi → bấm tab "Nạp hồ sơ" → HV phải hiện ngay ở nhóm "Cần xử lý" (badge chờ nạp) mà KHÔNG cần bấm "Kéo từ VPS". (Ngoại lệ: HV đã "Bỏ khỏi hàng đợi" trước đó vẫn cần Kéo — đúng thiết kế.)
+- **Deploy:** tool chạy cục bộ máy CSDT (chưa lên VPS) → hiệu lực khi chạy lại tool (dev server đã nạp qua HMR).
 
 ---
 

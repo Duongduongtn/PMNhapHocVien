@@ -301,10 +301,23 @@ export default function NapHoSo() {
     };
   }, [maKh, khoa?.ma_loai_hs, khoa?.hang_dt]);
 
-  // ── Tải staging lúc mở màn ──
+  // ── Tải danh sách chờ nạp mỗi khi vào chế độ Nạp (gồm lần mở màn) ──
+  // BUG-03: "Gỡ về chờ nạp" nằm ở Tra cứu DB (component khác) → đưa dòng về 'cho' ở kho cục bộ
+  // nhưng KHÔNG chạm state màn Nạp. Trước đây chỉ tải 1 lần lúc mount nên quay lại tab Nạp vẫn
+  // thấy danh sách cũ, phải bấm "Kéo từ VPS". Tải lại theo mode='nap' → HV vừa gỡ hiện NGAY
+  // (PRD QLY-08). Chỉ đọc SQLite cục bộ, KHÔNG gọi VPS.
   useEffect(() => {
+    if (mode !== "nap") return;
     getDanhSachKeoVe().then(setKeoVe).catch(() => setKeoVe([]));
-  }, []);
+  }, [mode]);
+
+  // Task 46 polish — khóa cuộn trang nền khi mở ngăn "Chuẩn bị" (tránh cảm giác drawer bị scroll kép).
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const cu = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = cu; };
+  }, [drawerOpen]);
 
   // ── Ảnh của HV đang chọn (tải từ VPS) ──
   useEffect(() => {
@@ -821,7 +834,7 @@ export default function NapHoSo() {
                     className="ml-auto h-10 px-5 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center gap-2 hover:brightness-110 transition-all shadow-sm disabled:opacity-60"
                   >
                     <Icon name="plus" className="w-4 h-4" />
-                    {`Nạp ${chonSanSang.length} học viên${khoa ? ` vào ${khoa.ma_kh}` : ""}`}
+                    {`Nạp ${chonSanSang.length} học viên${khoa ? ` vào ${khoa.ten_kh} (${khoa.ma_kh})` : ""}`}
                   </button>
                 </div>
               )}
@@ -844,6 +857,41 @@ export default function NapHoSo() {
                 </div>
                 <>
                   <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
+                    {/* Ảnh chân dung — LÊN ĐẦU, thu gọn, căn giữa (task 46 polish); NAP-04 + ảnh gốc (task 45) */}
+                    <div className="rounded-lg border border-border bg-card p-3">
+                      <div className="aspect-[3/4] w-[104px] mx-auto rounded-lg bg-white border border-input flex items-center justify-center relative overflow-hidden shadow-sm">
+                        {layNhap(selRow.uuid).anhPreview ? (
+                          <>
+                            <img src={layNhap(selRow.uuid).anhPreview!} alt="Ảnh đã chỉnh (nền trắng)" className="w-full h-full object-cover" />
+                            <span className="absolute top-1 left-1 text-[9px] bg-success text-white px-1 py-0.5 rounded">.jp2</span>
+                          </>
+                        ) : layNhap(selRow.uuid).jp2 ? (
+                          <>
+                            <Icon name="check" className="w-10 h-10 text-success/50" />
+                            <span className="absolute top-1 left-1 text-[9px] bg-success text-white px-1 py-0.5 rounded">.jp2</span>
+                          </>
+                        ) : anhUrl ? (
+                          <img src={anhUrl} alt="Ảnh thô từ VPS" className="w-full h-full object-cover" />
+                        ) : (
+                          <Icon name="user" className="w-10 h-10 text-muted-foreground/40" sw={1.5} />
+                        )}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground text-center mt-2">
+                        {selRow.co_anh
+                          ? "Ảnh thô — chỉnh crop 3:4 + nền trắng để xuất .jp2"
+                          : "Không ảnh — vẫn nạp được (BR-011)"}
+                      </p>
+                      <div className="flex justify-center mt-2">
+                        <button
+                          onClick={() => setAnhOpen(true)}
+                          className="h-8 px-3 rounded-lg bg-primary text-primary-foreground text-[13px] font-semibold hover:brightness-110 transition-colors shadow-sm inline-flex items-center gap-1.5"
+                        >
+                          <Icon name="camera" className="w-4 h-4" /> Sửa ảnh
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Tóm tắt học viên */}
                     <div className="rounded-md bg-secondary/70 border border-border px-2.5 py-2 text-[12px] leading-relaxed">
                       <div className="font-bold text-[14px]">{(selRow.ho_ten || "").toUpperCase() || "(chưa có tên)"}</div>
                       <div className="text-muted-foreground mt-0.5">
@@ -909,39 +957,6 @@ export default function NapHoSo() {
                         </div>
                       )}
                     </div>
-                    {/* Ảnh chân dung — chuyển vào ngăn (task 46); NAP-04 + "Dùng lại ảnh gốc" (task 45) */}
-                    <div className="rounded-lg border border-border bg-card p-3">
-                      <h4 className="text-[13px] font-bold mb-0.5">Ảnh chân dung</h4>
-                      <p className="text-[11px] text-muted-foreground mb-2">3:4 · 353×471 · nền trắng (NAP-04)</p>
-                      <div className="aspect-[3/4] w-full max-w-[200px] rounded-lg bg-white border border-input flex items-center justify-center relative overflow-hidden mb-3 shadow-sm">
-                        {layNhap(selRow.uuid).anhPreview ? (
-                          <>
-                            <img src={layNhap(selRow.uuid).anhPreview!} alt="Ảnh đã chỉnh (nền trắng)" className="w-full h-full object-cover" />
-                            <span className="absolute top-2 left-2 text-[10px] bg-success text-white px-1.5 py-0.5 rounded">Đã xử lý .jp2</span>
-                          </>
-                        ) : layNhap(selRow.uuid).jp2 ? (
-                          <>
-                            <Icon name="check" className="w-16 h-16 text-success/50" />
-                            <span className="absolute top-2 left-2 text-[10px] bg-success text-white px-1.5 py-0.5 rounded">Đã xử lý .jp2</span>
-                          </>
-                        ) : anhUrl ? (
-                          <img src={anhUrl} alt="Ảnh thô từ VPS" className="w-full h-full object-cover" />
-                        ) : (
-                          <Icon name="user" className="w-16 h-16 text-muted-foreground/40" sw={1.5} />
-                        )}
-                      </div>
-                      {selRow.co_anh ? (
-                        <p className="text-[11px] text-muted-foreground mb-2">Ảnh thô do người thu nhận chụp. Chỉnh (crop 3:4, nền trắng) để xuất .jp2.</p>
-                      ) : (
-                        <p className="text-[11px] text-muted-foreground mb-2">Hồ sơ không có ảnh — vẫn nạp được (TT_XuLy 01, BR-011).</p>
-                      )}
-                      <button
-                        onClick={() => setAnhOpen(true)}
-                        className="w-full h-9 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition-all shadow-sm flex items-center justify-center gap-2"
-                      >
-                        <Icon name="camera" className="w-4 h-4" /> Mở trình chỉnh ảnh
-                      </button>
-                    </div>
                   </div>
 
                   <div className="p-3 border-t border-border shrink-0">
@@ -956,7 +971,7 @@ export default function NapHoSo() {
                         : !layNhap(selRow.uuid).diaChi
                           ? "Map địa chỉ để nạp"
                           : khoa
-                            ? `Nạp hồ sơ này vào ${khoa.ma_kh}`
+                            ? `Nạp vào ${khoa.ten_kh} (${khoa.ma_kh})`
                             : "Chọn khóa để nạp"}
                     </button>
                   </div>
