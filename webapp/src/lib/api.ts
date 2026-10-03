@@ -215,6 +215,10 @@ export const suaHoSo = (uuid: string, body: HoSoSua) =>
     body: JSON.stringify(body),
   }).then(json<HoSoOut>);
 
+// THU-05 (CHANGES #24/#26): xóa hồ sơ đã gửi khi còn chờ nạp (soft-delete VPS, 204). Đã/đang nạp → 409.
+export const xoaHoSo = (uuid: string) =>
+  fetch(`${BASE}/api/ho-so/${uuid}`, { method: "DELETE", headers: authHeaders() }).then(ok);
+
 // Tải lại ảnh chân dung CỦA MÌNH để hiện thumbnail. Cần Bearer → fetch blob → objectURL.
 // Chưa có ảnh / không phải của mình (404) → null (UI hiện placeholder).
 export const taiAnhCuaToi = async (uuid: string): Promise<string | null> => {

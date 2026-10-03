@@ -4,14 +4,14 @@ Collector gửi hồ sơ (idempotent theo uuid client sinh), xem/sửa hồ sơ 
 còn pending, upload ảnh thô. Quyền sở hữu kiểm ở server (created_by = user hiện tại) —
 chặn IDOR (OG-001): không dựa vào sự khó đoán của uuid.
 """
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, field_validator
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.auth.deps import require_role
@@ -202,6 +202,36 @@ def sua_ho_so(uuid: UUID, body: HoSoSua, user: User = Depends(require_role("coll
     db.commit()
     db.refresh(hs)
     return HoSoOut.tu_model(hs)
+
+
+@router.delete("/{uuid}", status_code=status.HTTP_204_NO_CONTENT)
+def xoa_ho_so(uuid: UUID, user: User = Depends(require_role("collector")), db: Session = Depends(get_db)):
+    """Xóa hồ sơ đã gửi — SOFT-DELETE (trang_thai→'deleted'), CHỈ khi còn 'pending' (THU-05, §4.3).
+
+    Collector chỉ xóa hồ sơ CỦA MÌNH (created_by) — chống IDOR như `_cua_minh`: không phải
+    của mình → 404 (không lộ hồ sơ tồn tại; thống nhất với PUT/GET ảnh). Admin xóa bất kỳ.
+    Hồ sơ đã/đang nạp (importing/imported) hoặc đã xóa → 409.
+
+    Chuyển trạng thái bằng CAS nguyên tử (WHERE trang_thai='pending') để không đua với tool
+    `lock` (pending→importing) chạy đồng thời (§7.5). Ghi audit_log hành động 'xoa' — mốc
+    `created_at` để endpoint /api/nap/da-xoa đọc danh sách đã xóa (NAP-01, task 44)."""
+    hs = db.get(HoSoThuThap, uuid)
+    la_admin = user.vai_tro == "admin"
+    if hs is None or (not la_admin and hs.created_by != user.id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy hồ sơ")
+    if hs.trang_thai != "pending":
+        raise HTTPException(status.HTTP_409_CONFLICT, "Hồ sơ đã được nạp hoặc đã xóa, không xóa được")
+    rowcount = db.execute(
+        update(HoSoThuThap)
+        .where(HoSoThuThap.uuid == uuid, HoSoThuThap.trang_thai == "pending")
+        .values(trang_thai="deleted", updated_at=datetime.now(timezone.utc))
+    ).rowcount
+    if rowcount == 0:  # tool vừa lock sang importing giữa lúc đọc và ghi
+        db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, "Hồ sơ vừa được nạp, không xóa được")
+    db.add(AuditLog(actor_id=user.id, hanh_dong="xoa", uuid_hs=uuid))
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/{uuid}/anh", response_model=HoSoOut)

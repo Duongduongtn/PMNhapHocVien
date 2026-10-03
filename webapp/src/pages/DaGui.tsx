@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Icon } from "../components/Icon";
 import { ODate } from "../components/ODate";
 import { PhanTrang } from "../components/PhanTrang";
-import { ApiError, dsDaGui, guiAnh, suaHoSo, taiAnhCuaToi, type HoSoOut, type HoSoSua } from "../lib/api";
+import { ApiError, dsDaGui, guiAnh, suaHoSo, taiAnhCuaToi, xoaHoSo, type HoSoOut, type HoSoSua } from "../lib/api";
 import { dsNhap } from "../lib/draft";
 import { dangKyGuiLai, guiLaiTatCa } from "../lib/gui";
 import { khopTim } from "../lib/text";
@@ -362,19 +362,43 @@ export default function DaGui() {
         </>
       )}
 
-      {/* CHI TIẾT (modal) — xem; còn Chờ nạp thì sửa/chụp lại (CHANGES #12) */}
-      {sel && <ChiTiet row={sel} onDong={() => setSel(null)} onCapNhat={(moi) => { setSel(moi); void tai(); }} />}
+      {/* CHI TIẾT (modal) — xem; còn Chờ nạp thì sửa/chụp lại (CHANGES #12) / xóa (THU-05) */}
+      {sel && (
+        <ChiTiet
+          row={sel}
+          onDong={() => setSel(null)}
+          onCapNhat={(moi) => { setSel(moi); void tai(); }}
+          onXoa={() => { setSel(null); void tai(); }}
+        />
+      )}
     </div>
   );
 }
 
-function ChiTiet({ row, onDong, onCapNhat }: { row: HoSoOut; onDong: () => void; onCapNhat: (moi: HoSoOut) => void }) {
-  const suaDuoc = row.trang_thai === "pending"; // server chỉ cho sửa khi pending
+function ChiTiet({ row, onDong, onCapNhat, onXoa }: { row: HoSoOut; onDong: () => void; onCapNhat: (moi: HoSoOut) => void; onXoa: () => void }) {
+  const suaDuoc = row.trang_thai === "pending"; // server chỉ cho sửa/xóa khi pending
   const [che, setChe] = useState<"xem" | "sua">("xem");
   const [f, setF] = useState<HoSoSua>({});
   const [luu, setLuu] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
   const [xemLon, setXemLon] = useState(false); // popup phóng to ảnh (CHANGES #15)
+  const [xacNhanXoa, setXacNhanXoa] = useState(false); // THU-05: panel xác nhận 2 bước
+  const [dangXoa, setDangXoa] = useState(false);
+
+  async function xoa() {
+    setLoi(null);
+    setDangXoa(true);
+    try {
+      await xoaHoSo(row.uuid);
+      onXoa(); // đóng modal + tải lại danh sách (hồ sơ đã xóa biến mất)
+    } catch (e) {
+      // 409 = tool vừa khóa/nạp hồ sơ giữa chừng → báo + chuyển về chỉ xem
+      baoLoi(e, "Không xóa được. Kiểm tra mạng rồi thử lại.");
+      setXacNhanXoa(false);
+    } finally {
+      setDangXoa(false);
+    }
+  }
 
   // 409 = tool đã khóa hồ sơ (importing) sau khi mở → báo + chuyển về chỉ xem (CHANGES #12, EC).
   function baoLoi(e: unknown, macDinh: string) {
@@ -523,10 +547,34 @@ function ChiTiet({ row, onDong, onCapNhat }: { row: HoSoOut; onDong: () => void;
                   <span className="font-medium text-right break-words">{v}</span>
                 </div>
               ))}
-              {!suaDuoc && <p className="text-[11px] text-muted-foreground mt-1">Hồ sơ đã vào nạp — chỉ xem, không sửa được.</p>}
+              {/* Hồ sơ đã/đang nạp: khóa thao tác + chú thích (THU-05, CHANGES #26) */}
+              {!suaDuoc && (
+                <p className="text-[12px] text-muted-foreground mt-2 flex items-start gap-1.5">
+                  <Icon name="lock" className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  Hồ sơ đã được máy nạp xử lý. Cần gỡ hay sửa thì báo người nạp thao tác trên máy tính.
+                </p>
+              )}
             </div>
           )}
         </div>
+
+        {/* THU-05: xác nhận xóa 2 bước — chỉ hồ sơ Chờ nạp (CHANGES #26) */}
+        {xacNhanXoa && (
+          <div className="mx-5 mb-3 rounded-lg border border-destructive/40 bg-destructive/10 p-3 space-y-2 shrink-0">
+            <div className="text-[13px] font-semibold text-destructive flex items-center gap-1.5">
+              <Icon name="warn" className="w-4 h-4" /> Xóa hồ sơ này khỏi hàng chờ nạp?
+            </div>
+            <p className="text-[12px] text-muted-foreground">
+              Hồ sơ chưa nạp vào máy tính nên còn xóa được. Lần tới máy nạp bấm "Kéo về", hồ sơ sẽ biến mất khỏi danh sách chờ nạp. Xóa rồi không lấy lại được — gửi nhầm thì tạo hồ sơ mới.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setXacNhanXoa(false)} disabled={dangXoa} className="h-9 px-3 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Giữ lại</button>
+              <button onClick={() => void xoa()} disabled={dangXoa} className="ml-auto h-9 px-4 rounded-lg bg-destructive text-white text-sm font-semibold inline-flex items-center gap-2 hover:brightness-110 transition-all disabled:opacity-60">
+                <Icon name={dangXoa ? "refresh" : "warn"} className={"w-4 h-4" + (dangXoa ? " animate-spin" : "")} /> {dangXoa ? "Đang xóa…" : "Xóa hồ sơ"}
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="p-3 border-t border-border shrink-0 flex items-center gap-2">
           {che === "sua" ? (
@@ -539,6 +587,7 @@ function ChiTiet({ row, onDong, onCapNhat }: { row: HoSoOut; onDong: () => void;
           ) : suaDuoc ? (
             <>
               <button onClick={moSua} className="inline-flex items-center gap-1.5 h-10 px-3 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors"><Icon name="edit" className="w-4 h-4" /> Sửa thông tin</button>
+              <button onClick={() => { setLoi(null); setXacNhanXoa(true); }} disabled={xacNhanXoa} className="inline-flex items-center gap-1.5 h-10 px-3 rounded-lg border border-destructive/40 text-destructive text-sm font-medium hover:bg-destructive/10 transition-colors disabled:opacity-60"><Icon name="warn" className="w-4 h-4" /> Xóa</button>
               <button onClick={onDong} className="ml-auto h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition-all shadow-sm">Đóng</button>
             </>
           ) : (

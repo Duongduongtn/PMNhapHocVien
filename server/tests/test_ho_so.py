@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
 from app.config import get_settings
-from app.models.ho_so import HoSoThuThap
+from app.models.ho_so import AuditLog, HoSoThuThap
 
 
 @pytest.fixture(autouse=True)
@@ -229,3 +229,73 @@ def test_kiem_trung_cccd_khong_hop_le_bo_qua(api):
     for xau in ["", "   ", "abc", "07020000111x", "0702000011112222"]:
         r = api.get("/api/ho-so/kiem-trung", headers=h, params={"cccd": xau})
         assert r.status_code == 200 and r.json()["trung"] is False
+
+
+# ── Xóa hồ sơ đã gửi (THU-05, CHANGES #24/#26) ──
+def test_xoa_pending_cua_minh_ok(api, db_setup):
+    db, _ = db_setup
+    h = _login(api, "col1")
+    u = str(uuid4())
+    api.post("/api/ho-so", headers=h, json={"uuid": u, "ho_ten": "A"})
+    r = api.request("DELETE", f"/api/ho-so/{u}", headers=h)
+    assert r.status_code == 204
+    hs = db.get(HoSoThuThap, UUID(u))
+    assert hs.trang_thai == "deleted"  # soft-delete, bản ghi còn (giữ vết)
+    # Danh sách của mình không còn thấy (lọc trang_thai != 'deleted')
+    assert api.get("/api/ho-so/cua-toi", headers=h).json() == []
+    # Ghi audit_log hành động 'xoa' (mốc created_at cho endpoint da-xoa, task 44)
+    log = db.scalars(select(AuditLog).where(AuditLog.uuid_hs == UUID(u), AuditLog.hanh_dong == "xoa")).first()
+    assert log is not None
+
+
+def test_xoa_ho_so_nguoi_khac_404(api):
+    # Chống IDOR như _cua_minh: 404 (không lộ hồ sơ tồn tại), thống nhất với PUT/GET ảnh
+    u = str(uuid4())
+    api.post("/api/ho-so", headers=_login(api, "col1"), json={"uuid": u, "ho_ten": "A"})
+    r = api.request("DELETE", f"/api/ho-so/{u}", headers=_login(api, "col2"))
+    assert r.status_code == 404
+
+
+def test_xoa_khi_importing_409(api, db_setup):
+    db, _ = db_setup
+    h = _login(api, "col1")
+    u = str(uuid4())
+    api.post("/api/ho-so", headers=h, json={"uuid": u, "ho_ten": "A"})
+    hs = db.get(HoSoThuThap, UUID(u))
+    hs.trang_thai = "importing"
+    db.commit()
+    assert api.request("DELETE", f"/api/ho-so/{u}", headers=h).status_code == 409
+
+
+def test_xoa_khi_imported_409(api, db_setup):
+    db, _ = db_setup
+    h = _login(api, "col1")
+    u = str(uuid4())
+    api.post("/api/ho-so", headers=h, json={"uuid": u, "ho_ten": "A"})
+    hs = db.get(HoSoThuThap, UUID(u))
+    hs.trang_thai = "imported"
+    db.commit()
+    assert api.request("DELETE", f"/api/ho-so/{u}", headers=h).status_code == 409
+
+
+def test_admin_xoa_bat_ky(api, db_setup):
+    db, _ = db_setup
+    u = str(uuid4())
+    api.post("/api/ho-so", headers=_login(api, "col1"), json={"uuid": u, "ho_ten": "A"})
+    r = api.request("DELETE", f"/api/ho-so/{u}", headers=_login(api, "admin1"))
+    assert r.status_code == 204
+    assert db.get(HoSoThuThap, UUID(u)).trang_thai == "deleted"
+
+
+def test_operator_khong_xoa_duoc_403(api):
+    u = str(uuid4())
+    api.post("/api/ho-so", headers=_login(api, "col1"), json={"uuid": u, "ho_ten": "A"})
+    assert api.request("DELETE", f"/api/ho-so/{u}", headers=_login(api, "op1")).status_code == 403
+
+
+def test_xoa_roi_xoa_lai_409(api):
+    h = _login(api, "col1")
+    u = str(uuid4())
+    api.post("/api/ho-so", headers=h, json={"uuid": u, "ho_ten": "A"})
+    assert api.request("DELETE", f"/api/ho-so/{u}", headers=h).status_code == 204
+    assert api.request("DELETE", f"/api/ho-so/{u}", headers=h).status_code == 409  # đã deleted → không xóa lại

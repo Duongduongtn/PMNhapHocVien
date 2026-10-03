@@ -324,7 +324,7 @@
 
 #### [THU-05] Xóa hồ sơ đã gửi (app web)
 
-**Trạng thái:** ⏳ Todo — yêu cầu mới 02/10/2026 (CHANGES #24).
+**Trạng thái:** ⚠️ Partial — task 41 (03/10/2026) XONG: server `DELETE /api/ho-so/:uuid` soft-delete CAS + phân quyền IDOR + audit · webapp nút Xóa + panel xác nhận 2 bước + chú thích khi đã nạp. Kiểm: server 100 pytest (7 test xóa) · webapp build + 24 vitest · review-nghiepvu đủ. **CÒN:** Done khi #5 "đồng bộ tool kéo về bỏ dòng đã xóa" = task 44 (NAP-01); chưa deploy VPS + verify Playwright/live (Checkpoint 8). Yêu cầu mới 02/10/2026 (CHANGES #24) + popup/copy (CHANGES #26). Lệch chữ PRD chờ chốt: edge "403"→**404** (chống IDOR, như `_cua_minh`); copy "DB"→"máy tính".
 **Story:** Là nhân viên thu nhận, tôi muốn xóa hồ sơ mình đã gửi nhầm/không dùng trong danh sách "Hồ sơ đã gửi", để nó biến mất khỏi hàng chờ nạp của tool khi nạp DB kéo về.
 
 **Done khi:**
