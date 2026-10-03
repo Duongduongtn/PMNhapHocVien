@@ -14,11 +14,13 @@ import {
   boKhoiHangDoi,
   taiAnhKeoVe,
   napLo,
+  getSoGtvt,
   type KhoaHoc,
   type LoaiXe,
   type GiayTo,
   type KeoVeRow,
   type NapIn,
+  type SoGtvt,
 } from "../../lib/api";
 
 // Kết quả nạp 1 HV để dựng báo cáo (gộp uuid + tên để hiện ở pha báo cáo).
@@ -32,9 +34,16 @@ interface NapDong {
 }
 
 // Bản nháp chuẩn bị 1 HV trước khi nạp (địa chỉ + giấy tờ + ảnh do operator bổ sung).
+// Suy mã Sở GTVT (nơi cấp) từ số CCCD: 12 số → vị trí 2-3 (BUG-10). Khác thì '' (chọn tay).
+function suyNoiCap(cccd: string | null | undefined): string {
+  const s = (cccd || "").trim();
+  return /^\d{12}$/.test(s) ? s.slice(1, 3) : "";
+}
+
 interface Nhap {
   diaChi: DiaChiMoi | null; // NAP-03: operator map/chọn tay — bắt buộc mới nạp được
   chiTiet: string;
+  noiCap?: string; // mã Sở GTVT (nơi cấp); operator sửa khi suy từ CCCD sai (BUG-10)
   jp2: string | null;
   anhPreview: string | null; // CHANGES #23: PNG xem trước ảnh đã chỉnh (xem lại + mở lại chỉnh tiếp); .jp2 không render trực tiếp
   tick: number[] | null; // giấy tờ đã tick; null = chưa khởi tạo theo khóa
@@ -251,6 +260,10 @@ export default function NapHoSo() {
   const [selUuid, setSelUuid] = useState<string | null>(null);
   const [nhap, setNhap] = useState<Record<string, Nhap>>({});
 
+  // Danh sách Sở GTVT cho combobox "Nơi cấp" (BUG-10) — tải 1 lần
+  const [soGtvt, setSoGtvt] = useState<SoGtvt[]>([]);
+  useEffect(() => { getSoGtvt().then(setSoGtvt).catch(() => {}); }, []);
+
   // Giấy tờ mặc định theo khóa + ảnh + modal
   const [giayTo, setGiayTo] = useState<GiayTo[]>([]);
   const [anhUrl, setAnhUrl] = useState<string | null>(null);
@@ -450,7 +463,8 @@ export default function NapHoSo() {
       gioi_tinh: r.gioi_tinh || "M",
       so_cmt: (r.so_cccd || r.so_cmnd_cu || "").trim(),
       ngay_cap_cmt: r.ngay_cap || undefined,
-      noi_cap_cmt: r.noi_cap_cccd || undefined,
+      // nơi cấp: operator chọn tay > giá trị VPS > suy từ CCCD (BUG-10); rỗng thì backend tự suy
+      noi_cap_cmt: n.noiCap || r.noi_cap_cccd || suyNoiCap(r.so_cccd) || undefined,
       chi_tiet_tt: n.chiTiet.trim() || undefined,
       noi_tt_ma_dvhc: n.diaChi.ma_dvhc,
       noi_tt_ma_dvql: n.diaChi.ma_dvql,
@@ -932,6 +946,24 @@ export default function NapHoSo() {
                         onChange={(e) => capNhatNhap(selRow.uuid, { chiTiet: e.target.value })}
                         placeholder="Chi tiết (số nhà/thôn) — không bắt buộc"
                       />
+                    </div>
+
+                    {/* Nơi cấp căn cước — mã Sở GTVT, tự suy từ CCCD, sửa được (BUG-10) */}
+                    <div className="rounded-lg border border-border bg-card p-4">
+                      <label className="field-label">
+                        Nơi cấp căn cước{" "}
+                        <span className="text-[11px] font-normal text-muted-foreground">(tự suy từ số CCCD — sửa nếu sai)</span>
+                      </label>
+                      <select
+                        className="field-input mt-1"
+                        value={layNhap(selRow.uuid).noiCap ?? suyNoiCap(selRow.so_cccd)}
+                        onChange={(e) => capNhatNhap(selRow.uuid, { noiCap: e.target.value })}
+                      >
+                        <option value="">— Chọn nơi cấp —</option>
+                        {soGtvt.map((s) => (
+                          <option key={s.ma} value={s.ma}>{s.ten}</option>
+                        ))}
+                      </select>
                     </div>
 
                     {/* Giấy tờ */}

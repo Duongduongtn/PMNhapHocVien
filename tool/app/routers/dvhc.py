@@ -38,6 +38,12 @@ def list_xa(tinh: str = Query(..., min_length=1, max_length=10)):
     return _guard(lambda: dvhc.ds_xa(tinh))
 
 
+@router.get("/so-gtvt")
+def list_so_gtvt():
+    """Danh sách Sở GTVT cho combobox 'Nơi cấp' (mã=MaDVQL, tên=TenDV) — BUG-10."""
+    return _guard(dvhc.ds_so_gtvt)
+
+
 @router.post("/map")
 def map_dia_chi(dc: DiaChiCu):
     """Tra địa chỉ cũ → xã mới. Không khớp hoặc xã chia → UI cho chọn tay (TDD §8)."""

@@ -325,6 +325,10 @@ export const getTinh = () =>
 export const getXa = (tinh: string) =>
   fetch(`${BASE}/local/dvhc/xa?tinh=${encodeURIComponent(tinh)}`, { headers: authHeaders() }).then(json<Xa[]>);
 
+export interface SoGtvt { ma: string; ten: string } // nơi cấp: mã Sở GTVT (MaDVQL) + tên tỉnh
+export const getSoGtvt = () =>
+  fetch(`${BASE}/local/dvhc/so-gtvt`, { headers: authHeaders() }).then(json<SoGtvt[]>);
+
 export const mapDiaChi = (dc: { tinh: string; huyen: string; xa: string }) =>
   fetch(`${BASE}/local/dvhc/map`, {
     method: "POST",

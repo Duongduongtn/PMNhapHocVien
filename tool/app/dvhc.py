@@ -119,3 +119,15 @@ def ds_xa(ma_dvql: str) -> list[dict]:
         for r in rows
         if r.get("TrangThai") == 1
     ]
+
+
+def ds_so_gtvt() -> list[dict]:
+    """Danh sách Sở GTVT (DM_DonViGTVT LoaiDV='SO') cho combobox 'Nơi cấp' — NoiCapCMT = MaDVQL.
+
+    Nơi cấp căn cước trong DB này mã theo đơn vị GTVT (BUG-10): mã 2 số = MaDVQL, tên = TenDV
+    (vd 70=Bình Phước, 75=Đồng Nai). Suy mặc định từ số CCCD; combobox để operator sửa khi lệch."""
+    with sqlserver_cursor() as cur:
+        cur.execute("SELECT MaDVQL, MIN(TenDV) AS ten FROM DM_DonViGTVT "
+                    "WHERE LoaiDV='SO' AND MaDVQL<>'' GROUP BY MaDVQL ORDER BY MIN(TenDV)")
+        rows = cur.fetchall()
+    return [{"ma": r["MaDVQL"], "ten": (r["ten"] or "").strip()} for r in rows]
