@@ -49,24 +49,25 @@
 
 #### [THU-01] Quét QR căn cước + xác nhận/sửa (app web, mobile)
 
-**Trạng thái:** ✅ Done — 01/10/2026. Nhập liên tiếp ("Lưu & nhập hồ sơ tiếp") + redesign UX nhập liệu (task 30, CHANGES #13/#14: ẩn ô CMND cũ, ô ngày auto-mask "/" + nút lịch giữ năm-only, desktop 2 cột + 2 nút tách hai đầu + phím tắt + nới khung). Kiểm: webapp 24 test · build · 4 review (nghiệp vụ/kỹ thuật/bảo mật/giao diện) đã vá · Playwright 1440/375 · deploy live `029026c`. Nền quét QR (task 18/28) — khung bám QR cần thẻ thật AS-001.
+**Trạng thái:** ⚠️ Partial — redesign desktop (CHANGES #30, 03/10/2026) code XONG: `Quet.tsx` thêm hook `useIsDesktop`, desktop vào thẳng form nhập tay (bỏ cổng ChonCach), nút Quét QR/Tải ảnh phụ góc phải, popover camera (`QuetPopover`) đè form tự điền, "Lưu & nhập tiếp" về form trống; mobile guard `!isDesktop` giữ nguyên. Kiểm mức 1: webapp build + typecheck sạch · 24 vitest pass · review-nghiepvu **8/8 đủ**. **CHƯA chụp Playwright 3vp (375/800/1440)** — màn sau đăng nhập + cần backend stack, chưa dựng được phiên này. Mobile vẫn ✅ như trước (task 30, deploy live `029026c`). Trước đó ✅ Done 01/10/2026: Nhập liên tiếp ("Lưu & nhập hồ sơ tiếp") + redesign UX nhập liệu (task 30, CHANGES #13/#14: ẩn ô CMND cũ, ô ngày auto-mask "/" + nút lịch giữ năm-only, desktop 2 cột + 2 nút tách hai đầu + phím tắt + nới khung). Kiểm: webapp 24 test · build · 4 review (nghiệp vụ/kỹ thuật/bảo mật/giao diện) đã vá · Playwright 1440/375 · deploy live `029026c`. Nền quét QR (task 18/28) — khung bám QR cần thẻ thật AS-001.
 **Story:** Là nhân viên thu nhận, tôi muốn quét QR căn cước để điền sẵn hồ sơ, để giảm gõ tay.
 
 **Steps to Complete:**
-1. Mở app web → **màn vào** cho chọn: **Quét QR CCCD** / **Nhập tay** / **Tải ảnh CCCD**. Camera **chỉ bật khi bấm "Quét QR"** (không tự mở sau đăng nhập — CHANGES #12).
+1. Mở app web → **mobile: màn vào** cho chọn **Quét QR CCCD / Nhập tay / Tải ảnh CCCD** (camera **chỉ bật khi bấm "Quét QR"** — CHANGES #12). **Desktop (≥lg): vào thẳng form nhập tay** (con trỏ tự vào ô Số CCCD); **Quét QR / Tải ảnh CCCD** là 2 nút phụ nhỏ ở góc phải tiêu đề — bấm Quét QR mở **popover camera nổi** đè form, quét xong tự điền vào form đang mở (CHANGES #30).
 2. Bấm Quét → bật **camera sau** (`facingMode: {ideal:'environment'}`, ~1080p); best-effort `focusMode: continuous` + zoom 2x + nút đèn flash (torch). Tự giải mã liên tục, không cần bấm chụp.
 3. Giải mã bằng **BarcodeDetector API** (native, nhanh) → fallback **qr-scanner (ZXing)** khi trình duyệt không hỗ trợ; **auto-capture** khi kết quả ổn định ~2 frame (~500ms).
 4. Quét được → **hiệu ứng quét OK** (app tự thiết kế riêng: rung + đổi màu + tick ✓) rồi hiện màn preview.
 5. Parse chuỗi QR (chuẩn Bộ Công an 2021) → hiện các trường **cho sửa** trước khi giữ.
 
 **Done khi:**
-- ✅ **Màn vào không tự mở camera** — cho chọn Quét QR / Nhập tay / Tải ảnh; camera bật khi bấm Quét (CHANGES #12).
+- ✅ **Mobile — màn vào không tự mở camera**: cho chọn Quét QR / Nhập tay / Tải ảnh; camera bật khi bấm Quét (CHANGES #12).
+- ✅ **Desktop (≥lg) — vào thẳng form nhập tay** (CHANGES #30, code xong — chờ chụp Playwright): bỏ cổng chọn cách nhập; **Quét QR / Tải ảnh CCCD** thu nhỏ thành nút phụ ở góc phải tiêu đề; **Quét QR mở popover camera nổi** đè form (form vẫn hiện), quét xong tự điền vào form đang mở; con trỏ tự vào ô Số CCCD. Mobile KHÔNG đổi.
 - ✅ Quét mặt trước CCCD gắn chip hợp lệ → điền đúng: CCCD (12 số), [CMND cũ 9 số nếu có], họ tên, ngày sinh (ddMMyyyy → lưu yyyymmdd), giới tính (Nam/Nữ), nơi thường trú, ngày cấp.
 - ✅ Chuỗi QR **6 hoặc 7 trường** (tách `|`, CMND cũ tùy có) đều parse được; sai định dạng → báo lỗi rõ (số trường / CCCD ≠ 12 số...).
 - ✅ **Khung quét bám theo mã** khi bắt trúng (dùng 4 góc `cornerPoints` của BarcodeDetector) — không phải khung xanh tĩnh; vẫn auto-capture khi ổn định; hiệu ứng báo thành công; mọi trường sửa được. (CHANGES #12)
 - ✅ Trên điện thoại (NFR Responsive): layout **vừa một màn** (`100dvh`), khung camera co giãn, **thanh điều hướng + nút hành động chính dính đáy**, không phải cuộn để thấy nút. **Logo header không phải nút** (bỏ dáng camera bấm được). (CHANGES #12)
 - ✅ Decoder: BarcodeDetector native + fallback qr-scanner (ZXing) — tham khảo cách quét từ dự án webThanhdat; hiệu ứng thiết kế riêng.
-- ✅ **Lưu & nhập hồ sơ tiếp** (CHANGES #13): màn xác nhận có thêm nút **"Lưu & nhập hồ sơ tiếp"** bên cạnh "Tiếp tục — chụp ảnh chân dung" → gửi ngay **không kèm ảnh** (chi tiết gửi + toast ở THU-02) rồi về **màn chọn cách nhập** (Quét QR / Nhập tay / Tải ảnh) để làm hồ sơ kế tiếp. Áp cho cả quét QR lẫn nhập tay (cùng đi qua màn xác nhận).
+- ✅ **Lưu & nhập hồ sơ tiếp** (CHANGES #13): màn xác nhận có thêm nút **"Lưu & nhập hồ sơ tiếp"** bên cạnh "Tiếp tục — chụp ảnh chân dung" → gửi ngay **không kèm ảnh** (chi tiết gửi + toast ở THU-02) rồi về **màn chọn cách nhập** (Quét QR / Nhập tay / Tải ảnh) để làm hồ sơ kế tiếp. Áp cho cả quét QR lẫn nhập tay (cùng đi qua màn xác nhận). **Desktop không có cổng chọn → quay về form nhập tay TRỐNG cho hồ sơ kế tiếp** (CHANGES #30).
 - ✅ **Màn xác nhận thân thiện nhập tay** (CHANGES #14): **ẩn ô "Số CMND cũ"** khỏi form (vẫn lưu/gửi giá trị từ QR nếu có); ô **ngày sinh/ngày cấp** gõ tay dd/mm/yyyy **+ nút lịch** bấm chọn, vẫn nhập được **năm-only**; **desktop**: tách vị trí 2 nút tránh bấm nhầm, bố cục gọn, **phím tắt** (autofocus ô đầu, Enter → nút chính, tab order hợp lý).
 - ❌ Không OCR chữ trên thẻ; ảnh thẻ chỉ dùng cắt ảnh chân dung.
 
@@ -196,7 +197,7 @@
 - ✅ Tách không ra / địa chỉ viết tắt / thiếu → để ô trống cho gõ tay (không chặn); operator luôn sửa được các ô trước khi map.
 - ✅ Địa chỉ mới hoặc cũ khớp map → điền đúng `NoiTT_MaDVHC`+`NoiTT_MaDVQL` (và `NoiCT_*`).
 - ✅ Tên hiển thị theo DB (vd "Thành phố Đồng Nai"), không theo dataset.
-- ✅ Dropdown chọn tay Tỉnh→Xã: Tỉnh lấy từ `DM_DVHC` (DISTINCT `MaDVQL`, `TrangThai=1`); Xã qua `usp_DM_DVHC_SelectDanhSachXaPhuongTheoTinh` + lọc `TrangThai=1`. (SP `usp_DM_DVHC_SelectAll_Tinh` chỉ trả đơn vị cũ TW/TI — không dùng được cho model 2 cấp mới; xem CHANGES #2.)
+- ✅ Chọn tay Tỉnh→Xã bằng **ô gõ-để-lọc** (CHANGES #29): gõ tên (khớp cả **không dấu** nhờ `boDau`) → danh sách gợi ý lọc dần → bấm/Enter chọn; thay 2 dropdown cũ (xã dài, cuộn mệt). Tỉnh lấy từ `DM_DVHC` (DISTINCT `MaDVQL`, `TrangThai=1`); Xã qua `usp_DM_DVHC_SelectDanhSachXaPhuongTheoTinh` + lọc `TrangThai=1`. (SP `usp_DM_DVHC_SelectAll_Tinh` chỉ trả đơn vị cũ TW/TI — không dùng được cho model 2 cấp mới; xem CHANGES #2.)
 - ❌ Không tự đoán khi xã bị chia — cho chọn tay.
 
 **Edge cases:**
@@ -324,11 +325,12 @@
 
 #### [THU-05] Xóa hồ sơ đã gửi (app web)
 
-**Trạng thái:** ⚠️ Partial — task 41 (03/10/2026) XONG: server `DELETE /api/ho-so/:uuid` soft-delete CAS + phân quyền IDOR + audit · webapp nút Xóa + panel xác nhận 2 bước + chú thích khi đã nạp. Kiểm: server 100 pytest (7 test xóa) · webapp build + 24 vitest · review-nghiepvu đủ. **CÒN:** Done khi #5 "đồng bộ tool kéo về bỏ dòng đã xóa" = task 44 (NAP-01); chưa deploy VPS + verify Playwright/live (Checkpoint 8). Yêu cầu mới 02/10/2026 (CHANGES #24) + popup/copy (CHANGES #26). Chữ PRD đã khớp code (CHANGES #27: edge 404 chống IDOR, copy "máy tính" thay "DB").
+**Trạng thái:** ⚠️ Partial — desktop chọn-nhiều-để-xóa (CHANGES #30, 03/10/2026) code XONG: `DaGui.tsx` cột ô tích chỉ ở dòng pending + "chọn tất cả Chờ nạp trên trang" + thanh thao tác `hidden lg:flex` (Đã chọn N · Bỏ chọn · Xóa N) + dialog xác nhận, lặp `xoaHoSo` (DELETE /api/ho-so/:uuid) phía client, phân biệt lỗi 409 (vừa bị nạp) ≠ lỗi mạng (EC1). Mobile giữ xóa lẻ trong modal. Kiểm mức 1: build + typecheck sạch · 24 vitest · review-nghiepvu đủ (2 ❔ đã tự xác minh: endpoint `xoaHoSo` + EC1 409). **CHƯA chụp Playwright.** task 41 (03/10/2026) XONG: server `DELETE /api/ho-so/:uuid` soft-delete CAS + phân quyền IDOR + audit · webapp nút Xóa + panel xác nhận 2 bước + chú thích khi đã nạp. Kiểm: server 100 pytest (7 test xóa) · webapp build + 24 vitest · review-nghiepvu đủ. **CÒN:** Done khi #5 "đồng bộ tool kéo về bỏ dòng đã xóa" = task 44 (NAP-01); chưa deploy VPS + verify Playwright/live (Checkpoint 8). Yêu cầu mới 02/10/2026 (CHANGES #24) + popup/copy (CHANGES #26). Chữ PRD đã khớp code (CHANGES #27: edge 404 chống IDOR, copy "máy tính" thay "DB"). **Thêm 03/10/2026 (CHANGES #30): desktop chọn-nhiều-để-xóa** — cột ô tích (chỉ dòng Chờ nạp) + thanh "Đã chọn N · Xóa N" + dialog xác nhận, lặp `DELETE` client, tái dùng mẫu xóa-hàng-loạt của QuanTriHoSo (HTG-03); mobile giữ xóa lẻ trong modal. Phần xóa lẻ đã code (task 41) vẫn đúng, chỉ thêm nhánh desktop chọn-nhiều.
 **Story:** Là nhân viên thu nhận, tôi muốn xóa hồ sơ mình đã gửi nhầm/không dùng trong danh sách "Hồ sơ đã gửi", để nó biến mất khỏi hàng chờ nạp của tool khi nạp DB kéo về.
 
 **Done khi:**
 - ⬜ Màn **"Hồ sơ đã gửi"** (`/app/da-gui`) có nút **Xóa** cho mỗi hồ sơ **chưa nạp** (⚪ Chờ nạp); xác nhận 2 bước trước khi xóa.
+- ✅ **Desktop: chọn nhiều để xóa** (CHANGES #30, code xong — chờ chụp Playwright): bảng có **cột ô tích chỉ ở dòng Chờ nạp** (đã/đang nạp không chọn được — khớp luật server chặn xóa); ô tích đầu cột = **chọn tất cả hồ sơ Chờ nạp trên trang**; **thanh thao tác nổi "Đã chọn N · Bỏ chọn · Xóa N hồ sơ"** chỉ hiện khi chọn ≥1 → dialog xác nhận (không khôi phục), xóa bằng lặp `DELETE /api/ho-so/:uuid` phía client. Tái dùng mẫu xóa-hàng-loạt của màn admin (QuanTriHoSo/HTG-03). **Mobile giữ nguyên** xóa lẻ trong modal chi tiết, KHÔNG thêm chọn nhiều (chốt phương án A, 03/10/2026). Nút Xóa lẻ trong modal vẫn giữ.
 - ⬜ **Chỉ xóa hồ sơ CHƯA NẠP** (`pending`); hồ sơ **đã nạp/đang nạp** (`importing`/`imported`) **không xóa được** ở app web (phải xử lý ở tool — QLY-03/QLY-08), ẩn/khóa nút + báo lý do.
 - ⬜ **Phân quyền:** nhân viên thu nhận chỉ xóa **hồ sơ của chính mình**; **admin** xóa được bất kỳ hồ sơ nào.
 - ⬜ **Xóa mềm trên VPS** (đánh dấu "đã xóa" + ai xóa/lúc nào), KHÔNG xóa cứng → giữ vết truy; hồ sơ đã xóa không còn trả về khi tool kéo.

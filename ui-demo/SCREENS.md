@@ -6,7 +6,7 @@
 - **Bản HTML chuẩn:** ui-demo-options/detailed.html
 - **Stack:** Vite + React + TypeScript + Tailwind v3 (token shadcn) + react-router-dom · font Be Vietnam Pro
 - **Cổng dev:** 3021 (sổ `~/.claude/local-ports.md`)
-- **Cập nhật lần cuối:** 03/10/2026 (lượt 17 — quyết định UX CHANGES #28: panel "Đối soát VPS↔CSDT" QLY-09, dựng trực tiếp ở tool webui khi code. Lượt 16: quyết định UX CHANGES #26. Lượt 15: CHANGES #24)
+- **Cập nhật lần cuối:** 03/10/2026 (gộp 2 phiên song song: **lượt 17** panel "Đối soát VPS↔CSDT" QLY-09 (CHANGES #28) · **lượt 18** redesign DESKTOP app web THU-01/05 — Quét vào thẳng form + popover quét, "Hồ sơ đã gửi" chọn-nhiều-để-xóa (CHANGES #30) + tool dời nút nạp lên header & combobox gõ-lọc địa chỉ NAP-01/03 (CHANGES #29). Lượt 16: CHANGES #26)
 
 ## ⚠️ Prototype gộp 1 project — KIẾN TRÚC THẬT là 2 app riêng (TDD §2.4)
 
@@ -62,7 +62,7 @@ Chú thích: ✅ Xong · 🟡 Placeholder · ⬜ Chưa có route
 | /tool/tao-khoa, /tool/cau-hinh | Form layout | Một trang; tái dùng pattern "Tự điền chip + nhóm BẮT BUỘC (viền đỏ, *) + accordion Thông tin thêm" như /tool/nap | 2 |
 | /tool/cau-hinh | Kiểm tra kết nối | Nút "Kiểm tra kết nối" → badge kết quả inline (thành công/lỗi), không popup | 2 |
 | /dang-nhap | Bố cục | Card giữa màn (username + password + nút); 3 vai trò theo tài khoản, không SSO | 2 |
-| App web (AppLayout, Quét) | Responsive desktop (PRD ⑥) | Mobile-first giữ nguyên; desktop ≥lg: sidebar trái + nội dung nhiều cột (Quét = camera trái/form phải); Đã gửi desktop = table | 2 |
+| App web (AppLayout, Quét) | Responsive desktop (PRD ⑥) | Mobile-first giữ nguyên; desktop ≥lg: sidebar trái + nội dung nhiều cột; Đã gửi desktop = table. ⚠️ "Quét = camera trái/form phải" **đã bỏ** — thay bằng desktop vào thẳng form + popover quét (lượt 18, CHANGES #30) | 2 |
 | /app/da-gui | Danh sách + chi tiết | Lọc Tất cả/Chờ nạp/Đã nạp; mobile = card list, desktop = table; bấm dòng → modal chi tiết (ảnh thô + thông tin) | 3 |
 | /admin/ho-so | Xóa PII | Bảng + checkbox chọn nhiều + lọc trạng thái/khoảng ngày; xóa tay → dialog xác nhận (không khôi phục, BR-016) | 3 |
 | /app/tai-khoan | Bố cục | Thẻ người dùng + thông tin tài khoản + Đổi mật khẩu + Đăng xuất | 3 |
@@ -89,6 +89,10 @@ Chú thích: ✅ Xong · 🟡 Placeholder · ⬜ Chưa có route
 | /app/da-gui | Xóa hồ sơ đã gửi THU-05 (CHANGES #24) | Hồ sơ **Chờ nạp** có nút **Xóa** (xác nhận 2 bước) → soft-delete trên VPS; hồ sơ **đã/đang nạp** ẩn/khóa nút. Collector chỉ xóa của mình, admin bất kỳ. Xóa xong tool kéo về sẽ **đồng bộ bỏ** khỏi hàng chờ | 15 |
 | /tool/nap (tab DB) | Avatar 3 trạng thái (lượt 13 dựng) | Có ảnh → vòng tròn màu + user · chưa ảnh → xám + user · **mất file (DB có path, ổ không có) → đỏ + icon ảnh-vỡ + badge "mất ảnh"**. Bấm avatar/ảnh → trình chỉnh (được cả khóa BC1 — chỉ đụng ảnh, giữ TT_XuLy). Thao tác nhanh đổi-khóa/xóa chỉ hiện khi khóa chưa BC1 | 13 |
 | /app/da-gui · /tool/nap (tab DB) | Popup cảnh báo bàn giao (CHANGES #26) | Nguyên tắc: **trước nạp app web làm chủ, sau nạp tool làm chủ** (TDD §7.5). THU-05 xóa chờ nạp: panel 2 bước ("chưa nạp nên xóa được, kéo về sẽ mất, không lấy lại"); đã/đang nạp → chú thích "báo người nạp". QLY-08 "Gỡ về chờ nạp": panel cam **tách** "Xóa hẳn" + banner "đồng bộ máy chủ lỗi — Thử lại". QLY-03 "Xóa hẳn": copy tách bạch (bỏ hẳn, nạp lại phải nhập lại ở app) | 16 |
+| /app/quet | Desktop ưu tiên nhập tay (CHANGES #30, THU-01) | **Desktop (≥lg) vào thẳng form nhập tay** (con trỏ ở ô Số CCCD), bỏ cổng chọn. **Quét QR / Tải ảnh** thu nhỏ thành nút phụ góc phải tiêu đề; bấm Quét QR mở **popover camera nổi** đè form → quét xong tự điền. "Lưu & nhập tiếp" desktop → form trống. **Mobile giữ camera-first** (cổng chọn + camera toàn màn). Thuần client nhánh `lg:`, không đổi API | 18 |
+| /app/da-gui | Desktop chọn-nhiều-để-xóa (CHANGES #30, THU-05) | Bảng desktop thêm **cột ô tích chỉ ở dòng Chờ nạp** (đã/đang nạp không chọn được); ô tích đầu cột = chọn tất cả Chờ nạp trên trang. **Thanh nổi "Đã chọn N · Bỏ chọn · Xóa N"** khi chọn ≥1 → dialog xác nhận (không khôi phục). Tái dùng mẫu xóa-hàng-loạt /admin/ho-so (QuanTriHoSo). **Mobile giữ** xóa lẻ trong modal | 18 |
+| /tool/nap (chế độ Nạp) | Nút nạp lên header NAP-01 (CHANGES #29) | Dời **"Chọn tất cả sẵn sàng" + "Nạp N học viên vào khóa"** từ thanh dính đáy **lên header** (hàng shrink-0 ngay dưới tab lọc, trong `h-[calc]` → list tự co, nút luôn thấy). Chỉ hiện ở tab "Cần xử lý" | 18 |
+| /tool/nap (Chọn tay địa chỉ) | Combobox gõ-lọc NAP-03 (CHANGES #29) | "Chọn tay" địa chỉ 2 cấp mới: 2 dropdown Tỉnh/Xã → **ô gõ-để-lọc** `ComboLoc` (gõ không dấu cũng khớp nhờ `boDau`, danh sách gợi ý lọc dần, bấm/Enter chọn). Thuần client, `getTinh`/`getXa` sẵn | 18 |
 | /tool/nap (AnhModal) | "Dùng lại ảnh gốc" (CHANGES #26) | Nút trong trình chỉnh quay về **ảnh nguyên bản** (bỏ chỉnh sửa, xác nhận nhanh): NAP-04 = ảnh thô VPS, QLY-05 = ảnh `.jp2` DB. Ẩn khi không có nguồn. Đi xa hơn "mở lại nạp ảnh đã chỉnh gần nhất" (CHANGES #23) | 16 |
 | /tool/nap (chế độ Nạp) | Redesign Nạp lô (CHANGES #26) | Mỗi dòng badge **sẵn sàng/thiếu gì**; **"Chọn tất cả sẵn sàng"** + thanh **"Nạp N học viên"** dính đáy; **drawer "Chuẩn bị"** thay cột cố định (gọn); **dialog nạp 3 pha** (xác nhận → tiến độ → báo cáo + "Nạp lại lỗi"); nút **"Xem trong DB"**. Wireframe ở Ghi chú | 16 |
 | /tool/nap (Tra cứu DB) | Đối soát VPS↔CSDT QLY-09 (CHANGES #28) | **Panel admin/operator** (không collector): chọn **1 khóa** → liệt kê **chỉ dòng lệch** VPS↔CSDT, mỗi dòng nêu loại lệch + **1 nút sửa** tương ứng: ① phantom (VPS đã nạp, DB không có) → "Trả về chờ nạp" · ② DB có, VPS chưa → "Đánh dấu đã nạp" · ③ treo khóa quá lâu → "Mở khóa". Sửa xong làm tươi, dòng khớp biến mất. **Dựng trực tiếp ở tool webui khi code** (màn tool, không qua ui-demo/prototype) | 17 |

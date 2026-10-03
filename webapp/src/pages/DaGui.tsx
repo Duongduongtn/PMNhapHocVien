@@ -179,6 +179,10 @@ export default function DaGui() {
   const [moTim, setMoTim] = useState(false);
   const [trang, setTrang] = useState(0);
   const [coTrang, setCoTrang] = useState(20);
+  // Desktop chọn-nhiều-để-xóa (CHANGES #30) — chỉ chọn được hồ sơ "Chờ nạp" (pending).
+  const [chon, setChon] = useState<Set<string>>(new Set());
+  const [xacNhanXoa, setXacNhanXoa] = useState(false);
+  const [dangXoa, setDangXoa] = useState(false);
 
   async function tai() {
     setLoi(null);
@@ -205,7 +209,52 @@ export default function DaGui() {
   const rows = (ds ?? []).filter((h) => khopLoc(h) && khopTim(q, h.ho_ten, h.so_cccd));
   // UI-3: phân trang phía client (danh sách của chính mình, không lớn). Đổi lọc/tìm → về trang 1.
   useEffect(() => { setTrang(0); }, [loc, q, coTrang]);
+  // Đổi lọc/tìm/trang → bỏ lựa chọn (tránh xóa nhầm hồ sơ ngoài tầm nhìn).
+  useEffect(() => { setChon(new Set()); }, [loc, q, coTrang, trang]);
   const rowsTrang = rows.slice(trang * coTrang, (trang + 1) * coTrang);
+  // Chỉ hồ sơ Chờ nạp mới chọn/xóa được (server chặn xóa đã/đang nạp).
+  const pendingTrang = rowsTrang.filter((h) => h.trang_thai === "pending");
+  const chonHetPending = pendingTrang.length > 0 && pendingTrang.every((h) => chon.has(h.uuid));
+
+  function toggleChon(uuid: string) {
+    setChon((cu) => {
+      const s = new Set(cu);
+      if (s.has(uuid)) s.delete(uuid);
+      else s.add(uuid);
+      return s;
+    });
+  }
+  function toggleChonHet() {
+    setChon((cu) => {
+      const s = new Set(cu);
+      if (chonHetPending) pendingTrang.forEach((h) => s.delete(h.uuid));
+      else pendingTrang.forEach((h) => s.add(h.uuid));
+      return s;
+    });
+  }
+  async function xoaDaChon() {
+    setDangXoa(true);
+    setLoi(null);
+    // Phân biệt 409 (hồ sơ vừa bị tool nạp giữa chừng — không xóa được nữa) với lỗi mạng (thử lại).
+    let loiNap = 0;
+    let loiKhac = 0;
+    for (const uuid of chon) {
+      try {
+        await xoaHoSo(uuid);
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 409) loiNap += 1;
+        else loiKhac += 1;
+      }
+    }
+    setDangXoa(false);
+    setXacNhanXoa(false);
+    setChon(new Set());
+    const phan: string[] = [];
+    if (loiNap > 0) phan.push(`${loiNap} hồ sơ vừa được máy nạp nên không xóa được`);
+    if (loiKhac > 0) phan.push(`${loiKhac} hồ sơ lỗi mạng, thử lại sau`);
+    if (phan.length) setLoi(`Không xóa được: ${phan.join("; ")}. Danh sách đã làm mới.`);
+    await tai();
+  }
   const dem = (t: string) => (ds ?? []).filter((h) => h.trang_thai === t).length;
   const demThieuAnh = (ds ?? []).filter((h) => !h.co_anh).length;
   const rong = q.trim()
@@ -292,6 +341,24 @@ export default function DaGui() {
 
       {ds && (
         <>
+          {/* DESKTOP: thanh thao tác xóa nhiều — chỉ hiện khi đã chọn ≥1 (CHANGES #30) */}
+          {chon.size > 0 && (
+            <div className="hidden lg:flex items-center gap-3 mb-3 px-4 py-2.5 rounded-lg bg-primary/5 border border-primary/20">
+              <Icon name="check" className="w-4 h-4 text-primary shrink-0" sw={3} />
+              <span className="text-[13px] font-medium">Đã chọn {chon.size} hồ sơ Chờ nạp</span>
+              <button type="button" onClick={() => setChon(new Set())} className="text-[13px] text-muted-foreground hover:text-foreground underline">
+                Bỏ chọn
+              </button>
+              <button
+                type="button"
+                onClick={() => setXacNhanXoa(true)}
+                className="ml-auto inline-flex items-center gap-2 h-9 px-4 rounded-lg bg-destructive text-white font-semibold text-sm hover:brightness-110 transition"
+              >
+                <Icon name="warn" className="w-4 h-4" /> Xóa {chon.size} hồ sơ
+              </button>
+            </div>
+          )}
+
           {/* MOBILE: card list */}
           <div className="lg:hidden divide-y divide-border border-t border-border">
             {rowsTrang.map((h) => (
@@ -322,6 +389,16 @@ export default function DaGui() {
             <table className="w-full text-[13px]">
               <thead>
                 <tr className="bg-muted text-muted-foreground text-left">
+                  <th className="px-4 py-2.5 w-10">
+                    <input
+                      type="checkbox"
+                      className="accent-primary align-middle"
+                      checked={chonHetPending}
+                      disabled={pendingTrang.length === 0}
+                      onChange={toggleChonHet}
+                      aria-label="Chọn tất cả hồ sơ Chờ nạp trên trang"
+                    />
+                  </th>
                   <th className="px-4 py-2.5 font-semibold">Họ và tên</th>
                   <th className="px-4 py-2.5 font-semibold">Giới tính</th>
                   <th className="px-4 py-2.5 font-semibold">Số CCCD</th>
@@ -333,7 +410,18 @@ export default function DaGui() {
               </thead>
               <tbody>
                 {rowsTrang.map((h) => (
-                  <tr key={h.uuid} onClick={() => setSel(h)} className="border-t border-border cursor-pointer hover:bg-muted/60 transition-colors">
+                  <tr key={h.uuid} onClick={() => setSel(h)} className={"border-t border-border cursor-pointer transition-colors " + (chon.has(h.uuid) ? "bg-primary/5" : "hover:bg-muted/60")}>
+                    <td className="px-4 py-2" onClick={(e) => e.stopPropagation()}>
+                      {h.trang_thai === "pending" ? (
+                        <input
+                          type="checkbox"
+                          className="accent-primary align-middle"
+                          checked={chon.has(h.uuid)}
+                          onChange={() => toggleChon(h.uuid)}
+                          aria-label={`Chọn ${h.ho_ten || "hồ sơ"}`}
+                        />
+                      ) : null}
+                    </td>
                     <td className="px-4 py-2 font-semibold">
                       <div className="flex items-center gap-2.5">
                         <AnhThumb uuid={h.uuid} coAnh={h.co_anh} size="xs" />
@@ -370,6 +458,29 @@ export default function DaGui() {
           onCapNhat={(moi) => { setSel(moi); void tai(); }}
           onXoa={() => { setSel(null); void tai(); }}
         />
+      )}
+
+      {/* Dialog xác nhận xóa nhiều (CHANGES #30) — chỉ hồ sơ Chờ nạp */}
+      {xacNhanXoa && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget && !dangXoa) setXacNhanXoa(false); }}>
+          <div className="bg-card rounded-xl shadow-2xl w-full max-w-sm p-5">
+            <div className="flex items-start gap-3">
+              <span className="w-11 h-11 rounded-full bg-destructive/10 text-destructive flex items-center justify-center shrink-0"><Icon name="warn" className="w-6 h-6" /></span>
+              <div>
+                <h3 className="font-bold text-sm">Xóa {chon.size} hồ sơ khỏi hàng chờ nạp?</h3>
+                <p className="text-[13px] text-muted-foreground mt-1">
+                  Hồ sơ chưa nạp vào máy tính nên còn xóa được. Lần tới máy nạp bấm "Kéo về", các hồ sơ này biến mất khỏi danh sách chờ nạp. <b className="text-destructive">Xóa rồi không lấy lại được</b> — gửi nhầm thì tạo hồ sơ mới.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setXacNhanXoa(false)} disabled={dangXoa} className="h-10 px-4 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors disabled:opacity-60">Giữ lại</button>
+              <button onClick={() => void xoaDaChon()} disabled={dangXoa} className="h-10 px-5 rounded-lg bg-destructive text-white text-sm font-semibold hover:brightness-110 transition disabled:opacity-60 inline-flex items-center gap-2">
+                <Icon name={dangXoa ? "refresh" : "warn"} className={"w-4 h-4" + (dangXoa ? " animate-spin" : "")} /> {dangXoa ? "Đang xóa…" : `Xóa ${chon.size} hồ sơ`}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
