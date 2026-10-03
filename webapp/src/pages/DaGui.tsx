@@ -400,13 +400,15 @@ export default function DaGui() {
                       aria-label="Chọn tất cả hồ sơ Chờ nạp trên trang"
                     />
                   </th>
-                  <th className="px-4 py-2.5 font-semibold">Họ và tên</th>
-                  <th className="px-4 py-2.5 font-semibold w-[90px]">Giới tính</th>
-                  <th className="px-4 py-2.5 font-semibold w-[128px]">Số CCCD</th>
-                  <th className="px-4 py-2.5 font-semibold w-[96px]">Ngày sinh</th>
-                  <th className="px-4 py-2.5 font-semibold w-[150px]">Nơi thường trú</th>
-                  <th className="px-4 py-2.5 font-semibold w-[140px]">Ngày gửi</th>
-                  <th className="px-4 py-2.5 font-semibold text-center w-[112px]">Trạng thái</th>
+                  {/* Họ tên = cột định danh quan trọng nhất → width rộng cố định (BUG-08, plan A).
+                      Nơi thường trú = cột NHƯỜNG (không width → co giãn + truncate, chi tiết ở modal). */}
+                  <th className="px-4 py-2.5 font-semibold w-[220px]">Họ và tên</th>
+                  <th className="px-4 py-2.5 font-semibold w-[64px]">Giới tính</th>
+                  <th className="px-4 py-2.5 font-semibold w-[120px]">Số CCCD</th>
+                  <th className="px-4 py-2.5 font-semibold w-[88px]">Ngày sinh</th>
+                  <th className="px-4 py-2.5 font-semibold">Nơi thường trú</th>
+                  <th className="px-4 py-2.5 font-semibold w-[128px]">Ngày gửi</th>
+                  <th className="px-4 py-2.5 font-semibold text-center w-[104px]">Trạng thái</th>
                 </tr>
               </thead>
               <tbody>
