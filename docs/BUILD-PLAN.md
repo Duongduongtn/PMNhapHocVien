@@ -144,8 +144,8 @@
 - [ ] Collector xóa hồ sơ `pending` ở app web → VPS `deleted`; `importing`/`imported` → chặn (nút ẩn + server 409); xóa hồ sơ người khác → **403**.
 - [ ] Tool "Kéo về" → hồ sơ đã xóa **biến mất khỏi hàng chờ**; dòng `pending` đang bị khóa / ngoài limit **KHÔNG bị xóa nhầm** (mức 2).
 - [ ] QLY-08: gỡ HV khóa **chưa BC1** → biến mất CSDT + về hàng chờ nạp; khóa **BC1** → chặn; **VPS lỗi sau khi xóa CSDT** → báo rõ + "Thử lại" được.
-- [ ] **Mức 2:** CAS delete/`tra-ve-cho-nap` (race), BC1 guard, `tra-ve-cho-nap` idempotent.
-- [ ] **Mức 3:** mở rộng `test_toantuyen` — gửi→xóa→kéo (biến mất); nạp→gỡ về chờ nạp→về hàng chờ.
+- [x] **Mức 2** (03/10): CAS delete/`tra-ve-cho-nap` idempotent + BC1 guard — server `test_nap` (tra-ve CAS/idempotent/409, da-xoa) + tool `test_hoso`/`test_nap_keo` (BC1 409, go-ve, keo_ve_xoa_neu_cho). server 123 · tool 165.
+- [x] **Mức 3** (03/10): `test_toantuyen` +7 E2E phía VPS — A1 gửi→xóa→kéo biến mất · A2 IDOR 404 · A4 admin xóa · A5 da-xoa rỗng (chống xóa nhầm) · B1 nạp→gỡ→hàng chờ (ma_dk gỡ) · B3 gỡ khi đã xóa 409 · B4 về pending collector sửa lại. (Phần tool↔SQL Server verify live sau deploy.)
 
 ### ✅ Checkpoint 9 — sau task 45-47 (ảnh gốc + redesign Nạp lô)
 - [ ] "Dùng lại ảnh gốc" ở NAP-04 (ảnh thô VPS) + QLY-05 (ảnh DB) → về đúng ảnh nguyên bản, bỏ chỉnh sửa; ẩn nút khi không có nguồn.
