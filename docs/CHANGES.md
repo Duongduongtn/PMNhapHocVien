@@ -4,6 +4,7 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 29 | 03/10/2026 | ✏️ Sửa (UI) | `NAP-01`, `NAP-03` | Tool máy Nạp: **dời 2 nút "Chọn tất cả sẵn sàng" + "Nạp N học viên vào khóa" từ thanh dính đáy LÊN header** (NAP-01, hàng shrink-0 trong `h-[calc]` → list tự co, nút luôn thấy) · **"Chọn tay" địa chỉ: 2 dropdown → ô gõ-để-lọc** `ComboLoc` (gõ không dấu cũng khớp nhờ `boDau`, NAP-03). Thuần client, KHÔNG đổi API/DB | ⬜ chờ (va chạm phiên song song sửa cùng docs) | — UI-only | ⬜ chờ | ✅ tool build+29 test (chờ chụp) |
 | 28 | 03/10/2026 | ➕ Thêm | `QLY-09` | **Đối soát & đồng bộ trạng thái VPS↔CSDT** (sau ca Lê Thị Hồng/BUG-01): panel admin/operator ở tool, đối soát **theo khóa**, phát hiện 3 ca lệch (① VPS imported & CSDT không có MaDK = phantom → Trả về chờ nạp; ② CSDT có HV & VPS chưa imported → Đánh dấu đã nạp; ③ importing treo quá ngưỡng → Mở khóa), sửa 1 chạm **tái dùng** `tra_ve_cho_nap`/`da_nap`/`unlock` — không endpoint/SP nạp mới. +Phòng tuyến 2: `nap_fn` bỏ `da_nap` khi `_nap_mot` trả vé cũ (chặn tái phát phantom). Thuần tool | ✅ | ✅ §11.8 | ⬜ panel tool (dựng khi code) | ⬜ |
 | 27 | 03/10/2026 | ✏️ Sửa (chữ) | `THU-05` | Khớp chữ PRD với code task 41 (review-nghiepvu): edge "Chặn 403" → **404** (chống IDOR, không lộ hồ sơ tồn tại — nhất quán `_cua_minh`); copy popup "chưa nạp vào **DB**" → "chưa nạp vào **máy tính**" (tránh lộ từ kỹ thuật cho người thu nhận, luật nội dung). Không đổi code (code đã đúng) | ✅ | — | — | — đã code (task 41) |
 | 26 | 03/10/2026 | ✏️ Sửa + ➕ Thêm | `THU-05`, `QLY-08`, `QLY-03`, `NAP-01`, `NAP-04`, `QLY-05` | Chốt nghiệp vụ + UX trước khi code #24: **nguyên tắc bàn giao** (mốc Nạp — trước nạp app web làm chủ, sau nạp tool/CSDT làm chủ, app web đóng băng; QLY-03 "Xóa hẳn" ≠ QLY-08 "Gỡ về chờ nạp") · **popup cảnh báo + hướng dẫn** (copy impeccable) cho xóa app web (THU-05), gỡ về chờ nạp + banner đồng bộ lỗi (QLY-08), xóa hẳn tách bạch (QLY-03) · **"Dùng lại ảnh gốc"** trong trình chỉnh ảnh (NAP-04 ảnh thô VPS / QLY-05 ảnh DB) · **redesign màn Nạp lô** (NAP-01): trạng thái sẵn sàng mỗi dòng, chọn-tất-cả-sẵn-sàng, drawer Chuẩn bị, dialog nạp 3 pha (xác nhận/tiến độ/báo cáo + nạp lại lỗi), nút Xem trong DB | ✅ | ✅ §7.5/§9.1/§10.5 | ✅ ghi UX+wireframe | ⬜ |
@@ -36,6 +37,16 @@
 Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên quan
 
 ---
+
+## #29 — Tool máy Nạp: dời nút nạp lên header + combobox gõ-lọc địa chỉ · 03/10/2026
+
+- **Mã:** `NAP-01` (dời nút), `NAP-03` (combobox) — ✏️ Sửa UI, thuần client.
+- **Vì sao:** ① 2 nút "Chọn tất cả sẵn sàng" + "Nạp N học viên vào khóa" trước nằm ở **thanh dính đáy** — user muốn đưa **lên header** cho thao tác gọn, nút nạp nằm cùng vùng chọn khóa/kéo về. ② Ô "Chọn tay" địa chỉ 2 cấp mới là 2 **dropdown** — danh sách xã rất dài, cuộn mệt; user muốn **gõ để lọc**.
+- **Đã làm:**
+  - **NAP-01** (`tool/webui/.../NapHoSo.tsx`): gỡ thanh dính đáy, dựng lại thành **hàng hành động shrink-0 ngay dưới tab lọc** trong container `h-[calc]` → chỉ danh sách cuộn, nút Nạp luôn hiện. Chỉ hiện ở tab "Cần xử lý".
+  - **NAP-03** (`tool/webui/src/components/AddressCombo.tsx`): thêm `ComboLoc` — ô gõ → danh sách gợi ý lọc dần (khớp cả **không dấu** nhờ `boDau`), bấm/Enter chọn; thay 2 `<select>` Tỉnh + Xã ở "Chọn tay". `getTinh`/`getXa` dữ liệu sẵn, **không đổi backend**.
+- **Kiểm:** tool webui build + typecheck + **29 vitest** pass. **Chưa chụp Playwright** (màn tool cần backend + DB). Wireframe đã chốt với user.
+- **Nhánh:** code ở `feat/nap-address-ui` (commit `03d4243`) — chưa merge main.
 
 ## #28 — Đối soát & đồng bộ trạng thái VPS↔CSDT (QLY-09) · 03/10/2026
 
@@ -409,7 +420,7 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 > `/capnhat` đọc mục này ở Bước 0b để biết có thay đổi nào chưa ghi sổ không.
 > So bằng **danh sách mã**, không so bằng thời gian sửa file.
 
-- **Cập nhật:** 03/10/2026 (CHANGES #28 — +story QLY-09 đối soát VPS↔CSDT)
+- **Cập nhật:** 03/10/2026 (CHANGES #29 — tool dời nút nạp lên header + combobox gõ-lọc địa chỉ NAP-01/NAP-03; không thêm story)
 - **Số story trong PRD:** 25 (24 MUST/SHOULD gồm `THU-04` SHOULD + `THU-05` + `HTG-04` SHOULD + `QLY-06` ⏳ + `QLY-07` + `QLY-08` + `QLY-09`; chưa tính NICE `QLY-04`, `THU-03`)
 - **Mã story hiện có:** `HTG-01`…`HTG-06`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09` (NICE: `QLY-04`, `THU-03`)
 - **Mã đã nghỉ hưu:** (chưa có)
