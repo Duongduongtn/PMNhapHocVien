@@ -4,9 +4,24 @@
 
 | # | Ngày | Mức | Story | Bug | Trạng thái | Deploy |
 |---|---|---|---|---|---|---|
+| 2 | 03/10/2026 | 🟠 Nặng | `QLY-01` · `NAP-01` | Tra cứu DB ẩn mọi HV chưa ảnh (TT_XuLy='01') → "Xem trong DB" không thấy HV nạp không ảnh; bộ lọc "Chưa ảnh" luôn rỗng | ✅ Đã sửa | ⬜ (tool chưa lên VPS — có hiệu lực khi chạy lại tool) |
 | 1 | 03/10/2026 | 🔴 Chặn | `QLY-08` | Gỡ về chờ nạp rồi nạp lại cùng uuid → HV KHÔNG vào DB nhưng tool báo thành công | ✅ Đã sửa | ⬜ (tool chưa lên VPS — có hiệu lực khi chạy lại tool) |
 
 Chú thích trạng thái: ✅ Đã sửa · 🔄 Đang sửa · ⏳ Đã xếp task · ⬜ Chưa xử
+
+---
+
+## BUG-02 — Tra cứu DB ẩn học viên chưa có ảnh · 03/10/2026
+
+- **Mức:** 🟠 Nặng (không mất dữ liệu, nhưng HV nạp-không-ảnh vô hình ở Tra cứu DB → không quản lý/thêm ảnh được; "Xem trong DB" không thấy HV vừa nạp)
+- **Story:** `QLY-01` (lưới tra cứu) · `NAP-01` (nút "Xem trong DB", dòng 158) · liên quan `QLY-05` (lọc "Chưa ảnh")
+- **Ai báo:** chủ dự án, khi nạp Lê Thị Hồng (không ảnh) rồi bấm "Xem trong DB" không thấy tên
+- **Tái hiện:** nạp 1 HV KHÔNG ảnh vào khóa (BR-011, TT_XuLy='01') → Tra cứu DB mở khóa đó → HV không xuất hiện trong lưới. Thực chứng: khóa 70004K26B010 có 2 HV '01' + 55 HV '03'; endpoint cũ trả 55, bỏ 2.
+- **Nguyên nhân gốc:** `ds_ho_so` (`tool/app/routers/hoso.py`, `GET /local/ho-so`) dùng SP app cũ `usp_NguoiLX_Select_By_MaKH`, SP lọc cứng `AND B.TT_XuLy IN ('03','04')` (`--BaBT them`, "phải nhận ảnh rồi"). HV chưa ảnh (TT_XuLy '01'/'02') bị loại ở nguồn → không thể hiện, và bộ lọc "Chưa ảnh" (QLY-05) không bao giờ có dữ liệu.
+- **Đã sửa:** `ds_ho_so` thay EXEC SP bằng SELECT riêng (JOIN `NguoiLX`+`NguoiLX_HoSo`, `WHERE MaKhoaHoc=@ AND TrangThai=1`, **bỏ** điều kiện `TT_XuLy`, giữ nguyên shape trả về). **KHÔNG sửa SP cũ** (dùng chung app cũ → sửa là vỡ báo cáo cũ).
+- **Test hồi quy:** `tool/tests/test_hoso.py` — `test_ds_ho_so_liet_ke_ca_hv_chua_anh` (HV DuongDanAnh rỗng vẫn trả về + endpoint KHÔNG gọi SP lọc ảnh + KHÔNG lọc TT_XuLy). Fail trên code cũ, pass trên code mới (168 pytest).
+- **Kiểm thật (máy CSDT):** query mới trả 57 HV cho khóa 70004K26B010 (trước 55), có Lê Thị Hồng (MaDK `70004-20261003153838977`). Backend tool đã restart code mới.
+- **Deploy:** tool chạy cục bộ máy CSDT (chưa lên VPS) → hiệu lực khi chạy lại tool (đã restart lúc sửa).
 
 ---
 

@@ -41,6 +41,46 @@ def test_makh_rong_422(auth_headers):
     assert r.status_code == 422
 
 
+class _FakeCurDS:
+    def __init__(self, rows, executed):
+        self._rows, self._executed = rows, executed
+
+    def execute(self, sql, params=None):
+        self._executed.append(sql)
+
+    def fetchall(self):
+        return self._rows
+
+
+class _FakeCMDS:
+    def __init__(self, rows, executed):
+        self._cur = _FakeCurDS(rows, executed)
+
+    def __enter__(self):
+        return self._cur
+
+    def __exit__(self, *a):
+        return False
+
+
+def test_ds_ho_so_liet_ke_ca_hv_chua_anh(auth_headers, monkeypatch):
+    """BUG-02: Tra cứu DB phải liệt kê cả HV CHƯA ảnh (TT_XuLy='01'). Endpoint KHÔNG được dùng
+    SP app cũ usp_NguoiLX_Select_By_MaKH (lọc cứng TT_XuLy IN ('03','04')). Fail trên code cũ."""
+    executed = []
+    rows = [{
+        "MaDK": "M-01", "HoVaTen": "LÊ THỊ HỒNG", "NgaySinh": "19950115", "GioiTinh": "F",
+        "SoCMT": "070195000775", "SO_CMND_CU": None, "SoHoSo": "058", "NoiTT": "x",
+        "DuongDanAnh": None, "MaLoaiHs": 2,  # HV chưa ảnh (DuongDanAnh rỗng)
+    }]
+    monkeypatch.setattr("app.routers.hoso.sqlserver_cursor", lambda *a, **k: _FakeCMDS(rows, executed))
+    r = client.get("/local/ho-so?makh=70004K26B010", headers=auth_headers)
+    assert r.status_code == 200
+    data = r.json()
+    assert any(h["ma_dk"] == "M-01" and h["co_anh"] is False for h in data)  # HV chưa ảnh VẪN hiện
+    assert not any("usp_NguoiLX_Select_By_MaKH" in s for s in executed)      # KHÔNG dùng SP lọc ảnh
+    assert not any("TT_XuLy" in s for s in executed)                          # KHÔNG lọc theo TT_XuLy
+
+
 # ---- Lát 2: hàm thuần đổi giới tính ----
 def test_gioi_tinh_ma():
     assert gioi_tinh_ma("Nam") == "M"

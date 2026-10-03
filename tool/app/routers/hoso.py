@@ -166,11 +166,24 @@ def dung_tham_so_update(cur_row: dict, body: HoSoSua, nguoi: str) -> tuple:
 
 @router.get("")
 def ds_ho_so(makh: str = Query(..., min_length=1)):
-    """Lưới học viên theo khóa (usp_NguoiLX_Select_By_MaKH). Tìm trong lưới = lọc phía
-    client trên kết quả này (bỏ dấu tên / CCCD) như NAP-01/THU-02."""
+    """Lưới học viên theo khóa. Tìm trong lưới = lọc phía client trên kết quả này
+    (bỏ dấu tên / CCCD) như NAP-01/THU-02.
+
+    BUG-02 (03/10): KHÔNG dùng SP app cũ `usp_NguoiLX_Select_By_MaKH` — SP đó lọc cứng
+    `TT_XuLy IN ('03','04')` (chỉ HV đã có ảnh) nên HV nạp KHÔNG ảnh (BR-011, TT_XuLy='01')
+    bị ẩn khỏi Tra cứu DB → "Xem trong DB" (NAP-01) không thấy HV vừa nạp, và bộ lọc
+    "Chưa ảnh" (QLY-05) không bao giờ hiện gì. Thay bằng SELECT riêng, bỏ lọc TT_XuLy.
+    Không sửa SP cũ (dùng chung app cũ — sửa là vỡ báo cáo cũ). Giữ nguyên shape trả về."""
+    sql = (
+        "SELECT A.MaDK, A.HoVaTen, A.NgaySinh, A.GioiTinh, A.SoCMT, A.SO_CMND_CU, "
+        "B.SoHoSo, A.NoiTT, B.DuongDanAnh, B.MaLoaiHs "
+        "FROM dbo.NguoiLX A JOIN dbo.NguoiLX_HoSo B ON A.MaDK = B.MaDK "
+        "WHERE B.MaKhoaHoc = %s AND B.TrangThai = 1 "
+        "ORDER BY CAST(B.SoHoSo AS INT)"
+    )
     try:
         with sqlserver_cursor() as cur:
-            cur.execute("EXEC dbo.usp_NguoiLX_Select_By_MaKH @MaKH=%s", (makh,))
+            cur.execute(sql, (makh,))
             rows = cur.fetchall()
     except ConfigChuaDay as e:
         raise HTTPException(status_code=400, detail=str(e))
