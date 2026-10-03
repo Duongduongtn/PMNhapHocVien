@@ -512,7 +512,9 @@
 4. Bấm nút sửa → tool gọi đúng đường đồng bộ có sẵn (không tạo endpoint/SP nạp mới), rồi làm tươi lại danh sách đối soát.
 
 **Done khi:**
-- ⬜ Panel đối soát **theo khóa** (chọn khóa → quét tập hồ sơ của khóa đó), chỉ **operator/admin** (không collector).
+- ⬜ **Hai chế độ đối soát** (chốt A sau review TDD — bản ghi VPS không có cột khóa nên phantom/importing không quy được về khóa):
+  - **Đối soát theo khóa** (operator/admin): chọn khóa → bắt **ca ②** (hồ sơ của khóa còn ở CSDT nhưng VPS chưa `imported`).
+  - **Quét bản ghi lạc toàn hệ** (admin): bắt **ca ① + ③** (neo ở trạng thái VPS, dùng lại `GET /api/admin/ho-so` lọc trạng thái — check một chiều, không so 2 chiều toàn tập).
 - ⬜ **Phát hiện 3 ca lệch:**
   - **① VPS `imported` nhưng CSDT KHÔNG có `MaDK`** ("phantom import" — như BUG-01) → nút **"Trả về chờ nạp"** (lật VPS `imported→pending`, gỡ `ma_dk`; tái dùng `tra_ve_cho_nap` — KHÔNG đụng CSDT vì vốn đã không có).
   - **② CSDT có HV nhưng VPS chưa `imported`** (nạp vào CSDT xong nhưng bước báo VPS lỗi) → nút **"Đánh dấu đã nạp"** (tái dùng `da_nap(uuid, ma_dk)`).
@@ -521,7 +523,7 @@
 - ⬜ Sửa xong **làm tươi lại** danh sách đối soát; dòng đã khớp biến mất.
 - ⬜ **Không tạo endpoint/SP nạp mới** — chỉ tái dùng `tra_ve_cho_nap` · `da_nap` · `unlock` (VPS) + truy vấn đọc CSDT.
 - ⬜ **Phòng tuyến 2 (chặn tái phát phantom):** trong luồng nạp lô, nếu `_nap_mot` trả **kết quả cũ từ vé idempotency** (không INSERT mới) thì **KHÔNG gọi `da_nap`** — tránh đánh dấu VPS `imported` cho bản ghi không thực sự vào CSDT (gốc BUG-01).
-- ❌ KHÔNG quét toàn bộ dữ liệu một lần (chốt phạm vi theo khóa — mở rộng sau nếu cần).
+- ❌ KHÔNG so khớp **2 chiều toàn tập** mỗi lần (ca ② theo khóa; ca ①③ quét một chiều theo trạng thái VPS — nhẹ).
 - ❌ KHÔNG tự động sửa hàng loạt không hỏi — mỗi dòng operator tự bấm (tránh sửa nhầm diện rộng).
 
 **Edge cases:**

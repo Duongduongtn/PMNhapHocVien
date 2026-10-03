@@ -853,11 +853,13 @@ QLY-08 "Gỡ về chờ nạp"  (operator ở Tra cứu DB, khóa chưa BC1)
 
 Bối cảnh: mốc "Nạp" chuyển quyền sở hữu (§7.5) đi qua **2 kho tách biệt** — VPS (`ho_so_thu_thap.trang_thai`) và CSDT (`NguoiLX_HoSo` theo `MaDK`) — nối bằng các bước gọi tuần tự (lock→nạp CSDT→da_nap). Nếu một bước lỗi hoặc có bug (BUG-01: phantom import), 2 kho **lệch nhau** mà không cơ chế nào tự dọn. §11.8 cho operator/admin **phát hiện + sửa lệch bằng tay có hướng dẫn**, KHÔNG để treo.
 
-**Phạm vi (chốt 03/10): theo KHÓA, theo yêu cầu** — không quét toàn bộ (tránh so chéo 2 DB toàn tập, chậm khi lớn; mở rộng sau nếu cần).
+**Phạm vi (chốt 03/10 — phương án A, sau review TDD): 2 chế độ.** Lý do tách (review TDD 03/10): bản ghi VPS `ho_so_thu_thap` **KHÔNG có cột khóa** — khóa chỉ tồn tại ở CSDT, nối qua `ma_dk`. Ca ② còn hồ sơ ở CSDT nên quy được về khóa; **ca ① (phantom: ma_dk không có trong CSDT) và ca ③ (importing: CHƯA có ma_dk)** đều không quy được về khóa → phải quét theo **trạng thái VPS**, không theo khóa.
+- **① Đối soát theo khóa (operator/admin)** → bắt **ca ②**. Neo ở CSDT, chọn 1 khóa.
+- **② Quét bản ghi lạc toàn hệ (admin)** → bắt **ca ① + ③**. Neo ở VPS, không cần khóa; tái dùng `GET /api/admin/ho-so` (HTG-03, lọc trạng thái) — nhẹ vì check **một chiều** (duyệt tập VPS imported/importing, tra ma_dk sang CSDT), không so 2 chiều toàn tập.
 
-**Cách phát hiện (đọc, không ghi):** operator chọn 1 khóa → tool dựng 2 tập theo `MaDK`/`uuid`:
-- CSDT: `MaDK` trong `NguoiLX_HoSo WHERE MaKhoaHoc=@ AND TrangThai=1` (dùng lại truy vấn §11.1 đã bỏ lọc ảnh — BUG-02).
-- VPS: trạng thái các `uuid` liên quan khóa (qua liên kết nạp `nap_xong` local `uuid↔ma_dk`, hoặc `GET /api/nap/tra-uuid`/trạng thái §4.4). Nối CSDT↔VPS qua `ma_dk`.
+**Cách phát hiện (đọc, không ghi):**
+- **Ca ② — theo khóa:** `MaDK` của khóa từ `NguoiLX_HoSo WHERE MaKhoaHoc=@ AND TrangThai=1` (dùng lại truy vấn §11.1 đã bỏ lọc ảnh — BUG-02) → mỗi `MaDK` tra `uuid` gốc qua `nap_xong` local (`uuid↔ma_dk`, ghi lúc nạp) → hỏi trạng thái VPS của `uuid` → **chưa `imported`** = ca ②. *nap_xong là nguồn nối duy nhất; thiếu entry (máy khác / staging đã dọn) → KHÔNG khẳng định lệch, ghi "không tra được uuid" thay vì báo động giả.*
+- **Ca ① + ③ — quét lạc toàn hệ:** `GET /api/admin/ho-so?trang_thai=imported` → mỗi bản ghi có `ma_dk` → check `ma_dk` **tồn tại trong CSDT** (`NguoiLX_HoSo`) → KHÔNG có = **ca ① phantom**. `?trang_thai=importing` + `locked_at` quá ngưỡng (§7.2) = **ca ③ treo**.
 
 **3 ca lệch + hành động (tái dùng §11.7, KHÔNG endpoint/SP nạp mới):**
 ```
@@ -875,7 +877,7 @@ Bối cảnh: mốc "Nạp" chuyển quyền sở hữu (§7.5) đi qua **2 kho 
 
 **Phòng tuyến 2 — chặn tái phát phantom (gốc BUG-01).** Trong `nap_lo` router (`nap_fn`), thứ tự hiện tại: `vps.lock` → `_nap_mot` → `vps.da_nap`. Khi `_nap_mot`→`nap_mot_hv` **trả kết quả cũ từ vé `nap_xong`** (`_done_get` trúng, KHÔNG INSERT mới) thì **BỎ gọi `vps.da_nap`** — nếu không, bản ghi không thực sự vào CSDT vẫn bị đánh dấu VPS `imported` (đúng kịch bản phantom). Cách làm: `nap_mot_hv`/`_nap_mot` trả cờ phân biệt "nạp mới" vs "trả vé cũ" (vd field `trung_uuid` đã có ở `_done_get`), `nap_fn` chỉ `da_nap` khi là nạp mới. *Vì sao vẫn giữ vé idempotency:* chống bấm nạp 2 lần tạo HV trùng (§10.3) — chỉ bỏ cái `da_nap` dư trên nhánh vé-cũ.
 
-> Thuần tool (webui panel + tool backend đọc/gọi VPS). KHÔNG bảng VPS mới, KHÔNG SP CSDT mới, KHÔNG endpoint nạp mới — chỉ endpoint tool liệt kê lệch + 3 action tái dùng.
+> Thuần tool (webui 2 panel + tool backend đọc CSDT/gọi VPS). Tái dùng `GET /api/admin/ho-so` (HTG-03) + `tra-uuid` + trạng thái VPS + `nap_xong` local. KHÔNG bảng VPS mới, KHÔNG SP CSDT mới, KHÔNG endpoint nạp mới — chỉ endpoint tool đọc tổng hợp lệch (theo khóa cho ca ②; toàn hệ cho ca ①③) + 3 action tái dùng.
 
 ---
 
@@ -1012,6 +1014,7 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 |---|---|---|
+| 03/10/2026 | 3.1 | Sửa §11.8 sau review TDD (biên bản `tdd-review-03-10-2026-qly09.md`): tách đối soát làm **2 chế độ** — ① theo khóa (ca ②, neo CSDT) · ② quét lạc toàn hệ (ca ①+③, neo VPS, tái dùng `GET /api/admin/ho-so`). Lý do: bản ghi VPS không có cột khóa nên phantom (ca ①) và importing treo (ca ③) không quy được về khóa. Làm rõ cách nối `nap_xong`/`tra-uuid` + ứng xử khi thiếu nối. |
 | 03/10/2026 | 3.0 | Đối soát & đồng bộ VPS↔CSDT (CHANGES #28, QLY-09 — sau ca Lê Thị Hồng/BUG-01): §11.8 mới — panel admin/operator đối soát **theo khóa** phát hiện 3 ca lệch (① VPS imported & CSDT không có MaDK = phantom → Trả về chờ nạp; ② CSDT có HV & VPS chưa imported → Đánh dấu đã nạp; ③ importing treo quá ngưỡng → Mở khóa), tái dùng `tra_ve_cho_nap`/`da_nap`/`unlock` — KHÔNG endpoint/SP nạp mới. +Phòng tuyến 2: `nap_fn` bỏ `da_nap` khi `_nap_mot` trả vé cũ (chặn tái phát phantom). Thuần tool. |
 | 03/10/2026 | 2.9 | Chốt nghiệp vụ + UX #24 (CHANGES #26): §7.5 mới — nguyên tắc "Nạp = điểm bàn giao quyền sở hữu" (trước nạp app web làm chủ, sau nạp tool/CSDT làm chủ, app web đóng băng) + bảng edge khóa chưa BC1 + phân biệt QLY-03 "Xóa hẳn" ≠ QLY-08 "Gỡ về chờ nạp"; §7.2 lock trả bản tươi; §9.1 +prop `anhGoc` + nút "Dùng lại ảnh gốc" (NAP-04 ảnh thô VPS / QLY-05 ảnh DB); §10.5 mới — redesign màn Nạp lô (trạng thái sẵn sàng mỗi dòng, chọn-tất-cả-sẵn-sàng, drawer Chuẩn bị, dialog nạp 3 pha, nút Xem trong DB). Thuần client phần UX, không endpoint mới. |
 | 03/10/2026 | 2.8 | Sửa sau review TDD #24 (biên bản `tdd-review-03-10-2026.md`): §11.7 "đồng bộ xóa khi kéo" bỏ cách suy-từ-vắng-mặt-trong-`keo` (xóa nhầm khi dòng bị khóa/rớt limit) → chốt `GET /api/nap/da-xoa?since=` (thêm §4.4); §4.4 +`GET /api/nap/tra-uuid?ma_dk=` cho fallback QLY-08 bước 2; §4.3/§4.4 +quy tắc CAS nguyên tử (`DELETE … WHERE trang_thai='pending'`, `tra-ve-cho-nap … WHERE 'imported'`, idempotent khi retry); §4.3 soft-delete ghi mốc vào `audit_log.created_at` (không cột mới); §11.7 +sơ đồ ASCII luồng xóa-CSDT-trước-rồi-VPS + nhánh bù. (Ghi nhận: PRD gọi `done`, DB/TDD là `imported` → xử bằng `/capnhat`.) |
