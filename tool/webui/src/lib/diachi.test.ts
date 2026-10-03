@@ -68,6 +68,27 @@ describe("tachDiaChiGoc (NAP-03 CHANGES #19)", () => {
     });
   });
 
+  it("2 cấp KHÔNG tiền tố + chi tiết đầu: 'Thôn 2, Trấn Biên, Đồng Nai' → xã mới Trấn Biên (BUG-07)", () => {
+    // Ca Lê Thị Hồng: trước đây parse thành 3 cấp cũ (xã=Thôn 2, huyện=Trấn Biên) → map trượt.
+    expect(tachDiaChiGoc("Thôn 2, Trấn Biên, Đồng Nai")).toEqual({
+      tinh: "Đồng Nai", huyen: "", xa: "Trấn Biên", chiTiet: "Thôn 2",
+    });
+    expect(tachDiaChiGoc("Số 10, Trấn Biên, Đồng Nai")).toEqual({
+      tinh: "Đồng Nai", huyen: "", xa: "Trấn Biên", chiTiet: "Số 10",
+    });
+    expect(tachDiaChiGoc("123/4 Nguyễn Huệ, Trấn Biên, Đồng Nai")).toEqual({
+      tinh: "Đồng Nai", huyen: "", xa: "Trấn Biên", chiTiet: "123/4 Nguyễn Huệ",
+    });
+    // KHÔNG hồi quy: 3 cấp cũ không có chi tiết vẫn hiểu xã-huyện-tỉnh.
+    expect(tachDiaChiGoc("An Phước, Long Thành, Đồng Nai")).toEqual({
+      tinh: "Đồng Nai", huyen: "Long Thành", xa: "An Phước", chiTiet: "",
+    });
+    // KHÔNG hồi quy: 3 cấp cũ CÓ chi tiết (4 phần) vẫn xã-huyện-tỉnh + chi tiết.
+    expect(tachDiaChiGoc("Số 5, An Phước, Long Thành, Đồng Nai")).toEqual({
+      tinh: "Đồng Nai", huyen: "Long Thành", xa: "An Phước", chiTiet: "Số 5",
+    });
+  });
+
   it("chuỗi rỗng / null → tất cả trống", () => {
     expect(tachDiaChiGoc("")).toEqual({ tinh: "", huyen: "", xa: "", chiTiet: "" });
     expect(tachDiaChiGoc(null)).toEqual({ tinh: "", huyen: "", xa: "", chiTiet: "" });

@@ -13,6 +13,17 @@ const RE_TINH = /^(tỉnh|thành phố|tp)\.?\s+/i;
 const RE_HUYEN = /^(huyện|quận|thị xã|tx)\.?\s+/i;
 const RE_XA = /^(xã|phường|thị trấn|tt)\.?\s+/i;
 
+// BUG-07: đoạn "chi tiết" (số nhà / thôn / ấp / khu…) KHÔNG phải địa danh cấp xã/huyện/tỉnh.
+// Dùng để tách chi tiết đầu chuỗi trước khi suy vị trí, tránh nhầm địa chỉ 2 cấp
+// "Thôn 2, Trấn Biên, Đồng Nai" (chi tiết + xã mới + tỉnh) thành 3 cấp cũ (xã=Thôn 2 — sai).
+// Từ khoá chi tiết + khoảng trắng (KHÔNG dùng \b — ký tự có dấu như "ố" không phải word-char ASCII
+// nên \b sau "Số" không khớp), hoặc chuỗi bắt đầu bằng số nhà. Không gồm "đường/ngõ" để tránh nhầm
+// xã thật (vd "Đường Lâm"); địa chỉ phố thường có số nhà đầu → đã bắt bằng ^\d.
+const RE_CHITIET = /^(số|thôn|ấp|khu phố|khu|tổ|xóm|lô|kp)\s|^\d/i;
+function laChiTiet(s: string): boolean {
+  return RE_CHITIET.test(s.trim());
+}
+
 function boTienTo(s: string, re: RegExp): string | null {
   return re.test(s) ? s.replace(re, "").trim() : null;
 }
@@ -39,21 +50,29 @@ export function tachDiaChiGoc(raw: string | null | undefined): DiaChiTach {
     else du.push(s);
   }
 
-  // Không có tiền tố nào khớp → suy theo vị trí: [chi tiết…], Xã, Huyện, Tỉnh (tỉnh ở cuối)
+  // Không có tiền tố nào khớp → suy theo vị trí. TRƯỚC tiên tách "chi tiết" đầu chuỗi (số nhà/thôn/
+  // ấp…) ra, rồi mới suy vị trí trên phần ĐỊA DANH còn lại — nếu không, địa chỉ 2 cấp
+  // "Thôn 2, Trấn Biên, Đồng Nai" bị hiểu là 3 cấp cũ (xã=Thôn 2 sai) → map trượt (BUG-07).
   if (!tinh && !huyen && !xa) {
-    const n = segs.length;
-    if (n === 1) {
-      return { tinh: "", huyen: "", xa: "", chiTiet: segs[0] };
+    let i = 0;
+    while (i < segs.length - 1 && laChiTiet(segs[i])) i++; // chừa ≥1 đoạn địa danh ở cuối
+    const ct = segs.slice(0, i); // chi tiết đầu (số nhà/thôn…)
+    const dd = segs.slice(i); // phần địa danh (xã/huyện/tỉnh)
+    const m = dd.length;
+    if (m === 1) {
+      // chỉ còn 1 đoạn, không đủ để suy cấp → dồn tất cả vào chi tiết (giữ hành vi cũ n===1)
+      return { tinh: "", huyen: "", xa: "", chiTiet: segs.join(", ") };
     }
-    tinh = segs[n - 1];
-    if (n >= 3) {
-      huyen = segs[n - 2];
-      xa = segs[n - 3];
-      return { tinh, huyen, xa, chiTiet: segs.slice(0, n - 3).join(", ") };
+    tinh = dd[m - 1];
+    if (m >= 3) {
+      // 3 cấp cũ: …, Xã, Huyện, Tỉnh
+      huyen = dd[m - 2];
+      xa = dd[m - 3];
+      return { tinh, huyen, xa, chiTiet: [...ct, ...dd.slice(0, m - 3)].join(", ") };
     }
-    // n === 2 → Xã + Tỉnh
-    xa = segs[n - 2];
-    return { tinh, huyen: "", xa, chiTiet: "" };
+    // m === 2 → 2 cấp mới: Xã (mới) + Tỉnh
+    xa = dd[m - 2];
+    return { tinh, huyen: "", xa, chiTiet: ct.join(", ") };
   }
 
   // Lượt 3a (BUG-06): xã/huyện đã khớp tiền tố nhưng TỈNH không ghi tiền tố (địa chỉ 2 cấp mới hay

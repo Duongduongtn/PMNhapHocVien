@@ -4,6 +4,7 @@
 
 | # | Ngày | Mức | Story | Bug | Trạng thái | Deploy |
 |---|---|---|---|---|---|---|
+| 7 | 03/10/2026 | 🟠 Nặng | `NAP-03` | **Ca Lê Thị Hồng:** địa chỉ 2 cấp KHÔNG tiền tố + chi tiết đầu "Thôn 2, Trấn Biên, Đồng Nai" → `tachDiaChiGoc` tưởng 3 cấp cũ (xã=**Thôn 2**, huyện=**Trấn Biên**) → map trượt, vì "Trấn Biên" thực ra là **xã mới** (mã 26041) còn "Thôn 2" là thôn. Sửa: tách chi tiết đầu chuỗi (số nhà/thôn/ấp…) TRƯỚC khi suy vị trí → còn 2 phần "Trấn Biên, Đồng Nai" = xã mới + tỉnh → khớp. Xác nhận bằng dvhc_map.sqlite thật + sim pipeline; +5 test (34 vitest). (BUG-06 lo ca CÓ tiền tố; BUG-07 lo ca KHÔNG tiền tố) | ✅ Đã sửa | ⬜ (chờ chạy lại tool) |
 | 6 | 03/10/2026 | 🟠 Nặng | `NAP-03` | Địa chỉ 2 cấp mới "Phường X, <Tỉnh không tiền tố>" (vd "Phường Hồng Hà, Hà Nội") → `tachDiaChiGoc` nuốt tỉnh vào chiTiet (tinh="") → tool map KHÔNG RA. "Hồng Hà, Hà Nội" (không tiền tố) lại OK. Sửa: thêm cứu TỈNH từ phần dư (đoạn cuối = tỉnh) khi xã/huyện đã khớp tiền tố mà tinh rỗng; +4 test (33 vitest) | ✅ Đã sửa | ⬜ (chờ chạy lại tool) |
 | 5 | 03/10/2026 | 🟠 Nặng | `THU-05` | Màn "Hồ sơ đã gửi" (app web desktop): cột ô tích chọn-nhiều (CHANGES #30) làm bảng vượt khung → che cột phải. Sửa (chốt cuối, user: KHÔNG cuộn ngang): `table-fixed` + cột định width + `truncate` → bảng luôn vừa khung, chữ dài hiện "…", chi tiết xem ở modal (bỏ `overflow-x-auto`) | ✅ Đã sửa | ⬜ (chờ deploy webapp) |
 | 4 | 03/10/2026 | 🟠 Nặng | `NAP-01` · `NAP-03` | Collector sửa địa chỉ (2 cấp mới) trên app; kéo về tool lại nạp địa chỉ CŨ đã map — nháp địa chỉ không làm tươi theo raw mới | ✅ Đã sửa | ⬜ (tool chưa lên VPS — có hiệu lực khi chạy lại tool) |
@@ -14,6 +15,15 @@
 Chú thích trạng thái: ✅ Đã sửa · 🔄 Đang sửa · ⏳ Đã xếp task · ⬜ Chưa xử
 
 ---
+
+## BUG-07 — Địa chỉ 2 cấp KHÔNG tiền tố + chi tiết đầu không auto-map (ca Lê Thị Hồng) · 03/10/2026
+
+- **Mức:** 🟠 Nặng · **Story:** `NAP-03` · **File:** `tool/webui/src/lib/diachi.ts`
+- **Tái hiện (ca thật Lê Thị Hồng, xác nhận bằng dvhc_map.sqlite + sim pipeline):** `noi_tt_raw = "Thôn 2, Trấn Biên, Đồng Nai"` → `tachDiaChiGoc` cho `xa="Thôn 2", huyện="Trấn Biên", tỉnh="Đồng Nai"` → "Chuyển đổi sang xã mới" báo **"Không khớp bảng ánh xạ"**.
+- **Nguyên nhân:** chuỗi 3 phần KHÔNG tiền tố bị suy mặc định là **3 cấp cũ (xã-huyện-tỉnh)**, nhét "Thôn 2" (vốn là thôn/chi tiết) vào ô XÃ. Thực tế đây là **2 cấp + chi tiết**: "Thôn 2" = chi tiết, **"Trấn Biên" = xã mới** (DB: mã `26041`, Thành phố Đồng Nai), "Đồng Nai" = tỉnh. DB xác nhận "Thôn 2" không phải xã nào (0 dòng) nên map bằng "Thôn 2" luôn trượt.
+- **Khác BUG-06:** BUG-06 lo ca có tiền tố ("Phường X, <tỉnh trần>"); ca này KHÔNG tiền tố nên đi nhánh suy-vị-trí, BUG-06 không chạm tới.
+- **Cách sửa:** trong nhánh không-tiền-tố của `tachDiaChiGoc`, **tách "chi tiết" đầu chuỗi** (regex số nhà/thôn/ấp/khu/tổ/xóm/lô/kp hoặc bắt đầu bằng số) TRƯỚC khi suy vị trí trên phần địa danh còn lại. "Thôn 2" tách ra chi tiết → còn "Trấn Biên, Đồng Nai" (2 phần) = xã mới + tỉnh → khớp `26041`. Không gồm "đường/ngõ" trong từ khoá (tránh nhầm xã thật như "Đường Lâm"); địa chỉ phố thường có số nhà đầu nên đã bắt bằng `^\d`.
+- **Kiểm:** tool webui build + typecheck · **34 vitest** (+5 ca BUG-07: Thôn/Số/số-nhà đầu + 2 ca giữ hành vi 3 cấp cũ không hồi quy). Sim tách+map trên DB thật: trước "không khớp", sau "khớp 26041".
 
 ## BUG-06 — Địa chỉ 2 cấp mới không auto-map ở tool (tỉnh không tiền tố) · 03/10/2026
 
