@@ -20,10 +20,12 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, field_validator
 
+from app import nap, vps
 from app.db import sqlserver_cursor, sqlserver_conn, ConfigChuaDay
 from app.image import jp2_sang_png, thumb_jp2
 from app.nap import tach_ho_ten, validate_do_dai, sinh_so_ho_so, di_chuyen_anh, ghi_anh_update, log_xoa_hv
 from app.session import Phien, require_session
+from app.vps import VpsLoi
 
 router = APIRouter(prefix="/local/ho-so", tags=["ho-so"])
 
@@ -387,15 +389,20 @@ def doi_khoa(body: DoiKhoaIn, ma_dk: str = Query(..., min_length=1),
     return {"ok": True, "ma_dk": ma_dk, "ma_kh": ma_kh_moi, "so_ho_so": so_ho_so}
 
 
-@router.post("/xoa")
-def xoa_ho_so(ma_dk: str = Query(..., min_length=1), phien: Phien = Depends(require_session)):
-    """QLY-03 — xóa học viên nhập nhầm (GHI PROD).
+def _loi_vps(e: VpsLoi) -> HTTPException:
+    """VpsLoi → HTTPException: giữ mã VPS cho các mã client cần phân biệt, còn lại gộp 502."""
+    st = e.status if e.status in (401, 403, 404, 409) else 502
+    return HTTPException(status_code=st, detail=str(e))
+
+
+def _xoa_hv_csdt(ma_dk: str, nguoi: str) -> dict:
+    """Gỡ HV khỏi CSDT (GHI PROD) — dùng chung QLY-03 'Xóa hẳn' và QLY-08 'Gỡ về chờ nạp'.
 
     `usp_NguoiLX_Delete` DELETE `NguoiLX` → cascade `NguoiLX_HoSo` + `NguoiLXHS_GiayTo`.
-    HV đã có GPLX → FK `NguoiLX_GPLX` NO_ACTION chặn (pre-check + verify sau xóa, SP không raiserror).
-    File `.jp2` KHÔNG xóa cứng → **xóa mềm**: chuyển sang folder `_DELETED` (giữ tên MaDK) + ghi log.
+    Chặn BC1 (409, mất liên kết Báo cáo 1/2) và HV đã có GPLX (409, FK NO_ACTION, pre-check +
+    verify vì SP không raiserror). File `.jp2` KHÔNG xóa cứng → **xóa mềm** sang folder `_DELETED`
+    (giữ tên MaDK) + ghi log. Trả {ma_dk, ma_kh, anh_loi?}. Lỗi nghiệp vụ → HTTPException.
     """
-    nguoi = (phien.ho_ten or phien.username or "tool")[:60]
     try:
         with sqlserver_conn(autocommit=True) as conn:
             cur = conn.cursor(as_dict=True)
@@ -457,10 +464,96 @@ def xoa_ho_so(ma_dk: str = Query(..., min_length=1), phien: Phien = Depends(requ
     except Exception:
         raise HTTPException(status_code=502, detail="Không xóa được học viên trên SQL Server — kiểm kết nối rồi thử lại.")
 
-    kq = {"ok": True, "ma_dk": ma_dk}
+    out = {"ma_dk": ma_dk, "ma_kh": ma_kh}
     if anh_loi:
-        kq["anh_loi"] = anh_loi  # đã xóa DB nhưng chuyển ảnh _DELETED lỗi (file còn ở folder cũ)
-    return kq
+        out["anh_loi"] = anh_loi  # đã xóa DB nhưng chuyển ảnh _DELETED lỗi (file còn ở folder cũ)
+    return out
+
+
+@router.post("/xoa")
+def xoa_ho_so(ma_dk: str = Query(..., min_length=1), phien: Phien = Depends(require_session)):
+    """QLY-03 — xóa hẳn học viên nhập nhầm (GHI PROD). Gỡ khỏi CSDT + xóa mềm ảnh (không trả về
+    hàng chờ — muốn nạp lại phải nhập lại ở app). Khác QLY-08 'Gỡ về chờ nạp'."""
+    nguoi = (phien.ho_ten or phien.username or "tool")[:60]
+    kq = _xoa_hv_csdt(ma_dk, nguoi)
+    out = {"ok": True, "ma_dk": ma_dk}
+    if "anh_loi" in kq:
+        out["anh_loi"] = kq["anh_loi"]
+    return out
+
+
+def _dong_bo_tra_ve(vps_token: str | None, uuid: str) -> dict:
+    """QLY-08 bước 4+5 — gọi VPS trả bản ghi gốc về chờ nạp + đưa dòng staging local về 'cho'.
+    Dùng chung cho 'Gỡ về chờ nạp' và nút 'Thử lại đồng bộ'. VpsLoi để caller xử lý riêng
+    (bước này KHÔNG đụng CSDT — an toàn chạy lại khi lần trước lỗi mạng)."""
+    vps.tra_ve_cho_nap(vps_token, uuid)
+    trong_hang_doi = nap.keo_ve_ve_cho(uuid)
+    return {"uuid": uuid, "ve_cho_nap": True, "trong_hang_doi": trong_hang_doi}
+
+
+@router.post("/go-ve-cho-nap")
+def go_ve_cho_nap(ma_dk: str = Query(..., min_length=1), phien: Phien = Depends(require_session)):
+    """QLY-08 — gỡ HV đã nạp (nhầm khóa) về chờ nạp (GHI PROD). Khác 'Xóa hẳn' (QLY-03): sau khi
+    gỡ khỏi CSDT thì trả bản ghi gốc VPS về 'pending' để nạp lại đúng khóa, không nhập lại ở app.
+
+    Thứ tự xóa-CSDT-TRƯỚC-rồi-VPS (TDD §11.7): tra uuid gốc TRƯỚC (không có → DỪNG, chưa xóa gì);
+    gỡ CSDT (điểm KHÔNG hoàn tác); rồi gọi VPS. VPS lỗi SAU khi đã xóa CSDT → trả ok=True kèm
+    `dong_bo_loi` để UI hiện banner + 'Thử lại đồng bộ' RIÊNG bước VPS (KHÔNG tạo lại HV ở CSDT).
+    """
+    token = phien.vps_token
+    if not token:
+        raise HTTPException(status_code=409, detail="Phiên chưa có quyền máy chủ — đăng nhập lại.")
+    nguoi = (phien.ho_ten or phien.username or "tool")[:60]
+
+    # Bước 2 (TRƯỚC khi xóa): tra uuid gốc — staging local ưu tiên, fallback VPS. Không tìm được
+    # → DỪNG, KHÔNG xóa CSDT: xóa mà không trả về được = mất HV, buộc nhập lại ở app (chỉ Xóa hẳn).
+    uuid = nap.lay_uuid_theo_ma_dk(ma_dk)
+    if not uuid:
+        try:
+            uuid = vps.tra_uuid(token, ma_dk)
+        except VpsLoi as e:
+            raise _loi_vps(e)
+    if not uuid:
+        raise HTTPException(
+            status_code=409,
+            detail="Không tìm được hồ sơ gốc trên máy chủ để trả về chờ nạp (có thể đã dọn dữ liệu "
+                   "quá hạn). Muốn bỏ hẳn học viên thì dùng 'Xóa hẳn'.",
+        )
+
+    # Bước 1+3: chặn BC1/GPLX → usp_NguoiLX_Delete + ảnh _DELETED (dùng chung QLY-03). Lỗi nghiệp
+    # vụ raise ra TRƯỚC khi đụng gì → an toàn. Qua đây là CSDT đã xóa (điểm KHÔNG hoàn tác).
+    kq_xoa = _xoa_hv_csdt(ma_dk, nguoi)
+
+    # Bước 4+5: trả về chờ nạp trên VPS + staging 'cho'. Lỗi SAU khi đã xóa CSDT → báo rõ cho
+    # operator, cho 'Thử lại đồng bộ' (idempotent). Không raise để UI không hiểu nhầm là chưa xóa.
+    try:
+        kq = _dong_bo_tra_ve(token, uuid)
+    except VpsLoi as e:
+        return {
+            "ok": True, "ma_dk": ma_dk, "uuid": uuid, "da_xoa_csdt": True,
+            "dong_bo_loi": str(e),
+            "co_the_thu_lai": e.status not in (404, 409),  # 404/409 = VPS không còn bản gốc → thử lại vô ích
+            **({"anh_loi": kq_xoa["anh_loi"]} if "anh_loi" in kq_xoa else {}),
+        }
+    out = {"ok": True, "ma_dk": ma_dk, **kq}
+    if "anh_loi" in kq_xoa:
+        out["anh_loi"] = kq_xoa["anh_loi"]
+    return out
+
+
+@router.post("/dong-bo-tra-ve")
+def dong_bo_tra_ve(uuid: str = Query(..., min_length=1), phien: Phien = Depends(require_session)):
+    """QLY-08 'Thử lại đồng bộ' — chạy lại RIÊNG bước gọi VPS trả về chờ nạp (KHÔNG xóa lại CSDT).
+    Dùng khi 'Gỡ về chờ nạp' đã xóa CSDT nhưng bước đồng bộ VPS lỗi mạng. Idempotent (VPS trả 200
+    khi bản ghi đã pending)."""
+    token = phien.vps_token
+    if not token:
+        raise HTTPException(status_code=409, detail="Phiên chưa có quyền máy chủ — đăng nhập lại.")
+    try:
+        kq = _dong_bo_tra_ve(token, uuid)
+    except VpsLoi as e:
+        raise _loi_vps(e)
+    return {"ok": True, **kq}
 
 
 class NapAnhIn(BaseModel):

@@ -241,6 +241,33 @@ export const xoaHoSo = (maDk: string) =>
     headers: authHeaders(),
   }).then(json<{ ok: boolean; ma_dk: string; anh_loi?: string }>);
 
+// QLY-08 — gỡ HV đã nạp (nhầm khóa) về chờ nạp: xóa khỏi CSDT rồi trả bản ghi gốc VPS về pending.
+// ve_cho_nap=true: trọn vẹn. VPS lỗi SAU khi đã xóa CSDT: ok vẫn true + dong_bo_loi + co_the_thu_lai
+// (UI hiện banner "Thử lại đồng bộ"). trong_hang_doi=false: dòng đã "Bỏ khỏi hàng đợi" → bấm Kéo về.
+export interface GoVeKetQua {
+  ok: boolean;
+  ma_dk: string;
+  uuid?: string;
+  ve_cho_nap?: boolean;
+  trong_hang_doi?: boolean;
+  da_xoa_csdt?: boolean;
+  dong_bo_loi?: string;
+  co_the_thu_lai?: boolean;
+  anh_loi?: string;
+}
+export const goVeChoNap = (maDk: string) =>
+  fetch(`${BASE}/local/ho-so/go-ve-cho-nap?ma_dk=${encodeURIComponent(maDk)}`, {
+    method: "POST",
+    headers: authHeaders(),
+  }).then(json<GoVeKetQua>);
+
+// QLY-08 "Thử lại đồng bộ" — chạy lại RIÊNG bước gọi VPS (KHÔNG xóa lại CSDT). Idempotent.
+export const dongBoTraVe = (uuid: string) =>
+  fetch(`${BASE}/local/ho-so/dong-bo-tra-ve?uuid=${encodeURIComponent(uuid)}`, {
+    method: "POST",
+    headers: authHeaders(),
+  }).then(json<{ ok: boolean; uuid: string; ve_cho_nap: boolean; trong_hang_doi: boolean }>);
+
 // QLY-05 — nạp/thay ảnh cho HV đã có. Ảnh đã xử lý qua xuLyAnh (NAP-04) → gửi jp2_b64.
 export const napAnh = (maDk: string, jp2B64: string) =>
   fetch(`${BASE}/local/ho-so/nap-anh?ma_dk=${encodeURIComponent(maDk)}`, {

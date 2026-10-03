@@ -12,6 +12,8 @@ import {
   khoaCungHang,
   doiKhoa,
   xoaHoSo,
+  goVeChoNap,
+  dongBoTraVe,
   napAnh,
   taiAnhHoSo,
   taiAnhThumb,
@@ -242,6 +244,14 @@ export default function TraCuuDB() {
   const [xoaBusy, setXoaBusy] = useState(false);
   const [xoaErr, setXoaErr] = useState("");
 
+  // Gỡ về chờ nạp (QLY-08) — tách bạch "Xóa hẳn": gỡ khỏi CSDT rồi trả bản ghi gốc về hàng chờ nạp
+  const [goMo, setGoMo] = useState(false);
+  const [goBusy, setGoBusy] = useState(false);
+  const [goErr, setGoErr] = useState("");
+  // Banner khi đã xóa CSDT nhưng đồng bộ VPS lỗi (cho "Thử lại đồng bộ" RIÊNG bước VPS)
+  const [goSync, setGoSync] = useState<{ uuid: string; msg: string; coTheThuLai: boolean } | null>(null);
+  const [goSyncBusy, setGoSyncBusy] = useState(false);
+
   // Nạp/thay ảnh (QLY-05)
   const [locAnh, setLocAnh] = useState<"all" | "chua" | "roi">("all"); // lọc tình trạng ảnh
   const [anhMo, setAnhMo] = useState(false);   // panel xác nhận nạp/thay ảnh
@@ -299,6 +309,9 @@ export default function TraCuuDB() {
     setMaKhDich("");
     setXoaMo(false);
     setXoaErr("");
+    setGoMo(false);
+    setGoErr("");
+    setGoSync(null);
     setAnhMo(false);
     setAnhModal(false);
     setAnhSeed(null);
@@ -378,6 +391,49 @@ export default function TraCuuDB() {
       setXoaErr(e instanceof Error ? e.message : "Xóa không thành công.");
     } finally {
       setXoaBusy(false);
+    }
+  }
+
+  // QLY-08 — gỡ HV về chờ nạp. Xóa khỏi CSDT rồi trả bản ghi gốc VPS về pending. Khác "Xóa hẳn":
+  // về chờ nạp để nạp lại đúng khóa, không nhập lại ở app. VPS lỗi SAU khi xóa CSDT → banner thử lại.
+  async function goVeHv() {
+    if (!sel) return;
+    setGoErr("");
+    setGoSync(null);
+    setGoBusy(true);
+    try {
+      const kq = await goVeChoNap(sel.ma_dk);
+      if (khoa) setHoSo(await dsHoSoTheoKhoa(khoa.ma_kh)); // HV rời khóa → làm tươi lưới
+      if (kq.dong_bo_loi && kq.uuid) {
+        // Đã xóa CSDT nhưng chưa đưa về được hàng chờ → giữ modal, hiện banner thử lại (edge #26)
+        setGoSync({ uuid: kq.uuid, msg: kq.dong_bo_loi, coTheThuLai: !!kq.co_the_thu_lai });
+      } else {
+        const them = kq.trong_hang_doi ? "" : " Bấm “Kéo về” để thấy lại trong hàng chờ.";
+        setOkMsg("Đã gỡ học viên về chờ nạp." + them);
+        setTimeout(() => setOkMsg(""), 3200);
+        dong();
+      }
+    } catch (e) {
+      setGoErr(e instanceof Error ? e.message : "Gỡ về chờ nạp không thành công.");
+    } finally {
+      setGoBusy(false);
+    }
+  }
+
+  // "Thử lại đồng bộ" — chỉ chạy lại bước gọi VPS (không xóa lại CSDT). HV đã rời khóa rồi.
+  async function thuLaiDongBo() {
+    if (!goSync) return;
+    setGoSyncBusy(true);
+    try {
+      const kq = await dongBoTraVe(goSync.uuid);
+      const them = kq.trong_hang_doi ? "" : " Bấm “Kéo về” để thấy lại trong hàng chờ.";
+      setOkMsg("Đã đưa học viên về chờ nạp." + them);
+      setTimeout(() => setOkMsg(""), 3200);
+      dong();
+    } catch (e) {
+      setGoSync({ ...goSync, msg: e instanceof Error ? e.message : "Vẫn chưa đồng bộ được — thử lại sau." });
+    } finally {
+      setGoSyncBusy(false);
     }
   }
 
@@ -796,13 +852,14 @@ export default function TraCuuDB() {
                     </div>
                   )}
 
-                  {/* Xóa HV (QLY-03) — xác nhận 2 bước, không dùng dialog chặn */}
+                  {/* Xóa HV (QLY-03) — xác nhận 2 bước, không dùng dialog chặn. Copy TÁCH BẠCH với
+                      "Gỡ về chờ nạp" (CHANGES #26): nêu rõ đây là BỎ HẲN, nạp lại phải nhập lại ở app. */}
                   {xoaMo && (
                     <div className="mt-3 rounded-lg border border-destructive/40 bg-destructive/10 p-3 space-y-2">
                       <div className="text-[13px] font-semibold text-destructive flex items-center gap-1.5">
-                        <Icon name="warn" className="w-4 h-4" /> Xóa học viên này?
+                        <Icon name="warn" className="w-4 h-4" /> Xóa hẳn học viên khỏi DB?
                       </div>
-                      <p className="text-[12px] text-muted-foreground">Xóa hồ sơ + giấy tờ khỏi DB. Ảnh chuyển sang thư mục <b>_DELETED</b> (xóa mềm, còn khôi phục được). HV đã có GPLX sẽ không xóa được.</p>
+                      <p className="text-[12px] text-muted-foreground">Dùng khi <b>bỏ hẳn</b> học viên này. Muốn nạp lại phải <b>nhập lại hồ sơ ở app</b> (khác &ldquo;Gỡ về chờ nạp&rdquo;). Ảnh chuyển sang thư mục <b>_DELETED</b> (còn khôi phục được). Học viên đã có giấy phép lái xe thì không xóa được.</p>
                       {xoaErr && (
                         <p className="text-[12px] text-destructive flex items-center gap-1"><Icon name="warn" className="w-3.5 h-3.5" /> {xoaErr}</p>
                       )}
@@ -816,6 +873,54 @@ export default function TraCuuDB() {
                           <Icon name={xoaBusy ? "refresh" : "x"} className={"w-4 h-4" + (xoaBusy ? " animate-spin" : "")} /> Xóa hẳn
                         </button>
                       </div>
+                    </div>
+                  )}
+
+                  {/* Gỡ về chờ nạp (QLY-08) — panel VIỀN CAM, tách khỏi "Xóa hẳn". Copy #26. */}
+                  {goMo && (
+                    <div className="mt-3 rounded-lg border border-warning/50 bg-warning/10 p-3 space-y-2">
+                      <div className="text-[13px] font-semibold text-warning flex items-center gap-1.5">
+                        <Icon name="warn" className="w-4 h-4" /> Gỡ học viên về hàng chờ nạp?
+                      </div>
+                      {goSync ? (
+                        // Edge #26: đã xóa CSDT nhưng đồng bộ VPS lỗi → banner + "Thử lại đồng bộ"
+                        <>
+                          <p className="text-[12px] text-destructive flex items-start gap-1">
+                            <Icon name="warn" className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                            Đã gỡ học viên khỏi khóa trong DB, nhưng chưa đưa về được hàng chờ nạp{goSync.coTheThuLai ? " (mất kết nối máy chủ)" : ""}. Học viên hiện không còn trong khóa.
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">{goSync.msg}</p>
+                          <div className="flex gap-2">
+                            <button onClick={dong} className="h-9 px-3 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Đóng</button>
+                            {goSync.coTheThuLai && (
+                              <button
+                                onClick={() => void thuLaiDongBo()}
+                                disabled={goSyncBusy}
+                                className="ml-auto h-9 px-4 rounded-lg bg-warning text-white text-sm font-semibold inline-flex items-center gap-2 hover:brightness-110 transition-all disabled:opacity-60"
+                              >
+                                <Icon name="refresh" className={"w-4 h-4" + (goSyncBusy ? " animate-spin" : "")} /> Thử lại đồng bộ
+                              </button>
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-[12px] text-muted-foreground">Dùng khi <b>nạp nhầm khóa</b> và muốn nạp lại. Học viên bị gỡ khỏi khóa này trong DB và quay lại <b>danh sách chờ nạp</b> để nạp vào đúng khóa, <b>không phải nhập lại ở app</b>. Ảnh đã xử lý sẽ bỏ; nạp lại dùng ảnh gốc học viên gửi. Chỉ làm được khi khóa chưa lập Báo cáo 1.</p>
+                          {goErr && (
+                            <p className="text-[12px] text-destructive flex items-center gap-1"><Icon name="warn" className="w-3.5 h-3.5" /> {goErr}</p>
+                          )}
+                          <div className="flex gap-2">
+                            <button onClick={() => { setGoMo(false); setGoErr(""); }} className="h-9 px-3 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Hủy</button>
+                            <button
+                              onClick={() => void goVeHv()}
+                              disabled={goBusy}
+                              className="ml-auto h-9 px-4 rounded-lg bg-warning text-white text-sm font-semibold inline-flex items-center gap-2 hover:brightness-110 transition-all disabled:opacity-60"
+                            >
+                              <Icon name={goBusy ? "refresh" : "send"} className={"w-4 h-4" + (goBusy ? " animate-spin" : "")} /> Gỡ về chờ nạp
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   )}
 
@@ -857,7 +962,7 @@ export default function TraCuuDB() {
                 </div>
                 <div className="p-3 border-t border-border flex gap-2 flex-wrap">
                   <button onClick={dong} className="h-10 px-4 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Đóng</button>
-                  {!doiMo && !xoaMo && !anhMo && (
+                  {!doiMo && !xoaMo && !goMo && !anhMo && (
                     <button
                       onClick={() => { setAnhMo(true); setAnhErr(""); }}
                       className="h-10 px-4 rounded-lg border border-border text-sm font-medium inline-flex items-center gap-1.5 hover:bg-muted transition-colors"
@@ -865,7 +970,7 @@ export default function TraCuuDB() {
                       <Icon name="image" className="w-4 h-4" /> {sel.co_anh ? "Thay ảnh" : "Nạp ảnh"}
                     </button>
                   )}
-                  {!doiMo && !xoaMo && !anhMo && (
+                  {!doiMo && !xoaMo && !goMo && !anhMo && (
                     <button
                       onClick={() => setMoKhoaKhac(true)}
                       className="h-10 px-4 rounded-lg border border-border text-sm font-medium inline-flex items-center gap-1.5 hover:bg-muted transition-colors"
@@ -873,13 +978,19 @@ export default function TraCuuDB() {
                       <Icon name="plus" className="w-4 h-4" /> Tạo thêm hồ sơ ở khóa học khác hạng
                     </button>
                   )}
-                  {!khoa?.bc1 && !doiMo && !xoaMo && !anhMo && (
+                  {!khoa?.bc1 && !doiMo && !xoaMo && !goMo && !anhMo && (
                     <>
                       <button
                         onClick={() => { setXoaMo(true); setXoaErr(""); }}
                         className="h-10 px-4 rounded-lg border border-destructive/40 text-destructive text-sm font-medium inline-flex items-center gap-1.5 hover:bg-destructive/10 transition-colors"
                       >
-                        <Icon name="x" className="w-4 h-4" /> Xóa
+                        <Icon name="x" className="w-4 h-4" /> Xóa hẳn
+                      </button>
+                      <button
+                        onClick={() => { setGoMo(true); setGoErr(""); setGoSync(null); }}
+                        className="h-10 px-4 rounded-lg border border-warning/50 text-warning text-sm font-medium inline-flex items-center gap-1.5 hover:bg-warning/10 transition-colors"
+                      >
+                        <Icon name="send" className="w-4 h-4" /> Gỡ về chờ nạp
                       </button>
                       <button
                         onClick={() => void moDoiKhoa()}

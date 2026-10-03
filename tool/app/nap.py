@@ -269,6 +269,20 @@ def _done_set(uuid: str, r: dict) -> None:
         conn.close()
 
 
+def lay_uuid_theo_ma_dk(ma_dk: str) -> str | None:
+    """QLY-08 bước 2 — tra uuid gốc theo ma_dk từ staging nap_xong local (ưu tiên trước fallback
+    VPS tra-uuid). Chưa từng nạp trên máy này / đã xóa SQLite → None → caller hỏi VPS."""
+    if not ORPHAN_DB.exists():
+        return None
+    conn = sqlite3.connect(str(ORPHAN_DB))
+    try:
+        conn.execute(_DONE_DDL)
+        row = conn.execute("SELECT uuid FROM nap_xong WHERE ma_dk=? LIMIT 1", (ma_dk,)).fetchone()
+    finally:
+        conn.close()
+    return row[0] if row else None
+
+
 # ---- Hàng kéo về từ VPS (staging keo_ve) — NAP-01 ---------------------------
 # Lưu METADATA hàng đợi kéo từ VPS (không lưu ảnh thô xuống đĩa — tránh để PII căn
 # cước nằm lại máy tool; ảnh tải theo yêu cầu khi mở từng HV). Dedup theo uuid để
@@ -385,6 +399,22 @@ def keo_ve_xoa(uuid: str) -> None:
     try:
         conn.execute("DELETE FROM keo_ve WHERE uuid=?", (str(uuid),))
         conn.commit()
+    finally:
+        conn.close()
+
+
+def keo_ve_ve_cho(uuid: str) -> bool:
+    """QLY-08 bước 5 — đưa dòng staging keo_ve về 'cho' (gỡ ma_dk/so_ho_so/lỗi) sau khi gỡ HV
+    về chờ nạp. Chỉ đụng SQLite cục bộ. Dòng không còn trong staging (đã 'Bỏ khỏi hàng đợi' sau
+    khi nạp) → trả False để UI gợi ý bấm 'Kéo về' lấy lại từ VPS (giờ đã pending)."""
+    conn = _keo_conn()
+    try:
+        cur = conn.execute(
+            "UPDATE keo_ve SET trang_thai='cho', loi=NULL, ma_dk=NULL, so_ho_so=NULL WHERE uuid=?",
+            (str(uuid),),
+        )
+        conn.commit()
+        return cur.rowcount > 0
     finally:
         conn.close()
 

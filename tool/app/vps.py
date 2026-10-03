@@ -93,3 +93,27 @@ def unlock(vps_token: str | None, uuid: str) -> None:
     r = _goi("POST", f"/api/nap/{uuid}/unlock", vps_token)
     if r.status_code != 200:
         raise VpsLoi("VPS trả lỗi khi mở khóa hồ sơ.", r.status_code)
+
+
+def tra_uuid(vps_token: str | None, ma_dk: str) -> str | None:
+    """Tra uuid gốc theo ma_dk (QLY-08 bước 2 — fallback khi staging nap_xong local không còn).
+    Không thấy bản đã nạp (404) → None; lỗi khác → VpsLoi."""
+    r = _goi("GET", "/api/nap/tra-uuid", vps_token, params={"ma_dk": ma_dk})
+    if r.status_code == 404:
+        return None
+    if r.status_code != 200:
+        raise VpsLoi("VPS trả lỗi khi tra mã hồ sơ gốc.", r.status_code)
+    return r.json().get("uuid")
+
+
+def tra_ve_cho_nap(vps_token: str | None, uuid: str) -> None:
+    """Trả bản ghi gốc về chờ nạp (imported→pending, gỡ ma_dk) — QLY-08 bước 4. VPS idempotent
+    khi đã pending (trả 200 → retry an toàn). Bản ghi `deleted`/`importing`/không còn (404/409) →
+    VpsLoi(status) để router báo 'không còn bản gốc trên VPS, chỉ có thể Xóa hẳn'."""
+    r = _goi("POST", f"/api/nap/{uuid}/tra-ve-cho-nap", vps_token)
+    if r.status_code == 404:
+        raise VpsLoi("VPS không còn bản gốc hồ sơ để trả về chờ nạp.", 404)
+    if r.status_code == 409:
+        raise VpsLoi("VPS không còn bản gốc đã nạp để trả về (đã xóa hoặc đã dọn dữ liệu).", 409)
+    if r.status_code != 200:
+        raise VpsLoi("VPS trả lỗi khi trả hồ sơ về chờ nạp.", r.status_code)

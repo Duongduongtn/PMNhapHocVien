@@ -302,3 +302,165 @@ def test_day_du_chua_dang_nhap_401():
 
 def test_day_du_thieu_ma_dk_422(auth_headers):
     assert client.get("/local/ho-so/day-du", headers=auth_headers).status_code == 422
+
+
+# ---- QLY-08: gỡ HV về chờ nạp (task 43) — mock DB + VPS + staging ----
+from app import nap as _nap_mod          # noqa: E402
+from app import session as _session_mod  # noqa: E402
+from app import vps as _vps_mod          # noqa: E402
+from app.vps import VpsLoi as _VpsLoi    # noqa: E402
+
+
+@pytest.fixture
+def op_vps_headers():
+    """Phiên operator CÓ vps_token (gỡ về chờ nạp gọi VPS — auth_headers mặc định không có)."""
+    token = "test-go-ve-token"
+    _session_mod._phien_theo_token[token] = _session_mod.Phien(
+        username="op-test", ho_ten="NV Nạp", vai_tro="operator", vps_token="jwt-vps-gia"
+    )
+    yield {"Authorization": f"Bearer {token}"}
+    _session_mod._phien_theo_token.pop(token, None)
+
+
+def test_go_ve_chua_dang_nhap_401():
+    assert client.post("/local/ho-so/go-ve-cho-nap?ma_dk=X").status_code == 401
+
+
+def test_go_ve_thieu_ma_dk_422(op_vps_headers):
+    assert client.post("/local/ho-so/go-ve-cho-nap", headers=op_vps_headers).status_code == 422
+
+
+def test_go_ve_phien_khong_co_vps_token_409(auth_headers):
+    """auth_headers không có vps_token → chặn trước khi đụng CSDT (không gỡ nửa vời)."""
+    r = client.post("/local/ho-so/go-ve-cho-nap?ma_dk=X", headers=auth_headers)
+    assert r.status_code == 409
+    assert "máy chủ" in r.json()["detail"]
+
+
+def test_go_ve_khong_tra_duoc_uuid_khong_xoa_409(op_vps_headers, monkeypatch):
+    """Không tra được uuid gốc (staging trống + VPS 404) → 409 TRƯỚC khi xóa CSDT (không mất HV)."""
+    executed = []
+    monkeypatch.setattr(_nap_mod, "lay_uuid_theo_ma_dk", lambda ma_dk: None)
+    monkeypatch.setattr(_vps_mod, "tra_uuid", lambda token, ma_dk: None)
+    monkeypatch.setattr("app.routers.hoso.sqlserver_conn",
+                        lambda **k: _FakeConnXoa([], executed))
+    r = client.post("/local/ho-so/go-ve-cho-nap?ma_dk=MADK-9", headers=op_vps_headers)
+    assert r.status_code == 409
+    assert "Xóa hẳn" in r.json()["detail"]
+    assert executed == []  # chưa đụng CSDT
+
+
+def test_go_ve_khoa_da_bc1_chan_409(op_vps_headers, monkeypatch):
+    """Khóa đã BC1 → 409, KHÔNG xóa CSDT (uuid đã tra được nhưng guard BC1 chặn trước xóa)."""
+    executed = []
+    monkeypatch.setattr(_nap_mod, "lay_uuid_theo_ma_dk", lambda ma_dk: "uuid-1")
+    rows = [{"MaKhoaHoc": "70004K26B010", "DuongDanAnh": "D:/ANH/x.jp2", "bc1": 1}]
+    monkeypatch.setattr("app.routers.hoso.sqlserver_conn",
+                        lambda **k: _FakeConnXoa(rows, executed))
+    r = client.post("/local/ho-so/go-ve-cho-nap?ma_dk=MADK-1", headers=op_vps_headers)
+    assert r.status_code == 409
+    assert "Báo cáo 1" in r.json()["detail"]
+    assert not any("usp_NguoiLX_Delete" in s for s in executed)
+
+
+def test_go_ve_thanh_cong_xoa_csdt_roi_tra_ve(op_vps_headers, monkeypatch):
+    """Luồng thuận: tra uuid (staging) → xóa CSDT → VPS trả về chờ nạp → staging về 'cho'."""
+    executed = []
+    goi_vps = {}
+    monkeypatch.setattr(_nap_mod, "lay_uuid_theo_ma_dk", lambda ma_dk: "uuid-2")
+    rows = [
+        {"MaKhoaHoc": "70004K26B010", "DuongDanAnh": None, "bc1": 0},  # step 1: chưa BC1
+        {"n": 0},                     # step 2: không có GPLX
+        {"GiaTriTS": "D:/ANH"},       # step 3: đường dẫn ảnh
+        {"n": 0},                     # step 4: verify đã xóa (NguoiLX còn 0)
+    ]
+    monkeypatch.setattr("app.routers.hoso.sqlserver_conn",
+                        lambda **k: _FakeConnXoa(rows, executed))
+    monkeypatch.setattr(_vps_mod, "tra_ve_cho_nap",
+                        lambda token, uuid: goi_vps.update(uuid=uuid))
+    monkeypatch.setattr(_nap_mod, "keo_ve_ve_cho", lambda uuid: True)
+    r = client.post("/local/ho-so/go-ve-cho-nap?ma_dk=MADK-2", headers=op_vps_headers)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["ok"] and body["ve_cho_nap"] and body["trong_hang_doi"]
+    assert goi_vps["uuid"] == "uuid-2"
+    assert any("usp_NguoiLX_Delete" in s for s in executed)  # ĐÃ xóa CSDT
+
+
+def test_go_ve_vps_loi_mang_da_xoa_cho_thu_lai(op_vps_headers, monkeypatch):
+    """VPS lỗi mạng SAU khi đã xóa CSDT → ok=True + dong_bo_loi + co_the_thu_lai (banner 'Thử lại')."""
+    executed = []
+    monkeypatch.setattr(_nap_mod, "lay_uuid_theo_ma_dk", lambda ma_dk: "uuid-3")
+    rows = [
+        {"MaKhoaHoc": "70004K26B010", "DuongDanAnh": None, "bc1": 0},
+        {"n": 0}, {"GiaTriTS": "D:/ANH"}, {"n": 0},
+    ]
+    monkeypatch.setattr("app.routers.hoso.sqlserver_conn",
+                        lambda **k: _FakeConnXoa(rows, executed))
+    monkeypatch.setattr(_vps_mod, "tra_ve_cho_nap",
+                        lambda token, uuid: (_ for _ in ()).throw(_VpsLoi("mất kết nối", None)))
+    r = client.post("/local/ho-so/go-ve-cho-nap?ma_dk=MADK-3", headers=op_vps_headers)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["ok"] and body["da_xoa_csdt"] and body["co_the_thu_lai"] is True
+    assert "dong_bo_loi" in body
+    assert any("usp_NguoiLX_Delete" in s for s in executed)  # CSDT đã xóa (không hoàn tác)
+
+
+def test_go_ve_vps_409_da_don_pii_khong_thu_lai(op_vps_headers, monkeypatch):
+    """VPS 409 (bản gốc đã dọn PII/đã xóa) sau khi xóa CSDT → co_the_thu_lai=False (thử lại vô ích)."""
+    executed = []
+    monkeypatch.setattr(_nap_mod, "lay_uuid_theo_ma_dk", lambda ma_dk: "uuid-4")
+    rows = [
+        {"MaKhoaHoc": "70004K26B010", "DuongDanAnh": None, "bc1": 0},
+        {"n": 0}, {"GiaTriTS": "D:/ANH"}, {"n": 0},
+    ]
+    monkeypatch.setattr("app.routers.hoso.sqlserver_conn",
+                        lambda **k: _FakeConnXoa(rows, executed))
+    monkeypatch.setattr(_vps_mod, "tra_ve_cho_nap",
+                        lambda token, uuid: (_ for _ in ()).throw(_VpsLoi("không còn bản gốc", 409)))
+    r = client.post("/local/ho-so/go-ve-cho-nap?ma_dk=MADK-4", headers=op_vps_headers)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["ok"] and body["da_xoa_csdt"] and body["co_the_thu_lai"] is False
+
+
+def test_go_ve_fallback_vps_tra_uuid_khi_staging_trong(op_vps_headers, monkeypatch):
+    """Staging local trống → fallback GET /api/nap/tra-uuid (VPS) ra uuid rồi xóa + trả về."""
+    executed = []
+    monkeypatch.setattr(_nap_mod, "lay_uuid_theo_ma_dk", lambda ma_dk: None)
+    monkeypatch.setattr(_vps_mod, "tra_uuid", lambda token, ma_dk: "uuid-fb")
+    rows = [
+        {"MaKhoaHoc": "70004K26B010", "DuongDanAnh": None, "bc1": 0},
+        {"n": 0}, {"GiaTriTS": "D:/ANH"}, {"n": 0},
+    ]
+    monkeypatch.setattr("app.routers.hoso.sqlserver_conn",
+                        lambda **k: _FakeConnXoa(rows, executed))
+    monkeypatch.setattr(_vps_mod, "tra_ve_cho_nap", lambda token, uuid: None)
+    monkeypatch.setattr(_nap_mod, "keo_ve_ve_cho", lambda uuid: False)
+    r = client.post("/local/ho-so/go-ve-cho-nap?ma_dk=MADK-FB", headers=op_vps_headers)
+    assert r.status_code == 200
+    assert r.json()["uuid"] == "uuid-fb"
+    assert r.json()["trong_hang_doi"] is False  # dòng đã 'Bỏ khỏi hàng đợi' → UI gợi ý Kéo về
+
+
+# ---- QLY-08: 'Thử lại đồng bộ' — chỉ chạy lại bước VPS, không xóa CSDT ----
+def test_dong_bo_tra_ve_chua_dang_nhap_401():
+    assert client.post("/local/ho-so/dong-bo-tra-ve?uuid=X").status_code == 401
+
+
+def test_dong_bo_tra_ve_thanh_cong(op_vps_headers, monkeypatch):
+    goi = {}
+    monkeypatch.setattr(_vps_mod, "tra_ve_cho_nap", lambda token, uuid: goi.update(u=uuid))
+    monkeypatch.setattr(_nap_mod, "keo_ve_ve_cho", lambda uuid: True)
+    r = client.post("/local/ho-so/dong-bo-tra-ve?uuid=uuid-5", headers=op_vps_headers)
+    assert r.status_code == 200
+    assert r.json()["ve_cho_nap"] and goi["u"] == "uuid-5"
+
+
+def test_dong_bo_tra_ve_vps_409(op_vps_headers, monkeypatch):
+    """Thử lại mà VPS vẫn 409 → báo lỗi 409 cho UI (khác luồng gỡ: đây KHÔNG đụng CSDT)."""
+    monkeypatch.setattr(_vps_mod, "tra_ve_cho_nap",
+                        lambda token, uuid: (_ for _ in ()).throw(_VpsLoi("không còn bản gốc", 409)))
+    r = client.post("/local/ho-so/dong-bo-tra-ve?uuid=uuid-6", headers=op_vps_headers)
+    assert r.status_code == 409

@@ -470,7 +470,7 @@
 
 #### [QLY-08] Gỡ học viên về chờ nạp (nạp nhầm khóa)
 
-**Trạng thái:** 🔄 In Progress — task 42 (03/10/2026): server VPS `tra-ve-cho-nap` + `tra-uuid` (phần 1/2; tool+webui = task 43). Yêu cầu mới 02/10/2026 (CHANGES #24) + nghiệp vụ/popup (CHANGES #26).
+**Trạng thái:** ⚠️ Partial — chờ verify live (Checkpoint 8). Code XONG cả 2 task: task 42 (03/10) server VPS `tra-ve-cho-nap` + `tra-uuid`; task 43 (03/10) tool+webui — endpoint `go-ve-cho-nap` (tra uuid TRƯỚC → xóa CSDT `usp_NguoiLX_Delete` + ảnh `_DELETED`, reuse QLY-03 → gọi VPS trả về `pending`) + `dong-bo-tra-ve` ("Thử lại đồng bộ" riêng bước VPS khi đã xóa CSDT mà VPS lỗi) + webui nút "Gỡ về chờ nạp" viền cam cạnh "Xóa hẳn" (chỉ khóa chưa BC1, panel 2 bước copy #26) + banner đồng bộ lỗi + refine copy "Xóa hẳn". Kiểm mức 1: tool **161 pytest** (+15 QLY-08) · webui **build + 29 vitest** · review-nghiepvu 8/10 Done đủ (1 ❔ tiêu chí 9 phụ thuộc server, 1 edge "Bỏ khỏi hàng đợi" → chủ dự án chốt 03/10: nhắc bấm "Kéo về" thủ công, không tự kéo). **Chờ verify máy CSDT + deploy VPS (Checkpoint 8):** gỡ HV khóa chưa BC1 → biến mất CSDT + ảnh `_DELETED` + VPS về `pending`; khóa BC1/GPLX → chặn; VPS lỗi sau khi xóa → "Thử lại đồng bộ". Yêu cầu mới 02/10/2026 (CHANGES #24) + nghiệp vụ/popup (CHANGES #26).
 **Story:** Là nhân viên nạp DB, tôi muốn gỡ một học viên đã nạp nhầm khóa ra khỏi DB và trả về danh sách chờ nạp, để nạp lại đúng khóa mà không phải nhập lại từ app web.
 
 **Steps to Complete:**

@@ -250,3 +250,25 @@ def test_bo_khoi_hang_doi_da_nap_xoa(staging_tmp, op_headers):
     r = client.delete("/local/keo-ve/u1", headers=op_headers)
     assert r.status_code == 200 and r.json()["ok"] is True
     assert nap.keo_ve_trang_thai("u1") is None  # đã bỏ khỏi staging
+
+
+# ---- QLY-08: staging helper tra uuid theo ma_dk + đưa dòng về 'cho' ----
+def test_lay_uuid_theo_ma_dk(staging_tmp):
+    nap._done_set("uuid-A", {"ma_dk": "MADK-A", "so_ho_so": "056", "so_giay_to": 3})
+    assert nap.lay_uuid_theo_ma_dk("MADK-A") == "uuid-A"
+    assert nap.lay_uuid_theo_ma_dk("MADK-KHONG-CO") is None
+
+
+def test_keo_ve_ve_cho_dua_dong_da_nap_ve_cho(staging_tmp):
+    """Dòng đã 'xong' (nạp) → về 'cho', gỡ ma_dk/so_ho_so → UI thấy lại như HV chờ nạp."""
+    nap.keo_ve_upsert([_keo_row("u1")])
+    nap.keo_ve_cap_nhat("u1", trang_thai="xong", ma_dk="M1", so_ho_so="056")
+    assert nap.keo_ve_ve_cho("u1") is True
+    assert nap.keo_ve_trang_thai("u1") == "cho"
+    row = next(r for r in nap.keo_ve_danh_sach() if r["uuid"] == "u1")
+    assert row["ma_dk"] is None and row["so_ho_so"] is None
+
+
+def test_keo_ve_ve_cho_dong_da_bo_khoi_hang_doi(staging_tmp):
+    """Dòng không còn trong staging (đã 'Bỏ khỏi hàng đợi') → False để UI gợi ý Kéo về."""
+    assert nap.keo_ve_ve_cho("khong-co") is False
