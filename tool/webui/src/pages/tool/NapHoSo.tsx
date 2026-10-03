@@ -656,7 +656,36 @@ export default function NapHoSo() {
                 </div>
               </div>
 
-              {/* Banners lỗi/chính tả (chỉ nhóm Cần xử lý); thanh nạp lô dời xuống ĐÁY (task 46) */}
+              {/* THANH HÀNH ĐỘNG — Chọn tất cả sẵn sàng + Nạp N học viên, DỜI LÊN HEADER (CHANGES #29).
+                  Đặt trong container h-[calc] (shrink-0) nên list tự co, nút Nạp luôn thấy khi cuộn. */}
+              {napFilter === "canxuly" && (
+                <div className="px-4 py-3 border-b border-border bg-card shrink-0 flex items-center gap-3 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={chonTatCaSanSang}
+                    disabled={daLoc.canXuly.filter(rowSanSang).length === 0}
+                    className="h-9 px-3 rounded-lg border border-border text-sm font-medium inline-flex items-center gap-1.5 hover:bg-muted transition-colors disabled:opacity-50"
+                  >
+                    <Icon name="check" className="w-4 h-4" /> Chọn tất cả sẵn sàng
+                  </button>
+                  <span className="text-[12px] text-muted-foreground">
+                    Đã chọn <b className="text-primary">{chonSanSang.length}</b>/{daLoc.canXuly.length}
+                    {chon.size > chonSanSang.length && (
+                      <span className="text-warning"> · {chon.size - chonSanSang.length} chưa sẵn sàng</span>
+                    )}
+                  </span>
+                  <button
+                    onClick={() => moNapDialog(chonSanSang)}
+                    disabled={napBusy || chonSanSang.length === 0 || !khoa}
+                    className="ml-auto h-10 px-5 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center gap-2 hover:brightness-110 transition-all shadow-sm disabled:opacity-60"
+                  >
+                    <Icon name="plus" className="w-4 h-4" />
+                    {`Nạp ${chonSanSang.length} học viên${khoa ? ` vào ${khoa.ten_kh} (${khoa.ma_kh})` : ""}`}
+                  </button>
+                </div>
+              )}
+
+              {/* Banners lỗi/chính tả (chỉ nhóm Cần xử lý) */}
               {napFilter === "canxuly" && (soLoi > 0 || soChinhTa > 0 || napErr) && (
                 <div className="px-4 py-3 space-y-2 border-b border-border shrink-0">
                   {napErr && <Banner tone="error">{napErr}</Banner>}
@@ -811,33 +840,6 @@ export default function NapHoSo() {
                 </div>
               )}
 
-              {/* THANH DÍNH ĐÁY — Chọn tất cả sẵn sàng + Nạp N học viên (task 46) */}
-              {napFilter === "canxuly" && (
-                <div className="px-4 py-3 border-t border-border bg-card shrink-0 flex items-center gap-3 flex-wrap">
-                  <button
-                    type="button"
-                    onClick={chonTatCaSanSang}
-                    disabled={daLoc.canXuly.filter(rowSanSang).length === 0}
-                    className="h-9 px-3 rounded-lg border border-border text-sm font-medium inline-flex items-center gap-1.5 hover:bg-muted transition-colors disabled:opacity-50"
-                  >
-                    <Icon name="check" className="w-4 h-4" /> Chọn tất cả sẵn sàng
-                  </button>
-                  <span className="text-[12px] text-muted-foreground">
-                    Đã chọn <b className="text-primary">{chonSanSang.length}</b>/{daLoc.canXuly.length}
-                    {chon.size > chonSanSang.length && (
-                      <span className="text-warning"> · {chon.size - chonSanSang.length} chưa sẵn sàng</span>
-                    )}
-                  </span>
-                  <button
-                    onClick={() => moNapDialog(chonSanSang)}
-                    disabled={napBusy || chonSanSang.length === 0 || !khoa}
-                    className="ml-auto h-10 px-5 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center gap-2 hover:brightness-110 transition-all shadow-sm disabled:opacity-60"
-                  >
-                    <Icon name="plus" className="w-4 h-4" />
-                    {`Nạp ${chonSanSang.length} học viên${khoa ? ` vào ${khoa.ten_kh} (${khoa.ma_kh})` : ""}`}
-                  </button>
-                </div>
-              )}
             </div>
           </div>
 
