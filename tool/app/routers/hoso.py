@@ -503,6 +503,11 @@ def xoa_ho_so(ma_dk: str = Query(..., min_length=1), phien: Phien = Depends(requ
     hàng chờ — muốn nạp lại phải nhập lại ở app). Khác QLY-08 'Gỡ về chờ nạp'."""
     nguoi = (phien.ho_ten or phien.username or "tool")[:60]
     kq = _xoa_hv_csdt(ma_dk, nguoi)
+    # BUG-12: xóa hẳn khỏi CSDT → bỏ luôn dòng staging 'xong' (nếu có) để "Đã nạp" hết hiện HV đã
+    # xóa. Chỉ đụng SQLite local. Xóa hẳn ≠ "Gỡ về chờ nạp" → KHÔNG trả về 'cho' (biến mất hẳn).
+    uuid = nap.lay_uuid_theo_ma_dk(ma_dk)
+    if uuid:
+        nap.keo_ve_xoa(uuid)
     out = {"ok": True, "ma_dk": ma_dk}
     if "anh_loi" in kq:
         out["anh_loi"] = kq["anh_loi"]
