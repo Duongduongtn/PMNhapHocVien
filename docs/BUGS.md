@@ -4,6 +4,7 @@
 
 | # | Ngày | Mức | Story | Bug | Trạng thái | Deploy |
 |---|---|---|---|---|---|---|
+| 4 | 03/10/2026 | 🟠 Nặng | `NAP-01` · `NAP-03` | Collector sửa địa chỉ (2 cấp mới) trên app; kéo về tool lại nạp địa chỉ CŨ đã map — nháp địa chỉ không làm tươi theo raw mới | ✅ Đã sửa | ⬜ (tool chưa lên VPS — có hiệu lực khi chạy lại tool) |
 | 3 | 03/10/2026 | 🟠 Nặng | `QLY-08` · `NAP-01` | Gỡ HV về chờ nạp xong, màn Nạp không tự hiện lại ở "chờ nạp" — phải bấm "Kéo từ VPS" | ✅ Đã sửa | ⬜ (tool chưa lên VPS — có hiệu lực khi chạy lại tool) |
 | 2 | 03/10/2026 | 🟠 Nặng | `QLY-01` · `NAP-01` | Tra cứu DB ẩn mọi HV chưa ảnh (TT_XuLy='01') → "Xem trong DB" không thấy HV nạp không ảnh; bộ lọc "Chưa ảnh" luôn rỗng | ✅ Đã sửa | ⬜ (tool chưa lên VPS — có hiệu lực khi chạy lại tool) |
 | 1 | 03/10/2026 | 🔴 Chặn | `QLY-08` | Gỡ về chờ nạp rồi nạp lại cùng uuid → HV KHÔNG vào DB nhưng tool báo thành công | ✅ Đã sửa | ⬜ (tool chưa lên VPS — có hiệu lực khi chạy lại tool) |
@@ -12,7 +13,17 @@ Chú thích trạng thái: ✅ Đã sửa · 🔄 Đang sửa · ⏳ Đã xếp 
 
 ---
 
-## BUG-03 — Màn Nạp không tự làm tươi "chờ nạp" sau khi gỡ HV · 03/10/2026
+## BUG-04 — Kéo lại sau khi collector sửa địa chỉ vẫn nạp địa chỉ cũ · 03/10/2026
+
+- **Mức:** 🟠 Nặng (nạp sai địa chỉ vào CSDT; đường vòng: operator map tay lại — nhưng không biết để làm)
+- **Story:** `NAP-01` (kéo lại làm tươi) · `NAP-03` (map địa chỉ)
+- **Ai báo:** chủ dự án (qua phiên pmcs-tlx-b7), ca Lê Thị Hồng
+- **Tái hiện:** operator mở 1 HV ở màn Nạp (tạo nháp + map địa chỉ) → collector sửa địa chỉ sang 2 cấp mới trên app web → operator **"Kéo từ VPS"** → nạp HV đó → CSDT nhận **địa chỉ CŨ** (đã map), không phải địa chỉ mới.
+- **Nguyên nhân gốc:** `noi_tt_raw` được làm tươi đúng ở staging + `keoVe` state, NHƯNG **nháp** (`nhap[uuid]` trong `NapHoSo.tsx`, giữ `diaChi` đã map + `chiTiet`) không bị đụng khi kéo lại: effect tự điền chặn bởi `if (nhap[selUuid]) return`, và `keoVeFromVps` chỉ `setKeoVe`, không reset nháp. Nháp map theo raw CŨ thành stale; `dungNapIn` nạp theo `nhap[uuid].diaChi` cũ.
+- **Đã sửa:** `tool/webui/src/lib/diachi.ts` +hàm thuần `lamTuoiNhapDiaChi(nhap, rawCu, rowsMoi)` — raw của uuid đổi → reset `diaChi=null` (map lại) + điền lại `chiTiet` từ raw mới, GIỮ giấy tờ/ảnh. `tool/webui/src/pages/tool/NapHoSo.tsx` `keoVeFromVps` so raw cũ↔mới rồi gọi hàm trước `setKeoVe`.
+- **Test hồi quy:** `tool/webui/src/lib/diachi.test.ts` — `lamTuoiNhapDiaChi (BUG-04)` 3 ca (raw đổi → reset + giữ giấy tờ · raw không đổi → giữ nguyên reference · chưa có nháp → bỏ qua). 32 vitest. *Fail nếu helper bị đưa về no-op (hành vi bug).*
+- **Kiểm tay (frontend, chưa có hạ tầng test component):** mở HV map địa chỉ → sửa địa chỉ trên app web → "Kéo từ VPS" → mở lại HV: ô "Đã map" phải trống/đòi map lại theo địa chỉ mới, không giữ xã cũ.
+- **Deploy:** tool cục bộ máy CSDT (chưa lên VPS) → hiệu lực khi chạy lại tool (dev server HMR đã nạp).
 
 - **Mức:** 🟠 Nặng (có đường vòng: bấm "Kéo từ VPS"; nhưng sai luồng hằng ngày + dễ tưởng gỡ hỏng)
 - **Story:** `QLY-08` (gỡ về chờ nạp) · `NAP-01` (danh sách chờ nạp)

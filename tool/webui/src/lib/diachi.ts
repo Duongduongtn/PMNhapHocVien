@@ -66,3 +66,28 @@ export function tachDiaChiGoc(raw: string | null | undefined): DiaChiTach {
 
   return { tinh, huyen, xa, chiTiet: du.join(", ") };
 }
+
+// BUG-04 (NAP-01/NAP-03): collector sửa địa chỉ trên app web rồi tool "Kéo về từ VPS" làm tươi
+// `noi_tt_raw`. Nháp địa chỉ đã map theo raw CŨ trở thành STALE — nếu giữ, nạp ra địa chỉ cũ
+// (ca Lê Thị Hồng). Hàm thuần: với mỗi HV có nháp mà raw ĐỔI so với lúc kéo trước → **reset địa
+// chỉ** (diaChi về null để map lại) + điền lại chiTiet từ raw MỚI. GIỮ nguyên giấy tờ/ảnh của nháp
+// (chỉ địa chỉ mới stale). Không đổi nháp của HV raw không đổi (trả nguyên object cũ — ổn định
+// tham chiếu cho React). rawCu: map uuid→noi_tt_raw ở lần kéo trước.
+export function lamTuoiNhapDiaChi<T extends { diaChi: unknown; chiTiet: string }>(
+  nhap: Record<string, T>,
+  rawCu: Map<string, string | null>,
+  rowsMoi: { uuid: string; noi_tt_raw: string | null }[],
+): Record<string, T> {
+  let next = nhap;
+  let doi = false;
+  for (const r of rowsMoi) {
+    const n = nhap[r.uuid];
+    if (!n) continue; // chưa có nháp → effect tự điền lo khi operator mở
+    const rawDoi = rawCu.has(r.uuid) && rawCu.get(r.uuid) !== r.noi_tt_raw;
+    if (rawDoi && (n.diaChi || n.chiTiet)) {
+      if (!doi) { next = { ...nhap }; doi = true; }
+      next[r.uuid] = { ...n, diaChi: null, chiTiet: tachDiaChiGoc(r.noi_tt_raw).chiTiet };
+    }
+  }
+  return next;
+}

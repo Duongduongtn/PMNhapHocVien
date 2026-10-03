@@ -5,7 +5,7 @@ import AddressCombo, { type DiaChiMoi } from "../../components/AddressCombo";
 import AnhModal from "../../components/AnhModal";
 import TraCuuDB from "./TraCuuDB";
 import { boDau, nghiSaiChinhTa, ymdToVN } from "../../lib/format";
-import { tachDiaChiGoc } from "../../lib/diachi";
+import { tachDiaChiGoc, lamTuoiNhapDiaChi } from "../../lib/diachi";
 import {
   getKhoaHoc,
   getGiayTo,
@@ -348,7 +348,12 @@ export default function NapHoSo() {
     setKeoBusy(true);
     try {
       const kq = await keoHangDoi();
-      setKeoVe(await getDanhSachKeoVe());
+      const moi = await getDanhSachKeoVe();
+      // BUG-04: collector sửa địa chỉ trên app → raw đổi khi kéo lại → reset nháp địa chỉ đã map cũ
+      // (map lại từ raw mới), giữ giấy tờ/ảnh. So raw cũ (keoVe hiện tại) ↔ raw mới (moi).
+      const rawCu = new Map(keoVe.map((r) => [r.uuid, r.noi_tt_raw]));
+      setNhap((prev) => lamTuoiNhapDiaChi(prev, rawCu, moi));
+      setKeoVe(moi);
       const phan = [`${kq.keo_ve} hồ sơ mới`];
       if (kq.lam_tuoi > 0) phan.push(`làm tươi ${kq.lam_tuoi} hồ sơ chờ nạp`);
       if (kq.bo_da_xoa > 0) phan.push(`bỏ ${kq.bo_da_xoa} hồ sơ đã xóa ở app`);
