@@ -4,6 +4,7 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 27 | 03/10/2026 | ✏️ Sửa (chữ) | `THU-05` | Khớp chữ PRD với code task 41 (review-nghiepvu): edge "Chặn 403" → **404** (chống IDOR, không lộ hồ sơ tồn tại — nhất quán `_cua_minh`); copy popup "chưa nạp vào **DB**" → "chưa nạp vào **máy tính**" (tránh lộ từ kỹ thuật cho người thu nhận, luật nội dung). Không đổi code (code đã đúng) | ✅ | — | — | — đã code (task 41) |
 | 26 | 03/10/2026 | ✏️ Sửa + ➕ Thêm | `THU-05`, `QLY-08`, `QLY-03`, `NAP-01`, `NAP-04`, `QLY-05` | Chốt nghiệp vụ + UX trước khi code #24: **nguyên tắc bàn giao** (mốc Nạp — trước nạp app web làm chủ, sau nạp tool/CSDT làm chủ, app web đóng băng; QLY-03 "Xóa hẳn" ≠ QLY-08 "Gỡ về chờ nạp") · **popup cảnh báo + hướng dẫn** (copy impeccable) cho xóa app web (THU-05), gỡ về chờ nạp + banner đồng bộ lỗi (QLY-08), xóa hẳn tách bạch (QLY-03) · **"Dùng lại ảnh gốc"** trong trình chỉnh ảnh (NAP-04 ảnh thô VPS / QLY-05 ảnh DB) · **redesign màn Nạp lô** (NAP-01): trạng thái sẵn sàng mỗi dòng, chọn-tất-cả-sẵn-sàng, drawer Chuẩn bị, dialog nạp 3 pha (xác nhận/tiến độ/báo cáo + nạp lại lỗi), nút Xem trong DB | ✅ | ✅ §7.5/§9.1/§10.5 | ✅ ghi UX+wireframe | ⬜ |
 | 25 | 03/10/2026 | ✏️ Sửa (nhãn) | `QLY-08`, `THU-05` | Sửa nhãn trạng thái VPS trong PRD: `done` → `imported` (3 chỗ ở THU-05 + QLY-08) cho khớp DB thật (`server/db/init.sql:28` chỉ có `pending/importing/imported/deleted`) + TDD. Phát hiện ở review TDD #24 (Điểm 1, biên bản `tdd-review-03-10-2026.md`). Không đổi yêu cầu, không chạm TDD (đã đúng) | ✅ | — đã đúng | — | — |
 | 24 | 02/10/2026 | ➕ Thêm + ✏️ Sửa | `QLY-08`, `THU-05`, `NAP-01` | Đồng bộ gỡ/xóa hồ sơ (verify #22): **QLY-08 mới** — nút "Gỡ về chờ nạp" ở tool (gỡ HV khỏi CSDT + VPS imported→pending + về hàng chờ), tách bạch "Xóa" bỏ hẳn, chỉ khóa chưa BC1, ảnh dùng ảnh thô VPS · **THU-05 mới** — app web collector xóa hồ sơ đã gửi (chỉ pending, soft-delete VPS, của mình/admin) · **NAP-01 mở rộng** — "Kéo về từ VPS" đồng bộ bỏ hồ sơ đã xóa khỏi hàng chờ. Đụng cả tool + **server VPS** (đường mới) + app web | ✅ | ✅ | ✅ ghi UX (không dựng màn) | ⬜ |
@@ -391,7 +392,7 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 > `/capnhat` đọc mục này ở Bước 0b để biết có thay đổi nào chưa ghi sổ không.
 > So bằng **danh sách mã**, không so bằng thời gian sửa file.
 
-- **Cập nhật:** 03/10/2026 (CHANGES #26 — chốt nghiệp vụ + UX #24, bổ sung tiêu chí 6 story, không đổi số story/mã)
+- **Cập nhật:** 03/10/2026 (CHANGES #27 — khớp chữ PRD THU-05 với code task 41, không đổi số story/mã)
 - **Số story trong PRD:** 24 (23 MUST/SHOULD gồm `THU-04` SHOULD + `THU-05` + `HTG-04` SHOULD + `QLY-06` ⏳ + `QLY-07` + `QLY-08`; chưa tính NICE `QLY-04`, `THU-03`)
 - **Mã story hiện có:** `HTG-01`…`HTG-06`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08` (NICE: `QLY-04`, `THU-03`)
 - **Mã đã nghỉ hưu:** (chưa có)

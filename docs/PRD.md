@@ -324,7 +324,7 @@
 
 #### [THU-05] Xóa hồ sơ đã gửi (app web)
 
-**Trạng thái:** ⚠️ Partial — task 41 (03/10/2026) XONG: server `DELETE /api/ho-so/:uuid` soft-delete CAS + phân quyền IDOR + audit · webapp nút Xóa + panel xác nhận 2 bước + chú thích khi đã nạp. Kiểm: server 100 pytest (7 test xóa) · webapp build + 24 vitest · review-nghiepvu đủ. **CÒN:** Done khi #5 "đồng bộ tool kéo về bỏ dòng đã xóa" = task 44 (NAP-01); chưa deploy VPS + verify Playwright/live (Checkpoint 8). Yêu cầu mới 02/10/2026 (CHANGES #24) + popup/copy (CHANGES #26). Lệch chữ PRD chờ chốt: edge "403"→**404** (chống IDOR, như `_cua_minh`); copy "DB"→"máy tính".
+**Trạng thái:** ⚠️ Partial — task 41 (03/10/2026) XONG: server `DELETE /api/ho-so/:uuid` soft-delete CAS + phân quyền IDOR + audit · webapp nút Xóa + panel xác nhận 2 bước + chú thích khi đã nạp. Kiểm: server 100 pytest (7 test xóa) · webapp build + 24 vitest · review-nghiepvu đủ. **CÒN:** Done khi #5 "đồng bộ tool kéo về bỏ dòng đã xóa" = task 44 (NAP-01); chưa deploy VPS + verify Playwright/live (Checkpoint 8). Yêu cầu mới 02/10/2026 (CHANGES #24) + popup/copy (CHANGES #26). Chữ PRD đã khớp code (CHANGES #27: edge 404 chống IDOR, copy "máy tính" thay "DB").
 **Story:** Là nhân viên thu nhận, tôi muốn xóa hồ sơ mình đã gửi nhầm/không dùng trong danh sách "Hồ sơ đã gửi", để nó biến mất khỏi hàng chờ nạp của tool khi nạp DB kéo về.
 
 **Done khi:**
@@ -333,7 +333,7 @@
 - ⬜ **Phân quyền:** nhân viên thu nhận chỉ xóa **hồ sơ của chính mình**; **admin** xóa được bất kỳ hồ sơ nào.
 - ⬜ **Xóa mềm trên VPS** (đánh dấu "đã xóa" + ai xóa/lúc nào), KHÔNG xóa cứng → giữ vết truy; hồ sơ đã xóa không còn trả về khi tool kéo.
 - ⬜ **Đồng bộ sang tool:** khi tool bấm **"Kéo về từ VPS"**, hồ sơ đã xóa ở app web **biến mất khỏi hàng chờ nạp** của tool (xem NAP-01 — kéo về đồng bộ bỏ).
-- ⬜ **Popup xác nhận + hướng dẫn khi xóa** (CHANGES #26): nút Xóa mở panel xác nhận 2 bước (tái dùng mẫu panel đỏ của tool), copy: *"Xóa hồ sơ này khỏi hàng chờ nạp? Hồ sơ chưa nạp vào DB nên còn xóa được. Lần tới máy nạp bấm 'Kéo về', hồ sơ biến mất khỏi danh sách chờ nạp. Xóa rồi không lấy lại được — gửi nhầm thì tạo hồ sơ mới."* Nút: **Giữ lại / Xóa hồ sơ**.
+- ⬜ **Popup xác nhận + hướng dẫn khi xóa** (CHANGES #26): nút Xóa mở panel xác nhận 2 bước (tái dùng mẫu panel đỏ của tool), copy: *"Xóa hồ sơ này khỏi hàng chờ nạp? Hồ sơ chưa nạp vào máy tính nên còn xóa được. Lần tới máy nạp bấm 'Kéo về', hồ sơ biến mất khỏi danh sách chờ nạp. Xóa rồi không lấy lại được — gửi nhầm thì tạo hồ sơ mới."* Nút: **Giữ lại / Xóa hồ sơ**. (Dùng "máy tính" thay "DB" — tránh lộ từ kỹ thuật cho người thu nhận, theo luật nội dung.)
 - ⬜ **Hồ sơ đã/đang nạp: khóa nút + chú thích** (CHANGES #26): thay nút Xóa bằng dòng chú thích *"Hồ sơ đã được máy nạp xử lý. Cần gỡ hay sửa thì báo người nạp thao tác trên máy tính."*
 - ❌ Không cho collector xóa hồ sơ đã nạp. ❌ Không xóa cứng bản ghi VPS (giữ vết).
 
@@ -341,7 +341,7 @@
 | Tình huống | Hành vi mong muốn |
 |---|---|
 | Hồ sơ vừa được tool nạp (đổi sang `importing`/`imported`) đúng lúc collector bấm xóa | Chặn xóa, báo "hồ sơ đã/đang được nạp, không xóa được ở đây" |
-| Collector xóa hồ sơ của người khác (không phải admin) | Chặn (403), chỉ xóa của mình |
+| Collector xóa hồ sơ của người khác (không phải admin) | Chặn — trả **404** (chống IDOR, không lộ hồ sơ tồn tại, như `_cua_minh`), chỉ xóa của mình |
 
 > Nguồn: user 02/10/2026 (CHANGES #24, buổi verify #22) · liên quan NAP-01 (kéo về đồng bộ xóa) · phân quyền HTG
 
