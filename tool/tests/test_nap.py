@@ -18,6 +18,18 @@ def test_sinh_so_ho_so():
     assert nap.sinh_so_ho_so(set(range(1, 100))) == "100"
 
 
+def test_suy_noi_cap_bug10():
+    # Nơi cấp = mã Sở GTVT = 2 số (vị trí 2-3) của CCCD 12 số.
+    assert nap.suy_noi_cap("070195000775") == "70"   # Lê Thị Hồng → 70 (Bình Phước)
+    assert nap.suy_noi_cap("075123456789") == "75"   # Đồng Nai
+    assert nap.suy_noi_cap("001188000778") == "01"   # Hà Nội
+    # Không phải CCCD 12 số → '' (để operator chọn tay)
+    assert nap.suy_noi_cap("123456789") == ""        # CMND 9 số
+    assert nap.suy_noi_cap("17A021052863") == ""     # có chữ
+    assert nap.suy_noi_cap("") == ""
+    assert nap.suy_noi_cap(None) == ""
+
+
 def test_sinh_so_ho_so_lap_khe_bug09():
     # BUG-09: nạp→gỡ→nạp lại để lại khe → LẤP số nhỏ nhất chưa dùng, không nhảy quá số HV.
     assert nap.sinh_so_ho_so({1, 2, 4}) == "003"            # khe ở 3

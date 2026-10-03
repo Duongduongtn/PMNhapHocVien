@@ -839,10 +839,13 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce }: {
                   <div className="mt-3 space-y-2">
                     {(
                       [
-                        ["Số CCCD", sel.so_cccd || "—"],
                         ["Số CMND cũ", sel.so_cmnd_cu || "—"],
+                        ["Số căn cước", sel.so_cccd || "—"],
                         ["Ngày sinh", ymdToVN(sel.ngay_sinh)],
-                        ["Nơi thường trú", sel.noi_tt || "—"],
+                        ["Ngày cấp", ymdToVN(sel.ngay_cap)],
+                        ["Nơi cấp", sel.noi_cap_ten || sel.noi_cap_ma || "—"],
+                        ["Địa chỉ thường trú", [sel.noi_tt, sel.hktt].filter(Boolean).join(", ") || "—"],
+                        ["Địa chỉ cư trú", [sel.noi_ct, sel.hkct].filter(Boolean).join(", ") || "(theo thường trú)"],
                       ] as [string, string][]
                     ).map(([k, v]) => (
                       <div key={k} className="flex justify-between gap-3 text-[13px] border-b border-border pb-2 last:border-0">

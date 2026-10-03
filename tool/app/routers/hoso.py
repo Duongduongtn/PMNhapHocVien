@@ -176,8 +176,14 @@ def ds_ho_so(makh: str = Query(..., min_length=1)):
     Không sửa SP cũ (dùng chung app cũ — sửa là vỡ báo cáo cũ). Giữ nguyên shape trả về."""
     sql = (
         "SELECT A.MaDK, A.HoVaTen, A.NgaySinh, A.GioiTinh, A.SoCMT, A.SO_CMND_CU, "
-        "B.SoHoSo, A.NoiTT, B.DuongDanAnh, B.MaLoaiHs "
+        "B.SoHoSo, A.NoiTT, A.NoiCT, A.NoiCapCMT, "
+        "CONVERT(varchar(8), A.NgayCapCMT, 112) AS NgayCapCMT, "  # datetime → yyyymmdd
+        "dv.TenDV AS NoiCapTen, tt.TenDayDu AS HKTT, ct.TenDayDu AS HKCT, "
+        "B.DuongDanAnh, B.MaLoaiHs "
         "FROM dbo.NguoiLX A JOIN dbo.NguoiLX_HoSo B ON A.MaDK = B.MaDK "
+        "LEFT JOIN dbo.DM_DonViGTVT dv ON dv.MaDVQL = A.NoiCapCMT AND dv.LoaiDV = 'SO' "  # nơi cấp = Sở GTVT
+        "LEFT JOIN dbo.DM_DVHC tt ON tt.MaDvhc = A.NoiTT_MaDVHC "
+        "LEFT JOIN dbo.DM_DVHC ct ON ct.MaDvhc = A.NoiCT_MaDVHC "
         "WHERE B.MaKhoaHoc = %s AND B.TrangThai = 1 "
         "ORDER BY CAST(B.SoHoSo AS INT)"
     )
@@ -200,6 +206,12 @@ def ds_ho_so(makh: str = Query(..., min_length=1)):
             "so_cmnd_cu": r["SO_CMND_CU"],
             "so_ho_so": r["SoHoSo"],
             "noi_tt": r["NoiTT"],
+            "hktt": r["HKTT"],              # thường trú đầy đủ (xã/tỉnh từ DM_DVHC)
+            "noi_ct": r["NoiCT"],          # chi tiết cư trú
+            "hkct": r["HKCT"],              # cư trú đầy đủ
+            "ngay_cap": r["NgayCapCMT"],   # ngày cấp CCCD (yyyymmdd | None)
+            "noi_cap_ma": r["NoiCapCMT"],  # mã Sở GTVT (nơi cấp)
+            "noi_cap_ten": r["NoiCapTen"], # tên Sở GTVT (tỉnh cấp CCCD)
             "co_anh": bool((r["DuongDanAnh"] or "").strip()),
             "duong_dan_anh": (r["DuongDanAnh"] or "").strip() or None,  # QLY-01 task 35: hiện ở modal chi tiết
             "ma_loai_hs": r["MaLoaiHs"],

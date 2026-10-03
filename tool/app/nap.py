@@ -50,6 +50,17 @@ def sinh_so_ho_so(da_co) -> str:
     return f"{n:03d}"
 
 
+def suy_noi_cap(so_cmt: str) -> str:
+    """Nơi cấp = MÃ TỈNH 2 số, suy từ số căn cước (BUG-10, thống nhất 03/10).
+
+    CCCD 12 số: 3 số đầu = mã tỉnh nơi ĐKKS dạng '0XY' → NoiCapCMT = 'XY' (vd 070…→'70' Đồng Nai,
+    001…→'01', 038…→'38'). Khớp 7.941/14.437 bản ghi CCCD đang có trong GPLX_CSDT.
+    QR không mang nơi cấp nhưng suy được từ chính số CCCD, nên khỏi cần nhập.
+    Số không phải CCCD 12 số (CMND 9 số, số lạ) → trả '' để operator chọn tay (combobox tỉnh)."""
+    s = (so_cmt or "").strip()
+    return s[1:3] if len(s) == 12 and s.isdigit() else ""
+
+
 def tach_ho_ten(ho_ten: str) -> dict:
     """IN HOA GIỮ DẤU (AS-003: 55/55 HV HoVaTen in hoa). SP gộp tự tách Ho/Ten từ @p_HoVaTen;
     hàm này chủ yếu để KIỂM ĐỘ DÀI cột + dựng HoVaTenIn (cắt ≤25, cũng in hoa giữ dấu)."""
@@ -109,7 +120,7 @@ def build_params_sp_gop(hv: dict, khoa: dict, so_ho_so: str, ten: dict,
         ("p_MaQuocTich", "VNM"),                              # ISO alpha-3 (DM_QuocTich.Ma); 'VN' vỡ FK
         ("p_SoCMT", hv.get("so_cmt", "")),
         ("p_NgayCap", hv.get("ngay_cap_cmt") or ""),          # varchar(8); SP convert 112 nếu len=8
-        ("p_NoiCap", hv.get("noi_cap_cmt") or ""),
+        ("p_NoiCap", hv.get("noi_cap_cmt") or suy_noi_cap(hv.get("so_cmt", ""))),  # mã Sở GTVT suy từ CCCD (BUG-10)
         ("p_MaDVHC_TT", hv["noi_tt_ma_dvhc"]),
         ("p_ChiTiet_TT", hv.get("chi_tiet_tt") or ""),        # chi tiết (số nhà/thôn); mặc định TRỐNG
         ("p_MaDVHC_CT", hv.get("noi_ct_ma_dvhc") or hv["noi_tt_ma_dvhc"]),

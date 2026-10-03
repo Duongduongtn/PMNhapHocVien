@@ -139,7 +139,13 @@ export interface HoSoRow {
   so_cccd: string | null;
   so_cmnd_cu: string | null;
   so_ho_so: string | null;
-  noi_tt: string | null;
+  noi_tt: string | null; // chi tiết thường trú (số nhà/thôn)
+  hktt: string | null; // thường trú đầy đủ (xã/tỉnh từ DM_DVHC)
+  noi_ct: string | null; // chi tiết cư trú
+  hkct: string | null; // cư trú đầy đủ
+  ngay_cap: string | null; // ngày cấp CCCD (yyyymmdd)
+  noi_cap_ma: string | null; // mã Sở GTVT (nơi cấp)
+  noi_cap_ten: string | null; // tên Sở GTVT (tỉnh cấp CCCD)
   co_anh: boolean;
   duong_dan_anh: string | null; // đường dẫn .jp2 trong DB (QLY-01 task 35 — hiện ở modal)
   ma_loai_hs: number;
