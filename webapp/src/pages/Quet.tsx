@@ -90,12 +90,33 @@ const FIELDS_RONG: CccdFields = {
   ngayCap: "",
 };
 
+// Desktop ≥ lg (1024px, khớp breakpoint Tailwind). Dùng để quyết điểm vào màn Quét:
+// desktop → vào thẳng form nhập tay + popover quét; mobile → cổng chọn + camera toàn màn (CHANGES #28).
+const MQ_DESKTOP = "(min-width: 1024px)";
+function docDesktop(): boolean {
+  return typeof window !== "undefined" && window.matchMedia(MQ_DESKTOP).matches;
+}
+function useIsDesktop(): boolean {
+  const [v, setV] = useState(docDesktop);
+  useEffect(() => {
+    const mq = window.matchMedia(MQ_DESKTOP);
+    const on = () => setV(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  return v;
+}
+
 type GiaiDoan = "chon" | "quet" | "preview" | "anh" | "ketqua";
 
 export default function Quet() {
-  // Màn vào = "chon" (KHÔNG tự mở camera — CHANGES #12). Camera chỉ bật khi vào "quet".
-  const [giaiDoan, setGiaiDoan] = useState<GiaiDoan>("chon");
+  const isDesktop = useIsDesktop();
+  // Điểm vào: mobile = "chon" (cổng chọn, KHÔNG tự mở camera — CHANGES #12);
+  // desktop = "preview" (vào thẳng form nhập tay, quét là phụ qua popover — CHANGES #28).
+  const [giaiDoan, setGiaiDoan] = useState<GiaiDoan>(() => (docDesktop() ? "preview" : "chon"));
   const [fields, setFields] = useState<CccdFields>(FIELDS_RONG);
+  const [formKey, setFormKey] = useState(0); // bump → remount form (reseed sau quét / nhập tiếp)
+  const [quetPopover, setQuetPopover] = useState(false); // desktop: popover camera đè form
   const [loiQuet, setLoiQuet] = useState<string | null>(null);
   const [loiChon, setLoiChon] = useState<string | null>(null);
   const [uuid, setUuid] = useState<string>("");
@@ -108,6 +129,12 @@ export default function Quet() {
     dangKyGuiLai();
     return () => { if (toastTimer.current) clearTimeout(toastTimer.current); };
   }, []);
+
+  // Co màn hình từ mobile → desktop trong lúc đang ở cổng chọn: desktop không có cổng,
+  // chuyển sang form nhập tay cho khỏi kẹt ở màn trống.
+  useEffect(() => {
+    if (isDesktop && giaiDoan === "chon") setGiaiDoan("preview");
+  }, [isDesktop, giaiDoan]);
 
   function baoToast(msg: string, ok: boolean) {
     setToast({ msg, ok });
@@ -130,38 +157,44 @@ export default function Quet() {
     }
   }
 
+  // Có dữ liệu (quét QR / tải ảnh) → điền vào form. Desktop: đóng popover + reseed form đang mở.
   const batDau = useCallback((f: CccdFields) => {
     setFields(f);
     setLoiQuet(null);
+    setFormKey((k) => k + 1);
+    setQuetPopover(false);
     setGiaiDoan("preview");
   }, []);
 
   function nhapTay() {
     setFields(FIELDS_RONG);
     setLoiQuet(null);
+    setFormKey((k) => k + 1);
     setGiaiDoan("preview");
   }
 
+  // Làm hồ sơ kế tiếp: desktop về form trống (không có cổng chọn), mobile về cổng chọn.
   function quetTiep() {
     setFields(FIELDS_RONG);
     setUuid("");
     setOffline(false);
     setLoiQuet(null);
     setLoiChon(null);
-    setGiaiDoan("chon");
+    setQuetPopover(false);
+    setFormKey((k) => k + 1);
+    setGiaiDoan(isDesktop ? "preview" : "chon");
   }
 
-  // Tải ảnh CCCD từ máy → đọc QR (dùng ở màn vào, không cần bật camera).
-  async function docAnhFile(file: File) {
-    setLoiChon(null);
+  // Tải ảnh CCCD từ máy → đọc QR. onErr nhận chỗ hiện lỗi (mobile: banner cổng; desktop: toast).
+  async function docAnh(file: File, onErr: (m: string) => void) {
     const raw = await decodeTuFile(file);
     if (!raw) {
-      setLoiChon("Không đọc được mã QR trong ảnh. Thử ảnh rõ nét hơn hoặc nhập tay.");
+      onErr("Không đọc được mã QR trong ảnh. Thử ảnh rõ nét hơn hoặc nhập tay.");
       return;
     }
     const r = parseCccdQr(raw);
     if (!r.ok) {
-      setLoiChon(r.message);
+      onErr(r.message);
       return;
     }
     batDau(r.data);
@@ -169,22 +202,37 @@ export default function Quet() {
 
   return (
     <div className="h-full flex flex-col lg:h-auto lg:p-6 lg:max-w-2xl lg:mx-auto">
-      {giaiDoan === "chon" && (
-        <ChonCach onQuet={() => { setLoiChon(null); setGiaiDoan("quet"); }} onNhapTay={nhapTay} onAnhFile={docAnhFile} loi={loiChon} />
+      {/* Cổng chọn + camera toàn màn: CHỈ mobile. Desktop vào thẳng form (CHANGES #28). */}
+      {giaiDoan === "chon" && !isDesktop && (
+        <ChonCach onQuet={() => { setLoiChon(null); setGiaiDoan("quet"); }} onNhapTay={nhapTay} onAnhFile={(f) => void docAnh(f, setLoiChon)} loi={loiChon} />
       )}
-      {giaiDoan === "quet" && (
+      {giaiDoan === "quet" && !isDesktop && (
         <KhungQuet onQuet={batDau} onNhapTay={nhapTay} onQuayLai={() => setGiaiDoan("chon")} loi={loiQuet} setLoi={setLoiQuet} />
       )}
       {(giaiDoan === "preview" || giaiDoan === "anh" || giaiDoan === "ketqua") && (
         <div className="flex-1 min-h-0 overflow-y-auto p-4 lg:p-0">
           {giaiDoan === "preview" && (
-            <Preview fields={fields} onLuu={(id) => { setUuid(id); setGiaiDoan("anh"); }} onLuuVaTiep={luuVaTiep} onQuetLai={quetTiep} />
+            <Preview
+              key={formKey}
+              fields={fields}
+              isDesktop={isDesktop}
+              onMoQuet={() => { setLoiQuet(null); setQuetPopover(true); }}
+              onAnhFile={(f) => void docAnh(f, (m) => baoToast(m, false))}
+              onLuu={(id) => { setUuid(id); setGiaiDoan("anh"); }}
+              onLuuVaTiep={luuVaTiep}
+              onQuetLai={quetTiep}
+            />
           )}
           {giaiDoan === "anh" && (
             <ChupAnhGui uuid={uuid} onXong={(mangYeu) => { setOffline(mangYeu); setGiaiDoan("ketqua"); }} />
           )}
           {giaiDoan === "ketqua" && <KetQua offline={offline} onQuetTiep={quetTiep} />}
         </div>
+      )}
+
+      {/* Desktop: popover camera nổi đè form — quét xong tự điền, form vẫn còn (CHANGES #28). */}
+      {quetPopover && isDesktop && (
+        <QuetPopover onQuet={batDau} onDong={() => setQuetPopover(false)} loi={loiQuet} setLoi={setLoiQuet} />
       )}
 
       {/* Toast gửi nhanh (CHANGES #13) — luồng "Lưu & nhập hồ sơ tiếp" */}
@@ -273,12 +321,14 @@ function KhungQuet({
   onQuayLai,
   loi,
   setLoi,
+  inPopover = false,
 }: {
   onQuet: (f: CccdFields) => void;
   onNhapTay: () => void;
   onQuayLai: () => void;
   loi: string | null;
   setLoi: (s: string | null) => void;
+  inPopover?: boolean; // dùng trong popover desktop: ẩn header riêng, đổi link đáy (CHANGES #28)
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -442,15 +492,18 @@ function KhungQuet({
 
   return (
     <div className="flex-1 min-h-0 flex flex-col p-4 gap-3">
-      <div className="flex items-center gap-2 shrink-0">
-        <button type="button" onClick={onQuayLai} aria-label="Quay lại" className="w-9 h-9 -ml-1 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors">
-          <Icon name="chevronLeft" className="w-5 h-5" />
-        </button>
-        <div>
-          <h2 className="text-base font-bold leading-tight">Quét căn cước</h2>
-          <p className="text-[11px] text-muted-foreground leading-tight">Đưa mặt trước CCCD vào khung — tự nhận</p>
+      {/* Header riêng: chỉ mobile. Trong popover desktop đã có tiêu đề + nút đóng. */}
+      {!inPopover && (
+        <div className="flex items-center gap-2 shrink-0">
+          <button type="button" onClick={onQuayLai} aria-label="Quay lại" className="w-9 h-9 -ml-1 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors">
+            <Icon name="chevronLeft" className="w-5 h-5" />
+          </button>
+          <div>
+            <h2 className="text-base font-bold leading-tight">Quét căn cước</h2>
+            <p className="text-[11px] text-muted-foreground leading-tight">Đưa mặt trước CCCD vào khung — tự nhận</p>
+          </div>
         </div>
-      </div>
+      )}
 
       <div ref={camRef} className="relative flex-1 min-h-0 bg-slate-950 rounded-xl overflow-hidden flex items-center justify-center">
         {loiCamera ? (
@@ -523,8 +576,41 @@ function KhungQuet({
           onClick={onNhapTay}
           className="w-full text-[13px] text-primary font-medium hover:underline text-center py-1"
         >
-          QR mờ, không quét được? Nhập tay
+          {inPopover ? "QR mờ? Đóng để nhập tay" : "QR mờ, không quét được? Nhập tay"}
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Popover quét (desktop) — camera nổi đè form, quét xong tự điền (CHANGES #28) ----------
+function QuetPopover({
+  onQuet,
+  onDong,
+  loi,
+  setLoi,
+}: {
+  onQuet: (f: CccdFields) => void;
+  onDong: () => void;
+  loi: string | null;
+  setLoi: (s: string | null) => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onDong(); }}
+    >
+      <div className="bg-card w-full max-w-md h-[560px] max-h-[90vh] rounded-xl shadow-2xl flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+          <div>
+            <h3 className="font-bold text-sm leading-tight">Quét QR căn cước</h3>
+            <p className="text-[11px] text-muted-foreground leading-tight">Đưa mặt trước CCCD vào khung — tự điền vào form</p>
+          </div>
+          <button onClick={onDong} aria-label="Đóng" className="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center transition-colors shrink-0">
+            <Icon name="x" className="w-5 h-5" />
+          </button>
+        </div>
+        <KhungQuet onQuet={onQuet} onNhapTay={onDong} onQuayLai={onDong} loi={loi} setLoi={setLoi} inPopover />
       </div>
     </div>
   );
@@ -552,11 +638,17 @@ function lucHienThi(iso: string): string {
 
 function Preview({
   fields,
+  isDesktop = false,
+  onMoQuet,
+  onAnhFile,
   onLuu,
   onLuuVaTiep,
   onQuetLai,
 }: {
   fields: CccdFields;
+  isDesktop?: boolean;
+  onMoQuet?: () => void; // desktop: mở popover quét
+  onAnhFile?: (f: File) => void; // desktop: tải ảnh CCCD đọc QR
   onLuu: (uuid: string) => void;
   onLuuVaTiep: (uuid: string) => void;
   onQuetLai: () => void;
@@ -624,13 +716,49 @@ function Preview({
         }
       }}
     >
-      <div className="flex items-center justify-between">
-        <h2 className="text-base font-bold">Thông tin từ căn cước</h2>
-        <button type="button" onClick={onQuetLai} className="text-[12px] text-primary font-medium hover:underline flex items-center gap-1">
-          <Icon name="refresh" className="w-3.5 h-3.5" /> Quét lại
-        </button>
-      </div>
-      <p className="text-[12px] text-muted-foreground -mt-1">Kiểm tra và sửa nếu sai trước khi giữ</p>
+      {isDesktop ? (
+        <>
+          {/* Desktop: form nhập tay là chủ đạo; Quét QR/Tải ảnh là nút phụ góc phải (CHANGES #28) */}
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-base font-bold">Thu nhận hồ sơ học viên</h2>
+              <p className="text-[12px] text-muted-foreground mt-0.5">Nhập thông tin căn cước, hoặc quét QR để điền nhanh</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={onMoQuet}
+                className="h-9 px-3 rounded-lg border border-border bg-card text-foreground text-[13px] font-medium flex items-center gap-1.5 hover:bg-muted transition-colors"
+              >
+                <Icon name="scan" className="w-4 h-4" /> Quét QR
+              </button>
+              <label className="h-9 px-3 rounded-lg border border-border bg-card text-foreground text-[13px] font-medium flex items-center gap-1.5 hover:bg-muted transition-colors cursor-pointer">
+                <Icon name="image" className="w-4 h-4" /> Tải ảnh
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    e.target.value = "";
+                    if (f && onAnhFile) onAnhFile(f);
+                  }}
+                />
+              </label>
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold">Thông tin từ căn cước</h2>
+            <button type="button" onClick={onQuetLai} className="text-[12px] text-primary font-medium hover:underline flex items-center gap-1">
+              <Icon name="refresh" className="w-3.5 h-3.5" /> Quét lại
+            </button>
+          </div>
+          <p className="text-[12px] text-muted-foreground -mt-1">Kiểm tra và sửa nếu sai trước khi giữ</p>
+        </>
+      )}
 
       {/* Desktop: 2 cột cho thấy hết trường, đỡ cuộn khi nhập tay (CHANGES #14) */}
       <div className="grid gap-3 lg:grid-cols-2">

@@ -4,6 +4,7 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 28 | 03/10/2026 | ✏️ Sửa + ➕ Thêm | `THU-01`, `THU-05` | Redesign giao diện **DESKTOP** app web (nhánh `lg:`, mobile giữ nguyên): **① Quét (THU-01)** — desktop vào thẳng **form nhập tay** (bỏ cổng chọn), nút **Quét QR/Tải ảnh thu nhỏ** ra góc phải tiêu đề, Quét QR mở **popover camera** đè form rồi tự điền; "Lưu & nhập tiếp" → form trống · **② Hồ sơ đã gửi (THU-05)** — desktop **chọn-nhiều-để-xóa**: cột ô tích chỉ ở dòng Chờ nạp + thanh "Đã chọn N · Xóa N" + dialog xác nhận (lặp DELETE client, tái dùng QuanTriHoSo). KHÔNG đổi Data Model/API/endpoint | ✅ | ✅ §6.5/§6.6 (v3.0) | ✅ ghi UX (sửa màn có sẵn, không dựng mới) | 🟡 client xong (build+24 test+review-nghiepvu đủ), chưa chụp Playwright/deploy |
 | 27 | 03/10/2026 | ✏️ Sửa (chữ) | `THU-05` | Khớp chữ PRD với code task 41 (review-nghiepvu): edge "Chặn 403" → **404** (chống IDOR, không lộ hồ sơ tồn tại — nhất quán `_cua_minh`); copy popup "chưa nạp vào **DB**" → "chưa nạp vào **máy tính**" (tránh lộ từ kỹ thuật cho người thu nhận, luật nội dung). Không đổi code (code đã đúng) | ✅ | — | — | — đã code (task 41) |
 | 26 | 03/10/2026 | ✏️ Sửa + ➕ Thêm | `THU-05`, `QLY-08`, `QLY-03`, `NAP-01`, `NAP-04`, `QLY-05` | Chốt nghiệp vụ + UX trước khi code #24: **nguyên tắc bàn giao** (mốc Nạp — trước nạp app web làm chủ, sau nạp tool/CSDT làm chủ, app web đóng băng; QLY-03 "Xóa hẳn" ≠ QLY-08 "Gỡ về chờ nạp") · **popup cảnh báo + hướng dẫn** (copy impeccable) cho xóa app web (THU-05), gỡ về chờ nạp + banner đồng bộ lỗi (QLY-08), xóa hẳn tách bạch (QLY-03) · **"Dùng lại ảnh gốc"** trong trình chỉnh ảnh (NAP-04 ảnh thô VPS / QLY-05 ảnh DB) · **redesign màn Nạp lô** (NAP-01): trạng thái sẵn sàng mỗi dòng, chọn-tất-cả-sẵn-sàng, drawer Chuẩn bị, dialog nạp 3 pha (xác nhận/tiến độ/báo cáo + nạp lại lỗi), nút Xem trong DB | ✅ | ✅ §7.5/§9.1/§10.5 | ✅ ghi UX+wireframe | ⬜ |
 | 25 | 03/10/2026 | ✏️ Sửa (nhãn) | `QLY-08`, `THU-05` | Sửa nhãn trạng thái VPS trong PRD: `done` → `imported` (3 chỗ ở THU-05 + QLY-08) cho khớp DB thật (`server/db/init.sql:28` chỉ có `pending/importing/imported/deleted`) + TDD. Phát hiện ở review TDD #24 (Điểm 1, biên bản `tdd-review-03-10-2026.md`). Không đổi yêu cầu, không chạm TDD (đã đúng) | ✅ | — đã đúng | — | — |
@@ -33,6 +34,19 @@
 | 1 | 01/10/2026 | ✏️ Sửa | — | Đổi nơi lưu bảng ánh xạ `DM_DVHC_MAP`: GPLX_CSDT → SQLite cục bộ của tool | — | ✅ | — | ✅ (task 5) |
 
 Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên quan
+
+---
+
+## #28 — Redesign giao diện DESKTOP app web: Quét ưu tiên nhập tay + Hồ sơ đã gửi xóa nhiều · 03/10/2026
+
+- **Mã:** `THU-01` (✏️ Sửa), `THU-05` (➕ Thêm)
+- **Vì sao:** Trên máy tính, nhân viên gõ bàn phím là chính; quét QR bằng webcam vốn khó canh. Giao diện cũ (dùng chung mobile) lại đặt nút **Quét QR to đùng giữa màn** làm ngôi sao và chặn một màn "chọn cách nhập" trước khi tới form → desktop phải bấm thừa 1 lần mới gõ được, đặt sai trọng tâm. Và nút Xóa hồ sơ chờ nạp chôn trong modal chi tiết → muốn xóa vài hồ sơ phải mở từng cái.
+- **Đã chốt (phương án, 03/10/2026):**
+  - **① Quét (THU-01)** — Desktop (≥lg) **vào thẳng form nhập tay** (bỏ cổng `ChonCach`), con trỏ tự vào ô Số CCCD. Nút **Quét QR / Tải ảnh CCCD** thu nhỏ thành 2 nút phụ ở **góc phải tiêu đề**. Bấm Quét QR mở **popover camera nổi** đè form (form vẫn hiện, tái dùng logic decode của `KhungQuet`), bắt được QR → điền vào form đang mở rồi đóng popover. "Lưu & nhập hồ sơ tiếp" trên desktop quay về **form trống**. **Mobile giữ nguyên** camera-first (cổng chọn + camera toàn màn).
+  - **② Hồ sơ đã gửi (THU-05)** — Desktop: bảng thêm **cột ô tích chỉ ở dòng "Chờ nạp"** (đã/đang nạp không chọn được, khớp luật server chặn xóa); ô tích đầu cột = chọn tất cả Chờ nạp trên trang. **Thanh thao tác nổi "Đã chọn N · Bỏ chọn · Xóa N hồ sơ"** hiện khi chọn ≥1 → dialog xác nhận (không khôi phục). Xóa bằng **lặp `DELETE /api/ho-so/:uuid` phía client** (tái dùng mẫu `xoaDaChon` của `QuanTriHoSo.tsx`/HTG-03), KHÔNG thêm endpoint. **Mobile giữ** xóa lẻ trong modal (chốt phương án A — ngoài field ít xóa hàng loạt trên điện thoại).
+- **Đã sửa:** PRD `THU-01` (**✅→⏳ Todo** — code lại nhánh desktop; Step 1 + Done-khi "màn vào" thêm nhánh desktop) · PRD `THU-05` (**giữ ⚠️ Partial** — thêm Done-khi chọn-nhiều desktop vào "còn") · TDD §6.5 (desktop landing-form + popover) + §6.6 (desktop chọn-nhiều), Changelog v3.0 · `ui-demo/SCREENS.md` (lượt 17; sửa dòng "camera trái/form phải" đã lỗi thời).
+- **Phạm vi code (ĐÃ làm 03/10/2026):** `webapp/src/pages/Quet.tsx` (hook `useIsDesktop` + `QuetPopover` + Preview/KhungQuet nhánh desktop) + `webapp/src/pages/DaGui.tsx` (chọn-nhiều + dialog + phân biệt 409). Thuần client, **không đụng** server/API/DB. Mobile không đổi. Kiểm mức 1: build + typecheck sạch · 24 vitest · review-nghiepvu THU-01 8/8, THU-05 đủ.
+- **Còn nợ:** **chụp Playwright 3vp (375/800/1440)** — chưa chạy được vì màn sau đăng nhập + cần backend stack (token in-memory, không chèn auth); verify trực quan desktop + deploy. Cả 2 story để ⚠️ Partial tới khi chụp/verify.
 
 ---
 
@@ -392,7 +406,7 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 > `/capnhat` đọc mục này ở Bước 0b để biết có thay đổi nào chưa ghi sổ không.
 > So bằng **danh sách mã**, không so bằng thời gian sửa file.
 
-- **Cập nhật:** 03/10/2026 (CHANGES #27 — khớp chữ PRD THU-05 với code task 41, không đổi số story/mã)
+- **Cập nhật:** 03/10/2026 (CHANGES #28 — redesign giao diện desktop THU-01/THU-05, không thêm/bớt story; THU-01 hạ ✅→⏳)
 - **Số story trong PRD:** 24 (23 MUST/SHOULD gồm `THU-04` SHOULD + `THU-05` + `HTG-04` SHOULD + `QLY-06` ⏳ + `QLY-07` + `QLY-08`; chưa tính NICE `QLY-04`, `THU-03`)
 - **Mã story hiện có:** `HTG-01`…`HTG-06`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08` (NICE: `QLY-04`, `THU-03`)
 - **Mã đã nghỉ hưu:** (chưa có)
