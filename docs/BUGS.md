@@ -4,7 +4,8 @@
 
 | # | Ngày | Mức | Story | Bug | Trạng thái | Deploy |
 |---|---|---|---|---|---|---|
-| 5 | 03/10/2026 | 🟠 Nặng | `THU-05` | Màn "Hồ sơ đã gửi" (app web desktop): thêm cột ô tích chọn-nhiều (CHANGES #30) làm bảng vượt bề rộng khung AppLayout → `overflow-hidden` **che mất cột phải** (Nơi TT/Ngày gửi/Trạng thái). Sửa: `overflow-hidden`→`overflow-x-auto` + `min-w-[720px]` cho cuộn ngang, không che | ✅ Đã sửa | ⬜ (chờ deploy webapp) |
+| 6 | 03/10/2026 | 🟠 Nặng | `NAP-03` | Địa chỉ 2 cấp mới "Phường X, <Tỉnh không tiền tố>" (vd "Phường Hồng Hà, Hà Nội") → `tachDiaChiGoc` nuốt tỉnh vào chiTiet (tinh="") → tool map KHÔNG RA. "Hồng Hà, Hà Nội" (không tiền tố) lại OK. Sửa: thêm cứu TỈNH từ phần dư (đoạn cuối = tỉnh) khi xã/huyện đã khớp tiền tố mà tinh rỗng; +4 test (33 vitest) | ✅ Đã sửa | ⬜ (chờ chạy lại tool) |
+| 5 | 03/10/2026 | 🟠 Nặng | `THU-05` | Màn "Hồ sơ đã gửi" (app web desktop): cột ô tích chọn-nhiều (CHANGES #30) làm bảng vượt khung → che cột phải. Sửa (chốt cuối, user: KHÔNG cuộn ngang): `table-fixed` + cột định width + `truncate` → bảng luôn vừa khung, chữ dài hiện "…", chi tiết xem ở modal (bỏ `overflow-x-auto`) | ✅ Đã sửa | ⬜ (chờ deploy webapp) |
 | 4 | 03/10/2026 | 🟠 Nặng | `NAP-01` · `NAP-03` | Collector sửa địa chỉ (2 cấp mới) trên app; kéo về tool lại nạp địa chỉ CŨ đã map — nháp địa chỉ không làm tươi theo raw mới | ✅ Đã sửa | ⬜ (tool chưa lên VPS — có hiệu lực khi chạy lại tool) |
 | 3 | 03/10/2026 | 🟠 Nặng | `QLY-08` · `NAP-01` | Gỡ HV về chờ nạp xong, màn Nạp không tự hiện lại ở "chờ nạp" — phải bấm "Kéo từ VPS" | ✅ Đã sửa | ⬜ (tool chưa lên VPS — có hiệu lực khi chạy lại tool) |
 | 2 | 03/10/2026 | 🟠 Nặng | `QLY-01` · `NAP-01` | Tra cứu DB ẩn mọi HV chưa ảnh (TT_XuLy='01') → "Xem trong DB" không thấy HV nạp không ảnh; bộ lọc "Chưa ảnh" luôn rỗng | ✅ Đã sửa | ⬜ (tool chưa lên VPS — có hiệu lực khi chạy lại tool) |
@@ -14,14 +15,23 @@ Chú thích trạng thái: ✅ Đã sửa · 🔄 Đang sửa · ⏳ Đã xếp 
 
 ---
 
+## BUG-06 — Địa chỉ 2 cấp mới không auto-map ở tool (tỉnh không tiền tố) · 03/10/2026
+
+- **Mức:** 🟠 Nặng (địa chỉ 2 cấp đúng vẫn báo "không khớp" → operator phải chọn tay) · **Story:** `NAP-03` · **File:** `tool/webui/src/lib/diachi.ts`
+- **Tái hiện (xác nhận bằng data thật dvhc_map.sqlite):** địa chỉ dạng **"Phường Hồng Hà, Hà Nội"** (xã CÓ tiền tố "Phường", tỉnh KHÔNG tiền tố) → `tachDiaChiGoc` cho `tinh="", xa="Hồng Hà", chiTiet="Hà Nội"` → `tra_map` nhận tinh rỗng → **không khớp**. Nghịch lý: "Hồng Hà, Hà Nội" (không tiền tố) lại map OK.
+- **Nguyên nhân:** khối cứu-theo-vị-trí trong `tachDiaChiGoc` **chỉ chạy khi KHÔNG field nào khớp tiền tố**. Khi xã đã khớp "Phường" nhưng tỉnh không tiền tố → tỉnh không được cứu, rơi vào `chiTiet`. Loại trừ nghi ngờ "bảng map thiếu data" (bảng đủ 34 tỉnh/10.602 dòng, map đúng khi tỉnh được tách đúng).
+- **Ảnh hưởng:** tool máy Nạp, bước map địa chỉ (NAP-03) — mọi địa chỉ 2 cấp viết "Phường/Xã X, <Tỉnh trần>". Bước nạp/CSDL không sai; chỉ tốn công chọn tay.
+- **Cách sửa:** thêm "Lượt 3a" trong `tachDiaChiGoc` — khi `tinh` rỗng mà xã/huyện đã khớp tiền tố, lấy **đoạn dư CUỐI cùng** làm tỉnh (thứ tự địa chỉ VN: tỉnh ở cuối), chạy TRƯỚC bước cứu xã. Đối xứng với "Lượt 3b" (cứu xã) sẵn có. Thuần client.
+- **Kiểm:** tool webui build + typecheck · **33 vitest** (+4 ca BUG-06: "Phường X, <tỉnh trần>", có số nhà, giữ hành vi cũ khi cả 2 có tiền tố). Mô phỏng pipeline tách+map trên `dvhc_map.sqlite` thật: trước sửa "không khớp", sau sửa khớp.
+
 ## BUG-05 — Màn "Hồ sơ đã gửi" app web desktop che mất cột phải · 03/10/2026
 
 - **Mức:** 🟠 Nặng (nội dung bị che, không xem được) · **Story:** `THU-05` · **File:** `webapp/src/pages/DaGui.tsx`
 - **Tái hiện:** mở "Hồ sơ đã gửi" trên desktop (≥lg) — bảng bị cắt bên phải, không thấy đủ cột (Nơi thường trú / Ngày gửi / Trạng thái).
 - **Nguyên nhân:** THU-05 (CHANGES #30) thêm **cột ô tích chọn-nhiều** → bảng thành 8 cột, tổng bề rộng vượt khung nội dung AppLayout (~940px, shell `max-w-[1180px]` trừ sidebar). Card bảng để `overflow-hidden` (có sẵn) → phần vượt bị **cắt cứng** thay vì cuộn.
 - **Ảnh hưởng:** chỉ app web **desktop**, màn "Hồ sơ đã gửi". Mobile (card list) không ảnh hưởng.
-- **Cách sửa:** card bảng `overflow-hidden` → **`overflow-x-auto`** (cuộn ngang khi hẹp, không che) + `table` thêm `min-w-[720px]` (giữ bảng đọc được, tránh squish). Khớp mẫu `QuanTriHoSo.tsx` (admin) vốn dùng `overflow-x-auto`.
-- **Kiểm:** webapp build + typecheck sạch · 24 vitest. **Chưa chụp Playwright** (màn sau đăng nhập) — verify trực quan trên live sau deploy.
+- **Cách sửa (chốt cuối — user yêu cầu KHÔNG cuộn ngang):** `table` chuyển **`table-fixed`** + mỗi cột định width (Giới tính 90 · CCCD 128 · Ngày sinh 96 · Nơi TT 150 · Ngày gửi 140 · Trạng thái 112; Họ tên co giãn phần còn lại) + **`truncate`** ô dài (Họ tên/CCCD/Nơi TT/Ngày gửi, kèm `title` hover) + header `whitespace-nowrap`. Bảng **luôn bằng bề rộng khung** → card giữ `overflow-hidden`, **không cuộn ngang, không che**; chữ dài hiện "…", chi tiết đầy đủ ở modal khi bấm dòng. (Bản đầu dùng `overflow-x-auto` đã bỏ.)
+- **Kiểm:** webapp build + typecheck sạch · 24 vitest. **Chưa chụp Playwright** (màn sau đăng nhập) — verify trực quan trên live sau deploy; width cột có thể nhích nếu nhìn thấy chật.
 
 ## BUG-04 — Kéo lại sau khi collector sửa địa chỉ vẫn nạp địa chỉ cũ · 03/10/2026
 

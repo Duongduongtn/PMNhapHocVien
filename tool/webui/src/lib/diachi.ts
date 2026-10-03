@@ -56,7 +56,15 @@ export function tachDiaChiGoc(raw: string | null | undefined): DiaChiTach {
     return { tinh, huyen: "", xa, chiTiet: "" };
   }
 
-  // Lượt 3 (CHANGES #19): đã có tỉnh/huyện theo tiền tố nhưng XÃ không ghi tiền tố (dữ liệu GPLX
+  // Lượt 3a (BUG-06): xã/huyện đã khớp tiền tố nhưng TỈNH không ghi tiền tố (địa chỉ 2 cấp mới hay
+  // viết "Phường X, Đồng Nai") → đoạn dư CUỐI cùng (thứ tự địa chỉ VN: tỉnh ở cuối) chính là tỉnh.
+  // Phải cứu TỈNH TRƯỚC (đoạn cuối), rồi mới tới xã. Nếu không, tỉnh rơi vào chiTiet → map trượt.
+  if (!tinh && du.length > 0 && (xa || huyen)) {
+    tinh = du[du.length - 1];
+    du.pop();
+  }
+
+  // Lượt 3b (CHANGES #19): đã có tỉnh/huyện theo tiền tố nhưng XÃ không ghi tiền tố (dữ liệu GPLX
   // hay thiếu "Xã/Phường") → đoạn không-rõ CUỐI cùng (sát huyện/tỉnh) chính là xã; phần trước là
   // chi tiết. Vẫn best-effort, operator sửa được.
   if (!xa && du.length > 0 && (tinh || huyen)) {

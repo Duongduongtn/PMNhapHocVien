@@ -50,6 +50,24 @@ describe("tachDiaChiGoc (NAP-03 CHANGES #19)", () => {
     });
   });
 
+  it("2 cấp: xã CÓ tiền tố nhưng TỈNH không tiền tố → cứu tỉnh (BUG-06)", () => {
+    // Ca lỗi gốc: "Phường X, <Tỉnh không tiền tố>" trước đây nuốt tỉnh vào chiTiet → map trượt.
+    expect(tachDiaChiGoc("Phường Hồng Hà, Hà Nội")).toEqual({
+      tinh: "Hà Nội", huyen: "", xa: "Hồng Hà", chiTiet: "",
+    });
+    expect(tachDiaChiGoc("Phường An Phước, Đồng Nai")).toEqual({
+      tinh: "Đồng Nai", huyen: "", xa: "An Phước", chiTiet: "",
+    });
+    // Có số nhà/thôn ở đầu + xã tiền tố + tỉnh trần → chi tiết giữ, tỉnh + xã đúng.
+    expect(tachDiaChiGoc("Số 10, Phường Hồng Hà, Hà Nội")).toEqual({
+      tinh: "Hà Nội", huyen: "", xa: "Hồng Hà", chiTiet: "Số 10",
+    });
+    // Giữ hành vi cũ: cả hai có tiền tố vẫn đúng (không hồi quy).
+    expect(tachDiaChiGoc("Phường Cầu Ông Lãnh, Thành phố Hồ Chí Minh")).toEqual({
+      tinh: "Hồ Chí Minh", huyen: "", xa: "Cầu Ông Lãnh", chiTiet: "",
+    });
+  });
+
   it("chuỗi rỗng / null → tất cả trống", () => {
     expect(tachDiaChiGoc("")).toEqual({ tinh: "", huyen: "", xa: "", chiTiet: "" });
     expect(tachDiaChiGoc(null)).toEqual({ tinh: "", huyen: "", xa: "", chiTiet: "" });

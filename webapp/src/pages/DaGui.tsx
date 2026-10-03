@@ -384,12 +384,12 @@ export default function DaGui() {
             {!rows.length && <div className="px-4 py-10 text-center text-sm text-muted-foreground">{rong}</div>}
           </div>
 
-          {/* DESKTOP: table — overflow-x-auto để không che cột phải khi thêm cột ô tích (BUG-05);
-              min-w-full + whitespace-nowrap ở th cho cuộn ngang gọn khi khung hẹp */}
-          <div className="hidden lg:block bg-card border border-border rounded-xl overflow-x-auto">
-            <table className="w-full min-w-[720px] text-[13px]">
+          {/* DESKTOP: table-fixed + cột định width + truncate → bảng LUÔN vừa khung, KHÔNG cuộn ngang
+              (user chốt), không che: chữ dài → "…", chi tiết đầy đủ xem ở modal khi bấm dòng (BUG-05). */}
+          <div className="hidden lg:block bg-card border border-border rounded-xl overflow-hidden">
+            <table className="w-full table-fixed text-[13px]">
               <thead>
-                <tr className="bg-muted text-muted-foreground text-left">
+                <tr className="bg-muted text-muted-foreground text-left whitespace-nowrap">
                   <th className="px-4 py-2.5 w-10">
                     <input
                       type="checkbox"
@@ -401,18 +401,18 @@ export default function DaGui() {
                     />
                   </th>
                   <th className="px-4 py-2.5 font-semibold">Họ và tên</th>
-                  <th className="px-4 py-2.5 font-semibold">Giới tính</th>
-                  <th className="px-4 py-2.5 font-semibold">Số CCCD</th>
-                  <th className="px-4 py-2.5 font-semibold">Ngày sinh</th>
-                  <th className="px-4 py-2.5 font-semibold">Nơi thường trú</th>
-                  <th className="px-4 py-2.5 font-semibold">Ngày gửi</th>
-                  <th className="px-4 py-2.5 font-semibold text-center">Trạng thái</th>
+                  <th className="px-4 py-2.5 font-semibold w-[90px]">Giới tính</th>
+                  <th className="px-4 py-2.5 font-semibold w-[128px]">Số CCCD</th>
+                  <th className="px-4 py-2.5 font-semibold w-[96px]">Ngày sinh</th>
+                  <th className="px-4 py-2.5 font-semibold w-[150px]">Nơi thường trú</th>
+                  <th className="px-4 py-2.5 font-semibold w-[140px]">Ngày gửi</th>
+                  <th className="px-4 py-2.5 font-semibold text-center w-[112px]">Trạng thái</th>
                 </tr>
               </thead>
               <tbody>
                 {rowsTrang.map((h) => (
                   <tr key={h.uuid} onClick={() => setSel(h)} className={"border-t border-border cursor-pointer transition-colors " + (chon.has(h.uuid) ? "bg-primary/5" : "hover:bg-muted/60")}>
-                    <td className="px-4 py-2" onClick={(e) => e.stopPropagation()}>
+                    <td className="px-4 py-2 align-middle" onClick={(e) => e.stopPropagation()}>
                       {h.trang_thai === "pending" ? (
                         <input
                           type="checkbox"
@@ -424,16 +424,16 @@ export default function DaGui() {
                       ) : null}
                     </td>
                     <td className="px-4 py-2 font-semibold">
-                      <div className="flex items-center gap-2.5">
+                      <div className="flex items-center gap-2.5 min-w-0">
                         <AnhThumb uuid={h.uuid} coAnh={h.co_anh} size="xs" />
-                        <span>{h.ho_ten || "(chưa có tên)"}</span>
+                        <span className="truncate" title={h.ho_ten || undefined}>{h.ho_ten || "(chưa có tên)"}</span>
                       </div>
                     </td>
                     <td className="px-4 py-2">{gioiTinhHienThi(h.gioi_tinh)}</td>
-                    <td className="px-4 py-2 tabular-nums">{h.so_cccd || "—"}</td>
+                    <td className="px-4 py-2 tabular-nums truncate">{h.so_cccd || "—"}</td>
                     <td className="px-4 py-2 tabular-nums">{nsHienThi(h.ngay_sinh)}</td>
-                    <td className="px-4 py-2 max-w-[260px] truncate">{h.noi_tt_raw || "—"}</td>
-                    <td className="px-4 py-2 tabular-nums">{guiHienThi(h.created_at)}</td>
+                    <td className="px-4 py-2 truncate" title={h.noi_tt_raw || undefined}>{h.noi_tt_raw || "—"}</td>
+                    <td className="px-4 py-2 tabular-nums truncate">{guiHienThi(h.created_at)}</td>
                     <td className="px-4 py-2 text-center">
                       <div className="flex flex-col items-center gap-1">
                         <TrangThaiChip tt={h.trang_thai} />
