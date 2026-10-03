@@ -4,6 +4,7 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 26 | 03/10/2026 | ✏️ Sửa + ➕ Thêm | `THU-05`, `QLY-08`, `QLY-03`, `NAP-01`, `NAP-04`, `QLY-05` | Chốt nghiệp vụ + UX trước khi code #24: **nguyên tắc bàn giao** (mốc Nạp — trước nạp app web làm chủ, sau nạp tool/CSDT làm chủ, app web đóng băng; QLY-03 "Xóa hẳn" ≠ QLY-08 "Gỡ về chờ nạp") · **popup cảnh báo + hướng dẫn** (copy impeccable) cho xóa app web (THU-05), gỡ về chờ nạp + banner đồng bộ lỗi (QLY-08), xóa hẳn tách bạch (QLY-03) · **"Dùng lại ảnh gốc"** trong trình chỉnh ảnh (NAP-04 ảnh thô VPS / QLY-05 ảnh DB) · **redesign màn Nạp lô** (NAP-01): trạng thái sẵn sàng mỗi dòng, chọn-tất-cả-sẵn-sàng, drawer Chuẩn bị, dialog nạp 3 pha (xác nhận/tiến độ/báo cáo + nạp lại lỗi), nút Xem trong DB | ✅ | ✅ §7.5/§9.1/§10.5 | ✅ ghi UX+wireframe | ⬜ |
 | 25 | 03/10/2026 | ✏️ Sửa (nhãn) | `QLY-08`, `THU-05` | Sửa nhãn trạng thái VPS trong PRD: `done` → `imported` (3 chỗ ở THU-05 + QLY-08) cho khớp DB thật (`server/db/init.sql:28` chỉ có `pending/importing/imported/deleted`) + TDD. Phát hiện ở review TDD #24 (Điểm 1, biên bản `tdd-review-03-10-2026.md`). Không đổi yêu cầu, không chạm TDD (đã đúng) | ✅ | — đã đúng | — | — |
 | 24 | 02/10/2026 | ➕ Thêm + ✏️ Sửa | `QLY-08`, `THU-05`, `NAP-01` | Đồng bộ gỡ/xóa hồ sơ (verify #22): **QLY-08 mới** — nút "Gỡ về chờ nạp" ở tool (gỡ HV khỏi CSDT + VPS imported→pending + về hàng chờ), tách bạch "Xóa" bỏ hẳn, chỉ khóa chưa BC1, ảnh dùng ảnh thô VPS · **THU-05 mới** — app web collector xóa hồ sơ đã gửi (chỉ pending, soft-delete VPS, của mình/admin) · **NAP-01 mở rộng** — "Kéo về từ VPS" đồng bộ bỏ hồ sơ đã xóa khỏi hàng chờ. Đụng cả tool + **server VPS** (đường mới) + app web | ✅ | ✅ | ✅ ghi UX (không dựng màn) | ⬜ |
 | 23 | 02/10/2026 | ✏️ Sửa (UI) | `NAP-04`, `QLY-05`, `QLY-06` | Sửa UX quản lý ảnh + nhãn nút (phát hiện khi verify #22): sau "Dùng ảnh này" **hiện ảnh đã chỉnh** (bản PNG, không chỉ icon check) + **mở lại trình chỉnh nạp sẵn ảnh đã chỉnh** để chỉnh tiếp (NAP-04/QLY-05) · nút áp dụng ảnh **nổi bật + nhãn rõ** (tránh dừng ở "Xử lý ảnh" tưởng đã lưu) · nút **"Mở khóa khác" → "Tạo thêm hồ sơ ở khóa học khác hạng"**, giữ hiển thị cả ở khóa BC1 (QLY-06). Thuần UI, backend `/local/anh/xu-ly` đã trả `preview` sẵn | ✅ | ✅ ghi chú §9.1 | ✅ ghi UX (không dựng màn) | ⬜ |
@@ -33,6 +34,17 @@
 Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên quan
 
 ---
+
+## #26 — Chốt nghiệp vụ + UX trước khi code #24 (bàn giao, popup cảnh báo, ảnh gốc, redesign Nạp lô) · 03/10/2026
+
+- **Mã:** `THU-05`, `QLY-08`, `QLY-03`, `NAP-01`, `NAP-04`, `QLY-05` (bổ sung tiêu chí, prefix cũ, không nghỉ hưu mã).
+- **Vì sao:** trước khi code #24, chủ dự án + AI bàn nghiệp vụ để tránh app web và tool đá nhau khi cùng một hồ sơ bị sửa/xóa từ 2 phía; đồng thời chốt UX cho dễ dùng.
+- **Nguyên tắc bàn giao (TDD §7.5 mới):** mốc "Nạp" là điểm chuyển quyền sở hữu. **Trước nạp** (`pending`) app web làm chủ (collector thêm/sửa/xóa); **sau nạp** (`imported`) tool/CSDT làm chủ, bản ghi app web **đóng băng** (chỉ xem). Phân biệt rõ 2 nút xóa HV đã nạp: **"Xóa hẳn" (QLY-03)** = bỏ luôn, nạp lại phải nhập lại ở app (bản VPS vẫn `imported` lịch sử — Q1); **"Gỡ về chờ nạp" (QLY-08)** = `imported→pending`, nạp lại không nhập lại, ảnh dùng ảnh thô VPS (Q2), về `pending` thì collector sửa/xóa được tiếp (Q3).
+- **Popup cảnh báo + hướng dẫn** (copy impeccable, tái dùng panel xác nhận 2 bước + Banner sẵn có): THU-05 (xóa hồ sơ chờ nạp + chú thích khi đã nạp), QLY-08 (gỡ về chờ nạp + banner "đồng bộ máy chủ lỗi, thử lại"), QLY-03 ("Xóa hẳn" tách bạch với "Gỡ về chờ nạp").
+- **"Dùng lại ảnh gốc"** (TDD §9.1): AnhModal thêm prop `anhGoc` + nút quay về ảnh nguyên bản (bỏ chỉnh sửa) — NAP-04 là ảnh thô VPS, QLY-05 là ảnh `.jp2` đang lưu; ẩn nút khi không có nguồn.
+- **Redesign màn Nạp lô (NAP-01, TDD §10.5):** trạng thái sẵn sàng mỗi dòng (`✔ Sẵn sàng`/`⚠ Thiếu…`), "Chọn tất cả sẵn sàng", drawer "Chuẩn bị" (bỏ cột cố định), dialog nạp 3 pha (xác nhận → tiến độ → báo cáo + "Nạp lại lỗi"), nút "Xem trong DB". Thuần client, không endpoint nạp mới.
+- **Đã sửa:** PRD (6 story thêm "Done khi") · TDD §7.2/§7.5/§9.1/§10.5 + Changelog v2.9 · `ui-demo/SCREENS.md` (wireframe Nạp lô + ghi chú AnhModal).
+- **Chưa code** — vào BUILD-PLAN task mới (`/kehoach` bổ sung). Code lúc làm UI chạy skill `impeccable`.
 
 ## #25 — Sửa nhãn trạng thái VPS trong PRD: `done` → `imported` · 03/10/2026
 
@@ -379,7 +391,7 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 > `/capnhat` đọc mục này ở Bước 0b để biết có thay đổi nào chưa ghi sổ không.
 > So bằng **danh sách mã**, không so bằng thời gian sửa file.
 
-- **Cập nhật:** 03/10/2026 (CHANGES #25 — sửa nhãn `done`→`imported`, không đổi số story/mã)
+- **Cập nhật:** 03/10/2026 (CHANGES #26 — chốt nghiệp vụ + UX #24, bổ sung tiêu chí 6 story, không đổi số story/mã)
 - **Số story trong PRD:** 24 (23 MUST/SHOULD gồm `THU-04` SHOULD + `THU-05` + `HTG-04` SHOULD + `QLY-06` ⏳ + `QLY-07` + `QLY-08`; chưa tính NICE `QLY-04`, `THU-03`)
 - **Mã story hiện có:** `HTG-01`…`HTG-06`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08` (NICE: `QLY-04`, `THU-03`)
 - **Mã đã nghỉ hưu:** (chưa có)

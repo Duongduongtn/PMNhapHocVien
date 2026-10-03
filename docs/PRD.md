@@ -151,6 +151,11 @@
 - ⬜ **"Bỏ khỏi hàng đợi"** (CHANGES #22): xóa dòng 🟢 Đã nạp khỏi hàng đợi staging của tool (SQLite cục bộ) — KHÔNG đụng DB prod; VPS đã đánh dấu đã nạp nên kéo lại không mang về. Tên nhẹ, TÁCH BẠCH với "Xóa khỏi DB" của Tra cứu DB (tránh xóa nhầm prod).
 - ⬜ **"Nạp lại nhanh"** dòng 🔴 lỗi (CHANGES #22): nút nạp lại ngay trên dòng lỗi (không phải chọn lại thủ công).
 - ⬜ **Kéo về đồng bộ bỏ hồ sơ đã xóa** (CHANGES #24): bấm "Kéo về từ VPS", hồ sơ collector đã **xóa ở app web** (đánh dấu đã xóa trên VPS — THU-05) → **biến mất khỏi hàng chờ nạp** của tool (bỏ dòng staging `pending` tương ứng). Chỉ áp dòng **chưa nạp**; dòng đã nạp/đã lỗi giữ nguyên.
+- ⬜ **Redesign UX màn Nạp lô — trạng thái sẵn sàng mỗi dòng** (CHANGES #26): mỗi hồ sơ chờ nạp hiện rõ `✔ Sẵn sàng` hoặc thiếu gì (`⚠ Thiếu địa chỉ` / `⚠ Thiếu ảnh` / `⚠ Chưa chọn giấy tờ`) — nhìn là biết nạp được hàng nào, không phải mở từng cái.
+- ⬜ **Chọn nhiều HV để nạp vào khóa chưa BC1 thuận tiện** (CHANGES #26): nút **"Chọn tất cả sẵn sàng"** tick mọi dòng đủ điều kiện (bỏ qua dòng còn thiếu); thanh hành động dính đáy một nút chính **"Nạp N học viên"**.
+- ⬜ **Ngăn "Chuẩn bị" trượt ra khi cần** (CHANGES #26): bấm "Chuẩn bị" ở một dòng → ngăn trượt từ phải (map địa chỉ + giấy tờ + ảnh); lưu xong dòng chuyển `✔ Sẵn sàng`. Bỏ cột chuẩn bị cố định để màn gọn, bớt rối.
+- ⬜ **Dialog nạp 3 pha** (CHANGES #26): bấm "Nạp N học viên" → (1) xác nhận nạp vào khóa nào, bao nhiêu sẵn sàng/bỏ qua · (2) thanh tiến độ N/tổng + tên HV đang nạp · (3) **báo cáo kết thúc**: mấy HV vào DB, mấy lỗi + **lý do từng HV** + nút **"Nạp lại lỗi"** (chọn lại đúng dòng lỗi). Lỗi 1 HV không hỏng cả lô.
+- ⬜ **Nút "Xem trong DB"** (CHANGES #26): ở dòng đã nạp + trong báo cáo → nhảy sang chế độ **Tra cứu DB**, mở đúng khóa đích + làm nổi HV vừa nạp, để kiểm HV đã vào DB đúng chưa.
 - ❌ Không kéo bản ghi đã nạp/đã xóa.
 
 **Edge cases:**
@@ -224,6 +229,7 @@
 - ⬜ **Hiện ảnh đã chỉnh sau khi "Dùng ảnh này"** (CHANGES #23): bấm "Dùng ảnh này" xong, khung ảnh ở panel hiển thị **đúng ảnh vừa chỉnh** (bản xem trước PNG từ `/local/anh/xu-ly`), **không chỉ hiện icon check** — để operator xem lại ảnh mình đã chuẩn bị. (Lý do kỹ thuật: `.jp2` trình duyệt không render được nên phải dùng bản PNG.)
 - ⬜ **Mở lại trình chỉnh nạp sẵn ảnh đã chỉnh mới nhất** (CHANGES #23): bấm "Mở trình chỉnh ảnh" lần sau → nạp **ảnh đã chỉnh gần nhất** (nếu đã có) để chỉnh tiếp/thay, thay vì quay về ảnh thô VPS; chưa chỉnh lần nào thì vẫn nạp ảnh thô như cũ.
 - ⬜ **Nút lưu ảnh rõ + nổi bật** (CHANGES #23): trong trình chỉnh, nút áp dụng ảnh ("Dùng ảnh này") đặt **nổi bật** + badge kết quả ghi rõ ảnh **đã xử lý, bấm nút để áp dụng** — tránh operator dừng ở bước "Xử lý ảnh" rồi tưởng đã xong.
+- ⬜ **"Dùng lại ảnh gốc"** (CHANGES #26): trong trình chỉnh, nút quay về **ảnh thô học viên gửi trên VPS (bản nguyên gốc, chưa xử lý lần nào)** — bỏ mọi chỉnh sửa để căn/xóa phông lại từ đầu khi đã chỉnh hỏng; xác nhận nhanh trước khi bỏ. Chỉ hiện khi còn ảnh thô VPS cho hồ sơ đó. (Khác nút "Mở lại trình chỉnh" vốn nạp ảnh đã chỉnh gần nhất — nút này đi xa hơn, về tận ảnh gốc.)
 - ❌ Không xử lý ảnh ở điện thoại.
 
 **Edge cases:**
@@ -327,6 +333,8 @@
 - ⬜ **Phân quyền:** nhân viên thu nhận chỉ xóa **hồ sơ của chính mình**; **admin** xóa được bất kỳ hồ sơ nào.
 - ⬜ **Xóa mềm trên VPS** (đánh dấu "đã xóa" + ai xóa/lúc nào), KHÔNG xóa cứng → giữ vết truy; hồ sơ đã xóa không còn trả về khi tool kéo.
 - ⬜ **Đồng bộ sang tool:** khi tool bấm **"Kéo về từ VPS"**, hồ sơ đã xóa ở app web **biến mất khỏi hàng chờ nạp** của tool (xem NAP-01 — kéo về đồng bộ bỏ).
+- ⬜ **Popup xác nhận + hướng dẫn khi xóa** (CHANGES #26): nút Xóa mở panel xác nhận 2 bước (tái dùng mẫu panel đỏ của tool), copy: *"Xóa hồ sơ này khỏi hàng chờ nạp? Hồ sơ chưa nạp vào DB nên còn xóa được. Lần tới máy nạp bấm 'Kéo về', hồ sơ biến mất khỏi danh sách chờ nạp. Xóa rồi không lấy lại được — gửi nhầm thì tạo hồ sơ mới."* Nút: **Giữ lại / Xóa hồ sơ**.
+- ⬜ **Hồ sơ đã/đang nạp: khóa nút + chú thích** (CHANGES #26): thay nút Xóa bằng dòng chú thích *"Hồ sơ đã được máy nạp xử lý. Cần gỡ hay sửa thì báo người nạp thao tác trên máy tính."*
 - ❌ Không cho collector xóa hồ sơ đã nạp. ❌ Không xóa cứng bản ghi VPS (giữ vết).
 
 **Edge cases:**
@@ -386,6 +394,8 @@
 - ✅ `usp_NguoiLX_Delete` (cascade HoSo + GiayTo); file `.jp2` chuyển sang folder `_DELETED` (xóa mềm) + log.
 - ✅ HV đã có GPLX không xóa được (FK chặn) → báo rõ.
 - ⬜ **Chặn xóa HV ở khóa đã lập BC1 — ở BACKEND** (CHANGES #22): xóa HV đã vào Báo cáo (`NguoiLX_HoSo.MaBC1/MaBC2`) sẽ làm HV biến mất khỏi Báo cáo 1/2 → cấm xóa ở tầng backend (`usp_NguoiLX_Delete`), không chỉ ẩn nút UI.
+- ⬜ **Popup "Xóa hẳn" tách bạch với "Gỡ về chờ nạp"** (CHANGES #26): copy nói rõ khác QLY-08: *"Xóa hẳn học viên khỏi DB? Dùng khi bỏ hẳn học viên này. Muốn nạp lại phải nhập lại hồ sơ ở app. Ảnh chuyển sang thư mục _DELETED (còn khôi phục được). Học viên đã có giấy phép lái xe thì không xóa được."* Hai nút "Xóa hẳn" và "Gỡ về chờ nạp" đặt cạnh nhau, copy nêu rõ hậu quả khác nhau (bỏ hẳn ≠ gỡ để nạp lại) — chống bấm nhầm.
+- ⬜ **Bản ghi app web sau "Xóa hẳn"** (CHANGES #26, nguyên tắc bàn giao TDD §7.5): QLY-03 **không** đồng bộ ngược VPS — bản ghi trên app web giữ nguyên "đã nạp" (lịch sử). Muốn nạp lại học viên = **tạo hồ sơ MỚI ở app web** (uuid mới).
 - ❌ Không xóa cứng file ảnh.
 
 > Nguồn: CAP-012 · BR-014 · EC-021
@@ -408,6 +418,7 @@
 - ⬜ **Giữ `TT_XuLy` khi HV đã ở Báo cáo 1/2** (CHANGES #22, 🐛): thay ảnh cho HV `'11'`–`'19'` KHÔNG hạ về `'03'` (sẽ làm HV biến mất khỏi Báo cáo 2) — chỉ thay file + `DuongDanAnh`/`NgayThuNhanAnh`.
 - ⬜ **Mở trình chỉnh ảnh từ màn Tra cứu DB** (CHANGES #22): click avatar/ảnh HV đã có → AnhModal (ảnh `.jp2` đã transcode→PNG làm ảnh gốc) → đổi nền/chỉnh → lưu đè.
 - ⬜ **Sau khi lưu ảnh, hiện ngay ảnh mới + mở lại chỉnh tiếp** (CHANGES #23): lưu đè xong (`/nap-anh` thành công), khung ảnh HV hiện **ảnh mới** (làm tươi, không trả bản cũ từ bộ đệm); bấm chỉnh lần sau nạp sẵn **ảnh mới nhất** để chỉnh tiếp. Nút áp dụng trong trình chỉnh **nổi bật + nhãn rõ** (như NAP-04) — tránh dừng ở bước "Xử lý ảnh" tưởng đã lưu.
+- ⬜ **"Dùng lại ảnh gốc"** (CHANGES #26): khi thay ảnh HV đã có, nút quay về **ảnh `.jp2` đang lưu trong DB** (bản trước khi chỉnh ở phiên này, transcode PNG) để sửa lại từ đầu; xác nhận nhanh trước khi bỏ chỉnh sửa. Dùng chung nút với NAP-04 (ảnh gốc = nguồn tùy màn: NAP-04 là ảnh thô VPS, QLY-05 là ảnh DB).
 - ❌ Không tạo bản ghi HV mới (chỉ cập nhật HV đã có).
 
 **Edge cases:**
@@ -475,6 +486,9 @@
 - ⬜ **Ảnh:** HV về chờ nạp hiển thị lại **ảnh thô còn trên VPS** (như lúc mới kéo); KHÔNG chuyển ngược ảnh `.jp2` đã xử lý.
 - ⬜ **Bản ghi gốc VPS đã bị dọn PII** (HTG-03) → không còn để trả về → **báo rõ "không còn bản gốc trên VPS, chỉ có thể Xóa hẳn"**, không gỡ.
 - ⬜ HV **đã có GPLX** → FK chặn xóa (như QLY-03) → không gỡ được, báo rõ.
+- ⬜ **Popup xác nhận "Gỡ về chờ nạp"** (CHANGES #26): panel 2 bước (viền cam, TÁCH khỏi "Xóa hẳn" QLY-03), copy: *"Gỡ học viên về hàng chờ nạp? Dùng khi nạp nhầm khóa và muốn nạp lại. Học viên bị gỡ khỏi khóa này trong DB và quay lại danh sách chờ nạp để nạp vào đúng khóa, không phải nhập lại ở app. Ảnh đã xử lý sẽ bỏ; nạp lại dùng ảnh gốc học viên gửi. Chỉ làm được khi khóa chưa lập Báo cáo 1."* Nút: **Hủy / Gỡ về chờ nạp**.
+- ⬜ **Banner khi đồng bộ máy chủ lỗi** (CHANGES #26, edge): *"Đã gỡ học viên khỏi khóa trong DB, nhưng chưa đưa về được hàng chờ nạp (mất kết nối máy chủ). Học viên hiện không còn trong khóa. Bấm 'Thử lại' để đồng bộ."* + nút **"Thử lại đồng bộ"** (chỉ chạy lại bước gọi VPS, không xóa lại CSDT).
+- ⬜ **Về chờ nạp → người thu nhận chỉnh được tiếp** (CHANGES #26): sau khi gỡ, hồ sơ về `pending` trên app web → người thu nhận lại sửa/xóa được như hồ sơ chờ nạp bình thường (nhất quán "trước nạp, app web làm chủ" — TDD §7.5).
 - ❌ Không áp cho khóa đã BC1. ❌ Không xóa cứng ảnh (xóa mềm `_DELETED` như QLY-03).
 
 **Edge cases:**

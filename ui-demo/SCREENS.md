@@ -88,6 +88,9 @@ Chú thích: ✅ Xong · 🟡 Placeholder · ⬜ Chưa có route
 | /tool/nap (tab DB) | Gỡ HV về chờ nạp QLY-08 (CHANGES #24) | Nút **RIÊNG "Gỡ về chờ nạp"** cạnh "Xóa" (chỉ khóa chưa BC1, xác nhận 2 bước) — gỡ HV khỏi CSDT **rồi trả về hàng chờ** để nạp lại đúng khóa. TÁCH BẠCH với "Xóa" (bỏ hẳn). Bản ghi VPS đã dọn PII → báo không gỡ được | 15 |
 | /app/da-gui | Xóa hồ sơ đã gửi THU-05 (CHANGES #24) | Hồ sơ **Chờ nạp** có nút **Xóa** (xác nhận 2 bước) → soft-delete trên VPS; hồ sơ **đã/đang nạp** ẩn/khóa nút. Collector chỉ xóa của mình, admin bất kỳ. Xóa xong tool kéo về sẽ **đồng bộ bỏ** khỏi hàng chờ | 15 |
 | /tool/nap (tab DB) | Avatar 3 trạng thái (lượt 13 dựng) | Có ảnh → vòng tròn màu + user · chưa ảnh → xám + user · **mất file (DB có path, ổ không có) → đỏ + icon ảnh-vỡ + badge "mất ảnh"**. Bấm avatar/ảnh → trình chỉnh (được cả khóa BC1 — chỉ đụng ảnh, giữ TT_XuLy). Thao tác nhanh đổi-khóa/xóa chỉ hiện khi khóa chưa BC1 | 13 |
+| /app/da-gui · /tool/nap (tab DB) | Popup cảnh báo bàn giao (CHANGES #26) | Nguyên tắc: **trước nạp app web làm chủ, sau nạp tool làm chủ** (TDD §7.5). THU-05 xóa chờ nạp: panel 2 bước ("chưa nạp nên xóa được, kéo về sẽ mất, không lấy lại"); đã/đang nạp → chú thích "báo người nạp". QLY-08 "Gỡ về chờ nạp": panel cam **tách** "Xóa hẳn" + banner "đồng bộ máy chủ lỗi — Thử lại". QLY-03 "Xóa hẳn": copy tách bạch (bỏ hẳn, nạp lại phải nhập lại ở app) | 16 |
+| /tool/nap (AnhModal) | "Dùng lại ảnh gốc" (CHANGES #26) | Nút trong trình chỉnh quay về **ảnh nguyên bản** (bỏ chỉnh sửa, xác nhận nhanh): NAP-04 = ảnh thô VPS, QLY-05 = ảnh `.jp2` DB. Ẩn khi không có nguồn. Đi xa hơn "mở lại nạp ảnh đã chỉnh gần nhất" (CHANGES #23) | 16 |
+| /tool/nap (chế độ Nạp) | Redesign Nạp lô (CHANGES #26) | Mỗi dòng badge **sẵn sàng/thiếu gì**; **"Chọn tất cả sẵn sàng"** + thanh **"Nạp N học viên"** dính đáy; **drawer "Chuẩn bị"** thay cột cố định (gọn); **dialog nạp 3 pha** (xác nhận → tiến độ → báo cáo + "Nạp lại lỗi"); nút **"Xem trong DB"**. Wireframe ở Ghi chú | 16 |
 
 ## Component dùng chung
 
@@ -154,3 +157,44 @@ Khóa B-K149 · hạng B · 98 HV · thiếu ảnh 12 · 🔒 đã BC1   [Tìm] 
 │ Đang xử lý ▓▓▓▓▓▓▓░░░░░ 42/98 (✓39 ✎1 ✗3)  [xem lỗi]│
 └──────────────────────────────────────────────────────┘
 ```
+
+## Wireframe CHANGES #26 (redesign Nạp lô — `/prototype-next` / code bám theo)
+
+**① Màn Nạp lô — trạng thái sẵn sàng + chọn nhiều + thanh hành động dính đáy**
+```
+Nạp vào khóa: ▸ B-K150 · Mô tô A1 · chưa Báo cáo 1 ▼    [↻ Kéo về từ VPS]
+┌ Cần xử lý (14) ┐  Đã nạp (8)                       🔍 Tìm tên / CCCD
+☑ Chọn tất cả sẵn sàng (9)              Lọc ▾ Tất cả · Còn thiếu
+┌────────────────────────────────────────────────────────────────┐
+│ ☑  NGUYỄN VĂN A   079…   ✔ Sẵn sàng            [ Chuẩn bị ▸ ]   │
+│ ☐  LÊ VĂN C       080…   ⚠ Thiếu địa chỉ        [ Chuẩn bị ▸ ]   │ ← chưa đủ: không tick được
+│ ☐  🔴 PHẠM VĂN D  081…   Lỗi: trùng CCCD khóa    [ Nạp lại ]     │
+└────────────────────────────────────────────────────────────────┘
+┌ Đã chọn 9 học viên sẵn sàng ───────────── [ Nạp 9 học viên → ] ┐ ← dính đáy, 1 nút chính
+```
+
+**② Ngăn "Chuẩn bị 1 HV" (drawer trượt từ phải, thay cột cố định)**
+```
+                       ┌─ Chuẩn bị: LÊ VĂN C ───────────── [x] ┐
+                       │ 080… · Mô tô A1                        │
+                       │ Địa chỉ thường trú      ⚠ cần chọn     │ (AddressCombo)
+                       │ [ Tỉnh / Xã … ▼ ]  [ Chi tiết … ]     │
+                       │ Giấy tờ   ☑ CCCD  ☑ Giấy KSK  ☐ …     │
+                       │ Ảnh   [ khung ] [Chỉnh ảnh][Dùng lại ảnh gốc]│ (AnhModal)
+                       │              [ Lưu & đánh dấu sẵn sàng ]│ → dòng thành ✔ + tự tick
+                       └────────────────────────────────────────┘
+```
+
+**③ Dialog nạp 3 pha (reuse pattern DoiNenDialog)**
+```
+Pha 1 · Xác nhận          Pha 2 · Đang nạp           Pha 3 · Báo cáo
+┌ Nạp 9 học viên ─────┐  ┌ Đang nạp… ──────────┐  ┌ Nạp xong ──────────────┐
+│ Vào khóa B-K150      │  │ ▓▓▓▓▓▓░░  6/9        │  │ ✔ 7 vào DB              │
+│ (Mô tô A1, chưa BC1) │  │ Đang nạp: TRẦN THỊ B │  │ 🔴 2 chưa nạp được      │
+│ 9 sẵn sàng, 5 thiếu  │  │ (lỗi 1 HV không hỏng │  │  · PHẠM D — trùng CCCD  │
+│ sẽ bỏ qua.           │  │  cả lô)              │  │  · VÕ E — thiếu giấy tờ │
+│ [Hủy] [Bắt đầu nạp]  │  │ (không đóng khi chạy)│  │ [Nạp lại lỗi]           │
+└──────────────────────┘  └──────────────────────┘  │ [Xem trong DB] [Xong]   │
+                                                     └─────────────────────────┘
+```
+"Xem trong DB" → sang chế độ Tra cứu DB, mở đúng khóa đích + làm nổi HV vừa nạp.

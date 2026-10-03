@@ -502,7 +502,7 @@ Lọc **phía client** trên danh sách `/api/ho-so/cua-toi` đã tải (không 
 ### 7.2 Khóa & chống trùng (EC-003, EC-010, EC-011)
 - Kéo: chỉ trả `pending` chưa bị khóa (`locked_by IS NULL`).
 - **Kéo KHÔNG khóa** (lock chỉ ở bước nạp) → bản ghi còn sửa được ở app web (`PUT /api/ho-so/:uuid`, `POST .../anh`) tới khi operator nạp. Hệ quả: tool kéo xong, collector sửa tiếp → bản trong staging tool thành cũ. Xử lý (NAP-01, CHANGES #11): tool **kéo lại làm tươi** các bản `keo_ve` còn trạng thái cục bộ `cho` (ghi đè thông tin/ảnh mới nhất từ VPS), **giữ nguyên** bản `xong`/`loi`. Không khóa-khi-kéo (tránh kẹt hàng loạt + job 15' lật ngược khi kéo mà chưa nạp).
-- Trước nạp: `POST /nap/:uuid/lock` set `importing` + `locked_by` (compare-and-set nguyên tử trong 1 UPDATE có WHERE `trang_thai='pending'`). Tool khác thua → báo "đang được nạp".
+- Trước nạp: `POST /nap/:uuid/lock` set `importing` + `locked_by` (compare-and-set nguyên tử trong 1 UPDATE có WHERE `trang_thai='pending'`). Tool khác thua → báo "đang được nạp". Lock **trả về bản ghi tươi** (thông tin + ảnh mới nhất) → tool nạp đúng bản collector vừa sửa, không nạp bản staging cũ (§7.5).
 - Nạp xong: `da_nap` + lưu `ma_dk`; `imported` không kéo lại → không tạo HV thứ 2.
 - Lỗi: `unlock` → `pending`; timeout khóa **15 phút** (env `IMPORT_LOCK_TIMEOUT_MIN=15`) → job tự mở khóa (EC-002).
 - **"Bỏ khỏi hàng đợi" (NAP-01, CHANGES #22):** xóa dòng trạng thái cục bộ `xong` khỏi `staging.sqlite` bảng `keo_ve` (endpoint tool-local `DELETE /local/keo-ve/:uuid`) — chỉ dọn hàng đợi tool, **KHÔNG đụng VPS/DB đích** (HV đã nạp, VPS đã `da_nap` nên kéo lại không mang về). Khác hẳn "Xóa khỏi DB" (QLY-03 `usp_NguoiLX_Delete`) — đặt tên/nút tách bạch để tránh xóa nhầm prod.
@@ -512,6 +512,27 @@ APScheduler quét mỗi giờ: `pending`/`imported` quá 30 ngày → xóa dòng
 
 ### 7.4 Validate ảnh thô khi nhận (bảo mật)
 `POST /api/ho-so/:uuid/anh` phải kiểm trước khi lưu: kích thước **≤ 8 MB**; **magic-byte** đúng JPEG/PNG (không tin đuôi/Content-Type); giới hạn số điểm ảnh (`Image.MAX_IMAGE_PIXELS`) để chặn ảnh "bung nén" (decompression bomb) làm treo/sập tool khi `rembg`/`Pillow` xử lý. Không hợp lệ → 4xx, báo lỗi rõ (PRD ⑦).
+
+### 7.5 Quyền sở hữu bản ghi: mốc "Nạp" là điểm bàn giao (CHANGES #26)
+
+Một hồ sơ sống ở **2 nơi**: VPS (app web — nơi collector tạo) và CSDT (qua tool — DB thật). Để không mâu thuẫn khi sửa/xóa từ 2 phía, quyền làm chủ **chuyển theo mốc nạp**:
+
+- **Trước nạp** (`pending`): **app web làm chủ.** Collector thêm/sửa/xóa (THU-05); tool chỉ kéo-mirror (NAP-01), chưa đụng DB.
+- **Sau nạp** (`imported`): **tool/CSDT làm chủ.** Operator sửa nhân thân/ảnh/đổi khóa/xóa (QLY-01/02/03/05/08); bản ghi app web **đóng băng** — chỉ xem, không sửa/xóa (`PUT`/`DELETE /api/ho-so/:uuid` chỉ khi `pending`). Bản VPS thành lịch sử, KHÔNG đẩy ngược từ CSDT.
+
+**Edge (khóa chưa BC1):**
+
+| Chặng | Tình huống | Xử lý |
+|---|---|---|
+| Cửa sổ bàn giao | Collector sửa lúc tool vừa kéo bản cũ | Tool đọc bản mới nhất ở bước `lock` (lock trả record tươi) — không nạp bản staging cũ |
+| Cửa sổ bàn giao | Collector xóa đúng lúc operator bấm nạp | Ai tới trước: tool `lock` trước → app web `DELETE` 409; app web xóa trước → `lock` CAS 0 dòng → tool báo "hồ sơ đã bị người gửi xóa" |
+| Sau nạp | Collector muốn sửa/xóa trên app web | Không cho (đóng băng). Sửa làm ở tool (QLY-01/05) |
+| Sau nạp | Nạp nhầm khóa | Cùng hạng → QLY-02 (đổi khóa, trong DB); khác hạng / muốn sửa lại từ app → QLY-08 (gỡ về chờ nạp) |
+| Thêm | Collector tạo HV đã có trong DB (đã nạp) | App web không soi được DB → chốt trùng ở tool lúc nạp (NAP-06) |
+
+**Hai hành vi xóa HV đã nạp — hậu quả khác nhau (chống bấm nhầm):**
+- **QLY-03 "Xóa hẳn":** xóa khỏi CSDT, VPS vẫn `imported` (lịch sử). Nạp lại = nhập lại hồ sơ MỚI ở app web (quyết định Q1).
+- **QLY-08 "Gỡ về chờ nạp":** xóa khỏi CSDT **+** VPS `imported→pending`. Về hàng chờ, nạp lại không nhập lại; ảnh dùng ảnh thô VPS (Q2); về `pending` thì collector lại sửa/xóa được (Q3).
 
 ---
 
@@ -557,6 +578,7 @@ APScheduler quét mỗi giờ: `pending`/`imported` quá 30 ngày → xóa dòng
 *Ảnh thô kéo về nạp thẳng vào trình chỉnh (AnhModal nhận ảnh khởi tạo tùy chọn) — luồng kéo-về NAP-04 (CHANGES #19). Prop ảnh khởi tạo là TÙY CHỌN để QLY-05/QLY-06 mở không-ảnh-sẵn vẫn chạy như cũ.*
 *Xoay + khung chân dung mẫu (CHANGES #20): xoay client-side (canvas) trước khi gửi backend crop, box tính trong hệ ảnh đã xoay; khung mẫu chỉ là overlay CSS/SVG để căn, không đưa vào ảnh `.jp2`.*
 *Giữ bản preview PNG để xem lại/chỉnh tiếp (CHANGES #23): `/local/anh/xu-ly` đã trả cả `preview` (PNG data-URL, trình duyệt render được) lẫn `jp2_b64` (để ghi file). Khi "Dùng ảnh này", client lưu **cả `preview`** cạnh `jp2` trong nháp (`nhap[uuid]` ở NapHoSo; state ảnh ở TraCuuDB) để: (1) khung ảnh hiển thị ảnh đã chỉnh — KHÔNG dùng `jp2` vì `.jp2` không render trực tiếp trên trình duyệt; (2) mở lại trình chỉnh thì `anhBanDau` ưu tiên preview đã chỉnh gần nhất (có) thay vì ảnh thô. Nút áp dụng ("Dùng ảnh này") để **nổi bật** (nút đặc màu chính), badge kết quả ghi rõ cần bấm để áp dụng — chống dừng ở bước "Xử lý ảnh". Không đổi endpoint; thuần client.*
+*"Dùng lại ảnh gốc" (CHANGES #26): AnhModal thêm prop ảnh gốc `anhGoc` (ảnh nguyên bản, TÁCH khỏi `anhBanDau` = seed/ảnh-đã-chỉnh-gần-nhất). Có `anhGoc` → hiện nút **"Dùng lại ảnh gốc"** (xác nhận nhanh) → nạp lại `anhGoc` vào canvas, bỏ mọi chỉnh sửa + reset grab/zoom/xoay. Vì sao cần `anhGoc` riêng: CHANGES #23 đã cho `anhBanDau` ưu tiên preview-đã-chỉnh → không còn đường về ảnh nguyên bản; nút này đi xa hơn preview. Nguồn `anhGoc` tùy màn: **NAP-04** = ảnh thô VPS nguyên bản (còn trong phiên kéo-về); **QLY-05** = ảnh `.jp2` đang lưu transcode PNG (bản trước khi chỉnh phiên này). Không có nguồn → không truyền `anhGoc` → ẩn nút. Thuần client.*
 
 ### 9.2 Chuẩn xuất (đo 300 ảnh thật)
 - Tỷ lệ **3:4**, RGB, **nền trắng**; kích thước **mặc định 353×471 (~48 KB, khớp cụm phổ biến nhất của app cũ)**. (480×640 chỉ dùng khi có yêu cầu nét hơn — không phải mặc định, không cần nút chọn ở MVP.)
@@ -685,6 +707,18 @@ Collector(App web)  VPS(FastAPI/PG)   Operator(Tool)   SQL Server GPLX_CSDT   �
 - **Token hết hạn giữa lúc nhập** → yêu cầu đăng nhập lại; nháp local (localStorage/staging) không mất.
 - **Hiển thị khi kéo VPS về (NAP-01, CHANGES #6):** tên HV hiển thị **IN HOA giữ dấu** ngay trên form (khớp cách ghi DB). **Check chính tả mức A** (lớp UI, cảnh báo mềm — không chặn): cờ khi tên **thiếu dấu** (vd không có ký tự có dấu tiếng Việt), có **số/ký tự lạ** (ngoài chữ cái + khoảng trắng), hoặc **khoảng trắng thừa**. Không dùng từ điển tên (tránh báo nhầm tên hiếm/dân tộc). Nạp lô: trạng thái từng dòng ⚪/🔴(+lý do)/🟢 từ `nap_lo` (đã có, trả `{uuid, ok, loi}`).
 - **"Nạp lại nhanh" dòng lỗi (NAP-01, CHANGES #22):** nút trên dòng `loi` gọi lại `nap_lo` cho **một** `uuid` (dòng đã unlock về `pending` sau lần lỗi trước) — không cơ chế mới, chỉ là lối tắt khỏi phải tick lại.
+
+### 10.5 Redesign UX màn Nạp lô (NAP-01) — CHANGES #26
+
+Thuần client (webui), KHÔNG đổi endpoint nạp (`nap_lo` giữ nguyên). Mục tiêu: chọn nhiều HV nạp vào khóa chưa BC1 gọn hơn, tiến độ + báo cáo rõ.
+
+- **Trạng thái sẵn sàng mỗi dòng (client):** tính tại chỗ từ nháp `nhap[uuid]` — đủ khi `diaChi != null` (NAP-03 bắt buộc) + `tick` đã chọn giấy tờ; ảnh TÙY (thiếu ảnh vẫn nạp được, chỉ cảnh báo). Hiện `✔ Sẵn sàng` / `⚠ Thiếu địa chỉ|ảnh|giấy tờ`. Không gọi server.
+- **Chọn tất cả sẵn sàng:** nút tick mọi dòng `✔ Sẵn sàng` trong nhóm "Cần xử lý"; thanh hành động dính đáy "Nạp N học viên" (reuse batch bar sẵn có).
+- **Ngăn "Chuẩn bị" (drawer):** chuyển cột-chuẩn-bị-cố-định hiện tại (AddressCombo + giấy tờ + AnhModal) thành ngăn trượt từ phải, mở theo dòng; lưu xong → dòng thành `✔ Sẵn sàng` + tự tick. Giảm tải thị giác, màn còn 1 danh sách.
+- **Dialog nạp 3 pha:** reuse pattern `DoiNenDialog` (task 40 QLY-07) — (1) xác nhận (khóa đích + số sẵn sàng/bỏ qua) → (2) chạy: gọi `nap_lo(items)`, thanh % + N/tổng + tên HV đang nạp (`nap_lo` trả `{uuid, ok, loi}` từng dòng — hiện tiến độ theo kết quả trả về, không cần endpoint polling mới nếu `nap_lo` trả dần; nếu trả 1 lần thì hiển thị tiến độ theo thứ tự xử lý) → (3) báo cáo: đếm ok/lỗi + lý do từng dòng + nút "Nạp lại lỗi" (chọn lại các `uuid` lỗi, gọi `nap_lo` tiếp).
+- **Nút "Xem trong DB":** ở dòng `xong` + trong báo cáo → chuyển sang chế độ Tra cứu DB (cùng component `NapHoSo`/`TraCuuDB`), set khóa = khóa đích + làm nổi `MaDK` vừa nạp (từ kết quả `nap_lo`).
+
+> Lưu ý khi code (CHANGES #26): nếu muốn tiến độ mượt theo từng HV mà `nap_lo` hiện trả 1 lần cho cả lô, cân nhắc nạp tuần tự từng `uuid` ở client (gọi `nap_lo` 1-uuid nhiều lần như "Nạp lại nhanh") để cập nhật thanh % — quyết lúc code, không thêm endpoint server nếu tránh được.
 
 ---
 
@@ -950,6 +984,7 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 |---|---|---|
+| 03/10/2026 | 2.9 | Chốt nghiệp vụ + UX #24 (CHANGES #26): §7.5 mới — nguyên tắc "Nạp = điểm bàn giao quyền sở hữu" (trước nạp app web làm chủ, sau nạp tool/CSDT làm chủ, app web đóng băng) + bảng edge khóa chưa BC1 + phân biệt QLY-03 "Xóa hẳn" ≠ QLY-08 "Gỡ về chờ nạp"; §7.2 lock trả bản tươi; §9.1 +prop `anhGoc` + nút "Dùng lại ảnh gốc" (NAP-04 ảnh thô VPS / QLY-05 ảnh DB); §10.5 mới — redesign màn Nạp lô (trạng thái sẵn sàng mỗi dòng, chọn-tất-cả-sẵn-sàng, drawer Chuẩn bị, dialog nạp 3 pha, nút Xem trong DB). Thuần client phần UX, không endpoint mới. |
 | 03/10/2026 | 2.8 | Sửa sau review TDD #24 (biên bản `tdd-review-03-10-2026.md`): §11.7 "đồng bộ xóa khi kéo" bỏ cách suy-từ-vắng-mặt-trong-`keo` (xóa nhầm khi dòng bị khóa/rớt limit) → chốt `GET /api/nap/da-xoa?since=` (thêm §4.4); §4.4 +`GET /api/nap/tra-uuid?ma_dk=` cho fallback QLY-08 bước 2; §4.3/§4.4 +quy tắc CAS nguyên tử (`DELETE … WHERE trang_thai='pending'`, `tra-ve-cho-nap … WHERE 'imported'`, idempotent khi retry); §4.3 soft-delete ghi mốc vào `audit_log.created_at` (không cột mới); §11.7 +sơ đồ ASCII luồng xóa-CSDT-trước-rồi-VPS + nhánh bù. (Ghi nhận: PRD gọi `done`, DB/TDD là `imported` → xử bằng `/capnhat`.) |
 | 02/10/2026 | 2.7 | Gỡ HV về chờ nạp + đồng bộ xóa (CHANGES #24): §4.3 +`DELETE /api/ho-so/:uuid` (soft-delete, chỉ pending, phân quyền — THU-05); §4.4 +`POST /api/nap/:uuid/tra-ve-cho-nap` (imported→pending — QLY-08); §7.1 +2 chuyển trạng thái (imported→pending gỡ về; collector xóa pending→deleted); §11.7 mới (gỡ HV về chờ nạp + kéo về đồng bộ bỏ dòng đã xóa); §6 +nút Xóa app web. Dùng lại trạng thái `deleted` + `audit_log` sẵn có, không bảng mới. NAP-01 hạ ⏳; +story QLY-08, THU-05. |
 | 02/10/2026 | 2.6 | UX giữ ảnh đã chỉnh để xem lại/chỉnh tiếp (CHANGES #23): §9.1 client lưu thêm bản `preview` PNG cạnh `jp2` trong nháp → khung ảnh hiện ảnh đã chỉnh (`.jp2` không render trực tiếp) + mở lại trình chỉnh nạp sẵn ảnh đã chỉnh gần nhất; nút áp dụng nổi bật. Thuần client, không đổi endpoint. NAP-04/QLY-05 hạ ⏳; QLY-06 đổi nhãn nút → ⏳. |
