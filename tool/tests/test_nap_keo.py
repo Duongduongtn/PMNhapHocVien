@@ -122,9 +122,10 @@ def test_keo_ghi_staging(staging_tmp, op_headers, monkeypatch):
         return [_keo_row("u1"), _keo_row("u2")] if goi["n"] == 1 else []
 
     monkeypatch.setattr(vps_mod, "keo", fake_keo)
+    monkeypatch.setattr(vps_mod, "da_xoa", lambda token, since=None: {"uuids": [], "moc": None})
     r = client.post("/local/nap/keo", headers=op_headers)
     assert r.status_code == 200
-    assert r.json() == {"keo_ve": 2, "lam_tuoi": 0, "tong": 2}
+    assert r.json() == {"keo_ve": 2, "lam_tuoi": 0, "bo_da_xoa": 0, "tong": 2}
     assert len(nap.keo_ve_danh_sach()) == 2
 
 
@@ -272,3 +273,48 @@ def test_keo_ve_ve_cho_dua_dong_da_nap_ve_cho(staging_tmp):
 def test_keo_ve_ve_cho_dong_da_bo_khoi_hang_doi(staging_tmp):
     """Dòng không còn trong staging (đã 'Bỏ khỏi hàng đợi') → False để UI gợi ý Kéo về."""
     assert nap.keo_ve_ve_cho("khong-co") is False
+
+
+# ---- NAP-01 task 44: đồng bộ xóa (keo bỏ dòng 'cho' đã xóa ở app web) ----
+def test_keo_ve_xoa_neu_cho_chi_bo_dong_cho(staging_tmp):
+    nap.keo_ve_upsert([_keo_row("u1"), _keo_row("u2")])
+    nap.keo_ve_cap_nhat("u2", trang_thai="xong", ma_dk="M2", so_ho_so="056")  # đã nạp
+    assert nap.keo_ve_xoa_neu_cho("u1") is True    # 'cho' → bỏ
+    assert nap.keo_ve_xoa_neu_cho("u2") is False   # 'xong' → GIỮ
+    uuids = {r["uuid"] for r in nap.keo_ve_danh_sach()}
+    assert uuids == {"u2"}
+
+
+def test_moc_da_xoa_luu_doc(staging_tmp):
+    assert nap.lay_moc_da_xoa() is None
+    nap.luu_moc_da_xoa("2026-10-03T08:00:00+00:00")
+    assert nap.lay_moc_da_xoa() == "2026-10-03T08:00:00+00:00"
+
+
+def test_keo_dong_bo_bo_dong_da_xoa(staging_tmp, op_headers, monkeypatch):
+    """Kéo về: dòng 'cho' nằm trong da-xoa → bị bỏ; dòng 'xong' đã xóa ở app → GIỮ (đã nạp rồi)."""
+    # u1 'cho', u2 đã nạp 'xong' (từ trước)
+    nap.keo_ve_upsert([_keo_row("u1")])
+    nap.keo_ve_upsert([_keo_row("u2")])
+    nap.keo_ve_cap_nhat("u2", trang_thai="xong", ma_dk="M2", so_ho_so="056")
+
+    monkeypatch.setattr(vps_mod, "keo", lambda token, limit=200, cursor=None: [])  # không kéo thêm
+    monkeypatch.setattr(vps_mod, "da_xoa",
+                        lambda token, since=None: {"uuids": ["u1", "u2"], "moc": "2026-10-03T09:00:00+00:00"})
+    r = client.post("/local/nap/keo", headers=op_headers)
+    assert r.status_code == 200
+    assert r.json()["bo_da_xoa"] == 1  # chỉ bỏ u1 ('cho'); u2 'xong' giữ
+    uuids = {x["uuid"] for x in nap.keo_ve_danh_sach()}
+    assert uuids == {"u2"}
+    assert nap.lay_moc_da_xoa() == "2026-10-03T09:00:00+00:00"  # mốc đã tiến
+
+
+def test_keo_dong_bo_vps_loi_khong_hong_keo(staging_tmp, op_headers, monkeypatch):
+    """da-xoa lỗi → kéo vẫn thành công (bo_da_xoa=0), đồng bộ để lượt sau."""
+    nap.keo_ve_upsert([_keo_row("u1")])
+    monkeypatch.setattr(vps_mod, "keo", lambda token, limit=200, cursor=None: [])
+    monkeypatch.setattr(vps_mod, "da_xoa",
+                        lambda token, since=None: (_ for _ in ()).throw(VpsLoi("mất kết nối", None)))
+    r = client.post("/local/nap/keo", headers=op_headers)
+    assert r.status_code == 200 and r.json()["bo_da_xoa"] == 0
+    assert {x["uuid"] for x in nap.keo_ve_danh_sach()} == {"u1"}  # KHÔNG bỏ nhầm khi da-xoa lỗi

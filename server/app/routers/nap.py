@@ -80,6 +80,30 @@ def keo(
     ]
 
 
+class DaXoaOut(BaseModel):
+    uuids: list[UUID]
+    moc: datetime  # created_at bản xóa mới nhất — lượt kéo sau truyền lại làm `since` (incremental)
+
+
+@router.get("/da-xoa", response_model=DaXoaOut)
+def da_xoa(since: datetime | None = None, _op: User = Depends(require_role("operator")), db: Session = Depends(get_db)):
+    """DS uuid hồ sơ collector đã XÓA ở app web (soft-delete 'xoa', THU-05) kể từ mốc `since` —
+    để tool bỏ dòng staging `pending` tương ứng khi "Kéo về" (NAP-01 task 44, TDD §11.7).
+
+    CHỈ hành động 'xoa'; KHÔNG suy xóa từ việc uuid vắng mặt trong /keo (keo còn lọc lock + limit
+    → vắng mặt ≠ đã xóa → sẽ bỏ nhầm hồ sơ chưa xóa). Trả kèm `moc` = created_at bản xóa mới nhất
+    (rỗng → trả lại `since`/now) để lượt sau truyền làm `since`, chỉ lấy phần mới.
+
+    Khai báo TRƯỚC các route /{uuid}/... vì đây là đường tĩnh (tránh bị path-param nuốt)."""
+    stmt = select(AuditLog).where(AuditLog.hanh_dong == "xoa").order_by(AuditLog.created_at.asc())
+    if since is not None:
+        stmt = stmt.where(AuditLog.created_at > since)
+    rows = db.scalars(stmt).all()
+    uuids = [r.uuid_hs for r in rows if r.uuid_hs is not None]
+    moc = rows[-1].created_at if rows else (since or _now())
+    return DaXoaOut(uuids=uuids, moc=moc)
+
+
 @router.get("/tra-uuid", status_code=status.HTTP_200_OK)
 def tra_uuid(ma_dk: str, _op: User = Depends(require_role("operator")), db: Session = Depends(get_db)):
     """Tra uuid gốc theo ma_dk — fallback cho QLY-08 (gỡ HV về chờ nạp) khi staging nap_xong

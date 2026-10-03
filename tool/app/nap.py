@@ -403,6 +403,47 @@ def keo_ve_xoa(uuid: str) -> None:
         conn.close()
 
 
+def keo_ve_xoa_neu_cho(uuid: str) -> bool:
+    """NAP-01 task 44 (đồng bộ xóa) — bỏ dòng staging CHỈ KHI còn 'cho' (chưa nạp). Dòng 'xong'/'loi'
+    GIỮ nguyên (đã nạp/đã xử lý — collector không đụng tới được). Trả True nếu đã bỏ."""
+    conn = _keo_conn()
+    try:
+        cur = conn.execute("DELETE FROM keo_ve WHERE uuid=? AND trang_thai='cho'", (str(uuid),))
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+# ---- Mốc đồng bộ xóa (NAP-01 task 44) — created_at bản xóa gần nhất đã đồng bộ, để kéo incremental
+_MOC_DDL = "CREATE TABLE IF NOT EXISTS keo_moc (ten TEXT PRIMARY KEY, gia_tri TEXT)"
+
+
+def lay_moc_da_xoa() -> str | None:
+    """Mốc da-xoa lần đồng bộ trước (None = chưa đồng bộ lần nào → lấy từ đầu)."""
+    if not ORPHAN_DB.exists():
+        return None
+    conn = sqlite3.connect(str(ORPHAN_DB))
+    try:
+        conn.execute(_MOC_DDL)
+        row = conn.execute("SELECT gia_tri FROM keo_moc WHERE ten='da_xoa'").fetchone()
+    finally:
+        conn.close()
+    return row[0] if row else None
+
+
+def luu_moc_da_xoa(moc: str) -> None:
+    """Lưu mốc da-xoa mới nhất (VPS trả về) để lượt kéo sau chỉ lấy phần mới."""
+    ORPHAN_DB.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(ORPHAN_DB))
+    try:
+        conn.execute(_MOC_DDL)
+        conn.execute("INSERT OR REPLACE INTO keo_moc (ten, gia_tri) VALUES ('da_xoa', ?)", (moc,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def keo_ve_ve_cho(uuid: str) -> bool:
     """QLY-08 bước 5 — đưa dòng staging keo_ve về 'cho' (gỡ ma_dk/so_ho_so/lỗi) sau khi gỡ HV
     về chờ nạp. Chỉ đụng SQLite cục bộ. Dòng không còn trong staging (đã 'Bỏ khỏi hàng đợi' sau

@@ -164,6 +164,7 @@ export default function NapHoSo() {
       setKeoVe(await getDanhSachKeoVe());
       const phan = [`${kq.keo_ve} hồ sơ mới`];
       if (kq.lam_tuoi > 0) phan.push(`làm tươi ${kq.lam_tuoi} hồ sơ chờ nạp`);
+      if (kq.bo_da_xoa > 0) phan.push(`bỏ ${kq.bo_da_xoa} hồ sơ đã xóa ở app`);
       setKeoMsg(`Đã kéo: ${phan.join(" · ")}. Tổng ${kq.tong} trong danh sách.`);
     } catch (e) {
       setKeoErr(e instanceof Error ? e.message : "Không kéo được hàng đợi từ VPS.");

@@ -95,6 +95,16 @@ def unlock(vps_token: str | None, uuid: str) -> None:
         raise VpsLoi("VPS trả lỗi khi mở khóa hồ sơ.", r.status_code)
 
 
+def da_xoa(vps_token: str | None, since: str | None = None) -> dict:
+    """DS uuid hồ sơ collector đã XÓA ở app web (THU-05) từ mốc `since` — NAP-01 task 44 đồng bộ
+    khi "Kéo về". Trả {"uuids": [...], "moc": <iso>}. since=None → từ đầu. Lỗi → VpsLoi."""
+    params = {"since": since} if since else {}
+    r = _goi("GET", "/api/nap/da-xoa", vps_token, timeout=_TIMEOUT, params=params)
+    if r.status_code != 200:
+        raise VpsLoi("VPS trả lỗi khi lấy danh sách đã xóa.", r.status_code)
+    return r.json()
+
+
 def tra_uuid(vps_token: str | None, ma_dk: str) -> str | None:
     """Tra uuid gốc theo ma_dk (QLY-08 bước 2 — fallback khi staging nap_xong local không còn).
     Không thấy bản đã nạp (404) → None; lỗi khác → VpsLoi."""

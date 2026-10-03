@@ -429,7 +429,7 @@ export interface KeoVeRow {
 // Kéo trọn bản ghi pending từ VPS về staging. Trả số mới thêm + số làm tươi + tổng.
 export const keoHangDoi = () =>
   fetch(`${BASE}/local/nap/keo`, { method: "POST", headers: authHeaders() }).then(
-    json<{ keo_ve: number; lam_tuoi: number; tong: number }>,
+    json<{ keo_ve: number; lam_tuoi: number; bo_da_xoa: number; tong: number }>,
   );
 
 export const getDanhSachKeoVe = () =>

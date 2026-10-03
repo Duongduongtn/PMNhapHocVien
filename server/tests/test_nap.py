@@ -249,3 +249,51 @@ def test_tra_uuid_chi_imported(api):
 
 def test_tra_uuid_thieu_tool_key_401(api):
     assert api.get("/api/nap/tra-uuid", headers=_login(api, "op1"), params={"ma_dk": "X"}).status_code == 401
+
+
+# ── da-xoa: đồng bộ hồ sơ collector đã xóa ở app web (NAP-01 task 44) ──
+def _xoa_pending(api: TestClient, ho_ten: str = "X") -> str:
+    """Collector gửi pending rồi xóa (soft-delete 'xoa'), trả uuid."""
+    u = _gui_pending(api, ho_ten)
+    assert api.request("DELETE", f"/api/ho-so/{u}", headers=_login(api, "col1")).status_code == 204
+    return u
+
+
+def test_da_xoa_tra_uuid_da_xoa(api):
+    u = _xoa_pending(api)
+    r = api.get("/api/nap/da-xoa", headers=_op_headers(api))
+    assert r.status_code == 200
+    assert u in r.json()["uuids"] and r.json()["moc"]
+
+
+def test_da_xoa_bo_qua_ho_so_chua_xoa(api):
+    _gui_pending(api, "con-pending")   # chưa xóa → không nằm trong da-xoa
+    u_xoa = _xoa_pending(api, "da-xoa")
+    uuids = api.get("/api/nap/da-xoa", headers=_op_headers(api)).json()["uuids"]
+    assert uuids == [u_xoa]
+
+
+def test_da_xoa_loc_theo_since(api):
+    u1 = _xoa_pending(api, "xoa-1")
+    moc1 = api.get("/api/nap/da-xoa", headers=_op_headers(api)).json()["moc"]
+    u2 = _xoa_pending(api, "xoa-2")
+    # since=moc1 → chỉ lấy phần xóa SAU mốc (u2), không lặp u1
+    r = api.get("/api/nap/da-xoa", headers=_op_headers(api), params={"since": moc1})
+    assert r.status_code == 200
+    uuids = r.json()["uuids"]
+    assert u2 in uuids and u1 not in uuids
+
+
+def test_da_xoa_rong_tra_moc(api):
+    """Chưa có hồ sơ nào bị xóa → uuids rỗng, vẫn trả moc (để lượt sau truyền lại)."""
+    r = api.get("/api/nap/da-xoa", headers=_op_headers(api))
+    assert r.status_code == 200 and r.json()["uuids"] == [] and r.json()["moc"]
+
+
+def test_da_xoa_collector_403(api):
+    r = api.get("/api/nap/da-xoa", headers={**_login(api, "col1"), "X-Tool-Key": TOOL_KEY})
+    assert r.status_code == 403
+
+
+def test_da_xoa_thieu_tool_key_401(api):
+    assert api.get("/api/nap/da-xoa", headers=_login(api, "op1")).status_code == 401

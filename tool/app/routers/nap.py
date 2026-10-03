@@ -199,7 +199,24 @@ def keo_hang_doi(phien: Phien = Depends(require_session), limit: int = Query(200
         if len(rows) < limit:
             break
         cursor = rows[-1].get("created_at")
-    return {"keo_ve": tong_moi, "lam_tuoi": tong_tuoi, "tong": len(nap.keo_ve_danh_sach())}
+
+    # NAP-01 task 44 — đồng bộ xóa: bỏ dòng staging 'cho' mà collector đã XÓA ở app web (THU-05).
+    # Dùng danh sách da-xoa (KHÔNG suy từ vắng mặt trong /keo — keo còn lọc lock + limit → bỏ nhầm).
+    # Chỉ bỏ dòng CHƯA nạp ('cho'); dòng đã nạp/lỗi giữ nguyên. Lỗi bước này KHÔNG hỏng kéo (đã
+    # kéo xong ở trên); mốc chỉ tiến khi lấy được danh sách — lần sau lấy lại từ mốc cũ.
+    so_bo = 0
+    try:
+        kq_xoa = vps.da_xoa(phien.vps_token, since=nap.lay_moc_da_xoa())
+        for u in kq_xoa.get("uuids", []):
+            if nap.keo_ve_xoa_neu_cho(u):
+                so_bo += 1
+        if kq_xoa.get("moc"):
+            nap.luu_moc_da_xoa(kq_xoa["moc"])
+    except VpsLoi:
+        pass  # kéo chính đã xong; đồng bộ xóa để lượt kéo sau, không chặn luồng
+
+    return {"keo_ve": tong_moi, "lam_tuoi": tong_tuoi, "bo_da_xoa": so_bo,
+            "tong": len(nap.keo_ve_danh_sach())}
 
 
 @router.get("/nap/danh-sach")
