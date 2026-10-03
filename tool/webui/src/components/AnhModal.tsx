@@ -13,10 +13,14 @@ export default function AnhModal({
   onDong,
   onXong,
   anhBanDau,
+  anhGoc,
 }: {
   onDong: () => void;
   onXong?: (jp2_b64: string, preview: string) => void; // preview: PNG data-URL để xem lại/chỉnh tiếp (CHANGES #23)
   anhBanDau?: string | null;
+  // anhGoc (task 45): URL ảnh NGUYÊN BẢN để quay về — NAP-01 = ảnh thô VPS phiên kéo-về ·
+  // QLY-05 = ảnh .jp2 DB transcode PNG. Có → hiện nút "Dùng lại ảnh gốc" (bỏ chỉnh sửa hiện tại).
+  anhGoc?: string | null;
 }) {
   const [src, setSrc] = useState("");
   const [nat, setNat] = useState({ w: 0, h: 0 });
@@ -28,6 +32,7 @@ export default function AnhModal({
   const [kq, setKq] = useState<AnhKetQua | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [xnGoc, setXnGoc] = useState(false); // xác nhận nhanh trước khi về ảnh gốc (bỏ chỉnh sửa)
   const fileRef = useRef<File | null>(null);
   const drag = useRef<{ x: number; y: number } | null>(null);
 
@@ -50,6 +55,7 @@ export default function AnhModal({
     fileRef.current = f;
     setKq(null);
     setErr("");
+    setXnGoc(false);
     const url = URL.createObjectURL(f);
     const im = new Image();
     im.onload = () => {
@@ -64,21 +70,32 @@ export default function AnhModal({
     im.src = url;
   };
 
-  // Nạp sẵn ảnh thô kéo về từ VPS (CHANGES #19): tải URL → Blob → File → đưa vào khung crop.
-  // Lỗi tải (ảnh mất/đổi) chỉ bỏ qua — operator vẫn chọn file tay được.
-  useEffect(() => {
-    if (!anhBanDau) return;
+  // Tải ảnh từ URL (VPS raw / DB .jp2 PNG) → Blob → File → đưa vào khung crop (chonFile reset
+  // zoom/pan/xoay). Trả cleanup để hủy khi URL đổi. Lỗi tải (ảnh mất/đổi) bỏ qua — chọn tay được.
+  const napTuUrl = (url: string) => {
     let huy = false;
-    fetch(anhBanDau)
+    fetch(url)
       .then((r) => (r.ok ? r.blob() : Promise.reject()))
       .then((b) => {
-        if (huy) return;
-        chonFile(new File([b], "anh-vps.jpg", { type: b.type || "image/jpeg" }));
+        if (!huy) chonFile(new File([b], "anh-goc.jpg", { type: b.type || "image/jpeg" }));
       })
       .catch(() => {});
     return () => { huy = true; };
+  };
+
+  // Nạp sẵn ảnh thô kéo về từ VPS (CHANGES #19).
+  useEffect(() => {
+    if (!anhBanDau) return;
+    return napTuUrl(anhBanDau);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [anhBanDau]);
+
+  // Task 45 — quay về ảnh nguyên bản (bỏ mọi chỉnh sửa: file đã chọn khác, zoom/pan/xoay/nghiêng).
+  const dungLaiAnhGoc = () => {
+    if (!anhGoc) return;
+    napTuUrl(anhGoc);  // chonFile tự reset zoom/pan/xoay/nghiêng + xóa kết quả cũ
+    setXnGoc(false);
+  };
 
   const datZoom = (m: number) => {
     const mm = Math.max(-1, Math.min(1, m)); // thang −1..1
@@ -229,10 +246,29 @@ export default function AnhModal({
                 </div>
               </div>
             )}
-            <label className="inline-flex items-center gap-2 h-9 px-3 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors cursor-pointer">
-              <Icon name="file" className="w-4 h-4" /> {src ? "Thay ảnh khác" : "Chọn ảnh"}
-              <input type="file" accept="image/jpeg,image/png" className="hidden" onChange={(e) => e.target.files?.[0] && chonFile(e.target.files[0])} />
-            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="inline-flex items-center gap-2 h-9 px-3 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors cursor-pointer">
+                <Icon name="file" className="w-4 h-4" /> {src ? "Thay ảnh khác" : "Chọn ảnh"}
+                <input type="file" accept="image/jpeg,image/png" className="hidden" onChange={(e) => e.target.files?.[0] && chonFile(e.target.files[0])} />
+              </label>
+              {/* Task 45 — chỉ hiện khi có ảnh gốc (NAP-01 ảnh thô VPS / QLY-05 ảnh DB) */}
+              {anhGoc && !xnGoc && (
+                <button
+                  type="button"
+                  onClick={() => setXnGoc(true)}
+                  className="inline-flex items-center gap-2 h-9 px-3 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors"
+                >
+                  <Icon name="refresh" className="w-4 h-4" /> Dùng lại ảnh gốc
+                </button>
+              )}
+              {anhGoc && xnGoc && (
+                <span className="inline-flex items-center gap-2 text-[12px]">
+                  <span className="text-muted-foreground">Bỏ chỉnh sửa, về ảnh gốc?</span>
+                  <button type="button" onClick={dungLaiAnhGoc} className="h-8 px-3 rounded-lg bg-primary text-primary-foreground font-semibold hover:brightness-110 transition-all">Về ảnh gốc</button>
+                  <button type="button" onClick={() => setXnGoc(false)} className="h-8 px-2 rounded-lg text-muted-foreground hover:text-foreground">Hủy</button>
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Kết quả */}

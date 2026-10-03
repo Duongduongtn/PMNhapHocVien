@@ -1097,6 +1097,7 @@ export default function TraCuuDB() {
       {anhModal && sel && (
         <AnhModal
           anhBanDau={anhSeed}
+          anhGoc={anhSeed}
           onDong={() => { setAnhModal(false); setAnhSeed(null); }}
           onXong={(b64) => void napAnhHv(b64)}
         />

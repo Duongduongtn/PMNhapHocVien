@@ -714,6 +714,7 @@ export default function NapHoSo() {
           onDong={() => setAnhOpen(false)}
           onXong={(b64, preview) => capNhatNhap(selRow.uuid, { jp2: b64, anhPreview: preview })}
           anhBanDau={layNhap(selRow.uuid).anhPreview ?? (selRow.co_anh ? anhUrl : null)}
+          anhGoc={selRow.co_anh ? anhUrl : null}
         />
       )}
     </>
