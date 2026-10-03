@@ -384,9 +384,10 @@ export default function DaGui() {
             {!rows.length && <div className="px-4 py-10 text-center text-sm text-muted-foreground">{rong}</div>}
           </div>
 
-          {/* DESKTOP: table */}
-          <div className="hidden lg:block bg-card border border-border rounded-xl overflow-hidden">
-            <table className="w-full text-[13px]">
+          {/* DESKTOP: table — overflow-x-auto để không che cột phải khi thêm cột ô tích (BUG-05);
+              min-w-full + whitespace-nowrap ở th cho cuộn ngang gọn khi khung hẹp */}
+          <div className="hidden lg:block bg-card border border-border rounded-xl overflow-x-auto">
+            <table className="w-full min-w-[720px] text-[13px]">
               <thead>
                 <tr className="bg-muted text-muted-foreground text-left">
                   <th className="px-4 py-2.5 w-10">

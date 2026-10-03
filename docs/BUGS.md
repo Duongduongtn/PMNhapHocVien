@@ -4,6 +4,7 @@
 
 | # | Ngày | Mức | Story | Bug | Trạng thái | Deploy |
 |---|---|---|---|---|---|---|
+| 5 | 03/10/2026 | 🟠 Nặng | `THU-05` | Màn "Hồ sơ đã gửi" (app web desktop): thêm cột ô tích chọn-nhiều (CHANGES #30) làm bảng vượt bề rộng khung AppLayout → `overflow-hidden` **che mất cột phải** (Nơi TT/Ngày gửi/Trạng thái). Sửa: `overflow-hidden`→`overflow-x-auto` + `min-w-[720px]` cho cuộn ngang, không che | ✅ Đã sửa | ⬜ (chờ deploy webapp) |
 | 4 | 03/10/2026 | 🟠 Nặng | `NAP-01` · `NAP-03` | Collector sửa địa chỉ (2 cấp mới) trên app; kéo về tool lại nạp địa chỉ CŨ đã map — nháp địa chỉ không làm tươi theo raw mới | ✅ Đã sửa | ⬜ (tool chưa lên VPS — có hiệu lực khi chạy lại tool) |
 | 3 | 03/10/2026 | 🟠 Nặng | `QLY-08` · `NAP-01` | Gỡ HV về chờ nạp xong, màn Nạp không tự hiện lại ở "chờ nạp" — phải bấm "Kéo từ VPS" | ✅ Đã sửa | ⬜ (tool chưa lên VPS — có hiệu lực khi chạy lại tool) |
 | 2 | 03/10/2026 | 🟠 Nặng | `QLY-01` · `NAP-01` | Tra cứu DB ẩn mọi HV chưa ảnh (TT_XuLy='01') → "Xem trong DB" không thấy HV nạp không ảnh; bộ lọc "Chưa ảnh" luôn rỗng | ✅ Đã sửa | ⬜ (tool chưa lên VPS — có hiệu lực khi chạy lại tool) |
@@ -12,6 +13,15 @@
 Chú thích trạng thái: ✅ Đã sửa · 🔄 Đang sửa · ⏳ Đã xếp task · ⬜ Chưa xử
 
 ---
+
+## BUG-05 — Màn "Hồ sơ đã gửi" app web desktop che mất cột phải · 03/10/2026
+
+- **Mức:** 🟠 Nặng (nội dung bị che, không xem được) · **Story:** `THU-05` · **File:** `webapp/src/pages/DaGui.tsx`
+- **Tái hiện:** mở "Hồ sơ đã gửi" trên desktop (≥lg) — bảng bị cắt bên phải, không thấy đủ cột (Nơi thường trú / Ngày gửi / Trạng thái).
+- **Nguyên nhân:** THU-05 (CHANGES #30) thêm **cột ô tích chọn-nhiều** → bảng thành 8 cột, tổng bề rộng vượt khung nội dung AppLayout (~940px, shell `max-w-[1180px]` trừ sidebar). Card bảng để `overflow-hidden` (có sẵn) → phần vượt bị **cắt cứng** thay vì cuộn.
+- **Ảnh hưởng:** chỉ app web **desktop**, màn "Hồ sơ đã gửi". Mobile (card list) không ảnh hưởng.
+- **Cách sửa:** card bảng `overflow-hidden` → **`overflow-x-auto`** (cuộn ngang khi hẹp, không che) + `table` thêm `min-w-[720px]` (giữ bảng đọc được, tránh squish). Khớp mẫu `QuanTriHoSo.tsx` (admin) vốn dùng `overflow-x-auto`.
+- **Kiểm:** webapp build + typecheck sạch · 24 vitest. **Chưa chụp Playwright** (màn sau đăng nhập) — verify trực quan trên live sau deploy.
 
 ## BUG-04 — Kéo lại sau khi collector sửa địa chỉ vẫn nạp địa chỉ cũ · 03/10/2026
 
