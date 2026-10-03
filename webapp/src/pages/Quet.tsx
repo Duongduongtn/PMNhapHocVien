@@ -235,7 +235,7 @@ function ChonCach({
         <button
           type="button"
           onClick={onQuet}
-          className="w-full h-14 rounded-xl bg-primary text-primary-foreground font-bold text-[15px] flex items-center justify-center gap-2.5 hover:brightness-110 transition-all shadow-sm"
+          className="w-full h-14 rounded-xl bg-primary text-primary-foreground font-bold text-[15px] flex items-center justify-center gap-2.5 hover:brightness-110 transition shadow-sm"
         >
           <Icon name="scan" className="w-5 h-5" /> Quét QR CCCD
         </button>
@@ -474,7 +474,7 @@ function KhungQuet({
             {/* khung BÁM theo QR khi phát hiện (CHANGES #12) */}
             {box && !thanhCong && (
               <div
-                className="absolute pointer-events-none border-[3px] border-amber-400 rounded-md transition-all duration-100"
+                className="absolute pointer-events-none border-[3px] border-amber-400 rounded-md transition duration-100"
                 style={{ left: box.x, top: box.y, width: box.w, height: box.h, boxShadow: "0 0 0 3px rgba(251,191,36,.28)" }}
               >
                 <span className="absolute -top-1 -left-1 w-3.5 h-3.5 border-t-[3px] border-l-[3px] border-amber-400" />
@@ -685,7 +685,7 @@ function Preview({
           <button
             type="submit"
             disabled={dangGui}
-            className="w-full lg:w-auto px-5 h-11 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 whitespace-nowrap hover:brightness-110 transition-all shadow-sm disabled:opacity-60"
+            className="w-full lg:w-auto px-5 h-11 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 whitespace-nowrap hover:brightness-110 transition shadow-sm disabled:opacity-60"
           >
             <Icon name="camera" className="w-4 h-4" /> Tiếp tục — chụp ảnh chân dung
           </button>
@@ -857,7 +857,7 @@ function ChupAnhGui({ uuid, onXong }: { uuid: string; onXong: (mangYeu: boolean)
           type="button"
           onClick={gui}
           disabled={dangGui}
-          className="w-full h-11 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-sm disabled:opacity-60"
+          className="w-full h-11 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:brightness-110 transition shadow-sm disabled:opacity-60"
         >
           <Icon name="send" className="w-4 h-4" /> {dangGui ? "Đang gửi…" : anh ? "Gửi hồ sơ" : "Gửi không kèm ảnh"}
         </button>
@@ -886,7 +886,7 @@ function KetQua({ offline, onQuetTiep }: { offline: boolean; onQuetTiep: () => v
         <button
           type="button"
           onClick={onQuetTiep}
-          className="h-11 px-6 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-sm"
+          className="h-11 px-6 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:brightness-110 transition shadow-sm"
         >
           <Icon name="scan" className="w-4 h-4" /> Quét hồ sơ khác
         </button>

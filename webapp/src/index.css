@@ -10,6 +10,23 @@
 :root { color-scheme: light; }
 [hidden] { display: none !important; }
 
+/* A11y bàn phím + trạng thái vô hiệu (Hallmark gate 15/26/39) — gom một chỗ cho mọi màn:
+   viền focus rõ khi điều hướng bằng Tab (không hiện khi bấm chuột, nhờ :focus-visible);
+   phần tử disabled đổi con trỏ, không chỉ mờ đi. Input giữ ring box-shadow riêng ở dưới. */
+@layer base {
+  a:focus-visible,
+  button:focus-visible,
+  [role="button"]:focus-visible,
+  [tabindex]:not([tabindex="-1"]):focus-visible {
+    outline: 2px solid hsl(222 76% 40%);
+    outline-offset: 2px;
+  }
+  button:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+}
+
 body {
   margin: 0;
   background: hsl(210 40% 96%);

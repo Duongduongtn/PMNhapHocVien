@@ -83,7 +83,7 @@ export default function QuanLyTaiKhoan() {
         <h1 className="text-lg font-bold flex-1">Quản lý tài khoản</h1>
         <button
           onClick={() => setMoTao(true)}
-          className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-semibold text-sm inline-flex items-center gap-1.5 hover:brightness-110 transition-all shadow-sm"
+          className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-semibold text-sm inline-flex items-center gap-1.5 hover:brightness-110 transition shadow-sm"
         >
           <Icon name="plus" className="w-4 h-4" sw={2.5} /> Tạo nhân viên
         </button>
@@ -232,7 +232,7 @@ function TaoNhanVien({ onDong, onXong }: { onDong: () => void; onXong: (msg: str
         {loi && <p className="text-[12px] text-destructive flex items-center gap-1"><Icon name="warn" className="w-3.5 h-3.5" /> {loi}</p>}
         <div className="flex gap-2 pt-1">
           <button type="button" onClick={onDong} className="h-10 px-4 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Hủy</button>
-          <button type="submit" disabled={dang} className="ml-auto h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition-all disabled:opacity-60">
+          <button type="submit" disabled={dang} className="ml-auto h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition disabled:opacity-60">
             {dang ? "Đang tạo…" : "Tạo"}
           </button>
         </div>
@@ -277,7 +277,7 @@ function ResetMatKhau({ tk, onDong, onXong }: { tk: TaiKhoan; onDong: () => void
         {loi && <p className="text-[12px] text-destructive flex items-center gap-1"><Icon name="warn" className="w-3.5 h-3.5" /> {loi}</p>}
         <div className="flex gap-2 pt-1">
           <button type="button" onClick={onDong} className="h-10 px-4 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Hủy</button>
-          <button type="submit" disabled={dang} className="ml-auto h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition-all disabled:opacity-60">
+          <button type="submit" disabled={dang} className="ml-auto h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition disabled:opacity-60">
             {dang ? "Đang lưu…" : "Đặt mật khẩu"}
           </button>
         </div>

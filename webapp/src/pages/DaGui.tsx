@@ -569,7 +569,7 @@ function ChiTiet({ row, onDong, onCapNhat, onXoa }: { row: HoSoOut; onDong: () =
             </p>
             <div className="flex gap-2">
               <button onClick={() => setXacNhanXoa(false)} disabled={dangXoa} className="h-9 px-3 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Giữ lại</button>
-              <button onClick={() => void xoa()} disabled={dangXoa} className="ml-auto h-9 px-4 rounded-lg bg-destructive text-white text-sm font-semibold inline-flex items-center gap-2 hover:brightness-110 transition-all disabled:opacity-60">
+              <button onClick={() => void xoa()} disabled={dangXoa} className="ml-auto h-9 px-4 rounded-lg bg-destructive text-white text-sm font-semibold inline-flex items-center gap-2 hover:brightness-110 transition disabled:opacity-60">
                 <Icon name={dangXoa ? "refresh" : "warn"} className={"w-4 h-4" + (dangXoa ? " animate-spin" : "")} /> {dangXoa ? "Đang xóa…" : "Xóa hồ sơ"}
               </button>
             </div>
@@ -580,7 +580,7 @@ function ChiTiet({ row, onDong, onCapNhat, onXoa }: { row: HoSoOut; onDong: () =
           {che === "sua" ? (
             <>
               <button onClick={() => setChe("xem")} disabled={luu} className="h-10 px-4 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Hủy</button>
-              <button onClick={() => void luuSua()} disabled={luu} className="ml-auto h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition-all shadow-sm flex items-center gap-2 disabled:opacity-60">
+              <button onClick={() => void luuSua()} disabled={luu} className="ml-auto h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition shadow-sm flex items-center gap-2 disabled:opacity-60">
                 <Icon name={luu ? "refresh" : "check"} className={"w-4 h-4" + (luu ? " animate-spin" : "")} sw={3} /> {luu ? "Đang lưu…" : "Lưu"}
               </button>
             </>
@@ -588,10 +588,10 @@ function ChiTiet({ row, onDong, onCapNhat, onXoa }: { row: HoSoOut; onDong: () =
             <>
               <button onClick={moSua} className="inline-flex items-center gap-1.5 h-10 px-3 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors"><Icon name="edit" className="w-4 h-4" /> Sửa thông tin</button>
               <button onClick={() => { setLoi(null); setXacNhanXoa(true); }} disabled={xacNhanXoa} className="inline-flex items-center gap-1.5 h-10 px-3 rounded-lg border border-destructive/40 text-destructive text-sm font-medium hover:bg-destructive/10 transition-colors disabled:opacity-60"><Icon name="warn" className="w-4 h-4" /> Xóa</button>
-              <button onClick={onDong} className="ml-auto h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition-all shadow-sm">Đóng</button>
+              <button onClick={onDong} className="ml-auto h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition shadow-sm">Đóng</button>
             </>
           ) : (
-            <button onClick={onDong} className="ml-auto h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition-all shadow-sm">Đóng</button>
+            <button onClick={onDong} className="ml-auto h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition shadow-sm">Đóng</button>
           )}
         </div>
       </div>

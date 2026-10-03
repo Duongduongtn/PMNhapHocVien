@@ -76,7 +76,7 @@ export default function DangNhap() {
           <button
             type="submit"
             disabled={dangGui}
-            className="w-full h-11 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-sm disabled:opacity-60"
+            className="w-full h-11 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:brightness-110 transition shadow-sm disabled:opacity-60"
           >
             <Icon name="logout" className="w-4 h-4" /> {dangGui ? "Đang đăng nhập…" : "Đăng nhập"}
           </button>

@@ -126,7 +126,7 @@ function DoiMatKhau() {
       <button
         type="submit"
         disabled={dang || !htai || !moi || !lai}
-        className="h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition-all disabled:opacity-60"
+        className="h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition disabled:opacity-60"
       >
         {dang ? "Đang đổi…" : "Đổi mật khẩu"}
       </button>
@@ -197,7 +197,7 @@ function KhoaKetNoiTool() {
           type="button"
           onClick={() => void saoChep()}
           disabled={dang}
-          className="h-9 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:brightness-110 transition-all inline-flex items-center gap-1.5 disabled:opacity-60"
+          className="h-9 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:brightness-110 transition inline-flex items-center gap-1.5 disabled:opacity-60"
         >
           <Icon name="copy" className="w-4 h-4" /> {daChep ? "Đã chép" : "Sao chép"}
         </button>

@@ -170,7 +170,7 @@ export default function QuanTriHoSo() {
         <button
           disabled={chon.size === 0}
           onClick={() => setXacNhan(true)}
-          className="ml-auto inline-flex items-center gap-2 h-9 px-4 rounded-lg bg-destructive text-white font-semibold text-sm hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          className="ml-auto inline-flex items-center gap-2 h-9 px-4 rounded-lg bg-destructive text-white font-semibold text-sm hover:brightness-110 transition disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Icon name="warn" className="w-4 h-4" /> Xóa thủ công{chon.size > 0 ? ` (${chon.size})` : ""}
         </button>
@@ -246,7 +246,7 @@ export default function QuanTriHoSo() {
             </div>
             <div className="flex justify-end gap-2 mt-5">
               <button onClick={() => setXacNhan(false)} disabled={dangXoa} className="h-10 px-4 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors disabled:opacity-60">Hủy</button>
-              <button onClick={() => void xoaDaChon()} disabled={dangXoa} className="h-10 px-5 rounded-lg bg-destructive text-white text-sm font-semibold hover:brightness-110 transition-all disabled:opacity-60">
+              <button onClick={() => void xoaDaChon()} disabled={dangXoa} className="h-10 px-5 rounded-lg bg-destructive text-white text-sm font-semibold hover:brightness-110 transition disabled:opacity-60">
                 {dangXoa ? "Đang xóa…" : "Xóa"}
               </button>
             </div>
