@@ -470,7 +470,7 @@
 
 #### [QLY-08] Gỡ học viên về chờ nạp (nạp nhầm khóa)
 
-**Trạng thái:** ⏳ Todo — yêu cầu mới 02/10/2026 (CHANGES #24).
+**Trạng thái:** 🔄 In Progress — task 42 (03/10/2026): server VPS `tra-ve-cho-nap` + `tra-uuid` (phần 1/2; tool+webui = task 43). Yêu cầu mới 02/10/2026 (CHANGES #24) + nghiệp vụ/popup (CHANGES #26).
 **Story:** Là nhân viên nạp DB, tôi muốn gỡ một học viên đã nạp nhầm khóa ra khỏi DB và trả về danh sách chờ nạp, để nạp lại đúng khóa mà không phải nhập lại từ app web.
 
 **Steps to Complete:**

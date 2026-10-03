@@ -80,6 +80,25 @@ def keo(
     ]
 
 
+@router.get("/tra-uuid", status_code=status.HTTP_200_OK)
+def tra_uuid(ma_dk: str, _op: User = Depends(require_role("operator")), db: Session = Depends(get_db)):
+    """Tra uuid gốc theo ma_dk — fallback cho QLY-08 (gỡ HV về chờ nạp) khi staging nap_xong
+    local của tool không còn (đổi máy/xóa SQLite). VPS lưu ma_dk khi da-nap (TDD §4.4, §11.7).
+    Chỉ tìm bản đã nạp (imported). Không thấy → 404.
+
+    Khai báo TRƯỚC các route /{uuid}/... vì đây là đường tĩnh (tránh bị path-param nuốt)."""
+    ma = (ma_dk or "").strip()
+    if ma:
+        hs = db.scalars(
+            select(HoSoThuThap)
+            .where(HoSoThuThap.ma_dk == ma, HoSoThuThap.trang_thai == "imported")
+            .limit(1)
+        ).first()
+        if hs is not None:
+            return {"uuid": str(hs.uuid), "ma_dk": ma}
+    raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy hồ sơ đã nạp theo mã đăng ký")
+
+
 @router.get("/{uuid}/anh")
 def tai_anh(uuid: UUID, _op: User = Depends(require_role("operator")), db: Session = Depends(get_db)):
     """Tải ảnh thô của 1 hồ sơ về tool để hiển thị + xử lý thành .jp2 (NAP-01/NAP-04).
@@ -165,5 +184,41 @@ def unlock(uuid: UUID, op: User = Depends(require_role("operator")), db: Session
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy hồ sơ")
         raise HTTPException(status.HTTP_409_CONFLICT, "Hồ sơ không ở trạng thái đang nạp")
     db.add(AuditLog(actor_id=op.id, hanh_dong="unlock", uuid_hs=uuid))
+    db.commit()
+    return {"uuid": str(uuid), "trang_thai": "pending"}
+
+
+@router.post("/{uuid}/tra-ve-cho-nap", status_code=status.HTTP_200_OK)
+def tra_ve_cho_nap(uuid: UUID, op: User = Depends(require_role("operator")), db: Session = Depends(get_db)):
+    """Trả hồ sơ ĐÃ NẠP về chờ nạp (imported→pending, gỡ ma_dk) — QLY-08: tool gọi SAU khi đã gỡ
+    HV khỏi CSDT, để nạp lại đúng khóa (TDD §4.4, §7.1, §7.5). Khác `unlock` (chỉ importing→pending
+    khi nạp lỗi).
+
+    CAS nguyên tử (WHERE trang_thai='imported'). Gọi lại khi đã `pending` → **idempotent**: trả 200,
+    không lỗi (an toàn cho retry bước đồng bộ VPS ở QLY-08 khi lần trước đã thành công nhưng tool
+    tưởng lỗi). Bản ghi `deleted`/`importing`/không còn → 409 (không còn bản gốc đã-nạp để trả về)."""
+    now = _now()
+    res = db.execute(
+        update(HoSoThuThap)
+        .where(HoSoThuThap.uuid == uuid, HoSoThuThap.trang_thai == "imported")
+        .values(
+            trang_thai="pending",
+            ma_dk=None,
+            imported_at=None,
+            imported_by=None,
+            locked_by=None,
+            locked_at=None,
+            updated_at=now,
+        )
+    )
+    if res.rowcount == 0:
+        db.rollback()
+        hs = db.get(HoSoThuThap, uuid)
+        if hs is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy hồ sơ")
+        if hs.trang_thai == "pending":
+            return {"uuid": str(uuid), "trang_thai": "pending"}  # idempotent — đã về chờ nạp
+        raise HTTPException(status.HTTP_409_CONFLICT, "Không còn bản gốc đã nạp để trả về (đã xóa hoặc chưa nạp xong)")
+    db.add(AuditLog(actor_id=op.id, hanh_dong="tra_ve_cho_nap", uuid_hs=uuid))
     db.commit()
     return {"uuid": str(uuid), "trang_thai": "pending"}

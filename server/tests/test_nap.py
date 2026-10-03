@@ -178,3 +178,74 @@ def test_tai_anh_collector_403(api):
     u = _gui_pending(api)
     r = api.get(f"/api/nap/{u}/anh", headers={**_login(api, "col1"), "X-Tool-Key": TOOL_KEY})
     assert r.status_code == 403
+
+
+# ── Gỡ HV về chờ nạp (QLY-08, CHANGES #24/#26) — phần server VPS, task 42 ──
+def _nap_imported(api: TestClient, ma_dk: str = "70004K26B010001") -> str:
+    """Gửi pending → lock → da-nap → trả uuid đã ở trạng thái imported (kèm ma_dk)."""
+    u = _gui_pending(api)
+    api.post(f"/api/nap/{u}/lock", headers=_op_headers(api))
+    api.post(f"/api/nap/{u}/da-nap", headers=_op_headers(api), json={"ma_dk": ma_dk})
+    return u
+
+
+def test_tra_ve_cho_nap_tu_imported(api):
+    u = _nap_imported(api)
+    r = api.post(f"/api/nap/{u}/tra-ve-cho-nap", headers=_op_headers(api))
+    assert r.status_code == 200
+    assert r.json()["trang_thai"] == "pending"
+    # Về hàng chờ → kéo lại thấy, ma_dk đã gỡ (bản ghi như mới kéo)
+    keo = api.get("/api/nap/keo", headers=_op_headers(api)).json()
+    assert any(x["uuid"] == u for x in keo)
+
+
+def test_tra_ve_cho_nap_goi_lai_idempotent(api):
+    u = _nap_imported(api)
+    assert api.post(f"/api/nap/{u}/tra-ve-cho-nap", headers=_op_headers(api)).status_code == 200
+    # Gọi lại khi đã pending (retry bước đồng bộ VPS) → vẫn 200, không lỗi
+    r2 = api.post(f"/api/nap/{u}/tra-ve-cho-nap", headers=_op_headers(api))
+    assert r2.status_code == 200 and r2.json()["trang_thai"] == "pending"
+
+
+def test_tra_ve_cho_nap_khi_importing_409(api):
+    u = _gui_pending(api)
+    api.post(f"/api/nap/{u}/lock", headers=_op_headers(api))  # importing, chưa da-nap
+    assert api.post(f"/api/nap/{u}/tra-ve-cho-nap", headers=_op_headers(api)).status_code == 409
+
+
+def test_tra_ve_cho_nap_khong_ton_tai_404(api):
+    assert api.post(f"/api/nap/{uuid4()}/tra-ve-cho-nap", headers=_op_headers(api)).status_code == 404
+
+
+def test_tra_ve_cho_nap_da_xoa_409(api):
+    # Hồ sơ pending bị collector xóa (deleted) → không còn bản gốc để trả về
+    u = _gui_pending(api)
+    assert api.request("DELETE", f"/api/ho-so/{u}", headers=_login(api, "col1")).status_code == 204
+    assert api.post(f"/api/nap/{u}/tra-ve-cho-nap", headers=_op_headers(api)).status_code == 409
+
+
+def test_tra_ve_cho_nap_thieu_tool_key_401(api):
+    u = _nap_imported(api)
+    assert api.post(f"/api/nap/{u}/tra-ve-cho-nap", headers=_login(api, "op1")).status_code == 401
+
+
+# ── Tra uuid theo ma_dk (fallback QLY-08) ──
+def test_tra_uuid_tim_thay(api):
+    u = _nap_imported(api, ma_dk="70004K26B099009")
+    r = api.get("/api/nap/tra-uuid", headers=_op_headers(api), params={"ma_dk": "70004K26B099009"})
+    assert r.status_code == 200
+    assert r.json()["uuid"] == u
+
+
+def test_tra_uuid_khong_thay_404(api):
+    assert api.get("/api/nap/tra-uuid", headers=_op_headers(api), params={"ma_dk": "KHONG-CO"}).status_code == 404
+
+
+def test_tra_uuid_chi_imported(api):
+    # Hồ sơ pending (chưa nạp, chưa có ma_dk) → tra-uuid không trả về
+    _gui_pending(api)
+    assert api.get("/api/nap/tra-uuid", headers=_op_headers(api), params={"ma_dk": ""}).status_code == 404
+
+
+def test_tra_uuid_thieu_tool_key_401(api):
+    assert api.get("/api/nap/tra-uuid", headers=_login(api, "op1"), params={"ma_dk": "X"}).status_code == 401
