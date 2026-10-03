@@ -275,6 +275,24 @@ def test_keo_ve_ve_cho_dong_da_bo_khoi_hang_doi(staging_tmp):
     assert nap.keo_ve_ve_cho("khong-co") is False
 
 
+def test_keo_ve_ve_cho_go_ve_khoi_nap_xong(staging_tmp):
+    """BUG-01: gỡ về chờ nạp PHẢI xóa vé 'đã nạp' (nap_xong). Không xóa thì nạp lại cùng uuid bị
+    _done_get short-circuit → trả MaDK đã xóa, HV KHÔNG vào DB. (Fail trên code cũ.)"""
+    nap.keo_ve_upsert([_keo_row("u1")])
+    nap.keo_ve_cap_nhat("u1", trang_thai="xong", ma_dk="M1", so_ho_so="056")
+    nap._done_set("u1", {"ma_dk": "M1", "so_ho_so": "056", "so_giay_to": 3})
+    assert nap._done_get("u1") is not None            # tiền đề: vé đã nạp tồn tại
+    nap.keo_ve_ve_cho("u1")
+    assert nap._done_get("u1") is None                # vé bị gỡ → nạp lại sẽ INSERT thật
+
+
+def test_keo_ve_ve_cho_go_ve_nap_xong_du_da_bo_khoi_hang_doi(staging_tmp):
+    """BUG-01 biên: dòng keo_ve đã bị 'Bỏ khỏi hàng đợi' (chỉ còn vé nap_xong) → vẫn phải gỡ vé."""
+    nap._done_set("u1", {"ma_dk": "M1", "so_ho_so": "056", "so_giay_to": 3})
+    assert nap.keo_ve_ve_cho("u1") is False           # không còn dòng keo_ve → False
+    assert nap._done_get("u1") is None                # nhưng vé vẫn phải bị gỡ
+
+
 # ---- NAP-01 task 44: đồng bộ xóa (keo bỏ dòng 'cho' đã xóa ở app web) ----
 def test_keo_ve_xoa_neu_cho_chi_bo_dong_cho(staging_tmp):
     nap.keo_ve_upsert([_keo_row("u1"), _keo_row("u2")])

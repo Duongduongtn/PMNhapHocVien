@@ -447,9 +447,17 @@ def luu_moc_da_xoa(moc: str) -> None:
 def keo_ve_ve_cho(uuid: str) -> bool:
     """QLY-08 bước 5 — đưa dòng staging keo_ve về 'cho' (gỡ ma_dk/so_ho_so/lỗi) sau khi gỡ HV
     về chờ nạp. Chỉ đụng SQLite cục bộ. Dòng không còn trong staging (đã 'Bỏ khỏi hàng đợi' sau
-    khi nạp) → trả False để UI gợi ý bấm 'Kéo về' lấy lại từ VPS (giờ đã pending)."""
+    khi nạp) → trả False để UI gợi ý bấm 'Kéo về' lấy lại từ VPS (giờ đã pending).
+
+    BUG-01 (03/10): PHẢI gỡ luôn vé 'đã nạp' trong nap_xong của uuid. HV đã bị xóa khỏi CSDT khi
+    gỡ về chờ nạp nên vé cũ (uuid→MaDK) không còn hiệu lực; không gỡ thì lần nạp lại cùng uuid bị
+    `nap_mot_hv` → `_done_get` short-circuit, trả kết quả cũ với MaDK đã xóa → HV KHÔNG vào DB mà
+    tool vẫn báo thành công. Xóa vé KHÔNG phụ thuộc dòng keo_ve còn hay không (dòng có thể đã bị
+    'Bỏ khỏi hàng đợi' nhưng vé vẫn kẹt lại)."""
     conn = _keo_conn()
     try:
+        conn.execute(_DONE_DDL)  # đảm bảo bảng nap_xong tồn tại trước khi xóa vé
+        conn.execute("DELETE FROM nap_xong WHERE uuid=?", (str(uuid),))
         cur = conn.execute(
             "UPDATE keo_ve SET trang_thai='cho', loi=NULL, ma_dk=NULL, so_ho_so=NULL WHERE uuid=?",
             (str(uuid),),
