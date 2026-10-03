@@ -212,7 +212,12 @@ function DoiNenDialog({ maKh, tenKh, onDong, onXong }: {
   );
 }
 
-export default function TraCuuDB() {
+// Props task 47 (NAP-01): "Xem trong DB" từ màn Nạp — tự mở khóa đích + làm nổi HV vừa nạp.
+export default function TraCuuDB({ khoaMa, noiBat, moNonce }: {
+  khoaMa?: string;      // mã khóa đích cần mở sẵn
+  noiBat?: string[];    // MaDK các HV vừa nạp cần tô sáng
+  moNonce?: number;     // đổi mỗi lần bấm "Xem trong DB" → ép mở lại dù cùng khóa
+} = {}) {
   const [q, setQ] = useState("");
   const [khoaList, setKhoaList] = useState<KhoaTraCuu[] | null>(null);
   const [khoa, setKhoa] = useState<KhoaTraCuu | null>(null);
@@ -341,6 +346,32 @@ export default function TraCuuDB() {
       .finally(() => { if (!huy) setAnhXemBusy(false); });
     return () => { huy = true; if (obj) URL.revokeObjectURL(obj); };
   }, [sel, anhVer]);
+
+  // Task 47 — "Xem trong DB": tự tìm + mở khóa đích. Đổi khóaMa/moNonce → mở lại. HV cần tô sáng
+  // đưa theo prop noiBat (khớp theo MaDK trong lưới đã tải — không cần gọi server riêng).
+  const noiBatSet = new Set(noiBat ?? []);
+  useEffect(() => {
+    if (!khoaMa) return;
+    let huy = false;
+    (async () => {
+      setErr("");
+      setLoadingKhoa(true);
+      try {
+        const ds = await traCuuKhoa(khoaMa);
+        if (huy) return;
+        const k = ds.find((x) => x.ma_kh === khoaMa) ?? ds[0];
+        if (!k) { setErr("Không mở được khóa đích để xem."); return; }
+        setQ(khoaMa);
+        await chonKhoa(k);
+      } catch (e) {
+        if (!huy) setErr(e instanceof Error ? e.message : "Không mở được khóa đích để xem.");
+      } finally {
+        if (!huy) setLoadingKhoa(false);
+      }
+    })();
+    return () => { huy = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [khoaMa, moNonce]);
 
   // Click ảnh → mở trình chỉnh (QLY-05). Ảnh cũ còn → nạp sẵn vào khung; mất/hỏng (404/422) →
   // mở chế độ chọn-file mới (TDD §11.5). Ảnh đã nạp sẽ ghi đè qua napAnhHv.
@@ -533,11 +564,16 @@ export default function TraCuuDB() {
     if (!t) return true;
     return boDau(h.ho_ten ?? "").includes(boDau(t)) || (h.so_cccd ?? "").includes(t);
   });
+  // Task 47 — HV vừa nạp (noiBat) đưa lên đầu để thấy ngay khi "Xem trong DB".
+  const rowsSapXep = noiBatSet.size > 0
+    ? [...rows].sort((a, b) => (noiBatSet.has(b.ma_dk) ? 1 : 0) - (noiBatSet.has(a.ma_dk) ? 1 : 0))
+    : rows;
+  const soNoiBat = noiBatSet.size > 0 ? (hoSo ?? []).filter((h) => noiBatSet.has(h.ma_dk)).length : 0;
   // UI-3: phân trang lưới HV (client). Đổi khóa/ô tìm/lọc ảnh/cỡ trang → về trang 1.
   const [trang, setTrang] = useState(0);
   const [coTrang, setCoTrang] = useState(20);
   useEffect(() => { setTrang(0); }, [khoa, qHv, locAnh, coTrang]);
-  const rowsTrang = rows.slice(trang * coTrang, (trang + 1) * coTrang);
+  const rowsTrang = rowsSapXep.slice(trang * coTrang, (trang + 1) * coTrang);
   const canhBaoTen = sua ? nghiSaiChinhTa(form.ho_ten) : "";
 
   return (
@@ -627,6 +663,13 @@ export default function TraCuuDB() {
             </button>
           </div>
 
+          {/* Task 47 — báo HV vừa nạp khi mở từ "Xem trong DB" */}
+          {soNoiBat > 0 && (
+            <div className="mb-3 flex items-center gap-2 text-[13px] text-success bg-success/10 border border-success/30 rounded-lg px-3 py-2">
+              <Icon name="check" className="w-4 h-4 shrink-0" sw={3} /> Vừa nạp <b className="mx-1">{soNoiBat}</b> học viên vào khóa này — các dòng tô sáng ở đầu danh sách.
+            </div>
+          )}
+
           {/* QLY-01 task 36 — thống kê nhanh đầu khóa (client, trên lưới đã tải; BC1 ở cấp khóa) */}
           {hoSo && (
             <div className="flex items-center gap-2 flex-wrap mb-3 text-[12px]">
@@ -689,7 +732,7 @@ export default function TraCuuDB() {
                 </thead>
                 <tbody>
                   {rowsTrang.map((h) => (
-                    <tr key={h.ma_dk} onClick={() => setSel(h)} className="border-t border-border cursor-pointer hover:bg-muted/60 transition-colors">
+                    <tr key={h.ma_dk} onClick={() => setSel(h)} className={"border-t border-border cursor-pointer transition-colors " + (noiBatSet.has(h.ma_dk) ? "bg-success/10 hover:bg-success/15" : "hover:bg-muted/60")}>
                       <td className="px-2 py-1.5"><AnhAvatar maDk={h.ma_dk} coAnh={h.co_anh} ver={anhVer} /></td>
                       <td className="px-3 py-2 tabular-nums">{h.so_ho_so || "—"}</td>
                       <td className="px-3 py-2 font-semibold">{h.ho_ten || "(chưa có tên)"}</td>

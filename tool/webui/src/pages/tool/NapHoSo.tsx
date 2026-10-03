@@ -21,6 +21,16 @@ import {
   type NapIn,
 } from "../../lib/api";
 
+// Kết quả nạp 1 HV để dựng báo cáo (gộp uuid + tên để hiện ở pha báo cáo).
+interface NapDong {
+  uuid: string;
+  ho_ten: string;
+  ok: boolean;
+  ma_dk?: string;
+  so_ho_so?: string;
+  loi?: string;
+}
+
 // Bản nháp chuẩn bị 1 HV trước khi nạp (địa chỉ + giấy tờ + ảnh do operator bổ sung).
 interface Nhap {
   diaChi: DiaChiMoi | null; // NAP-03: operator map/chọn tay — bắt buộc mới nạp được
@@ -54,6 +64,164 @@ function Banner({ tone = "warning", children }: { tone?: "warning" | "error"; ch
     <div role="alert" className={`flex items-start gap-2.5 rounded-lg border border-l-4 px-3 py-2.5 ${cls}`}>
       <Icon name="warn" className="w-5 h-5 shrink-0 mt-px" />
       <div className="text-[12.5px] font-medium leading-relaxed">{children}</div>
+    </div>
+  );
+}
+
+// NAP-01 task 47 — dialog nạp lô 3 pha (reuse mẫu DoiNenDialog của QLY-07): xác nhận → tiến độ →
+// báo cáo. Nạp TUẦN TỰ từng uuid ở client (gọi napLo 1-uuid, như "Nạp lại nhanh") để thanh % +
+// tên HV đang nạp cập nhật mượt — không thêm endpoint server (TDD §10.5). 1 HV lỗi không hỏng cả lô.
+function NapLoDialog({ khoa, items, boQua, onDong, onXong, onXemDB }: {
+  khoa: KhoaHoc;
+  items: NapIn[];
+  boQua: number; // số dòng đã chọn nhưng chưa sẵn sàng → bỏ qua lô này
+  onDong: () => void;
+  onXong: (okRows: { uuid: string; ma_dk: string }[]) => void; // làm tươi staging + ghi khóa đã nạp
+  onXemDB: (maDks: string[]) => void; // nhảy sang Tra cứu DB, làm nổi HV vừa nạp
+}) {
+  const [pha, setPha] = useState<"xacnhan" | "chay" | "xong">("xacnhan");
+  const [dang, setDang] = useState<string | null>(null); // tên HV đang nạp
+  const [daXuLy, setDaXuLy] = useState(0);
+  const [tongChay, setTongChay] = useState(items.length);
+  const [kq, setKq] = useState<NapDong[]>([]);
+
+  async function chay(ds: NapIn[]) {
+    setPha("chay");
+    setDaXuLy(0);
+    setTongChay(ds.length);
+    setKq([]);
+    const ketQua: NapDong[] = [];
+    for (let i = 0; i < ds.length; i++) {
+      const it = ds[i];
+      setDang(it.ho_ten);
+      setDaXuLy(i);
+      try {
+        const r = await napLo([it]);
+        const d = r.ket_qua[0];
+        ketQua.push({ uuid: it.uuid, ho_ten: it.ho_ten, ok: !!d?.ok, ma_dk: d?.ma_dk, so_ho_so: d?.so_ho_so, loi: d?.loi });
+      } catch (e) {
+        ketQua.push({ uuid: it.uuid, ho_ten: it.ho_ten, ok: false, loi: e instanceof Error ? e.message : "Nạp lỗi." });
+      }
+      setKq([...ketQua]);
+    }
+    setDang(null);
+    setDaXuLy(ds.length);
+    setPha("xong");
+    onXong(ketQua.filter((x) => x.ok && x.ma_dk).map((x) => ({ uuid: x.uuid, ma_dk: x.ma_dk! })));
+  }
+
+  const okList = kq.filter((x) => x.ok);
+  const loiList = kq.filter((x) => !x.ok);
+  const okMaDks = okList.map((x) => x.ma_dk).filter((m): m is string => !!m);
+  const pct = tongChay > 0 ? Math.round((daXuLy / tongChay) * 100) : 0;
+
+  // Nạp lại CHỈ các dòng lỗi (chọn lại đúng uuid lỗi từ items gốc).
+  const napLaiLoi = () => {
+    const loiUuids = new Set(loiList.map((x) => x.uuid));
+    chay(items.filter((it) => loiUuids.has(it.uuid)));
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget && pha !== "chay") onDong(); }}>
+      <div className="bg-card w-full max-w-md rounded-xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+          <h3 className="font-bold text-sm">Nạp học viên vào khóa</h3>
+          {pha !== "chay" && (
+            <button onClick={onDong} aria-label="Đóng" className="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center transition-colors">
+              <Icon name="x" className="w-5 h-5" />
+            </button>
+          )}
+        </div>
+        <div className="p-5 overflow-y-auto">
+          <p className="text-[13px] text-muted-foreground">Khóa <b className="text-foreground">{khoa.ten_kh}</b> ({khoa.ma_kh})</p>
+
+          {/* PHA 1 — xác nhận */}
+          {pha === "xacnhan" && (
+            <div className="mt-4 space-y-3">
+              <p className="text-[14px]">
+                Nạp <b className="text-primary">{items.length}</b> học viên sẵn sàng vào khóa này.
+              </p>
+              {boQua > 0 && (
+                <p className="text-[12.5px] text-warning flex items-start gap-1.5">
+                  <Icon name="warn" className="w-4 h-4 shrink-0 mt-px" /> {boQua} hồ sơ chưa sẵn sàng (thiếu địa chỉ/giấy tờ) sẽ bỏ qua — chuẩn bị xong nạp sau.
+                </p>
+              )}
+              <p className="text-[12px] text-muted-foreground">Lỗi 1 học viên không hỏng cả lô — cuối cùng có báo cáo từng hồ sơ.</p>
+            </div>
+          )}
+
+          {/* PHA 2+3 — tiến độ & báo cáo */}
+          {pha !== "xacnhan" && (
+            <div className="mt-4 space-y-3">
+              <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+                <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+              </div>
+              <div className="flex items-center justify-between text-[13px]">
+                <span className="text-muted-foreground tabular-nums">{Math.min(daXuLy, tongChay)}/{tongChay} · {pct}%</span>
+                {pha === "chay" && <span className="inline-flex items-center gap-1 text-primary font-medium"><Icon name="refresh" className="w-3.5 h-3.5 animate-spin" /> đang nạp…</span>}
+                {pha === "xong" && <span className="inline-flex items-center gap-1 text-success font-medium"><Icon name="check" className="w-3.5 h-3.5" sw={3} /> xong</span>}
+              </div>
+              {pha === "chay" && dang && (
+                <p className="text-[12.5px] text-foreground truncate">Đang nạp: <b>{dang.toUpperCase()}</b></p>
+              )}
+
+              {pha === "xong" && (
+                <>
+                  <div className="flex gap-3 text-[12.5px]">
+                    <span className="text-success">Vào DB: <b className="tabular-nums">{okList.length}</b></span>
+                    <span className={loiList.length > 0 ? "text-destructive" : "text-muted-foreground"}>Lỗi: <b className="tabular-nums">{loiList.length}</b></span>
+                  </div>
+                  {kq.length > 0 && (
+                    <div className="max-h-56 overflow-y-auto rounded-lg border border-border divide-y divide-border text-[12px]">
+                      {kq.map((x) => (
+                        <div key={x.uuid} className="px-2.5 py-1.5 flex items-start gap-2">
+                          <Icon name={x.ok ? "check" : "warn"} className={"w-3.5 h-3.5 shrink-0 mt-0.5 " + (x.ok ? "text-success" : "text-destructive")} sw={x.ok ? 3 : 2} />
+                          <div className="min-w-0 flex-1">
+                            <div className="font-semibold truncate">{x.ho_ten.toUpperCase() || "(chưa có tên)"}</div>
+                            {x.ok ? (
+                              <div className="text-success">Số hồ sơ {x.so_ho_so} · MaDK {x.ma_dk}</div>
+                            ) : (
+                              <div className="text-destructive">{x.loi || "Nạp lỗi."}</div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="p-3 border-t border-border flex gap-2 flex-wrap">
+          {pha === "xacnhan" && (
+            <>
+              <button onClick={onDong} className="h-10 px-4 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Hủy</button>
+              <button onClick={() => void chay(items)} className="ml-auto h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center gap-2 hover:brightness-110 transition-all shadow-sm">
+                <Icon name="plus" className="w-4 h-4" /> Bắt đầu nạp
+              </button>
+            </>
+          )}
+          {pha === "chay" && (
+            <p className="text-[12px] text-muted-foreground px-1 py-2">Đang nạp — vui lòng chờ hết lô.</p>
+          )}
+          {pha === "xong" && (
+            <>
+              {loiList.length > 0 && (
+                <button onClick={() => void napLaiLoi()} className="h-10 px-4 rounded-lg border border-primary/40 text-primary text-sm font-semibold inline-flex items-center gap-2 hover:bg-primary/5 transition-colors">
+                  <Icon name="refresh" className="w-4 h-4" /> Nạp lại {loiList.length} lỗi
+                </button>
+              )}
+              {okMaDks.length > 0 && (
+                <button onClick={() => onXemDB(okMaDks)} className="h-10 px-4 rounded-lg border border-border text-sm font-semibold inline-flex items-center gap-2 hover:bg-muted transition-colors">
+                  <Icon name="db" className="w-4 h-4" /> Xem trong DB
+                </button>
+              )}
+              <button onClick={onDong} className="ml-auto h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition-all shadow-sm">Xong</button>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -92,6 +260,11 @@ export default function NapHoSo() {
   // Nạp lô
   const [napBusy, setNapBusy] = useState(false);
   const [napErr, setNapErr] = useState("");
+
+  // Task 47 — dialog nạp 3 pha + "Xem trong DB"
+  const [napDialog, setNapDialog] = useState<{ items: NapIn[]; boQua: number } | null>(null);
+  const [napKhoa, setNapKhoa] = useState<Record<string, string>>({}); // uuid → mã khóa đã nạp (cho "Xem trong DB" dòng đã nạp)
+  const [xemDB, setXemDB] = useState<{ maKh: string; maDks: string[]; nonce: number } | null>(null);
 
   // ── Tải khóa đích ──
   useEffect(() => {
@@ -281,14 +454,44 @@ export default function NapHoSo() {
     }
     setNapBusy(true);
     try {
-      await napLo(items);
+      const kq = await napLo(items);
       setKeoVe(await getDanhSachKeoVe()); // trạng thái mỗi dòng cập nhật ở staging
       setChon(new Set());
+      if (khoa) ghiNapKhoa(kq.ket_qua.filter((d) => d.ok).map((d) => d.uuid), khoa.ma_kh);
     } catch (e) {
       setNapErr(e instanceof Error ? e.message : "Nạp lô thất bại.");
     } finally {
       setNapBusy(false);
     }
+  };
+
+  // Ghi khóa đã nạp cho từng uuid (phục vụ nút "Xem trong DB" ở dòng đã nạp).
+  const ghiNapKhoa = (uuids: string[], maKh: string) =>
+    setNapKhoa((prev) => {
+      const next = { ...prev };
+      for (const u of uuids) next[u] = maKh;
+      return next;
+    });
+
+  // Task 47 — mở dialog nạp 3 pha cho danh sách dòng sẵn sàng.
+  const moNapDialog = (dsRow: KeoVeRow[]) => {
+    setNapErr("");
+    const items: NapIn[] = [];
+    for (const r of dsRow) {
+      const it = dungNapIn(r);
+      if (it) items.push(it);
+    }
+    if (items.length === 0) {
+      setNapErr("Chưa hồ sơ nào sẵn sàng — mỗi hồ sơ cần map Nơi thường trú trước khi nạp.");
+      return;
+    }
+    setNapDialog({ items, boQua: Math.max(0, chon.size - items.length) });
+  };
+
+  // Task 47 — nhảy sang Tra cứu DB, mở khóa đích + làm nổi HV vừa nạp.
+  const xemTrongDB = (maKh: string, maDks: string[]) => {
+    setXemDB({ maKh, maDks, nonce: Date.now() });
+    setMode("tracuu");
   };
 
   // NAP-01 task 38 — nút trên dòng: nạp lại nhanh (🔴) tái dùng nạp lô 1 uuid; bỏ khỏi hàng đợi (🟢).
@@ -322,7 +525,7 @@ export default function NapHoSo() {
             <Icon name="plus" className="w-4 h-4" /> Nạp hồ sơ
           </button>
           <button
-            onClick={() => setMode("tracuu")}
+            onClick={() => { setXemDB(null); setMode("tracuu"); }}
             className={
               "inline-flex items-center gap-2 px-4 py-2 text-sm rounded-md transition-colors " +
               (mode === "tracuu" ? "bg-primary text-primary-foreground font-semibold shadow-sm" : "text-muted-foreground font-medium hover:text-foreground")
@@ -538,6 +741,21 @@ export default function NapHoSo() {
                             <Icon name="refresh" className={"w-3.5 h-3.5" + (napBusy ? " animate-spin" : "")} /> Nạp lại
                           </button>
                         )}
+                        {/* NAP-01 task 47 — xem HV vừa nạp trong Tra cứu DB (mở đúng khóa đích, làm nổi) */}
+                        {r.trang_thai === "xong" && r.ma_dk && (() => {
+                          const mk = napKhoa[r.uuid] ?? khoa?.ma_kh;
+                          return (
+                            <button
+                              type="button"
+                              title="Xem học viên này trong DB"
+                              disabled={!mk}
+                              onClick={(e) => { e.stopPropagation(); if (mk) xemTrongDB(mk, [r.ma_dk!]); }}
+                              className="h-7 px-2 rounded-md border border-border text-[11px] font-semibold inline-flex items-center gap-1 hover:bg-muted transition-colors disabled:opacity-50"
+                            >
+                              <Icon name="db" className="w-3.5 h-3.5" /> Xem DB
+                            </button>
+                          );
+                        })()}
                         {/* NAP-01 task 38 — bỏ dòng đã nạp khỏi hàng đợi (staging, không đụng prod) */}
                         {r.trang_thai === "xong" && (
                           <button
@@ -598,12 +816,12 @@ export default function NapHoSo() {
                     )}
                   </span>
                   <button
-                    onClick={() => chayNapLo(chonSanSang)}
+                    onClick={() => moNapDialog(chonSanSang)}
                     disabled={napBusy || chonSanSang.length === 0 || !khoa}
                     className="ml-auto h-10 px-5 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center gap-2 hover:brightness-110 transition-all shadow-sm disabled:opacity-60"
                   >
-                    <Icon name={napBusy ? "refresh" : "plus"} className={"w-4 h-4" + (napBusy ? " animate-spin" : "")} />
-                    {napBusy ? "Đang nạp lô…" : `Nạp ${chonSanSang.length} học viên${khoa ? ` vào ${khoa.ma_kh}` : ""}`}
+                    <Icon name="plus" className="w-4 h-4" />
+                    {`Nạp ${chonSanSang.length} học viên${khoa ? ` vào ${khoa.ma_kh}` : ""}`}
                   </button>
                 </div>
               )}
@@ -750,7 +968,23 @@ export default function NapHoSo() {
       )}
 
       {/* ============ CHẾ ĐỘ TRA CỨU DB (QLY-01 — task 22) ============ */}
-      {mode === "tracuu" && <TraCuuDB />}
+      {mode === "tracuu" && <TraCuuDB khoaMa={xemDB?.maKh} noiBat={xemDB?.maDks} moNonce={xemDB?.nonce} />}
+
+      {/* Task 47 — dialog nạp lô 3 pha */}
+      {napDialog && khoa && (
+        <NapLoDialog
+          khoa={khoa}
+          items={napDialog.items}
+          boQua={napDialog.boQua}
+          onDong={() => setNapDialog(null)}
+          onXong={async (okRows) => {
+            setKeoVe(await getDanhSachKeoVe());
+            setChon(new Set());
+            ghiNapKhoa(okRows.map((o) => o.uuid), khoa.ma_kh);
+          }}
+          onXemDB={(maDks) => { setNapDialog(null); xemTrongDB(khoa.ma_kh, maDks); }}
+        />
+      )}
 
       {anhOpen && selRow && (
         <AnhModal
