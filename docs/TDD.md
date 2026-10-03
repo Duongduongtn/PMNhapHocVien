@@ -849,6 +849,34 @@ QLY-08 "Gỡ về chờ nạp"  (operator ở Tra cứu DB, khóa chưa BC1)
 - *Vì sao so ở bước kéo* (không webhook): tool chạy LAN sau tunnel, không nhận push từ VPS → đồng bộ theo nhịp kéo (operator chủ động). Nguồn chân lý là VPS.
 - *Cách so (review #24):* tool gọi `GET /api/nap/da-xoa?since=<mốc kéo trước>` (§4.4) → VPS trả danh sách `uuid` đã chuyển `deleted` từ mốc đó → tool xóa đúng các `uuid` đó khỏi staging. **KHÔNG** suy "đã xóa" từ việc `uuid` vắng mặt trong `GET /api/nap/keo`: `keo` còn lọc `locked_by IS NULL` (§7.2) **và** `limit` → một dòng vẫn `pending` nhưng đang bị tool khác khóa / rớt ngoài limit cũng vắng mặt → suy theo vắng mặt sẽ **xóa nhầm** hồ sơ chưa hề bị xóa.
 
+### 11.8 Đối soát & đồng bộ trạng thái VPS↔CSDT (QLY-09) — CHANGES #28
+
+Bối cảnh: mốc "Nạp" chuyển quyền sở hữu (§7.5) đi qua **2 kho tách biệt** — VPS (`ho_so_thu_thap.trang_thai`) và CSDT (`NguoiLX_HoSo` theo `MaDK`) — nối bằng các bước gọi tuần tự (lock→nạp CSDT→da_nap). Nếu một bước lỗi hoặc có bug (BUG-01: phantom import), 2 kho **lệch nhau** mà không cơ chế nào tự dọn. §11.8 cho operator/admin **phát hiện + sửa lệch bằng tay có hướng dẫn**, KHÔNG để treo.
+
+**Phạm vi (chốt 03/10): theo KHÓA, theo yêu cầu** — không quét toàn bộ (tránh so chéo 2 DB toàn tập, chậm khi lớn; mở rộng sau nếu cần).
+
+**Cách phát hiện (đọc, không ghi):** operator chọn 1 khóa → tool dựng 2 tập theo `MaDK`/`uuid`:
+- CSDT: `MaDK` trong `NguoiLX_HoSo WHERE MaKhoaHoc=@ AND TrangThai=1` (dùng lại truy vấn §11.1 đã bỏ lọc ảnh — BUG-02).
+- VPS: trạng thái các `uuid` liên quan khóa (qua liên kết nạp `nap_xong` local `uuid↔ma_dk`, hoặc `GET /api/nap/tra-uuid`/trạng thái §4.4). Nối CSDT↔VPS qua `ma_dk`.
+
+**3 ca lệch + hành động (tái dùng §11.7, KHÔNG endpoint/SP nạp mới):**
+```
+① VPS imported  &  CSDT KHÔNG có MaDK   (phantom — BUG-01)
+      → "Trả về chờ nạp": vps.tra_ve_cho_nap(uuid) [imported→pending, gỡ ma_dk]
+         KHÔNG đụng CSDT (vốn đã không có). + keo_ve_ve_cho(uuid) đưa staging về 'cho'.
+② CSDT CÓ HV    &  VPS chưa imported     (nạp CSDT xong, báo VPS lỗi)
+      → "Đánh dấu đã nạp": vps.da_nap(uuid, ma_dk)  [idempotent]
+③ VPS importing treo (lock kẹt, quá ngưỡng, không ai đang nạp)
+      → "Mở khóa": vps.unlock(uuid)  [importing→pending]
+```
+- *Ngưỡng ca ③:* chỉ gợi "Mở khóa" khi `importing` **quá lâu** (vd > ngưỡng job tự mở khóa §7.2, ~15') — tránh đụng dòng đang nạp thật ở máy khác.
+- *Chặn BC1/PII:* nút sửa nào đụng xóa/gỡ phải tôn trọng chặn BC1 (QLY-03/08); ca ② mà VPS đã dọn PII (HTG-03) → không `da_nap` được, báo rõ.
+- *Không tự động hàng loạt:* mỗi dòng operator tự bấm (tránh sửa nhầm diện rộng).
+
+**Phòng tuyến 2 — chặn tái phát phantom (gốc BUG-01).** Trong `nap_lo` router (`nap_fn`), thứ tự hiện tại: `vps.lock` → `_nap_mot` → `vps.da_nap`. Khi `_nap_mot`→`nap_mot_hv` **trả kết quả cũ từ vé `nap_xong`** (`_done_get` trúng, KHÔNG INSERT mới) thì **BỎ gọi `vps.da_nap`** — nếu không, bản ghi không thực sự vào CSDT vẫn bị đánh dấu VPS `imported` (đúng kịch bản phantom). Cách làm: `nap_mot_hv`/`_nap_mot` trả cờ phân biệt "nạp mới" vs "trả vé cũ" (vd field `trung_uuid` đã có ở `_done_get`), `nap_fn` chỉ `da_nap` khi là nạp mới. *Vì sao vẫn giữ vé idempotency:* chống bấm nạp 2 lần tạo HV trùng (§10.3) — chỉ bỏ cái `da_nap` dư trên nhánh vé-cũ.
+
+> Thuần tool (webui panel + tool backend đọc/gọi VPS). KHÔNG bảng VPS mới, KHÔNG SP CSDT mới, KHÔNG endpoint nạp mới — chỉ endpoint tool liệt kê lệch + 3 action tái dùng.
+
 ---
 
 ## 12. Security
@@ -984,6 +1012,7 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 |---|---|---|
+| 03/10/2026 | 3.0 | Đối soát & đồng bộ VPS↔CSDT (CHANGES #28, QLY-09 — sau ca Lê Thị Hồng/BUG-01): §11.8 mới — panel admin/operator đối soát **theo khóa** phát hiện 3 ca lệch (① VPS imported & CSDT không có MaDK = phantom → Trả về chờ nạp; ② CSDT có HV & VPS chưa imported → Đánh dấu đã nạp; ③ importing treo quá ngưỡng → Mở khóa), tái dùng `tra_ve_cho_nap`/`da_nap`/`unlock` — KHÔNG endpoint/SP nạp mới. +Phòng tuyến 2: `nap_fn` bỏ `da_nap` khi `_nap_mot` trả vé cũ (chặn tái phát phantom). Thuần tool. |
 | 03/10/2026 | 2.9 | Chốt nghiệp vụ + UX #24 (CHANGES #26): §7.5 mới — nguyên tắc "Nạp = điểm bàn giao quyền sở hữu" (trước nạp app web làm chủ, sau nạp tool/CSDT làm chủ, app web đóng băng) + bảng edge khóa chưa BC1 + phân biệt QLY-03 "Xóa hẳn" ≠ QLY-08 "Gỡ về chờ nạp"; §7.2 lock trả bản tươi; §9.1 +prop `anhGoc` + nút "Dùng lại ảnh gốc" (NAP-04 ảnh thô VPS / QLY-05 ảnh DB); §10.5 mới — redesign màn Nạp lô (trạng thái sẵn sàng mỗi dòng, chọn-tất-cả-sẵn-sàng, drawer Chuẩn bị, dialog nạp 3 pha, nút Xem trong DB). Thuần client phần UX, không endpoint mới. |
 | 03/10/2026 | 2.8 | Sửa sau review TDD #24 (biên bản `tdd-review-03-10-2026.md`): §11.7 "đồng bộ xóa khi kéo" bỏ cách suy-từ-vắng-mặt-trong-`keo` (xóa nhầm khi dòng bị khóa/rớt limit) → chốt `GET /api/nap/da-xoa?since=` (thêm §4.4); §4.4 +`GET /api/nap/tra-uuid?ma_dk=` cho fallback QLY-08 bước 2; §4.3/§4.4 +quy tắc CAS nguyên tử (`DELETE … WHERE trang_thai='pending'`, `tra-ve-cho-nap … WHERE 'imported'`, idempotent khi retry); §4.3 soft-delete ghi mốc vào `audit_log.created_at` (không cột mới); §11.7 +sơ đồ ASCII luồng xóa-CSDT-trước-rồi-VPS + nhánh bù. (Ghi nhận: PRD gọi `done`, DB/TDD là `imported` → xử bằng `/capnhat`.) |
 | 02/10/2026 | 2.7 | Gỡ HV về chờ nạp + đồng bộ xóa (CHANGES #24): §4.3 +`DELETE /api/ho-so/:uuid` (soft-delete, chỉ pending, phân quyền — THU-05); §4.4 +`POST /api/nap/:uuid/tra-ve-cho-nap` (imported→pending — QLY-08); §7.1 +2 chuyển trạng thái (imported→pending gỡ về; collector xóa pending→deleted); §11.7 mới (gỡ HV về chờ nạp + kéo về đồng bộ bỏ dòng đã xóa); §6 +nút Xóa app web. Dùng lại trạng thái `deleted` + `audit_log` sẵn có, không bảng mới. NAP-01 hạ ⏳; +story QLY-08, THU-05. |

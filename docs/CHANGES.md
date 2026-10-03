@@ -4,6 +4,7 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 28 | 03/10/2026 | ➕ Thêm | `QLY-09` | **Đối soát & đồng bộ trạng thái VPS↔CSDT** (sau ca Lê Thị Hồng/BUG-01): panel admin/operator ở tool, đối soát **theo khóa**, phát hiện 3 ca lệch (① VPS imported & CSDT không có MaDK = phantom → Trả về chờ nạp; ② CSDT có HV & VPS chưa imported → Đánh dấu đã nạp; ③ importing treo quá ngưỡng → Mở khóa), sửa 1 chạm **tái dùng** `tra_ve_cho_nap`/`da_nap`/`unlock` — không endpoint/SP nạp mới. +Phòng tuyến 2: `nap_fn` bỏ `da_nap` khi `_nap_mot` trả vé cũ (chặn tái phát phantom). Thuần tool | ✅ | ✅ §11.8 | ⬜ panel tool (dựng khi code) | ⬜ |
 | 27 | 03/10/2026 | ✏️ Sửa (chữ) | `THU-05` | Khớp chữ PRD với code task 41 (review-nghiepvu): edge "Chặn 403" → **404** (chống IDOR, không lộ hồ sơ tồn tại — nhất quán `_cua_minh`); copy popup "chưa nạp vào **DB**" → "chưa nạp vào **máy tính**" (tránh lộ từ kỹ thuật cho người thu nhận, luật nội dung). Không đổi code (code đã đúng) | ✅ | — | — | — đã code (task 41) |
 | 26 | 03/10/2026 | ✏️ Sửa + ➕ Thêm | `THU-05`, `QLY-08`, `QLY-03`, `NAP-01`, `NAP-04`, `QLY-05` | Chốt nghiệp vụ + UX trước khi code #24: **nguyên tắc bàn giao** (mốc Nạp — trước nạp app web làm chủ, sau nạp tool/CSDT làm chủ, app web đóng băng; QLY-03 "Xóa hẳn" ≠ QLY-08 "Gỡ về chờ nạp") · **popup cảnh báo + hướng dẫn** (copy impeccable) cho xóa app web (THU-05), gỡ về chờ nạp + banner đồng bộ lỗi (QLY-08), xóa hẳn tách bạch (QLY-03) · **"Dùng lại ảnh gốc"** trong trình chỉnh ảnh (NAP-04 ảnh thô VPS / QLY-05 ảnh DB) · **redesign màn Nạp lô** (NAP-01): trạng thái sẵn sàng mỗi dòng, chọn-tất-cả-sẵn-sàng, drawer Chuẩn bị, dialog nạp 3 pha (xác nhận/tiến độ/báo cáo + nạp lại lỗi), nút Xem trong DB | ✅ | ✅ §7.5/§9.1/§10.5 | ✅ ghi UX+wireframe | ⬜ |
 | 25 | 03/10/2026 | ✏️ Sửa (nhãn) | `QLY-08`, `THU-05` | Sửa nhãn trạng thái VPS trong PRD: `done` → `imported` (3 chỗ ở THU-05 + QLY-08) cho khớp DB thật (`server/db/init.sql:28` chỉ có `pending/importing/imported/deleted`) + TDD. Phát hiện ở review TDD #24 (Điểm 1, biên bản `tdd-review-03-10-2026.md`). Không đổi yêu cầu, không chạm TDD (đã đúng) | ✅ | — đã đúng | — | — |
@@ -33,6 +34,22 @@
 | 1 | 01/10/2026 | ✏️ Sửa | — | Đổi nơi lưu bảng ánh xạ `DM_DVHC_MAP`: GPLX_CSDT → SQLite cục bộ của tool | — | ✅ | — | ✅ (task 5) |
 
 Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên quan
+
+---
+
+## #28 — Đối soát & đồng bộ trạng thái VPS↔CSDT (QLY-09) · 03/10/2026
+
+- **Mã:** `QLY-09` (MỚI, nhóm QLY, nối tiếp QLY-08).
+- **Vì sao:** ca Lê Thị Hồng (BUG-01) lộ ra khi VPS và CSDT lệch trạng thái thì không có cách sửa trong ứng dụng — phải SSH sửa tay DB production. Chủ dự án yêu cầu: "phải có cách đồng bộ lại để fix, không để treo lỗi".
+- **Chốt (chủ dự án, 03/10):**
+  - Phạm vi **theo khóa / theo yêu cầu** (A) — không quét toàn bộ (tránh so chéo 2 DB toàn tập, chậm khi lớn; mở rộng sau nếu cần).
+  - Panel admin/operator ở tool (trong Tra cứu DB), **không collector**.
+  - **3 ca lệch + nút sửa 1 chạm**, tái dùng đường có sẵn: ① VPS `imported` & CSDT không có `MaDK` (phantom) → **Trả về chờ nạp** (`tra_ve_cho_nap`) · ② CSDT có HV & VPS chưa `imported` → **Đánh dấu đã nạp** (`da_nap`) · ③ `importing` treo quá ngưỡng → **Mở khóa** (`unlock`).
+  - **Phòng tuyến 2:** `nap_fn` bỏ gọi `da_nap` khi `_nap_mot` trả kết quả cũ từ vé idempotency (không INSERT mới) — chặn tận gốc "phantom import" (BUG-01).
+- **Đã sửa:** PRD +story `QLY-09` (nhóm QLY, ⏳ Todo) · TDD §11.8 mới + Changelog 3.0.
+- **Chưa code** — vào BUILD-PLAN task mới (`/kehoach` bổ sung). Thuần tool (webui panel + tool backend đọc CSDT/gọi VPS); KHÔNG bảng VPS mới, KHÔNG SP CSDT mới, KHÔNG endpoint nạp mới.
+- **Không đụng:** schema DB CSDT · bảng VPS · app web collector.
+- ⚠️ **Lưu ý số hiệu:** nhánh `feat/THU-01-05-desktop-redesign` (chưa merge main) cũng có một mục **#28** (redesign desktop THU-01/05). Khi merge sẽ **trùng số #28** → người merge đổi số một trong hai (mục này hoặc mục kia) + sửa tham chiếu kèm theo.
 
 ---
 
@@ -392,7 +409,7 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 > `/capnhat` đọc mục này ở Bước 0b để biết có thay đổi nào chưa ghi sổ không.
 > So bằng **danh sách mã**, không so bằng thời gian sửa file.
 
-- **Cập nhật:** 03/10/2026 (CHANGES #27 — khớp chữ PRD THU-05 với code task 41, không đổi số story/mã)
-- **Số story trong PRD:** 24 (23 MUST/SHOULD gồm `THU-04` SHOULD + `THU-05` + `HTG-04` SHOULD + `QLY-06` ⏳ + `QLY-07` + `QLY-08`; chưa tính NICE `QLY-04`, `THU-03`)
-- **Mã story hiện có:** `HTG-01`…`HTG-06`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08` (NICE: `QLY-04`, `THU-03`)
+- **Cập nhật:** 03/10/2026 (CHANGES #28 — +story QLY-09 đối soát VPS↔CSDT)
+- **Số story trong PRD:** 25 (24 MUST/SHOULD gồm `THU-04` SHOULD + `THU-05` + `HTG-04` SHOULD + `QLY-06` ⏳ + `QLY-07` + `QLY-08` + `QLY-09`; chưa tính NICE `QLY-04`, `THU-03`)
+- **Mã story hiện có:** `HTG-01`…`HTG-06`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09` (NICE: `QLY-04`, `THU-03`)
 - **Mã đã nghỉ hưu:** (chưa có)

@@ -500,6 +500,40 @@
 
 > Nguồn: user 02/10/2026 (CHANGES #24, buổi verify #22) · tách bạch QLY-03 · liên quan NAP-01 (hàng chờ) · HTG-02/NAP-05 (trạng thái VPS) · HTG-03 (dọn PII)
 
+#### [QLY-09] Đối soát & đồng bộ trạng thái VPS↔CSDT
+
+**Trạng thái:** ⏳ Todo — yêu cầu mới 03/10/2026 (CHANGES #28, từ ca Lê Thị Hồng / BUG-01). Phạm vi chốt: đối soát **theo khóa / theo yêu cầu** (không quét toàn bộ).
+**Story:** Là nhân viên nạp DB (hoặc quản trị), tôi muốn tự phát hiện và sửa các bản ghi bị **lệch trạng thái giữa máy chủ (VPS) và CSDT**, để không phải nhờ kỹ thuật sửa tay cơ sở dữ liệu khi có sự cố.
+
+**Steps to Complete:**
+1. Mở panel **"Đối soát VPS↔CSDT"** (ở Tra cứu DB, chỉ operator/admin) → chọn **một khóa** (hoặc phạm vi) cần kiểm.
+2. Tool so trạng thái từng hồ sơ: bản ghi VPS (`ho_so_thu_thap`) ↔ bản ghi CSDT (`NguoiLX_HoSo` theo `MaDK`) ↔ staging.
+3. Liệt kê **chỉ các dòng lệch**, mỗi dòng nêu rõ loại lệch + nút sửa 1 chạm tương ứng.
+4. Bấm nút sửa → tool gọi đúng đường đồng bộ có sẵn (không tạo endpoint/SP nạp mới), rồi làm tươi lại danh sách đối soát.
+
+**Done khi:**
+- ⬜ Panel đối soát **theo khóa** (chọn khóa → quét tập hồ sơ của khóa đó), chỉ **operator/admin** (không collector).
+- ⬜ **Phát hiện 3 ca lệch:**
+  - **① VPS `imported` nhưng CSDT KHÔNG có `MaDK`** ("phantom import" — như BUG-01) → nút **"Trả về chờ nạp"** (lật VPS `imported→pending`, gỡ `ma_dk`; tái dùng `tra_ve_cho_nap` — KHÔNG đụng CSDT vì vốn đã không có).
+  - **② CSDT có HV nhưng VPS chưa `imported`** (nạp vào CSDT xong nhưng bước báo VPS lỗi) → nút **"Đánh dấu đã nạp"** (tái dùng `da_nap(uuid, ma_dk)`).
+  - **③ VPS `importing` treo** (lock kẹt quá lâu, không ai đang nạp) → nút **"Mở khóa"** (tái dùng `unlock`, đưa về `pending`).
+- ⬜ Mỗi dòng lệch **nêu rõ loại + hậu quả** bằng chữ nghiệp vụ (không để operator đoán).
+- ⬜ Sửa xong **làm tươi lại** danh sách đối soát; dòng đã khớp biến mất.
+- ⬜ **Không tạo endpoint/SP nạp mới** — chỉ tái dùng `tra_ve_cho_nap` · `da_nap` · `unlock` (VPS) + truy vấn đọc CSDT.
+- ⬜ **Phòng tuyến 2 (chặn tái phát phantom):** trong luồng nạp lô, nếu `_nap_mot` trả **kết quả cũ từ vé idempotency** (không INSERT mới) thì **KHÔNG gọi `da_nap`** — tránh đánh dấu VPS `imported` cho bản ghi không thực sự vào CSDT (gốc BUG-01).
+- ❌ KHÔNG quét toàn bộ dữ liệu một lần (chốt phạm vi theo khóa — mở rộng sau nếu cần).
+- ❌ KHÔNG tự động sửa hàng loạt không hỏi — mỗi dòng operator tự bấm (tránh sửa nhầm diện rộng).
+
+**Edge cases:**
+| Tình huống | Hành vi mong muốn |
+|---|---|
+| VPS/tunnel down khi đối soát | Báo lỗi rõ, không coi là "lệch"; cho thử lại |
+| Khóa đã BC1 | Chỉ ĐỐI SOÁT/đọc được; nút sửa đụng xóa/gỡ phải tôn trọng chặn BC1 như QLY-03/QLY-08 |
+| Bản ghi gốc VPS đã dọn PII (HTG-03) | Ca ② không "Đánh dấu đã nạp" được nếu VPS không còn bản ghi → báo rõ |
+| Lệch do đang nạp thật ở máy khác (`importing` mới) | KHÔNG coi là treo; chỉ ca `importing` **quá ngưỡng thời gian** mới gợi "Mở khóa" |
+
+> Nguồn: user 03/10/2026 (sau ca Lê Thị Hồng / BUG-01) · tái dùng §11.7 (tra-ve/da-nap/unlock) · liên quan QLY-08, NAP-01
+
 #### [HTG-03] Bộ lọc & xóa PII thủ công trên VPS
 
 **Trạng thái:** ⚠️ Partial — 02/10/2026. Code xong: `GET /api/admin/ho-so` (lọc trạng thái + khoảng ngày giờ VN + phân trang) + `DELETE /api/admin/ho-so/:uuid` (hard-delete bản ghi + ảnh thô + audit `xoa_pii_tay`) + màn `/admin/ho-so` (chỉ admin, vào từ màn Tài khoản). Tách helper `xoa_mot_ho_so` dùng chung với job 30 ngày. Kiểm: server 93 test (11 mới, có biên múi giờ VN) · webapp build + 24 test · Playwright 3vp (0 tràn, 0 lỗi) · review-nghiepvu 7/7. **Chờ deploy VPS + verify thao tác lọc/xóa thật.** (Admin xóa được mọi trạng thái kể cả `importing` — có chủ đích, khác job tự động bỏ qua importing EC-040.)

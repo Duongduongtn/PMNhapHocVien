@@ -6,7 +6,7 @@
 - **Bản HTML chuẩn:** ui-demo-options/detailed.html
 - **Stack:** Vite + React + TypeScript + Tailwind v3 (token shadcn) + react-router-dom · font Be Vietnam Pro
 - **Cổng dev:** 3021 (sổ `~/.claude/local-ports.md`)
-- **Cập nhật lần cuối:** 02/10/2026 (lượt 15 — ghi quyết định UX CHANGES #24: nút "Gỡ về chờ nạp" (tool, QLY-08) + nút "Xóa hồ sơ" app web (THU-05); đều THÊM NÚT vào màn đã có, KHÔNG dựng màn mới. Lượt 14 trước đó: quyết định UX CHANGES #23)
+- **Cập nhật lần cuối:** 03/10/2026 (lượt 17 — quyết định UX CHANGES #28: panel "Đối soát VPS↔CSDT" QLY-09, dựng trực tiếp ở tool webui khi code. Lượt 16: quyết định UX CHANGES #26. Lượt 15: CHANGES #24)
 
 ## ⚠️ Prototype gộp 1 project — KIẾN TRÚC THẬT là 2 app riêng (TDD §2.4)
 
@@ -91,6 +91,7 @@ Chú thích: ✅ Xong · 🟡 Placeholder · ⬜ Chưa có route
 | /app/da-gui · /tool/nap (tab DB) | Popup cảnh báo bàn giao (CHANGES #26) | Nguyên tắc: **trước nạp app web làm chủ, sau nạp tool làm chủ** (TDD §7.5). THU-05 xóa chờ nạp: panel 2 bước ("chưa nạp nên xóa được, kéo về sẽ mất, không lấy lại"); đã/đang nạp → chú thích "báo người nạp". QLY-08 "Gỡ về chờ nạp": panel cam **tách** "Xóa hẳn" + banner "đồng bộ máy chủ lỗi — Thử lại". QLY-03 "Xóa hẳn": copy tách bạch (bỏ hẳn, nạp lại phải nhập lại ở app) | 16 |
 | /tool/nap (AnhModal) | "Dùng lại ảnh gốc" (CHANGES #26) | Nút trong trình chỉnh quay về **ảnh nguyên bản** (bỏ chỉnh sửa, xác nhận nhanh): NAP-04 = ảnh thô VPS, QLY-05 = ảnh `.jp2` DB. Ẩn khi không có nguồn. Đi xa hơn "mở lại nạp ảnh đã chỉnh gần nhất" (CHANGES #23) | 16 |
 | /tool/nap (chế độ Nạp) | Redesign Nạp lô (CHANGES #26) | Mỗi dòng badge **sẵn sàng/thiếu gì**; **"Chọn tất cả sẵn sàng"** + thanh **"Nạp N học viên"** dính đáy; **drawer "Chuẩn bị"** thay cột cố định (gọn); **dialog nạp 3 pha** (xác nhận → tiến độ → báo cáo + "Nạp lại lỗi"); nút **"Xem trong DB"**. Wireframe ở Ghi chú | 16 |
+| /tool/nap (Tra cứu DB) | Đối soát VPS↔CSDT QLY-09 (CHANGES #28) | **Panel admin/operator** (không collector): chọn **1 khóa** → liệt kê **chỉ dòng lệch** VPS↔CSDT, mỗi dòng nêu loại lệch + **1 nút sửa** tương ứng: ① phantom (VPS đã nạp, DB không có) → "Trả về chờ nạp" · ② DB có, VPS chưa → "Đánh dấu đã nạp" · ③ treo khóa quá lâu → "Mở khóa". Sửa xong làm tươi, dòng khớp biến mất. **Dựng trực tiếp ở tool webui khi code** (màn tool, không qua ui-demo/prototype) | 17 |
 
 ## Component dùng chung
 
