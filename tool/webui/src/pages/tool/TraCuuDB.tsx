@@ -17,6 +17,7 @@ import {
   napAnh,
   taiAnhHoSo,
   taiAnhThumb,
+  taiAnhVps,
   batDauDoiNen,
   tienDoDoiNen,
   type KetQuaAnh,
@@ -262,7 +263,8 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce, locAnhBanDau }: {
   const [locAnh, setLocAnh] = useState<"all" | "chua" | "roi">(locAnhBanDau ?? "all"); // lọc tình trạng ảnh
   const [anhMo, setAnhMo] = useState(false);   // panel xác nhận nạp/thay ảnh
   const [anhModal, setAnhModal] = useState(false); // AnhModal (căn + xóa phông)
-  const [anhSeed, setAnhSeed] = useState<string | null>(null); // ảnh nạp sẵn vào AnhModal (chỉnh ảnh cũ)
+  const [anhSeed, setAnhSeed] = useState<string | null>(null); // ảnh nạp sẵn vào AnhModal (chỉnh ảnh cũ / kéo VPS)
+  const [anhVpsBusy, setAnhVpsBusy] = useState(false); // CHANGES #32 — đang kéo ảnh thô VPS (nguồn b)
   const [anhBusy, setAnhBusy] = useState(false);
   const [anhErr, setAnhErr] = useState("");
 
@@ -382,6 +384,27 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce, locAnhBanDau }: {
     setAnhErr("");
     setAnhSeed(anhXem && "url" in anhXem ? anhXem.url : null);
     setAnhModal(true);
+  }
+
+  // QLY-05 (CHANGES #32) — nguồn (b): kéo ảnh THÔ học viên gửi còn trên VPS (tra theo ma_dk) → nạp
+  // vào AnhModal làm ảnh gốc. Hết hạn/không tra được (404→null) → báo, operator chuyển nguồn (a) file.
+  async function keoAnhVps() {
+    if (!sel) return;
+    setAnhErr("");
+    setAnhVpsBusy(true);
+    try {
+      const url = await taiAnhVps(sel.ma_dk);
+      if (!url) {
+        setAnhErr("Ảnh gốc trên máy chủ đã hết hạn hoặc không có — chọn ảnh từ máy.");
+        return;
+      }
+      setAnhSeed(url);
+      setAnhModal(true);
+    } catch (e) {
+      setAnhErr(e instanceof Error ? e.message : "Không kéo được ảnh từ máy chủ.");
+    } finally {
+      setAnhVpsBusy(false);
+    }
   }
 
   async function napAnhHv(jp2B64: string) {
@@ -984,19 +1007,31 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce, locAnhBanDau }: {
                           Học viên đã có ảnh — nạp ảnh mới sẽ <b>ghi đè ảnh cũ</b>, không khôi phục được.
                         </p>
                       ) : (
-                        <p className="text-[12px] text-muted-foreground">Chọn ảnh → căn khung 3:4 + xóa phông → lưu vào hồ sơ.</p>
+                        <p className="text-[12px] text-muted-foreground">
+                          Lấy ảnh gốc từ <b>máy tính</b> hoặc <b>kéo ảnh học viên gửi trên máy chủ</b> → căn khung 3:4 + xóa phông → lưu vào hồ sơ.
+                        </p>
                       )}
                       {anhErr && (
                         <p className="text-[12px] text-destructive flex items-center gap-1"><Icon name="warn" className="w-3.5 h-3.5" /> {anhErr}</p>
                       )}
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap">
                         <button onClick={() => { setAnhMo(false); setAnhErr(""); }} className="h-9 px-3 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Hủy</button>
+                        {/* CHANGES #32 — nguồn (b): kéo ảnh thô VPS (chỉ gợi ý khi HV chưa có ảnh) */}
+                        {!sel.co_anh && (
+                          <button
+                            onClick={() => void keoAnhVps()}
+                            disabled={anhBusy || anhVpsBusy}
+                            className="ml-auto h-9 px-4 rounded-lg border border-primary/40 text-primary text-sm font-semibold inline-flex items-center gap-2 hover:bg-primary/5 transition-all disabled:opacity-60"
+                          >
+                            <Icon name={anhVpsBusy ? "refresh" : "download"} className={"w-4 h-4" + (anhVpsBusy ? " animate-spin" : "")} /> {anhVpsBusy ? "Đang kéo…" : "Kéo ảnh máy chủ"}
+                          </button>
+                        )}
                         <button
                           onClick={() => { setAnhErr(""); setAnhSeed(null); setAnhModal(true); }}
-                          disabled={anhBusy}
-                          className="ml-auto h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center gap-2 hover:brightness-110 transition-all disabled:opacity-60"
+                          disabled={anhBusy || anhVpsBusy}
+                          className={(sel.co_anh ? "ml-auto " : "") + "h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center gap-2 hover:brightness-110 transition-all disabled:opacity-60"}
                         >
-                          <Icon name={anhBusy ? "refresh" : "image"} className={"w-4 h-4" + (anhBusy ? " animate-spin" : "")} /> {anhBusy ? "Đang lưu…" : "Chọn & xử lý ảnh"}
+                          <Icon name={anhBusy ? "refresh" : "image"} className={"w-4 h-4" + (anhBusy ? " animate-spin" : "")} /> {anhBusy ? "Đang lưu…" : sel.co_anh ? "Chọn & xử lý ảnh" : "Chọn ảnh từ máy"}
                         </button>
                       </div>
                     </div>

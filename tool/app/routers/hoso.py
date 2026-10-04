@@ -743,3 +743,29 @@ def xem_anh_thumb(ma_dk: str = Query(..., min_length=1), phien: Phien = Depends(
     except ValueError:
         raise HTTPException(status_code=422, detail="Ảnh hỏng, không đọc được.")
     return Response(content=png, media_type="image/png")
+
+
+@router.get("/anh-vps")
+def xem_anh_vps(ma_dk: str = Query(..., min_length=1), phien: Phien = Depends(require_session)):
+    """QLY-05 (CHANGES #32) — ảnh THÔ học viên gửi còn trên VPS, nguồn (b) để bổ sung ảnh cho HV
+    thiếu ảnh. Tra uuid gốc theo ma_dk (staging nap_xong → fallback VPS tra-uuid) rồi tải ảnh thô.
+    Hết hạn / không tra được uuid / chưa có ảnh → 404 (UI ẩn nguồn này, chỉ còn chọn-file)."""
+    token = phien.vps_token
+    if not token:
+        raise HTTPException(status_code=409, detail="Phiên chưa có quyền máy chủ — đăng nhập lại.")
+    uuid = nap.lay_uuid_theo_ma_dk(ma_dk)
+    if not uuid:
+        try:
+            uuid = vps.tra_uuid(token, ma_dk)
+        except VpsLoi as e:
+            raise _loi_vps(e)
+    if not uuid:
+        raise HTTPException(status_code=404, detail="Không tra được hồ sơ gốc trên máy chủ (có thể đã dọn quá hạn).")
+    try:
+        data = vps.tai_anh(token, uuid)
+    except VpsLoi as e:
+        raise _loi_vps(e)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Ảnh gốc trên máy chủ đã hết hạn hoặc không có.")
+    media = "image/png" if data[:8] == b"\x89PNG\r\n\x1a\n" else "image/jpeg"
+    return Response(content=data, media_type=media)

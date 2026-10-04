@@ -511,6 +511,15 @@ export const taiAnhKeoVe = async (uuid: string): Promise<string | null> => {
   return URL.createObjectURL(await r.blob());
 };
 
+// QLY-05 (CHANGES #32) — ảnh THÔ học viên gửi còn trên VPS, tra theo ma_dk (nguồn bổ sung ảnh cho
+// HV thiếu ảnh). Hết hạn/không tra được (404) → null → UI ẩn nguồn này, chỉ còn chọn-file.
+export const taiAnhVps = async (maDk: string): Promise<string | null> => {
+  const r = await fetch(`${BASE}/local/ho-so/anh-vps?ma_dk=${encodeURIComponent(maDk)}`, { headers: authHeaders() });
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+  return URL.createObjectURL(await r.blob());
+};
+
 export interface NapLoDong {
   uuid: string;
   ok: boolean;

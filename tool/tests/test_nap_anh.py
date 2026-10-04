@@ -6,13 +6,28 @@ thư mục tạm; kiểm cả ghi mới lẫn ghi đè. Gate/validate tầng API
 import io
 from datetime import datetime
 
+import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
+from app import session as _session
+from app import nap as nap_mod
+from app import vps as vps_mod
 from app.main import app
 from app.nap import ghi_anh_update
 
 client = TestClient(app)
+
+
+@pytest.fixture
+def op_headers_vps():
+    """Phiên operator CÓ vps_token (cần cho /anh-vps proxy ảnh thô VPS)."""
+    token = "test-anhvps-token"
+    _session._phien_theo_token[token] = _session.Phien(
+        username="op", ho_ten="NV Nạp", vai_tro="operator", vps_token="jwt-vps-gia"
+    )
+    yield {"Authorization": f"Bearer {token}"}
+    _session._phien_theo_token.pop(token, None)
 
 
 class FakeCursor:
@@ -170,3 +185,42 @@ def test_xem_anh_file_hong_422(auth_headers, monkeypatch, tmp_path):
     f.write_bytes(b"khong-phai-anh")
     monkeypatch.setattr("app.routers.hoso._doc_duong_dan_anh", lambda ma_dk: str(f))
     assert client.get("/local/ho-so/anh?ma_dk=X", headers=auth_headers).status_code == 422
+
+
+# ---- task 53 (CHANGES #32): /anh-vps — ảnh thô VPS theo ma_dk (nguồn b bổ sung ảnh QLY-05) ----
+def test_anh_vps_chua_dang_nhap_401():
+    assert client.get("/local/ho-so/anh-vps?ma_dk=X").status_code == 401
+
+
+def test_anh_vps_khong_co_quyen_may_chu_409(auth_headers):
+    # Phiên không có vps_token → 409 (yêu cầu đăng nhập lại).
+    assert client.get("/local/ho-so/anh-vps?ma_dk=X", headers=auth_headers).status_code == 409
+
+
+def test_anh_vps_khong_tra_duoc_uuid_404(op_headers_vps, monkeypatch):
+    monkeypatch.setattr(nap_mod, "lay_uuid_theo_ma_dk", lambda ma_dk: None)
+    monkeypatch.setattr(vps_mod, "tra_uuid", lambda token, ma_dk: None)
+    assert client.get("/local/ho-so/anh-vps?ma_dk=X", headers=op_headers_vps).status_code == 404
+
+
+def test_anh_vps_het_han_404(op_headers_vps, monkeypatch):
+    monkeypatch.setattr(nap_mod, "lay_uuid_theo_ma_dk", lambda ma_dk: "u1")
+    monkeypatch.setattr(vps_mod, "tai_anh", lambda token, uuid: None)  # ảnh thô đã dọn (>30 ngày)
+    assert client.get("/local/ho-so/anh-vps?ma_dk=X", headers=op_headers_vps).status_code == 404
+
+
+def test_anh_vps_proxy_200(op_headers_vps, monkeypatch):
+    monkeypatch.setattr(nap_mod, "lay_uuid_theo_ma_dk", lambda ma_dk: "u1")
+    monkeypatch.setattr(vps_mod, "tai_anh", lambda token, uuid: b"\xff\xd8\xff\xe0abc")
+    r = client.get("/local/ho-so/anh-vps?ma_dk=X", headers=op_headers_vps)
+    assert r.status_code == 200 and r.headers["content-type"] == "image/jpeg"
+    assert r.content[:3] == b"\xff\xd8\xff"
+
+
+def test_anh_vps_fallback_vps_tra_uuid_200(op_headers_vps, monkeypatch):
+    # staging không có vé (None) → fallback vps.tra_uuid → tai_anh.
+    monkeypatch.setattr(nap_mod, "lay_uuid_theo_ma_dk", lambda ma_dk: None)
+    monkeypatch.setattr(vps_mod, "tra_uuid", lambda token, ma_dk: "u-vps")
+    monkeypatch.setattr(vps_mod, "tai_anh", lambda token, uuid: b"\x89PNG\r\n\x1a\nxyz")
+    r = client.get("/local/ho-so/anh-vps?ma_dk=X", headers=op_headers_vps)
+    assert r.status_code == 200 and r.headers["content-type"] == "image/png"
