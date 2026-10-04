@@ -51,3 +51,49 @@ def sqlserver_conn(autocommit: bool = True):
         yield conn
     finally:
         conn.close()
+
+
+# --- Kết nối CSDL ĐÍCH cho phân hệ Đồng bộ CDB (SYNC, TDD §11B.1) ---------
+# Dùng CHUNG host/user/password với cấu hình Nạp, chỉ thay `database`. Tên DB
+# đích do caller truyền (từ target đang chọn trong cấu hình Sync).
+
+
+def _params_dich(database: str) -> dict:
+    cfg = load_config()
+    need = ("sqlserver_host", "sqlserver_user", "sqlserver_password")
+    if any(not cfg.get(k) for k in need):
+        raise ConfigChuaDay("Chưa cấu hình kết nối SQL Server — vào màn Cấu hình khai báo trước.")
+    if not database or not database.strip():
+        raise ConfigChuaDay("Chưa chọn CSDL đích — vào Quản lý CSDL đích để thêm/chọn.")
+    return {
+        "server": cfg["sqlserver_host"],
+        "database": database.strip(),
+        "user": cfg["sqlserver_user"],
+        "password": cfg["sqlserver_password"],
+    }
+
+
+@contextmanager
+def sqlserver_conn_dich(database: str, autocommit: bool = True):
+    """Mở CONNECTION tới CSDL đích (database truyền vào). Mỗi usp_* ở CDB tự
+    BEGIN/COMMIT nên để autocommit; đồng bộ sinh MaDK + INSERT giữ trong một
+    connection giống luồng nạp."""
+    import pymssql  # lazy import
+
+    conn = pymssql.connect(login_timeout=5, charset="UTF-8", autocommit=autocommit, **_params_dich(database))
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+
+@contextmanager
+def sqlserver_cursor_dich(database: str, as_dict: bool = True):
+    """Mở cursor tới CSDL đích, tự đóng. Dùng cho truy vấn đọc (năm/khóa/enrich)."""
+    import pymssql  # lazy import
+
+    conn = pymssql.connect(login_timeout=5, charset="UTF-8", **_params_dich(database))
+    try:
+        yield conn.cursor(as_dict=as_dict)
+    finally:
+        conn.close()
