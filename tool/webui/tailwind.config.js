@@ -20,6 +20,10 @@ export default {
         border: "hsl(214 32% 91%)",
         input: "hsl(214 32% 88%)",
         ring: "hsl(222 76% 40%)",
+        // Tông nhấn phân hệ Đồng bộ CDB (teal) — phân biệt phân hệ Nạp (primary xanh)
+        sync: "hsl(184 65% 32%)",
+        "sync-soft": "hsl(184 55% 95%)",
+        "sync-border": "hsl(184 45% 80%)",
       },
       borderRadius: { lg: "0.625rem", md: "0.5rem", sm: "0.375rem" },
     },

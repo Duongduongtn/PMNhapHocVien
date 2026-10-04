@@ -4,18 +4,15 @@ import CauHinh from "./pages/tool/CauHinh";
 import NapHoSo from "./pages/tool/NapHoSo";
 import TaoKhoa from "./pages/tool/TaoKhoa";
 import DangNhap from "./pages/tool/DangNhap";
+import SyncComingSoon from "./pages/sync/SyncComingSoon";
 import { ToolAuthProvider, useToolAuth } from "./auth/ToolAuth";
+import type { ReactNode } from "react";
 
-// Nạp cần đăng nhập; chưa đăng nhập → hiện màn đăng nhập (Cấu hình vẫn vào được — A1).
-function NapCoBaoVe() {
+// Nghiệp vụ ghi DB cần đăng nhập; chưa đăng nhập → màn đăng nhập
+// (Cấu hình vẫn vào được — A1).
+function CoBaoVe({ children }: { children: ReactNode }) {
   const { user } = useToolAuth();
-  return user ? <NapHoSo /> : <DangNhap />;
-}
-
-// Tạo khóa cũng cần đăng nhập (ghi DB qua SP).
-function TaoKhoaCoBaoVe() {
-  const { user } = useToolAuth();
-  return user ? <TaoKhoa /> : <DangNhap />;
+  return user ? <>{children}</> : <DangNhap />;
 }
 
 export default function App() {
@@ -24,9 +21,14 @@ export default function App() {
       <Routes>
         <Route path="/" element={<ToolLayout />}>
           <Route index element={<Navigate to="/tool/nap" replace />} />
-          <Route path="tool/nap" element={<NapCoBaoVe />} />
-          <Route path="tool/tao-khoa" element={<TaoKhoaCoBaoVe />} />
+          {/* Phân hệ Nạp hồ sơ */}
+          <Route path="tool/nap" element={<CoBaoVe><NapHoSo /></CoBaoVe>} />
+          <Route path="tool/tao-khoa" element={<CoBaoVe><TaoKhoa /></CoBaoVe>} />
           <Route path="tool/cau-hinh" element={<CauHinh />} />
+          {/* Phân hệ Đồng bộ CDB (màn thật dựng ở các bước sau) */}
+          <Route path="sync/ban-dong-bo" element={<CoBaoVe><SyncComingSoon title="Bàn đồng bộ" /></CoBaoVe>} />
+          <Route path="sync/db-dich" element={<CoBaoVe><SyncComingSoon title="Quản lý CSDL đích" /></CoBaoVe>} />
+          <Route path="sync/lich-su" element={<CoBaoVe><SyncComingSoon title="Lịch sử & Hủy sync" /></CoBaoVe>} />
         </Route>
       </Routes>
     </ToolAuthProvider>
