@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../../components/Icon";
 import { PhanTrang } from "../../components/PhanTrang";
 import { ComboLoc } from "../../components/ComboLoc";
+import { ODate } from "../../components/ODate";
 import { boDau } from "../../lib/format";
 import {
   getSyncTargets, getSyncNam, getSyncKhoa, postSyncHocVien, postSyncRun, openSyncStream, testSyncTarget,
@@ -63,6 +64,13 @@ export default function BanDongBo() {
   const dichTarget = targets.find((t) => t.key === targetKey);
   const khoaDichSel = khoaDich.find((k) => k.ma_kh === maKhDich);
   const khoaNguonSel = khoaNguon.find((k) => k.ma_kh === maKhNguon);
+  // Lịch chọn ngày giới hạn tối đa = min(hôm nay, NgàyKG khóa đích)
+  const maxNgayISO = (() => {
+    const t0 = new Date(); t0.setHours(0, 0, 0, 0);
+    const kgm = khoaDichSel?.ngay_kg ? /^(\d{4})-(\d{2})-(\d{2})/.exec(khoaDichSel.ngay_kg) : null;
+    const kg = kgm ? new Date(+kgm[1], +kgm[2] - 1, +kgm[3]) : null;
+    return toISO(kg && kg < t0 ? kg : t0);
+  })();
 
   // Nạp cấu hình + năm 2 bên
   useEffect(() => {
@@ -213,57 +221,70 @@ export default function BanDongBo() {
         </div>
 
         {!selCollapsed && (
-          <div className="px-4 pb-2.5 grid grid-cols-[1fr_1fr_auto] gap-x-6 gap-y-2 items-end">
-            <div>
-              <label className="field-label">① Khóa nguồn (GPLX_CSDT)</label>
-              <div className="flex gap-1.5 mt-0.5">
-                <select className="field-input !w-[78px]" value={selNamNguon ?? ""} disabled={running} onChange={(e) => setSelNamNguon(+e.target.value)}>
-                  {namNguon.map((n) => <option key={n} value={n}>{n}</option>)}
-                </select>
-                <ComboLoc className="flex-1" value={maKhNguon} disabled={running}
-                  placeholder="Gõ tên/mã khóa nguồn…"
-                  options={khoaNguon.map((k) => ({ ma: k.ma_kh, ten: fmtKhoaNguon(k) }))}
-                  onChon={setMaKhNguon} />
+          <div className="px-4 pb-2.5 space-y-2">
+            {/* Hàng 1: chọn khóa nguồn + đích — hai khối cùng chiều cao, nhãn + combo thẳng hàng */}
+            <div className="grid grid-cols-2 gap-x-6">
+              <div>
+                <label className="field-label">① Khóa nguồn (GPLX_CSDT)</label>
+                <div className="flex gap-1.5 mt-1">
+                  <select className="field-input !w-[80px] shrink-0" value={selNamNguon ?? ""} disabled={running} onChange={(e) => setSelNamNguon(+e.target.value)}>
+                    {namNguon.map((n) => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                  <ComboLoc className="flex-1 min-w-0" value={maKhNguon} disabled={running}
+                    placeholder="Gõ tên/mã khóa nguồn…"
+                    options={khoaNguon.map((k) => ({ ma: k.ma_kh, ten: fmtKhoaNguon(k) }))}
+                    onChon={setMaKhNguon} />
+                </div>
+              </div>
+              <div>
+                <label className="field-label">② Khóa đích {dichTarget ? `(${dichTarget.name})` : ""} — cùng hạng</label>
+                <div className="flex gap-1.5 mt-1">
+                  {targets.length > 1 && (
+                    <select className="field-input !w-[120px] shrink-0" value={targetKey} disabled={running} onChange={(e) => setTargetKey(e.target.value)}>
+                      {targets.map((t) => <option key={t.key} value={t.key}>{t.name}</option>)}
+                    </select>
+                  )}
+                  <select className="field-input !w-[80px] shrink-0" value={selNamDich ?? ""} disabled={running} onChange={(e) => setSelNamDich(+e.target.value)}>
+                    {namDich.map((n) => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                  <ComboLoc className="flex-1 min-w-0" value={maKhDich} disabled={running}
+                    placeholder="Gõ tên/mã khóa đích…"
+                    options={khoaDich.map((k) => ({ ma: k.ma_kh, ten: fmtKhoaDich(k) }))}
+                    onChon={setMaKhDich} />
+                </div>
               </div>
             </div>
-            <div>
-              <label className="field-label">② Khóa đích {dichTarget ? `(${dichTarget.name})` : ""} — cùng hạng</label>
-              <div className="flex gap-1.5 mt-0.5">
-                {targets.length > 1 && (
-                  <select className="field-input !w-[120px]" value={targetKey} disabled={running} onChange={(e) => setTargetKey(e.target.value)}>
-                    {targets.map((t) => <option key={t.key} value={t.key}>{t.name}</option>)}
-                  </select>
-                )}
-                <select className="field-input !w-[78px]" value={selNamDich ?? ""} disabled={running} onChange={(e) => setSelNamDich(+e.target.value)}>
-                  {namDich.map((n) => <option key={n} value={n}>{n}</option>)}
-                </select>
-                <ComboLoc className="flex-1" value={maKhDich} disabled={running}
-                  placeholder="Gõ tên/mã khóa đích…"
-                  options={khoaDich.map((k) => ({ ma: k.ma_kh, ten: fmtKhoaDich(k) }))}
-                  onChon={setMaKhDich} />
-              </div>
-              <div className="flex items-center gap-2 mt-1">
+
+            {/* Hàng 2: ngày + kiểm tra đích + người tạo + Tải — một dòng, căn đáy (wrap khi hẹp) */}
+            <div className="flex items-end gap-x-5 gap-y-2 flex-wrap">
+              <ODate
+                className="w-44 shrink-0"
+                label={<>③ Ngày nhập hồ sơ {khoaDichSel?.ngay_kg ? <span className="text-muted-foreground font-normal">(≤ KG {isoVN(khoaDichSel.ngay_kg)})</span> : null}</>}
+                value={ngay}
+                onChange={setNgay}
+                disabled={running}
+                max={maxNgayISO}
+              />
+              <div className="flex items-center gap-2 h-[34px]">
                 <button type="button" onClick={kiemTraDich} disabled={!dichTarget || testKq?.dang || running}
-                  className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md border border-border text-[12px] hover:bg-muted disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sync">
+                  className="inline-flex items-center gap-1 h-[30px] px-2.5 rounded-md border border-border text-[12.5px] hover:bg-muted disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sync whitespace-nowrap">
                   <Icon name="refresh" className={"w-3.5 h-3.5 " + (testKq?.dang ? "animate-spin" : "")} /> Kiểm tra kết nối đích
                 </button>
-                {testKq && !testKq.dang && (
-                  <span className={"inline-flex items-center gap-1 text-[12px] " + (testKq.ok ? "text-success" : "text-destructive")}>
+                {testKq && !testKq.dang ? (
+                  <span className={"inline-flex items-center gap-1 text-[12px] whitespace-nowrap " + (testKq.ok ? "text-success" : "text-destructive")}>
                     <Icon name={testKq.ok ? "check" : "warn"} className="w-3.5 h-3.5" sw={testKq.ok ? 3 : 2} /> {testKq.message}
                   </span>
-                )}
-                {!daTest && !testKq?.dang && <span className="text-[11.5px] text-muted-foreground">Kiểm tra trước khi Tải danh sách</span>}
+                ) : (!daTest && <span className="text-[11.5px] text-muted-foreground whitespace-nowrap">Kiểm tra trước khi Tải</span>)}
               </div>
-            </div>
-            <button onClick={taiDanhSach} disabled={dangTai || running || !daTest} title={!daTest ? "Kiểm tra kết nối CSDL đích trước" : undefined} className="inline-flex items-center gap-1.5 h-[30px] px-3 rounded-md bg-primary text-primary-foreground font-semibold text-[12.5px] whitespace-nowrap disabled:opacity-50">
-              <Icon name="download" className={"w-4 h-4 " + (dangTai ? "animate-pulse" : "")} /> Tải danh sách
-            </button>
-            <div>
-              <label className="field-label">③ Ngày nhập hồ sơ {khoaDichSel?.ngay_kg ? <span className="text-muted-foreground font-normal">(≤ KG {isoVN(khoaDichSel.ngay_kg)})</span> : null}</label>
-              <input className="field-input !w-40 mt-0.5" value={ngay} disabled={running} onChange={(e) => setNgay(e.target.value)} placeholder="dd/mm/yyyy" />
-            </div>
-            <div className="text-[11.5px] text-muted-foreground self-center">
-              Người tạo ghi vào CDB: <b className="text-foreground" style={{ fontFamily: "ui-monospace,Consolas,monospace" }}>admin</b> <span className="text-muted-foreground/70">(giống phần mềm CDB)</span>
+              <div className="ml-auto flex items-center gap-4 h-[34px]">
+                <span className="text-[11.5px] text-muted-foreground whitespace-nowrap">
+                  Người tạo: <b className="text-foreground" style={{ fontFamily: "ui-monospace,Consolas,monospace" }}>admin</b>
+                </span>
+                <button onClick={taiDanhSach} disabled={dangTai || running || !daTest} title={!daTest ? "Kiểm tra kết nối CSDL đích trước" : undefined}
+                  className="inline-flex items-center gap-1.5 h-[34px] px-4 rounded-md bg-primary text-primary-foreground font-semibold text-[13px] whitespace-nowrap disabled:opacity-50">
+                  <Icon name="download" className={"w-4 h-4 " + (dangTai ? "animate-pulse" : "")} /> Tải danh sách
+                </button>
+              </div>
             </div>
           </div>
         )}
