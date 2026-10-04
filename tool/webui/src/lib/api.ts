@@ -704,6 +704,13 @@ export const taiAnhCDB = (maDk: string, targetKey?: string, v = 0) =>
   taiAnhPNG(`/local/sync/tra-cuu/anh?${qs({ ma_dk: maDk, target_key: targetKey, v: v || undefined })}`);
 export const taiAnhThumbCDB = (maDk: string, targetKey?: string, v = 0) =>
   taiAnhPNG(`/local/sync/tra-cuu/anh-thumb?${qs({ ma_dk: maDk, target_key: targetKey, v: v || undefined })}`);
+// TCB-02 — thay ảnh HV ở CDB (ghi đè file dùng chung + backup _BACKUP + UPDATE cột ảnh CDB).
+export const napAnhCDB = (maDk: string, jp2B64: string, targetKey?: string) =>
+  fetch(`${BASE}/local/sync/tra-cuu/nap-anh?${qs({ ma_dk: maDk, target_key: targetKey })}`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ jp2_b64: jp2B64 }),
+  }).then(json<{ ok: boolean; ma_dk: string; duong_dan_anh: string; co_anh: boolean }>);
 
 export interface SyncRunIn {
   ma_kh_nguon: string;

@@ -710,7 +710,7 @@
 
 #### [TCB-02] Thay ảnh chân dung HV ở CDB đích
 
-**Trạng thái:** ⏳ Todo — thêm 04/10/2026 (CHANGES #35).
+**Trạng thái:** ✅ Done — 04/10/2026 (task 64; kiểm mức 1+2: 269 pytest pass (4 test backup/atomic), build sạch, Playwright AnhModal + cảnh báo BC1, review-nghiepvu đủ). Ghi đè thật kiểm live ở Checkpoint 14.
 **Story:** Là nhân viên nạp DB, tôi muốn thay ảnh chân dung của một HV trong CDB đích ngay trên màn tra cứu, để sửa ảnh hỏng/sai mà không phải nhập lại.
 
 **Done khi:**

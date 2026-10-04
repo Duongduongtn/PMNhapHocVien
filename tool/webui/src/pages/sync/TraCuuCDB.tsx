@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Icon } from "../../components/Icon";
 import AnhAvatar from "../../components/AnhAvatar";
+import AnhModal from "../../components/AnhModal";
 import { PhanTrang } from "../../components/PhanTrang";
 import { useConfigDrawer } from "../../lib/configDrawer";
 import { boDau, ymdToVN } from "../../lib/format";
@@ -12,6 +13,7 @@ import {
   khoaCuaMaDkCDB,
   taiAnhCDB,
   taiAnhThumbCDB,
+  napAnhCDB,
   type KhoaCDB,
   type HoSoRowCDB,
   type KetQuaAnh,
@@ -64,6 +66,14 @@ export default function TraCuuCDB() {
   // Ảnh lớn ở modal chi tiết (fetch kèm session header → object URL; revoke khi đổi/đóng).
   const [anhXem, setAnhXem] = useState<KetQuaAnh | null>(null);
   const [anhXemBusy, setAnhXemBusy] = useState(false);
+
+  // TCB-02 — thay ảnh. anhVer: cache-bust sau khi ghi đè (ảnh dùng chung URL theo MaDK).
+  const [anhModal, setAnhModal] = useState(false);
+  const [anhSeed, setAnhSeed] = useState<string | null>(null);
+  const [anhBusy, setAnhBusy] = useState(false);
+  const [anhErr, setAnhErr] = useState("");
+  const [anhVer, setAnhVer] = useState(0);
+  const [okMsg, setOkMsg] = useState("");
 
   const [trang, setTrang] = useState(0);
   const [coTrang, setCoTrang] = useState(20);
@@ -138,14 +148,14 @@ export default function TraCuuCDB() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetKey, maDkParam]);
 
-  // Tải ảnh lớn khi mở chi tiết.
+  // Tải ảnh lớn khi mở chi tiết. anhVer đổi → refetch ảnh mới sau khi thay (tránh bộ đệm).
   useEffect(() => {
     setAnhXem(null);
     if (!sel || !sel.co_anh) return;
     let huy = false;
     let obj: string | null = null;
     setAnhXemBusy(true);
-    void taiAnhCDB(sel.ma_dk, targetKey ?? undefined)
+    void taiAnhCDB(sel.ma_dk, targetKey ?? undefined, anhVer)
       .then((kq) => {
         if (huy) return;
         if ("url" in kq) obj = kq.url;
@@ -153,7 +163,36 @@ export default function TraCuuCDB() {
       })
       .finally(() => { if (!huy) setAnhXemBusy(false); });
     return () => { huy = true; if (obj) URL.revokeObjectURL(obj); };
-  }, [sel, targetKey]);
+  }, [sel, targetKey, anhVer]);
+
+  // Mở AnhModal để thay ảnh (TCB-02). Ảnh cũ còn → nạp sẵn làm ảnh gốc để chỉnh tiếp;
+  // mất/hỏng → mở chế độ chọn-file. Khi mở từ danh sách, reset lỗi.
+  function moThayAnh() {
+    if (!sel) return;
+    setAnhErr("");
+    setAnhSeed(anhXem && "url" in anhXem ? anhXem.url : null);
+    setAnhModal(true);
+  }
+
+  async function thayAnh(jp2B64: string) {
+    if (!sel) return;
+    const maDk = sel.ma_dk;
+    setAnhModal(false);
+    setAnhErr("");
+    setAnhBusy(true);
+    try {
+      await napAnhCDB(maDk, jp2B64, targetKey ?? undefined);
+      setSel((prev) => (prev && prev.ma_dk === maDk ? { ...prev, co_anh: true } : prev));
+      setAnhVer((v) => v + 1); // refetch ảnh mới (chi tiết + avatar lưới)
+      if (khoa) setHoSo(await dsHoSoCDB(khoa.ma_kh, targetKey ?? undefined));
+      setOkMsg("Đã thay ảnh — ảnh đổi ở cả bản Nạp và CDB (dùng chung file). Bản gốc lưu _BACKUP.");
+      setTimeout(() => setOkMsg(""), 4000);
+    } catch (e) {
+      setAnhErr(e instanceof Error ? e.message : "Thay ảnh không thành công.");
+    } finally {
+      setAnhBusy(false);
+    }
+  }
 
   const rows = (hoSo ?? []).filter((h) => {
     const t = qHv.trim();
@@ -229,6 +268,11 @@ export default function TraCuuCDB() {
         </button>
       </div>
 
+      {okMsg && (
+        <div className="mt-3 flex items-center gap-2 text-[13px] text-success bg-success/10 border border-success/30 rounded-lg px-3 py-2">
+          <Icon name="check" className="w-4 h-4 shrink-0" sw={3} /> {okMsg}
+        </div>
+      )}
       {err && (
         <div className="mt-3 flex items-center gap-2 text-[13px] text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2">
           <Icon name="warn" className="w-4 h-4 shrink-0" /> {err}
@@ -326,7 +370,7 @@ export default function TraCuuCDB() {
                 <tbody>
                   {rowsTrang.map((h) => (
                     <tr key={h.ma_dk} onClick={() => setSel(h)} className={"border-t border-border cursor-pointer transition-colors " + (noiBatSet.has(h.ma_dk) ? "bg-sync-soft hover:brightness-95" : "hover:bg-muted/60")}>
-                      <td className="px-2 py-1.5"><AnhAvatar coAnh={h.co_anh} tai={(v) => taiAnhThumbCDB(h.ma_dk, targetKey ?? undefined, v)} /></td>
+                      <td className="px-2 py-1.5"><AnhAvatar coAnh={h.co_anh} ver={anhVer} tai={(v) => taiAnhThumbCDB(h.ma_dk, targetKey ?? undefined, v)} /></td>
                       <td className="px-3 py-2 tabular-nums">{h.so_ho_so || "—"}</td>
                       <td className="px-3 py-2 font-semibold">{h.ho_ten || "(chưa có tên)"}</td>
                       <td className="px-3 py-2">{gioiTinhVN(h.gioi_tinh)}</td>
@@ -364,12 +408,20 @@ export default function TraCuuCDB() {
             </div>
             <div className="p-5 overflow-y-auto">
               <div className="mb-4 flex flex-col items-center">
-                <div className="w-32 h-[170px] rounded-lg border border-border overflow-hidden bg-muted flex items-center justify-center">
+                <button
+                  type="button"
+                  onClick={moThayAnh}
+                  disabled={!sel.co_anh || anhBusy}
+                  title={sel.co_anh ? "Bấm để thay ảnh" : "Học viên chưa có ảnh ở CDB — không thay được"}
+                  className="group relative w-32 h-[170px] rounded-lg border border-border overflow-hidden bg-muted flex items-center justify-center disabled:cursor-not-allowed"
+                >
                   {!sel.co_anh ? (
                     <div className="flex flex-col items-center gap-1 text-muted-foreground">
                       <Icon name="user" className="w-10 h-10" />
                       <span className="text-[11px]">Thiếu ảnh</span>
                     </div>
+                  ) : anhBusy ? (
+                    <Icon name="refresh" className="w-6 h-6 text-primary animate-spin" />
                   ) : anhXemBusy ? (
                     <Icon name="refresh" className="w-6 h-6 text-muted-foreground animate-spin" />
                   ) : anhXem && "url" in anhXem ? (
@@ -380,7 +432,12 @@ export default function TraCuuCDB() {
                       <span className="text-[11px]">{anhXem && "loi" in anhXem && anhXem.loi === "hong" ? "Ảnh hỏng" : "Mất file"}</span>
                     </div>
                   )}
-                </div>
+                  {sel.co_anh && (
+                    <span className="absolute inset-x-0 bottom-0 bg-black/55 text-white text-[10px] py-0.5 flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Icon name="edit" className="w-3 h-3" /> Thay ảnh
+                    </span>
+                  )}
+                </button>
                 {sel.co_anh && anhXem && "loi" in anhXem && (
                   <p className="mt-2 text-[12px] text-destructive flex items-start gap-1 text-center max-w-[260px]">
                     <Icon name="warn" className="w-3.5 h-3.5 shrink-0 mt-0.5" />
@@ -392,6 +449,18 @@ export default function TraCuuCDB() {
                 {sel.duong_dan_anh && (
                   <p className="mt-1.5 text-[11px] text-muted-foreground break-all text-center max-w-[300px]" title={sel.duong_dan_anh}>
                     {sel.duong_dan_anh}
+                  </p>
+                )}
+                {/* Thay ảnh được phép kể cả khi DKKH/BC1 — chỉ cảnh báo (ảnh là sửa chất lượng) */}
+                {sel.co_anh && (khoa?.dkkh || khoa?.bc1) && (
+                  <p className="mt-2 text-[11px] text-warning flex items-start gap-1 text-center max-w-[280px]">
+                    <Icon name="warn" className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    Khóa đã {khoa?.bc1 ? "lập Báo cáo 1" : "kết xuất DKKH"} — vẫn thay được ảnh. Ảnh dùng chung nên đổi cả ở bản Nạp.
+                  </p>
+                )}
+                {anhErr && (
+                  <p className="mt-2 text-[12px] text-destructive flex items-start gap-1 text-center max-w-[280px]">
+                    <Icon name="warn" className="w-3.5 h-3.5 shrink-0 mt-0.5" /> {anhErr}
                   </p>
                 )}
               </div>
@@ -421,6 +490,16 @@ export default function TraCuuCDB() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* TCB-02 — AnhModal thay ảnh (tái dùng Y NGUYÊN của Nạp: 3:4 + zoom/xoay + đổi nền) */}
+      {anhModal && (
+        <AnhModal
+          anhBanDau={anhSeed}
+          anhGoc={anhSeed}
+          onDong={() => { setAnhModal(false); setAnhSeed(null); }}
+          onXong={(b64) => void thayAnh(b64)}
+        />
       )}
     </div>
   );

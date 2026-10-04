@@ -14,16 +14,98 @@ Mốc khóa (TDD §11B.7, chốt /reviewtdd 04/10):
 """
 from __future__ import annotations
 
+import base64
+import shutil
+from datetime import datetime
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from pydantic import BaseModel
 
 from app import sync_helpers
 from app.db import sqlserver_conn_dich, ConfigChuaDay
 from app.image import jp2_sang_png, thumb_jp2
 from app.routers.sync import _db_dich, _loi_db  # dùng chung: chọn DB đích + gói lỗi
+from app.session import Phien, require_session
 
 router = APIRouter(prefix="/local/sync/tra-cuu", tags=["sync-tracuu"])
+
+
+def thay_anh_ghi_de(duong_dan: str, jp2_bytes: bytes) -> str:
+    """TCB-02 — ghi đè ĐÚNG file .jp2 cũ (giữ nguyên tên + đường dẫn).
+
+    Trước khi đè, **sao lưu `<stem>_BACKUP.jp2` CÙNG thư mục** — CHỈ nếu chưa có (chạy lần 2 không
+    đè mất bản gốc). Ghi atomic (temp → replace) để crash giữa chừng không để lại .jp2 cụt.
+    Ảnh là file VẬT LÝ dùng chung 2 DB (Nạp + đích) → thao tác này đổi ảnh ở cả hai.
+
+    File không còn → FileNotFoundError. File bị phần mềm CDB khóa → PermissionError (caller → 409).
+    """
+    p = Path(duong_dan)
+    if not p.exists():
+        raise FileNotFoundError(duong_dan)
+    backup = p.with_name(f"{p.stem}_BACKUP{p.suffix}")
+    if not backup.exists():
+        shutil.copy2(p, backup)  # giữ bản gốc đầu tiên (copy2 giữ cả metadata)
+    tmp = p.with_name(f"{p.name}.tmp")
+    tmp.write_bytes(jp2_bytes)
+    try:
+        tmp.replace(p)  # nguyên tử; app CDB còn khóa file → PermissionError
+    except Exception:
+        tmp.unlink(missing_ok=True)
+        raise
+    return str(p)
+
+
+class NapAnhCDBIn(BaseModel):
+    jp2_b64: str
+
+
+@router.post("/nap-anh")
+def nap_anh_dich(body: NapAnhCDBIn, ma_dk: str = Query(..., min_length=1),
+                 target_key: str | None = None, phien: Phien = Depends(require_session)):
+    """TCB-02 — thay ảnh HV ở CDB đích (GHI). Ghi đè đúng file .jp2 cũ (giữ `DuongDanAnh`), sao lưu
+    `_BACKUP` cùng thư mục trước khi đè, cập nhật `ChatLuongAnh`/`NgayThuNhanAnh` ở bản ghi CDB.
+
+    Ảnh dùng chung 2 DB → đổi cả ở Nạp. Cho phép kể cả khi DKKH/BC1 (cảnh báo do UI lo). KHÔNG đụng
+    `TT_XuLy`/`DuongDanAnh`. File bị phần mềm CDB khóa → 409; file cũ đã mất → 404; ghi lỗi → không
+    cập nhật DB (ghi file TRƯỚC, UPDATE SAU)."""
+    db = _db_dich(target_key)
+    nguoi = (phien.ho_ten or phien.username or "tool")[:60]
+    try:
+        jp2_bytes = base64.b64decode(body.jp2_b64, validate=True)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Ảnh không hợp lệ.")
+    if not jp2_bytes:
+        raise HTTPException(status_code=400, detail="Thiếu dữ liệu ảnh.")
+    try:
+        with sqlserver_conn_dich(db, autocommit=True) as conn:
+            cur = conn.cursor(as_dict=True)
+            cur.execute("SELECT DuongDanAnh FROM dbo.NguoiLX_HoSo WHERE MaDK=%s", (ma_dk,))
+            r = cur.fetchone()
+            if not r:
+                raise HTTPException(status_code=404, detail="Không tìm thấy hồ sơ học viên ở CSDL đích.")
+            duong_dan = (r["DuongDanAnh"] or "").strip()
+            if not duong_dan:
+                raise HTTPException(status_code=409,
+                                    detail="Học viên chưa có ảnh ở CDB — chức năng này chỉ thay ảnh đã có.")
+            thay_anh_ghi_de(duong_dan, jp2_bytes)  # backup + ghi đè file (dùng chung 2 DB)
+            cur.execute(
+                "UPDATE dbo.NguoiLX_HoSo SET ChatLuongAnh=1, NgayThuNhanAnh=%s, NguoiThuNhanAnh=%s "
+                "WHERE MaDK=%s",
+                (datetime.now(), nguoi, ma_dk),
+            )
+    except HTTPException:
+        raise
+    except PermissionError:
+        raise HTTPException(status_code=409,
+                            detail="File ảnh đang bị khóa (phần mềm CDB đang mở) — đóng rồi thử lại.")
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="File ảnh cũ không còn trên ổ — không ghi đè được.")
+    except ConfigChuaDay as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=502, detail="Không ghi được ảnh — kiểm kết nối rồi thử lại.")
+    return {"ok": True, "ma_dk": ma_dk, "duong_dan_anh": duong_dan, "co_anh": True}
 
 # ── SQL dùng chung (bám đúng hoso.py bên Nạp, nhưng chạy trên conn đích) ──
 
