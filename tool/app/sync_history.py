@@ -168,3 +168,16 @@ class HistoryStore:
         for b in self.load_batches_for_khoa(ma_kh):
             result.update(b.all_ma_dk_new())
         return result
+
+    def list_all_batches(self) -> list[SyncBatch]:
+        """Mọi lần sync đã ghi nhật ký (mọi khóa) — cho màn Lịch sử. File hỏng bỏ
+        qua. Sort mới nhất lên đầu."""
+        batches: list[SyncBatch] = []
+        for path in self.history_dir.glob("*.json"):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    batches.append(SyncBatch.from_dict(json.load(f)))
+            except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
+                logger.warning("Bỏ qua file nhật ký hỏng %s: %s", path.name, exc)
+        batches.sort(key=lambda b: b.sync_at_start, reverse=True)
+        return batches

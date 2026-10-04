@@ -726,3 +726,37 @@ export function openSyncStream(jobId: string, onEvent: (ev: Record<string, unkno
   });
   return ctrl;
 }
+
+// ── Phân hệ Đồng bộ CDB — Lịch sử & Hủy sync (SYNC-03) ──
+export interface SyncLichSuRow {
+  khoa_moi: string;
+  khoa_cu: string | null;
+  sync_at: string; // ISO
+  can_bo: string;
+  so_tao: number;
+}
+export const getSyncLichSu = () =>
+  fetch(`${BASE}/local/sync/lich-su`, { headers: authHeaders() }).then(json<SyncLichSuRow[]>);
+
+export interface SyncRollbackPreview {
+  log_count: number;
+  log_con_dich: number;
+  sync_group: number;
+  tong: number;
+}
+export const getSyncRollbackPreview = (maKh: string, targetKey?: string) =>
+  fetch(`${BASE}/local/sync/rollback/preview?${qs({ ma_kh: maKh, target_key: targetKey })}`, {
+    headers: authHeaders(),
+  }).then(json<SyncRollbackPreview>);
+
+export interface SyncRollbackKetQua {
+  hs_del: number;
+  nlx_del: number;
+  tong_so_hv: number | null;
+}
+export const postSyncRollback = (maKh: string, targetKey?: string) =>
+  fetch(`${BASE}/local/sync/rollback`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ ma_kh: maKh, target_key: targetKey }),
+  }).then(json<SyncRollbackKetQua>);

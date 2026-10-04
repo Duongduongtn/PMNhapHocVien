@@ -449,3 +449,146 @@ def stream(job: str):
         _jobs.pop(job, None)
 
     return StreamingResponse(gen(), media_type="text/event-stream")
+
+
+# ========== SYNC-03 (Lịch sử & Hủy sync khóa) — task 60 ==========
+# Port rollback dual-mode sync_tool v2.0: xóa theo MaDK nhật ký JSON (nhóm chính)
+# CỘNG nhóm công cụ cũ NguoiTao='SYNC' (tương thích ngược). Cascade NguoiLX→HoSo
+# →GiayTo tự dọn. CSDL đích GPLX_CDB_CSDT không lập BC1 nên xóa an toàn; vẫn bắt
+# lỗi FK BaoCaoI (NO_ACTION) phòng khi HV đã BC1 → báo rõ thay vì lỗi SQL thô.
+
+
+class RollbackIn(BaseModel):
+    ma_kh: str
+    target_key: str | None = None
+
+    @field_validator("ma_kh")
+    @classmethod
+    def _khong_rong(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("Thiếu mã khóa cần hủy")
+        return v.strip()
+
+
+@router.get("/lich-su")
+def lich_su() -> list[dict]:
+    """Các lần sync đã ghi nhật ký trên máy tool (mọi khóa). Thuần đọc JSON cục bộ
+    — không cần DB, file hỏng tự bỏ qua. Mới nhất lên đầu."""
+    try:
+        store = sync_history.HistoryStore()
+    except OSError:
+        return []
+    out = []
+    for b in store.list_all_batches():
+        out.append({
+            "khoa_moi": b.khoa_moi,
+            "khoa_cu": b.khoa_cu,
+            "sync_at": b.sync_at_start.isoformat(),
+            "can_bo": b.can_bo,
+            "so_tao": len(b.all_ma_dk_new()),
+        })
+    return out
+
+
+@router.get("/rollback/preview")
+def rollback_preview(ma_kh: str, target_key: str | None = None) -> dict:
+    """Đếm chính xác số bản ghi SẼ xóa (cho hộp xác nhận): nhóm nhật ký (MaDK còn
+    tồn tại ở khóa đích) + nhóm công cụ cũ NguoiTao='SYNC'."""
+    db = _db_dich(target_key)
+    store = sync_history.HistoryStore()
+    log_madk = sorted(store.get_all_ma_dk_for_khoa(ma_kh))
+    try:
+        with sqlserver_conn_dich(db) as cd:
+            cur = cd.cursor()
+            log_con = 0
+            if log_madk:
+                marks = ",".join(["%s"] * len(log_madk))
+                cur.execute(
+                    f"SELECT COUNT(*) FROM dbo.NguoiLX_HoSo WHERE MaKhoaHoc=%s AND MaDK IN ({marks})",
+                    (ma_kh, *log_madk),
+                )
+                log_con = cur.fetchone()[0]
+            cur.execute(
+                "SELECT COUNT(*) FROM dbo.NguoiLX_HoSo WHERE MaKhoaHoc=%s AND NguoiTao='SYNC'",
+                (ma_kh,),
+            )
+            sync_con = cur.fetchone()[0]
+    except Exception as e:  # noqa: BLE001
+        raise _loi_db(e)
+    return {
+        "log_count": len(log_madk),
+        "log_con_dich": int(log_con),
+        "sync_group": int(sync_con),
+        "tong": int(log_con) + int(sync_con),
+    }
+
+
+@router.post("/rollback")
+def rollback(body: RollbackIn) -> dict:
+    """Hủy sync 1 khóa: xóa HV do tool tạo khỏi CSDL đích. KHÔNG hoàn tác được.
+
+    Một transaction (autocommit=False) — vướng bất cứ dòng nào (vd HV đã BC1 bị
+    FK chặn) thì hủy TOÀN BỘ, không để khóa nửa vời. Nhật ký JSON giữ nguyên."""
+    db = _db_dich(body.target_key)
+    store = sync_history.HistoryStore()
+    log_madk = sorted(store.get_all_ma_dk_for_khoa(body.ma_kh))
+    tt = config_store.get_sync_config()["options"]
+    hs_del = nlx_del = 0
+    tong_so_hv = None
+    try:
+        with sqlserver_conn_dich(db, autocommit=False) as cd:
+            cur = cd.cursor()
+            # Nhóm nhật ký (MaDK): PK NguoiLX_HoSo = MaDK; xóa NguoiLX cascade HoSo+GiayTo.
+            for madk in log_madk:
+                cur.execute(
+                    "DELETE FROM dbo.NguoiLX_HoSo WHERE MaDK=%s AND MaKhoaHoc=%s",
+                    (madk, body.ma_kh),
+                )
+                hs_del += cur.rowcount
+                cur.execute(
+                    "DELETE FROM dbo.NguoiLX WHERE MaDK=%s "
+                    "AND NOT EXISTS (SELECT 1 FROM dbo.NguoiLX_HoSo WHERE MaDK=%s)",
+                    (madk, madk),
+                )
+                nlx_del += cur.rowcount
+            # Nhóm công cụ cũ NguoiTao='SYNC' (tương thích ngược sync_tool v1.07).
+            cur.execute(
+                "DELETE GT FROM dbo.NguoiLXHS_GiayTo GT "
+                "JOIN dbo.NguoiLX_HoSo HS ON GT.MaDK=HS.MaDK AND GT.SoHoSo=HS.SoHoSo "
+                "WHERE HS.MaKhoaHoc=%s AND HS.NguoiTao='SYNC'",
+                (body.ma_kh,),
+            )
+            cur.execute(
+                "DELETE FROM dbo.NguoiLX_HoSo WHERE MaKhoaHoc=%s AND NguoiTao='SYNC'",
+                (body.ma_kh,),
+            )
+            hs_del += cur.rowcount
+            cur.execute(
+                "DELETE FROM dbo.NguoiLX "
+                "WHERE MaDK NOT IN (SELECT MaDK FROM dbo.NguoiLX_HoSo) AND NguoiTao='SYNC'"
+            )
+            nlx_del += cur.rowcount
+            # Cập nhật lại TongSoHV (nếu bật tùy chọn).
+            if tt.get("update_tong_so_hv"):
+                cur.execute(
+                    "SET NOCOUNT ON; UPDATE dbo.KhoaHoc SET TongSoHV="
+                    "(SELECT COUNT(*) FROM dbo.NguoiLX_HoSo WHERE MaKhoaHoc=%s) WHERE MaKH=%s; "
+                    "SELECT TongSoHV FROM dbo.KhoaHoc WHERE MaKH=%s",
+                    (body.ma_kh, body.ma_kh, body.ma_kh),
+                )
+                r = cur.fetchone()
+                tong_so_hv = r[0] if r else None
+            cd.commit()
+    except ConfigChuaDay as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:  # noqa: BLE001 — gói lỗi FK BC1 thành thông báo nghiệp vụ
+        msg = str(e)
+        if "BaoCaoI" in msg or "REFERENCE" in msg.upper():
+            raise HTTPException(
+                status_code=409,
+                detail="Không hủy được: khóa này có học viên đã lập Báo cáo 1 "
+                       "(CSDL chặn xóa). Gỡ Báo cáo 1 ở phần mềm CDB trước rồi hủy lại. "
+                       "Chưa xóa học viên nào.",
+            )
+        raise _loi_db(e)
+    return {"hs_del": int(hs_del), "nlx_del": int(nlx_del), "tong_so_hv": tong_so_hv}

@@ -624,7 +624,7 @@
 ---
 
 ### 🟣 Đồng bộ CDB (workspace riêng — tool máy CSDT)
-**Trạng thái:** ⏳ Todo
+**Trạng thái:** 🔄 In Progress — 3 story SYNC-01/02/03 đã ✅ (task 56-62, 04/10/2026). **Chưa chốt Feature** — chờ user duyệt + E2E sync thật 1 khóa nhỏ (Checkpoint 12, `/kiemthu`). Còn task 26 (đóng gói .exe) ngoài phạm vi Feature.
 
 > Nghiệp vụ **TÁCH HOÀN TOÀN** khỏi Nạp hồ sơ: workspace riêng trong tool (công tắc đổi màu nhấn, banner nhắc DB đích), module backend riêng (`routers/sync.py` + `sync_service.py` + `sync_helpers.py` — **không import** module nạp). Port nghiệp vụ từ công cụ đồng bộ GPLX v2.0 (`D:\Du_An\GPLX\sync_tool`). Chuyển học viên đã có trong DB nguồn `GPLX_CSDT` sang DB đích CDB `GPLX_CDB_CSDT` (cùng Server/User/Pass, **chỉ khác tên DB**). Nghiệp vụ DB đích: **1 người = 1 hồ sơ = 1 MaDK**.
 
@@ -677,7 +677,7 @@
 
 #### [SYNC-03] Lịch sử & Hủy sync khóa
 
-**Trạng thái:** ⏳ Todo — thêm 04/10/2026 (CHANGES #33).
+**Trạng thái:** ✅ Done — task 60 (04/10/2026). Backend `sync.py`: `GET /lich-su` (đọc nhật ký JSON, mới nhất trước) + `GET /rollback/preview` (đếm số sẽ xóa) + `POST /rollback` (atomic autocommit=False; xóa nhóm MaDK log + nhóm `NguoiTao='SYNC'`, cascade NguoiLX→HoSo→GiayTo; cập nhật TongSoHV; **bắt lỗi BC1 FK NO_ACTION → 409** "chưa xóa HV nào"; nhật ký giữ nguyên) + `sync_history.list_all_batches()`. UI `LichSu.tsx` (bảng lần sync teal + nút Hủy + modal preview số thật). Kiểm: **7 unit test mới** (lich-su/preview/rollback+commit/BC1→409-không-commit/422) · **265 pytest** 0 hồi quy · live lich-su+preview (chỉ đọc) · Playwright 1440 0 lỗi console · detect `[]` · **review-nghiepvu 5/5 Done-khi**. Chưa commit.
 **Story:** Là nhân viên nạp DB, tôi muốn xem các lần đã sync và hủy một khóa sync nhầm, để dọn sạch học viên do tool tạo mà không đụng dữ liệu khác.
 
 **Done khi:**
