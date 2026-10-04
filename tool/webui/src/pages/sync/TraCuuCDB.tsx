@@ -14,10 +14,15 @@ import {
   taiAnhCDB,
   taiAnhThumbCDB,
   napAnhCDB,
+  chiTietSuaCDB,
+  suaHoSoCDB,
   type KhoaCDB,
   type HoSoRowCDB,
   type KetQuaAnh,
+  type HoSoSuaIn,
 } from "../../lib/api";
+
+const FORM_RONG: HoSoSuaIn = { ho_ten: "", ngay_sinh: "", gioi_tinh: "U", so_cccd: "", noi_tt: "" };
 
 // TCB-01 — Tra cứu CDB đích. Song song QLY-01 (Tra cứu DB bên Nạp) nhưng mọi truy vấn trỏ CSDL
 // ĐÍCH (GPLX_CDB_CSDT) qua các endpoint /local/sync/tra-cuu/*. CHỈ ĐỌC ở task này — thay ảnh /
@@ -74,6 +79,14 @@ export default function TraCuuCDB() {
   const [anhErr, setAnhErr] = useState("");
   const [anhVer, setAnhVer] = useState(0);
   const [okMsg, setOkMsg] = useState("");
+
+  // TCB-03 — sửa nhân thân (chặn khi khóa đã kết xuất DKKH).
+  const [sua, setSua] = useState(false);
+  const [form, setForm] = useState<HoSoSuaIn>(FORM_RONG);
+  const [hktt, setHktt] = useState<string | null>(null);
+  const [loadingCt, setLoadingCt] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [suaErr, setSuaErr] = useState("");
 
   const [trang, setTrang] = useState(0);
   const [coTrang, setCoTrang] = useState(20);
@@ -191,6 +204,54 @@ export default function TraCuuCDB() {
       setAnhErr(e instanceof Error ? e.message : "Thay ảnh không thành công.");
     } finally {
       setAnhBusy(false);
+    }
+  }
+
+  function dongChiTiet() {
+    setSel(null);
+    setSua(false);
+    setSuaErr("");
+    setForm(FORM_RONG);
+    setAnhErr("");
+  }
+
+  // TCB-03 — mở form sửa nhân thân. Đọc chi tiết + cờ dkkh; đã kết xuất DKKH → chặn, chỉ báo.
+  async function moSua() {
+    if (!sel) return;
+    setSuaErr("");
+    setLoadingCt(true);
+    try {
+      const ct = await chiTietSuaCDB(sel.ma_dk, targetKey ?? undefined);
+      if (ct.dkkh) {
+        setSuaErr("Khóa đã kết xuất DKKH (đã đăng ký khai giảng với Sở) — không sửa nhân thân qua tool.");
+        return;
+      }
+      setForm({ ho_ten: ct.ho_ten, ngay_sinh: ct.ngay_sinh, gioi_tinh: ct.gioi_tinh, so_cccd: ct.so_cccd, noi_tt: ct.noi_tt ?? "" });
+      setHktt(ct.hktt);
+      setSua(true);
+    } catch (e) {
+      setSuaErr(e instanceof Error ? e.message : "Không mở được hồ sơ để sửa.");
+    } finally {
+      setLoadingCt(false);
+    }
+  }
+
+  async function luu() {
+    if (!sel) return;
+    if (!form.ho_ten.trim()) return setSuaErr("Chưa nhập họ và tên.");
+    if (!/^\d{1,20}$/.test(form.so_cccd.trim())) return setSuaErr("Số căn cước phải là chữ số (tối đa 20).");
+    setSuaErr("");
+    setSaving(true);
+    try {
+      const kq = await suaHoSoCDB(sel.ma_dk, { ...form, ho_ten: form.ho_ten.trim(), so_cccd: form.so_cccd.trim() }, targetKey ?? undefined);
+      if (khoa) setHoSo(await dsHoSoCDB(khoa.ma_kh, targetKey ?? undefined));
+      setOkMsg(kq.canh_bao ? "Đã lưu — " + kq.canh_bao : "Đã lưu thay đổi nhân thân.");
+      setTimeout(() => setOkMsg(""), kq.canh_bao ? 5000 : 3000);
+      dongChiTiet();
+    } catch (e) {
+      setSuaErr(e instanceof Error ? e.message : "Lưu không thành công.");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -398,15 +459,17 @@ export default function TraCuuCDB() {
 
       {/* Chi tiết (chỉ xem) */}
       {sel && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setSel(null); }}>
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) dongChiTiet(); }}>
           <div className="bg-card w-full max-w-md rounded-xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
             <div className="flex items-center justify-between px-5 py-3 border-b border-border">
-              <h3 className="font-bold text-sm">Chi tiết học viên (CDB đích)</h3>
-              <button onClick={() => setSel(null)} aria-label="Đóng" className="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center transition-colors">
+              <h3 className="font-bold text-sm">{sua ? "Sửa thông tin nhân thân" : "Chi tiết học viên (CDB đích)"}</h3>
+              <button onClick={dongChiTiet} aria-label="Đóng" className="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center transition-colors">
                 <Icon name="x" className="w-5 h-5" />
               </button>
             </div>
             <div className="p-5 overflow-y-auto">
+              {!sua ? (
+              <>
               <div className="mb-4 flex flex-col items-center">
                 <button
                   type="button"
@@ -487,6 +550,66 @@ export default function TraCuuCDB() {
                   </div>
                 ))}
               </div>
+
+              {suaErr && (
+                <div className="mt-3 flex items-center gap-2 text-[12px] text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2">
+                  <Icon name="warn" className="w-4 h-4 shrink-0" /> {suaErr}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => void moSua()}
+                disabled={loadingCt}
+                className="mt-4 w-full h-10 rounded-lg border border-border text-sm font-semibold inline-flex items-center justify-center gap-2 hover:bg-muted transition-colors disabled:opacity-60"
+              >
+                <Icon name={loadingCt ? "refresh" : "edit"} className={"w-4 h-4" + (loadingCt ? " animate-spin" : "")} /> Sửa nhân thân
+              </button>
+              </>
+              ) : (
+                <div className="space-y-3">
+                  <div>
+                    <label className="field-label">Họ và tên</label>
+                    <input className="field-input mt-1" value={form.ho_ten} onChange={(e) => setForm({ ...form, ho_ten: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="field-label">Ngày sinh (dd/mm/yyyy hoặc năm)</label>
+                    <input className="field-input mt-1" value={form.ngay_sinh} onChange={(e) => setForm({ ...form, ngay_sinh: e.target.value })} placeholder="VD: 23/09/1985 hoặc 1985" />
+                  </div>
+                  <div>
+                    <label className="field-label">Giới tính</label>
+                    <select className="field-input mt-1" value={form.gioi_tinh} onChange={(e) => setForm({ ...form, gioi_tinh: e.target.value })}>
+                      <option value="M">Nam</option>
+                      <option value="F">Nữ</option>
+                      <option value="U">Không xác định</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="field-label">Số căn cước</label>
+                    <input className="field-input mt-1" value={form.so_cccd} onChange={(e) => setForm({ ...form, so_cccd: e.target.value })} inputMode="numeric" />
+                  </div>
+                  <div>
+                    <label className="field-label">Địa chỉ thường trú (chi tiết, tối đa 50 ký tự)</label>
+                    <input className="field-input mt-1" value={form.noi_tt} onChange={(e) => setForm({ ...form, noi_tt: e.target.value })} maxLength={50} />
+                    {hktt && <p className="text-[11px] text-muted-foreground mt-1">Xã/phường (HKTT): {hktt} — không sửa ở đây.</p>}
+                  </div>
+                  {suaErr && (
+                    <div className="flex items-center gap-2 text-[12px] text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2">
+                      <Icon name="warn" className="w-4 h-4 shrink-0" /> {suaErr}
+                    </div>
+                  )}
+                  <div className="flex gap-2 pt-1">
+                    <button type="button" onClick={() => { setSua(false); setSuaErr(""); }} className="h-10 px-4 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Hủy</button>
+                    <button
+                      type="button"
+                      onClick={() => void luu()}
+                      disabled={saving}
+                      className="ml-auto h-10 px-5 rounded-lg bg-sync text-white text-sm font-semibold inline-flex items-center gap-2 hover:brightness-110 transition-all shadow-sm disabled:opacity-60"
+                    >
+                      <Icon name={saving ? "refresh" : "check"} className={"w-4 h-4" + (saving ? " animate-spin" : "")} sw={saving ? undefined : 3} /> Lưu thay đổi
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

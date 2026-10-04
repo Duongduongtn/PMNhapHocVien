@@ -712,6 +712,30 @@ export const napAnhCDB = (maDk: string, jp2B64: string, targetKey?: string) =>
     body: JSON.stringify({ jp2_b64: jp2B64 }),
   }).then(json<{ ok: boolean; ma_dk: string; duong_dan_anh: string; co_anh: boolean }>);
 
+// TCB-03 — sửa nhân thân HV ở CDB. chi-tiet-sua trả cờ dkkh (chặn sửa nếu đã kết xuất DKKH).
+export interface HoSoChiTietCDB {
+  ma_dk: string;
+  ho_ten: string;
+  ngay_sinh: string; // dd/mm/yyyy hoặc yyyy
+  gioi_tinh: string; // M/F/U
+  gioi_tinh_ten: string;
+  so_cccd: string;
+  noi_tt: string;
+  hktt: string | null;
+  ma_kh: string;
+  dkkh: boolean;
+}
+export const chiTietSuaCDB = (maDk: string, targetKey?: string) =>
+  fetch(`${BASE}/local/sync/tra-cuu/chi-tiet-sua?${qs({ ma_dk: maDk, target_key: targetKey })}`, {
+    headers: authHeaders(),
+  }).then(json<HoSoChiTietCDB>);
+export const suaHoSoCDB = (maDk: string, body: HoSoSuaIn, targetKey?: string) =>
+  fetch(`${BASE}/local/sync/tra-cuu/sua?${qs({ ma_dk: maDk, target_key: targetKey })}`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(body),
+  }).then(json<{ ok: boolean; ma_dk: string; canh_bao: string }>);
+
 export interface SyncRunIn {
   ma_kh_nguon: string;
   ma_kh_dich: string;

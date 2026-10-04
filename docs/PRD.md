@@ -725,7 +725,7 @@
 
 #### [TCB-03] Sửa nhân thân HV ở CDB đích
 
-**Trạng thái:** ⏳ Todo — thêm 04/10/2026 (CHANGES #35).
+**Trạng thái:** ✅ Done — 04/10/2026 (task 65; kiểm mức 1+2: 273 pytest (4 test: chặn DKKH/gọi SP/cảnh báo trùng CCCD), build sạch, Playwright chặn DKKH live; review-nghiepvu đủ). Ghi thật kiểm Checkpoint 14 (dev CDB all-DKKH nên form chưa tới được live).
 **Story:** Là nhân viên nạp DB, tôi muốn sửa thông tin nhân thân của một HV trong CDB đích (họ tên, ngày sinh, giới tính, CCCD, địa chỉ thường trú), để vá sai sót dữ liệu trước khi khóa được báo cáo.
 
 **Done khi:**

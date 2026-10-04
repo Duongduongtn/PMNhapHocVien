@@ -1034,6 +1034,8 @@ Màn **Tra cứu CDB** (tab trong phân hệ Đồng bộ) soi dữ liệu HV **
 | Thay ảnh (TCB-02) | cho | cho (cảnh báo) | cho (cảnh báo) |
 | Sửa nhân thân (TCB-03) | cho | **CHẶN** | **CHẶN** |
 | Xóa / đổi khóa (TCB-04) | cho | cho (cảnh báo) | **CHẶN** (FK NO_ACTION) |
+
+*TCB-03 hiện thực chỉ kiểm **một mốc DKKH** (`SoQD_KhaiGiang`): BC1 luôn sau DKKH trong quy trình (muốn BC1 phải đã kết xuất đăng ký khai giảng) nên khóa BC1 đương nhiên đã bị chặn bởi DKKH — không cần kiểm BC1 riêng. EC: CCCD trùng HV khác trong khóa → **cảnh báo mềm, vẫn lưu** (không chặn).*
 - **Thay ảnh (TCB-02):** AnhModal + đổi nền (`/local/anh/xu-ly` rembg) y Nạp → **ghi đè đúng file `.jp2` cũ, giữ nguyên tên + `DuongDanAnh`**. Ảnh là **1 file vật lý dùng chung** giữa Nạp và đích (sync copy path verbatim) → thay = cả 2 DB cùng đổi (user chốt). **Trước khi ghi đè, sao lưu ảnh cũ sang `<tên>_BACKUP.jp2` CÙNG thư mục** (chỉ tạo nếu chưa có) — lỡ tay thay nhầm còn khôi phục, vì ảnh dùng chung nên mất là mất ở cả 2 DB (bám tiền lệ `_BACKUP` QLY-07 §11.6). UPDATE `ChatLuongAnh`/`NgayThuNhanAnh` ở bản ghi CDB. *Vì sao giữ đường dẫn:* ảnh sinh trước theo DB Nạp, 2 DB trỏ chung — tạo file mới sẽ làm 2 DB lệch ảnh.
 - **Sửa nhân thân (TCB-03):** `usp_NguoiLX_Update` của CDB (đọc lại full giữ cột không sửa; KHÔNG đụng cột kết quả/BC1/BC2). **Còn kiểm khi code:** CDB có `usp_NguoiLX_Update` / SP đổi khóa / SP xóa không (như GPLX_CSDT).
 - **Nút "Xem chi tiết HV" ở Bàn đồng bộ (SYNC-01):** HV đã có ở đích có sẵn `MaDK đích` → tra `NguoiLX_HoSo.MaKhoaHoc` theo MaDK đó → mở TraCuuCDB với khóa + tô sáng (reuse `khoaMa`/`noiBat`). Thuần thêm nút, không đổi hành vi sync.

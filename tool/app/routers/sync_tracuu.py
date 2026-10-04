@@ -25,7 +25,18 @@ from pydantic import BaseModel
 from app import sync_helpers
 from app.db import sqlserver_conn_dich, ConfigChuaDay
 from app.image import jp2_sang_png, thumb_jp2
+from app.nap import tach_ho_ten, validate_do_dai
 from app.routers.sync import _db_dich, _loi_db  # dùng chung: chọn DB đích + gói lỗi
+# TCB-03: tái dùng Y HỆT cơ chế sửa nhân thân của Nạp (QLY-01 lát 2) — chỉ đổi mốc chặn
+# (BC1 → DKKH) và chạy trên conn_dich. KHÔNG chép lại SQL 24 tham số để tránh lệch.
+from app.routers.hoso import (
+    HoSoSua,
+    dung_tham_so_update,
+    ngay_sinh_hien,
+    gioi_tinh_hien,
+    _COT_NGUOILX,
+    _EXEC_UPDATE,
+)
 from app.session import Phien, require_session
 
 router = APIRouter(prefix="/local/sync/tra-cuu", tags=["sync-tracuu"])
@@ -287,3 +298,101 @@ def xem_anh_thumb_dich(ma_dk: str = Query(..., min_length=1), target_key: str | 
     except ValueError:
         raise HTTPException(status_code=422, detail="Ảnh hỏng, không đọc được.")
     return Response(content=png, media_type="image/png")
+
+
+# ── TCB-03: sửa nhân thân HV ở CDB đích (chặn khi đã kết xuất DKKH) ──
+_DKKH_SQL = "CASE WHEN kh.SoQD_KhaiGiang IS NOT NULL AND LTRIM(RTRIM(kh.SoQD_KhaiGiang)) <> '' THEN 1 ELSE 0 END AS dkkh"
+
+
+@router.get("/chi-tiet-sua")
+def chi_tiet_sua_dich(ma_dk: str = Query(..., min_length=1), target_key: str | None = None) -> dict:
+    """Nhân thân 1 HV đích để mở form sửa (TCB-03) + cờ `dkkh` (đã kết xuất DKKH → chặn sửa)."""
+    db = _db_dich(target_key)
+    sql = (
+        "SELECT nl.MaDK, nl.HoVaTen, nl.NgaySinh, nl.GioiTinh, nl.SoCMT, nl.NoiTT, "
+        "tt.TenDayDu AS HKTT, hs.MaKhoaHoc, " + _DKKH_SQL + " "
+        "FROM dbo.NguoiLX nl "
+        "JOIN dbo.NguoiLX_HoSo hs ON hs.MaDK = nl.MaDK "
+        "JOIN dbo.KhoaHoc kh ON kh.MaKH = hs.MaKhoaHoc "
+        "LEFT JOIN dbo.DM_DVHC tt ON tt.MaDvhc = nl.NoiTT_MaDVHC "
+        "WHERE nl.MaDK = %s"
+    )
+    try:
+        with sqlserver_conn_dich(db) as conn:
+            cur = conn.cursor(as_dict=True)
+            cur.execute(sql, (ma_dk,))
+            r = cur.fetchone()
+    except Exception as e:  # noqa: BLE001
+        raise _loi_db(e)
+    if not r:
+        raise HTTPException(status_code=404, detail="Không tìm thấy hồ sơ học viên ở CSDL đích.")
+    gt = (r["GioiTinh"] or "").strip().upper()
+    return {
+        "ma_dk": r["MaDK"],
+        "ho_ten": r["HoVaTen"],
+        "ngay_sinh": ngay_sinh_hien(r["NgaySinh"]),
+        "gioi_tinh": gt if gt in ("M", "F", "U") else "U",
+        "gioi_tinh_ten": gioi_tinh_hien(gt),
+        "so_cccd": r["SoCMT"],
+        "noi_tt": r["NoiTT"],
+        "hktt": r["HKTT"],
+        "ma_kh": r["MaKhoaHoc"],
+        "dkkh": bool(r["dkkh"]),
+    }
+
+
+@router.post("/sua")
+def sua_ho_so_dich(body: HoSoSua, ma_dk: str = Query(..., min_length=1),
+                   target_key: str | None = None, phien: Phien = Depends(require_session)):
+    """TCB-03 — sửa nhân thân HV ở CDB đích (GHI) qua `usp_NguoiLX_Update`, giữ nguyên cột không sửa.
+
+    CHẶN khi khóa đã kết xuất DKKH (`KhoaHoc.SoQD_KhaiGiang` có giá trị). KHÔNG đụng cột kết
+    quả/BC1/BC2. Đọc + ghi trong 1 kết nối để bản ghi nền không đổi giữa đọc và ghi. Tái dùng
+    nguyên bộ dựng-tham-số của Nạp (QLY-01 lát 2) — chỉ đổi mốc chặn BC1 → DKKH, chạy conn_dich."""
+    nguoi = (phien.ho_ten or phien.username or "tool")[:30]
+    db = _db_dich(target_key)
+    canh_bao = ""
+    try:
+        with sqlserver_conn_dich(db, autocommit=True) as conn:
+            cur = conn.cursor(as_dict=True)
+            # 1) Khóa của HV + cờ DKKH (mốc chặn sửa nhân thân)
+            cur.execute(
+                "SELECT hs.MaKhoaHoc, " + _DKKH_SQL + " "
+                "FROM dbo.NguoiLX_HoSo hs JOIN dbo.KhoaHoc kh ON kh.MaKH = hs.MaKhoaHoc "
+                "WHERE hs.MaDK = %s",
+                (ma_dk,),
+            )
+            meta = cur.fetchone()
+            if not meta:
+                raise HTTPException(status_code=404, detail="Không tìm thấy hồ sơ học viên ở CSDL đích.")
+            if meta["dkkh"]:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Khóa đã kết xuất DKKH (đã đăng ký khai giảng với Sở) — không sửa nhân thân qua tool.",
+                )
+            # 2) EC: CCCD trùng HV khác trong cùng khóa → CẢNH BÁO mềm (vẫn lưu — PRD TCB-03).
+            cur.execute(
+                "SELECT COUNT(*) AS n FROM dbo.NguoiLX nl JOIN dbo.NguoiLX_HoSo hs ON hs.MaDK = nl.MaDK "
+                "WHERE hs.MaKhoaHoc = %s AND hs.TrangThai = 1 AND nl.SoCMT = %s AND nl.MaDK <> %s",
+                (meta["MaKhoaHoc"], body.so_cccd.strip(), ma_dk),
+            )
+            if int((cur.fetchone() or {}).get("n", 0)) > 0:
+                canh_bao = "Số căn cước vừa nhập trùng với học viên khác trong khóa — đã lưu, nên kiểm lại."
+            # 3) Đọc full bản ghi NguoiLX hiện tại (giữ nguyên cột không sửa)
+            cur.execute(f"SELECT {', '.join(_COT_NGUOILX)} FROM dbo.NguoiLX WHERE MaDK = %s", (ma_dk,))
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Không tìm thấy nhân thân học viên ở CSDL đích.")
+            # 4) Validate độ dài cột (SP không tự cắt) rồi ghi
+            ten = tach_ho_ten(body.ho_ten)
+            loi = validate_do_dai(ten, body.so_cccd)
+            if loi:
+                raise HTTPException(status_code=400, detail="Dữ liệu vượt độ dài cột: " + "; ".join(loi))
+            cur.execute(_EXEC_UPDATE, dung_tham_so_update(row, body, nguoi))
+    except HTTPException:
+        raise
+    except ConfigChuaDay as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=502, detail="Không sửa được hồ sơ trên CSDL đích — kiểm kết nối rồi thử lại.")
+    return {"ok": True, "ma_dk": ma_dk, "canh_bao": canh_bao}
