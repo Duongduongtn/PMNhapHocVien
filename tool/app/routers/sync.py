@@ -5,13 +5,22 @@ router /local/* nghiệp vụ khác (mount kèm require_session ở main.py).
 """
 from __future__ import annotations
 
+import json
+import logging
+import queue
 import re
+import threading
+import uuid
+from datetime import date, datetime
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
-from app import config_store, sync_helpers, sync_service
+from app import config_store, sync_helpers, sync_service, sync_history
 from app.db import sqlserver_conn, sqlserver_cursor_dich, sqlserver_conn_dich, ConfigChuaDay
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/local/sync", tags=["sync"])
 
@@ -237,3 +246,204 @@ def hoc_vien(body: HocVienIn) -> dict:
         "thieu_cccd": thieu,
         "trung_cccd_nguon": trung,
     }
+
+
+# ========== SYNC-01 (phần chạy: run + SSE) — task 58 ==========
+# App 1 người dùng localhost → job lưu dict theo job_id, hàng đợi thread-safe.
+_jobs: dict[str, dict] = {}
+
+
+class RunIn(BaseModel):
+    ma_kh_nguon: str
+    ma_kh_dich: str
+    ngay_nhap_hs: date
+    target_key: str | None = None
+    so_cmt_chon: list[str] = Field(default_factory=list)  # CCCD các HV được tick
+
+
+def _khoa_hang_nguon(conn, ma_kh: str) -> str | None:
+    cur = conn.cursor()
+    cur.execute("SELECT HangGPLX FROM dbo.KhoaHoc WHERE MaKH=%s", (ma_kh,))
+    r = cur.fetchone()
+    return (r[0] or "").strip() if r else None
+
+
+def _khoa_ngaykg(conn, ma_kh: str):
+    cur = conn.cursor()
+    cur.execute("SELECT NgayKG FROM dbo.KhoaHoc WHERE MaKH=%s", (ma_kh,))
+    r = cur.fetchone()
+    return r[0] if r else None
+
+
+@router.post("/run")
+def run(body: RunIn) -> dict:
+    """Mở job đồng bộ (chạy nền) -> trả job_id. UI mở SSE /stream xem tiến trình.
+
+    Validate TRƯỚC khi mở job: hạng khóa nguồn = hạng khóa đích; ngày nhập HS <=
+    NgàyKG khóa đích (backdate >90 ngày do UI tự xác nhận trước)."""
+    db = _db_dich(body.target_key)
+    tt = config_store.get_sync_config()["options"]
+    try:
+        with sqlserver_conn() as cn, sqlserver_conn_dich(db) as cd:
+            hang_nguon = _khoa_hang_nguon(cn, body.ma_kh_nguon)
+            khoa_info = sync_helpers.get_khoa_info(cd, body.ma_kh_dich)
+            ngay_kg = _khoa_ngaykg(cd, body.ma_kh_dich)
+    except Exception as e:  # noqa: BLE001
+        raise _loi_db(e)
+
+    if not khoa_info:
+        raise HTTPException(status_code=400, detail="Không tìm thấy khóa đích.")
+    if hang_nguon and khoa_info["hang_gplx"] and hang_nguon != khoa_info["hang_gplx"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Hạng xe không khớp: khóa nguồn {hang_nguon} khác khóa đích {khoa_info['hang_gplx']}.",
+        )
+    if ngay_kg is not None:
+        kg = ngay_kg.date() if hasattr(ngay_kg, "date") else ngay_kg
+        if body.ngay_nhap_hs > kg:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Ngày nhập HS ({body.ngay_nhap_hs:%d/%m/%Y}) sau NgàyKG khóa đích ({kg:%d/%m/%Y}).",
+            )
+
+    job_id = uuid.uuid4().hex
+    q: queue.Queue = queue.Queue()
+    _jobs[job_id] = {"q": q, "done": False, "summary": None}
+    threading.Thread(target=_chay_job, args=(job_id, db, body, khoa_info, tt), daemon=True).start()
+    return {"job_id": job_id}
+
+
+def _ensure_madk_unique(cd, ma_dk, ma_csdt, ngay_hs, max_retry=3):
+    """Guard chống trùng MaDK (race hiếm). Trùng -> sinh lại, tối đa 3 lần."""
+    cur = ma_dk
+    for _ in range(max_retry):
+        if not sync_helpers.kiem_tra_madk_ton_tai(cd, cur):
+            return cur
+        cur = sync_helpers.sinh_madk_batch(cd, ma_csdt, ngay_hs, 1)[0]
+    if sync_helpers.kiem_tra_madk_ton_tai(cd, cur):
+        raise RuntimeError(f"MaDK trùng sau {max_retry} lần: {cur}")
+    return cur
+
+
+def _chay_job(job_id: str, db: str, body: RunIn, khoa_info: dict, tt: dict) -> None:
+    """Vòng chạy đồng bộ trong thread nền. Đẩy sự kiện vào queue cho SSE.
+
+    KHÔNG xóa NguoiLX 'mồ côi' toàn DB (bước này ở sync_tool quét cả CSDL đích ->
+    rủi ro xóa nhầm dữ liệu phần mềm khác; không cần cho sinh MaDK)."""
+    q: queue.Queue = _jobs[job_id]["q"]
+
+    def emit(ev):
+        q.put(ev)
+
+    ok_c = skip_c = loi_c = 0
+    tong_so_hv_after = None
+    try:
+        with sqlserver_conn() as cn, sqlserver_conn_dich(db, autocommit=True) as cd:
+            hv_list = sync_service.load_hoc_vien_nguon(cn, body.ma_kh_nguon)
+            chon = {c.strip() for c in body.so_cmt_chon if c and c.strip()}
+            if chon:
+                hv_list = [h for h in hv_list if (h.get("SoCMT") or "").strip() in chon]
+            so_cmt = [(h.get("SoCMT") or "").strip() for h in hv_list]
+            enrich = sync_helpers.enrich_from_db_dich(cd, so_cmt)
+
+            moi = [h for h in hv_list if (h.get("SoCMT") or "").strip()
+                   and (h.get("SoCMT") or "").strip() not in enrich]
+            is_today = body.ngay_nhap_hs == datetime.now().date()
+            madk_iter = None
+            ma_csdt = khoa_info["ma_csdt"]
+            if moi and not is_today and len(ma_csdt) == 5:
+                madk_list = sync_helpers.sinh_madk_batch(cd, ma_csdt, body.ngay_nhap_hs, len(moi))
+                madk_iter = iter(madk_list)
+
+            next_so = sync_service.next_so_ho_so(cd, body.ma_kh_dich) + 1
+            batch = sync_history.SyncBatch(
+                khoa_moi=body.ma_kh_dich, khoa_cu=body.ma_kh_nguon,
+                ngay_nhap_hs_chon=body.ngay_nhap_hs, can_bo=sync_service.NGUOI_TAO_MAC_DINH,
+                sync_at_start=datetime.now(),
+            )
+            store = sync_history.HistoryStore()
+
+            for idx, h in enumerate(hv_list, 1):
+                cc = (h.get("SoCMT") or "").strip()
+                ten = h.get("HoVaTen") or ""
+                if not cc:  # E1
+                    loi_c += 1
+                    emit({"loai": "hv", "stt": idx, "ho_ten": ten,
+                          "trang_thai": "Lỗi: thiếu CCCD", "mau": "loi"})
+                    continue
+                if cc in enrich:  # skip
+                    skip_c += 1
+                    emit({"loai": "hv", "stt": idx, "ho_ten": ten, "mau": "skip",
+                          "trang_thai": f"Bỏ qua — đã có ({enrich[cc]['ma_dk']})"})
+                    continue
+                ma_dk_pre = next(madk_iter) if madk_iter is not None else None
+                try:
+                    if ma_dk_pre:
+                        ma_dk_pre = _ensure_madk_unique(cd, ma_dk_pre, ma_csdt, body.ngay_nhap_hs)
+                    kq = sync_service.sync_one_hv(
+                        cd, cn, h, khoa_info, body.ma_kh_dich, next_so, tt["tt_xuly_force"],
+                        ma_dk_pre=ma_dk_pre, ngay_nhap_hs=body.ngay_nhap_hs,
+                    )
+                except Exception as ex:  # noqa: BLE001
+                    kq = sync_service.KetQuaHV(ok=False, loi=str(ex))
+                if kq.ok:
+                    ok_c += 1
+                    next_so += 1
+                    batch.ma_dk_moi.append(kq.ma_dk)
+                    try:
+                        store.save_batch(batch)
+                    except OSError:
+                        pass
+                    tt_txt = f"Đã tạo {kq.ma_dk}" + (" (giấy tờ lỗi)" if kq.giay_to_loi else "")
+                    emit({"loai": "hv", "stt": idx, "ho_ten": ten, "trang_thai": tt_txt,
+                          "mau": "ok", "ma_dk": kq.ma_dk})
+                else:
+                    loi_c += 1
+                    emit({"loai": "hv", "stt": idx, "ho_ten": ten, "mau": "loi",
+                          "trang_thai": f"Lỗi: {kq.loi}"})
+
+            if tt.get("update_tong_so_hv"):
+                try:
+                    cur = cd.cursor()
+                    cur.execute(
+                        "SET NOCOUNT ON; UPDATE dbo.KhoaHoc SET TongSoHV="
+                        "(SELECT COUNT(*) FROM dbo.NguoiLX_HoSo WHERE MaKhoaHoc=%s) WHERE MaKH=%s; "
+                        "SELECT TongSoHV FROM dbo.KhoaHoc WHERE MaKH=%s",
+                        (body.ma_kh_dich, body.ma_kh_dich, body.ma_kh_dich),
+                    )
+                    r = cur.fetchone()
+                    tong_so_hv_after = r[0] if r else None
+                except Exception:  # noqa: BLE001
+                    pass
+    except Exception as e:  # noqa: BLE001
+        emit({"loai": "loi_he_thong", "message": str(e)})
+        logger.error("Job sync %s lỗi: %s", job_id, e)
+
+    summary = {"loai": "xong", "ok": ok_c, "skip": skip_c, "loi": loi_c, "tong_so_hv": tong_so_hv_after}
+    _jobs[job_id]["summary"] = summary
+    _jobs[job_id]["done"] = True
+    emit(summary)
+    q.put(None)
+
+
+@router.get("/stream")
+def stream(job: str):
+    """SSE tiến trình job. Ngắt kết nối giữa chừng -> job vẫn chạy tới hết."""
+    j = _jobs.get(job)
+    if not j:
+        raise HTTPException(status_code=404, detail="Không tìm thấy job (hết hạn hoặc sai id).")
+
+    def gen():
+        q: queue.Queue = j["q"]
+        while True:
+            try:
+                ev = q.get(timeout=25)
+            except queue.Empty:
+                yield ": keepalive\n\n"
+                continue
+            if ev is None:
+                break
+            yield f"data: {json.dumps(ev, ensure_ascii=False)}\n\n"
+        _jobs.pop(job, None)
+
+    return StreamingResponse(gen(), media_type="text/event-stream")
