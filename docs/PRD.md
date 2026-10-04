@@ -656,6 +656,8 @@
 
 **Chuẩn giao diện (CHANGES #34, 04/10/2026 — làm lại bằng `impeccable` + `ui-ux-pro-max`):** combobox năm/khóa và ô chọn DB đích trình bày gọn, nhãn rõ (năm · khóa · hạng); **danh sách HV để sync hiển thị tên hài hòa, dễ đọc** (họ tên đủ dấu, căn cột, mật độ dòng vừa phải), không để tràn/cắt chữ; bám design-system token của `tool/webui`, kiểm Playwright 1280/1440/1920.
 
+**Ghi chú (CHANGES #35):** màn này sẽ thêm **nút "Xem chi tiết HV"** cho HV đã có ở đích → mở tab Tra cứu CDB + tô sáng (tiêu chí thuộc **TCB-01**). Thuần thêm nút điều hướng, **không đổi hành vi sync** nên SYNC-01 giữ ✅.
+
 **Edge cases:** HV đã có ở đích → skip · race trùng MaDK (2 phiên cùng khóa cùng ngày) → kiểm tồn tại + sinh lại, tối đa 3 lần rồi báo lỗi HV đó · copy giấy tờ lỗi → vẫn tính HV thành công (best-effort) · **E1 HV nguồn thiếu CCCD** (`SoCMT` rỗng) → chặn + báo riêng (không để lỗi giữa lô, vì `NguoiLX.SoCMT` NOT NULL) · **E2 trùng CCCD trong chính danh sách nguồn** → cảnh báo (PK là MaDK nên vẫn tạo được 2, để người dùng quyết) · **E3 mất kết nối CSDL đích giữa lô** → dừng, HV đã tạo giữ nguyên + đã ghi log → sync lại tự skip HV đã tạo · E4 HV nguồn chưa có ảnh → vẫn ép `TT_XuLy` theo tùy chọn (mặc định 03, giữ v2.0).
 
 > Nguồn: user 04/10/2026 · port sync_tool GPLX v2.0 · Phụ lục XXVII TT 17/2026/TT-BXD (format mã)
@@ -689,6 +691,68 @@
 - ❌ Không tự xóa học viên do phần mềm khác tạo (chỉ theo log + nhóm `NguoiTao='SYNC'`).
 
 > Nguồn: user 04/10/2026 · port rollback dual-mode sync_tool v2.0
+
+#### [TCB-01] Tra cứu CDB đích — tra khóa, lưới HV, xem chi tiết + ảnh
+
+**Trạng thái:** ⏳ Todo — thêm 04/10/2026 (CHANGES #35).
+**Story:** Là nhân viên nạp DB, tôi muốn tra một khóa học ở CSDL đích CDB rồi xem danh sách học viên và chi tiết + ảnh từng người, để kiểm lại dữ liệu đã đồng bộ sang đích mà không phải mở phần mềm CDB.
+
+**Done khi:**
+- ✅ Tab **"Tra cứu CDB đích"** trong phân hệ Đồng bộ CDB (đọc **`GPLX_CDB_CSDT`** — DB đích đang chọn); tìm khóa (mọi khóa, kể cả đã BC1) theo mã/tên.
+- ✅ Chọn khóa → **lưới HV** của khóa (avatar chân dung lazy-load, tìm trong lưới theo tên bỏ dấu / CCCD); hiện thống kê đầu khóa (tổng · thiếu ảnh) + cờ khóa đã BC1 / đã kết xuất DKKH.
+- ✅ Mở 1 HV → **chi tiết** (họ tên, ngày sinh, giới tính, CCCD, ngày/nơi cấp, địa chỉ TT đầy đủ, hạng, MaDK, SoHoSo, TT_XuLy) + **ảnh chân dung lớn** + đường dẫn ảnh.
+- ✅ **Nút "Xem chi tiết HV"** ở Bàn đồng bộ (SYNC-01) cho HV **đã có ở đích** → mở tab Tra cứu CDB, mở đúng **khóa chứa `MaDK` đích** + **tô sáng** HV đó (dùng cơ chế `khoaMa`/`noiBat`).
+- ❌ Không đụng màn Tra cứu DB bên Nạp (QLY-01, đọc `GPLX_CSDT`) — màn này là bản riêng cho CDB đích.
+
+**Edge cases:** chưa chọn CSDL đích → báo + lối tắt mở ⚙ Cấu hình · ảnh thiếu file (404) → báo rõ, không vỡ lưới · khóa rỗng → empty state.
+
+> Nguồn: user 04/10/2026 (CHANGES #35) · tham chiếu QLY-01 (Tra cứu DB) nhưng trỏ DB đích · trạng thái đọc ở đích qua `DM_TrangThai`
+
+#### [TCB-02] Thay ảnh chân dung HV ở CDB đích
+
+**Trạng thái:** ⏳ Todo — thêm 04/10/2026 (CHANGES #35).
+**Story:** Là nhân viên nạp DB, tôi muốn thay ảnh chân dung của một HV trong CDB đích ngay trên màn tra cứu, để sửa ảnh hỏng/sai mà không phải nhập lại.
+
+**Done khi:**
+- ✅ Từ chi tiết HV → mở **AnhModal** (tái dùng Y NGUYÊN của Nạp: căn 3:4 + zoom/xoay + **đổi nền** qua `/local/anh/xu-ly` rembg); nguồn ảnh để chỉnh: **file máy** hoặc **ảnh hiện có** (nạp lại .jp2 cũ để chỉnh tiếp).
+- ✅ Lưu → **ghi đè đúng file `.jp2` cũ, GIỮ NGUYÊN tên file + `DuongDanAnh`** (ảnh là 1 file vật lý **dùng chung** giữa DB Nạp và DB đích → thay ảnh thì **cả 2 DB cùng đổi**); cập nhật `ChatLuongAnh`/`NgayThuNhanAnh` ở bản ghi CDB.
+- ✅ **Cho phép thay ảnh kể cả khi khóa đã kết xuất DKKH / đã BC1** — chỉ **cảnh báo** (ảnh là sửa chất lượng, cùng một người; bám tiền lệ QLY-05 Nạp cho đổi ảnh khi BC1).
+- ❌ Không đổi đường dẫn/tên file ảnh (giữ chung với bản nguồn); không tạo file ảnh thứ 2.
+
+**Edge cases:** file ảnh đang bị phần mềm CDB khóa → báo đóng app (409) · ghi .jp2 lỗi → báo, không cập nhật DB cột ảnh.
+
+> Nguồn: user 04/10/2026 (CHANGES #35) · tái dùng AnhModal + đổi nền (QLY-05/NAP-04) · user chốt ghi đè file dùng chung
+
+#### [TCB-03] Sửa nhân thân HV ở CDB đích
+
+**Trạng thái:** ⏳ Todo — thêm 04/10/2026 (CHANGES #35).
+**Story:** Là nhân viên nạp DB, tôi muốn sửa thông tin nhân thân của một HV trong CDB đích (họ tên, ngày sinh, giới tính, CCCD, địa chỉ thường trú), để vá sai sót dữ liệu trước khi khóa được báo cáo.
+
+**Done khi:**
+- ✅ Từ chi tiết HV → sửa **nhân thân**: họ tên, ngày sinh, giới tính, CCCD, địa chỉ thường trú (ghi qua SP update của CDB; đọc lại full bản ghi để giữ cột không sửa).
+- ✅ **CHẶN sửa nếu khóa đích ĐÃ KẾT XUẤT DKKH** (`KhoaHoc.SoQD_KhaiGiang` có giá trị) → báo rõ "khóa đã đăng ký khai giảng với Sở, không sửa nhân thân qua tool".
+- ✅ Chỉ sửa nhân thân (`usp_NguoiLX_Update`), **KHÔNG đụng** cột kết quả thi / BC1 / BC2 của hồ sơ (như thu hẹp phạm vi QLY-01).
+- ❌ Không sửa ảnh ở đây (ảnh là TCB-02); không đổi khóa/xóa ở đây (TCB-04).
+
+**Edge cases:** SP `usp_NguoiLX_Update` không có trong CDB → báo không hỗ trợ, tắt nút sửa (kiểm khi code) · CCCD trùng người khác trong khóa → cảnh báo.
+
+> Nguồn: user 04/10/2026 (CHANGES #35) · mốc chặn = đã kết xuất DKKH (đọc ở đích) · tham chiếu QLY-01 lát 2
+
+#### [TCB-04] Xóa HV / Đổi khóa HV ở CDB đích
+
+**Trạng thái:** ⏳ Todo — thêm 04/10/2026 (CHANGES #35).
+**Story:** Là nhân viên nạp DB, tôi muốn xóa một HV hoặc chuyển HV sang khóa khác trong CDB đích, để dọn HV nhầm hoặc xếp lại đúng khóa.
+
+**Done khi:**
+- ✅ Xóa 1 HV (NguoiLX + NguoiLX_HoSo + GiayTo, cascade) / Đổi khóa HV sang khóa đích khác **cùng hạng** (chưa BC1).
+- ✅ **CHẶN nếu HV ĐÃ BC1** (có dòng `BaoCaoI` / `TT_XuLy ≥ 05` — FK `BaoCaoI` NO_ACTION chặn xóa) → báo rõ "HV đã lập Báo cáo 1, không xóa/đổi khóa được".
+- ✅ Khóa **đã kết xuất DKKH nhưng CHƯA BC1** → vẫn cho xóa/đổi khóa nhưng **cảnh báo** (danh sách đã đăng ký với Sở). *(Ngưỡng chặn cứng là BC1 — nhất quán với Hủy sync SYNC-03 xóa HV ở TT_XuLy=03.)*
+- ✅ Xác nhận rõ trước khi xóa (không hoàn tác được).
+- ❌ Không xóa/đổi khóa HV đã BC1; không đổi sang khóa khác hạng.
+
+**Edge cases:** đổi khóa mà khóa đích mới đã BC1 → chặn · không còn khóa cùng hạng chưa BC1 để chuyển → báo.
+
+> Nguồn: user 04/10/2026 (CHANGES #35) · ngưỡng chặn BC1 (đọc ở đích) · tham chiếu QLY-02 (đổi khóa) + QLY-03 (xóa)
 
 ---
 
@@ -816,3 +880,4 @@
 | 01/10/2026 | v2.7 — redesign UX nhập liệu (CHANGES #14): THU-01/THU-02 +AC ẩn ô CMND cũ (vẫn lưu từ QR) + ô ngày gõ tay/nút lịch (giữ năm-only) + desktop tách nút/bố cục/phím tắt. Giữ THU-01/02 ⏳ | PM |
 | 04/10/2026 | v2.8 — +Feature **Đồng bộ CDB** (CHANGES #33, SHOULD): 3 story `SYNC-01`/`SYNC-02`/`SYNC-03` port từ sync_tool GPLX v2.0, workspace riêng tách khỏi Nạp; +NFR kiến trúc workspace (mở rộng N module, dự kiến workspace #3 "Cập nhật kết quả học tập"); +3 edge case Sync | PM |
 | 04/10/2026 | v2.9 — cấu hình kết nối lên header (CHANGES #34): +story **HTG-07** (bảng cấu hình chung mở từ icon ⚙ header, gộp HTG-01 ③ + SYNC-02, tách rõ DB nguồn Nạp / nhiều DB đích Sync); sửa bullet Cấu hình HTG-01 trỏ sang HTG-07 (giữ ✅); hạ **SYNC-02 ✅→⏳** (quản lý đích dời vào bảng header) + **SYNC-01 ✅→⏳** (làm đẹp combobox + danh sách HV bằng impeccable/ui-ux-pro-max) | PM |
+| 04/10/2026 | v3.0 — +Feature **Tra cứu CDB đích** (CHANGES #35, mở rộng phân hệ Đồng bộ CDB): 4 story **TCB-01** (tra khóa+lưới HV+chi tiết+ảnh, +nút Xem chi tiết từ Bàn đồng bộ) · **TCB-02** (thay ảnh — tái dùng AnhModal+đổi nền, ghi đè file dùng chung 2 DB) · **TCB-03** (sửa nhân thân — chặn nếu đã kết xuất DKKH) · **TCB-04** (xóa HV/đổi khóa — chặn nếu đã BC1). Trạng thái khóa đọc Ở ĐÍCH (DKKH=SoQD_KhaiGiang, BC1=TT_XuLy≥05/BaoCaoI). SYNC-01 thêm nút điều hướng (giữ ✅) | PM |

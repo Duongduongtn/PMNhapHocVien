@@ -4,6 +4,7 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 35 | 04/10/2026 | ➕ Thêm | `TCB-01`, `TCB-02`, `TCB-03`, `TCB-04` | **Feature "Tra cứu CDB đích"** (mở rộng phân hệ Đồng bộ CDB) — màn tra khóa + xem/sửa HV trên **DB ĐÍCH `GPLX_CDB_CSDT`** (song song Tra cứu DB Nạp QLY-01 nhưng trỏ đích). **TCB-01** tra khóa + lưới HV (avatar, tìm) + chi tiết + ảnh lớn + **nút "Xem chi tiết HV" từ Bàn đồng bộ** (mở khóa + tô sáng). **TCB-02** thay ảnh (tái dùng AnhModal + đổi nền, **ghi đè file `.jp2` dùng chung 2 DB** → cả Nạp+đích cùng đổi; cho kể cả DKKH/BC1 + cảnh báo). **TCB-03** sửa nhân thân (`usp_NguoiLX_Update` CDB) → **chặn nếu khóa đích đã kết xuất DKKH** (`SoQD_KhaiGiang`). **TCB-04** xóa HV/đổi khóa → **chặn nếu đã BC1** (FK `BaoCaoI` NO_ACTION); DKKH chưa BC1 → cho+cảnh báo. Luật khóa đọc trạng thái **ở đích** (độc lập DB Nạp); danh mục `DM_TrangThai`. Dựng màn mới `TraCuuCDB.tsx` (tái dùng AnhModal/AnhAvatar, KHÔNG đụng QLY-01). SYNC-01 thêm nút điều hướng (giữ ✅). | ✅ | ✅ §11B.7 (v3.4) | ⬜ màn #19 (dựng thẳng tool/webui) | ⬜ |
 | 34 | 04/10/2026 | ➕ Thêm + ✏️ Sửa | `HTG-07`, `HTG-01`, `SYNC-02`, `SYNC-01` | **Cấu hình kết nối DB lên header dùng chung cả tool** + tách rõ DB Nạp vs DB Sync + làm đẹp UI sync. **HTG-07 mới**: bảng cấu hình mở từ **icon ⚙ header** (mọi màn), gộp 2 khối tách bạch — ① kết nối chung + **DB NGUỒN để Nạp** `GPLX_CSDT` (từ HTG-01) · ② **nhiều DB ĐÍCH để Sync** (từ SYNC-02, chọn mặc định/test/tùy chọn). **Bỏ** route `/tool/cau-hinh` + mục "Quản lý CSDL đích" khỏi sidebar. Làm đẹp combobox năm/khóa + chọn DB đích + **danh sách HV để sync** (tên hài hòa, dễ đọc) bằng `impeccable`+`ui-ux-pro-max`. Thuần UI/IA — backend `/local/config*`+`/local/sync/targets`+config-store KHÔNG đổi; không chạm quyết định TDD §12/§13/§14. **(Nhân tiện sửa bug môi trường:** backend nền chạy không `--reload` → kẹt code cũ, combobox năm/khóa trả 404 → restart hết; không phải lỗi code.) | ✅ | ✅ §5.0 + §11B.0 (v3.3) | ✅ task 61-62: `CauHinhDrawer` + ⚙ header + làm đẹp Bàn đồng bộ | 🟡 code+kiểm mức1+2 review xong, **chưa commit** |
 | 33 | 04/10/2026 | ➕ Thêm | `SYNC-01`, `SYNC-02`, `SYNC-03` | **Feature mới "Đồng bộ CDB"** (SHOULD) — port nghiệp vụ từ `D:\Du_An\GPLX\sync_tool` **v2.0** vào tool máy CSDT, **tách hoàn toàn** khỏi Nạp. **SYNC-01** Bàn đồng bộ (chọn khóa nguồn `GPLX_CSDT` + đích CDB cùng hạng · ngày nhập HS ≤ NgàyKG · `NguoiTao=admin` giống CDB, **bỏ ô cán bộ** · tải DS đối chiếu đích · skip HV đã có 1người=1HS · MaDK `MaCSDT-yyyyMMdd-nnnnnn` backdate batch · tiến trình **SSE**) · **SYNC-02** Quản lý DB đích (nhiều DB đích dùng chung host/user/pass, chọn mặc định, test, TT_XuLy mặc định 03 + cập nhật TongSoHV) · **SYNC-03** Lịch sử & Hủy sync (log JSON %APPDATA% + rollback dual-mode `NguoiTao='SYNC'`). **Kiến trúc:** tool đổi sang **sidebar trái = danh sách module** (mở rộng N — dự kiến module #3 "Cập nhật kết quả học tập"); backend tách `routers/sync.py`+`sync_service.py`+`sync_helpers.py`+`sync_history.py` không import nạp; **tool CHỈ desktop** (≥1280px, sidebar thu gọn, bảng cuộn ngang) | ✅ | ✅ §11B + §2.4 (v3.2) | ✅ 3 màn dựng thẳng tool/webui (task 56-62) | 🟡 SYNC-01/02 commit `d2b0ba1`/`765d972` (#34); SYNC-03 task 60 chưa commit |
 | 32 | 04/10/2026 | ➕ Thêm + ✏️ Sửa | `NAP-01`, `QLY-05` | **Lưu nháp BỀN + 2 chip trạng thái + bổ sung ảnh 2 nguồn** (màn Nạp lô). ① **Lưu nháp bền** (NAP-01): chỉnh sửa chuẩn bị (địa chỉ 2 cấp, chi tiết, nơi cấp, tick giấy tờ, **ảnh đã đổi nền**) lưu xuống `staging.sqlite` bảng `nhap_chuan_bi` thay vì chỉ RAM → F5/đóng-mở tool không mất; **tự xóa** khi nạp xong/bỏ hàng đợi/xóa VPS; reset riêng địa chỉ nháp (backend, trong `keo_ve_upsert`) khi `noi_tt_raw` đổi (BUG-04) · ② **2 chip mỗi dòng** `✓/✗ Địa chỉ 2 cấp` + `✓/✗ Có hình` (mặc định ✗) · ③ **Mở drawer**: cả dòng bấm + nút "Xử lý" to · ④ **Nạp**: chặn thiếu địa chỉ, cảnh báo thiếu ảnh + lối tắt mở Tra cứu DB lọc "chưa ảnh" · ⑤ **Bổ sung ảnh HV thiếu ảnh** (QLY-05): lấy từ **file** (`chonFile`) hoặc **ảnh thô VPS** (`tra_uuid`→`tai_anh`→`napTuUrl`, nếu còn ≤30 ngày), cùng AnhModal + đổi nền | ✅ | ✅ §9.3a/§10.5/§11.5 (v3.2) | 🟡 ghi UX (cập nhật khi code) | ⬜ |
@@ -40,6 +41,22 @@
 | 1 | 01/10/2026 | ✏️ Sửa | — | Đổi nơi lưu bảng ánh xạ `DM_DVHC_MAP`: GPLX_CSDT → SQLite cục bộ của tool | — | ✅ | — | ✅ (task 5) |
 
 Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên quan
+
+---
+
+## #35 — Feature "Tra cứu CDB đích" (TCB-01..04) · 04/10/2026
+
+- **Mã mới:** `TCB-01` (tra khóa+lưới HV+chi tiết+ảnh), `TCB-02` (thay ảnh), `TCB-03` (sửa nhân thân), `TCB-04` (xóa HV/đổi khóa) — prefix **TCB** mới ("Tra cứu CDB", user chốt), nhóm trong phân hệ Đồng bộ CDB (SHOULD).
+- **Vì sao:** user cần xem lại + vá dữ liệu HV **đã đồng bộ sang CDB đích** (`GPLX_CDB_CSDT`) ngay trong tool — xem chi tiết/ảnh, thay ảnh hỏng, sửa sai nhân thân, xóa/xếp lại khóa — mà không phải mở phần mềm CDB.
+- **Chốt qua trao đổi + rà soát schema CDB (04/10):**
+  - **Ảnh dùng chung 1 file vật lý** giữa DB Nạp và DB đích (sync copy `DuongDanAnh` verbatim; probe: CDB 729 HV 100% có ảnh, trỏ `D:\GPLXCSDT\ANHCDUNG\<khóa nguồn 70004>\…jp2`). → **Thay ảnh ghi ĐÈ đúng file, giữ nguyên tên+đường dẫn** (user chốt) → cả 2 DB cùng đổi ảnh. Cho thay kể cả khi DKKH/BC1 (cảnh báo).
+  - **Hai mốc khóa dữ liệu (đọc Ở ĐÍCH, độc lập DB Nạp):** *đã kết xuất DKKH* = `KhoaHoc.SoQD_KhaiGiang` có giá trị (mềm — chặn **sửa nhân thân**); *đã BC1* = `TT_XuLy ≥ '05'`/có dòng `BaoCaoI`, FK `FK_NguoiLX_HoSo_BaoCaoI` NO_ACTION (cứng — chặn **xóa + đổi khóa**). Ngưỡng chặn xóa là BC1 (KHÔNG phải DKKH) để không chết Hủy sync (SYNC-03 xóa HV TT_XuLy=03).
+  - Danh mục trạng thái `DM_TrangThai` (MaTT→TenTT + nhóm cấp CDB MaTTCDB: 03/04 "Đã đăng ký khóa học", 05-07 đang đào tạo, 09-14 kết quả/BC2). Dữ liệu CDB dev: HV ở 03 (639)/10 (20)/12 (70); 15/15 khóa có SoQD_KhaiGiang.
+  - **Phương án A** (user chốt): thay ảnh cho + cảnh báo · sửa nhân thân chặn sau DKKH · xóa/đổi khóa chặn sau BC1.
+- **Đã sửa:** PRD (+4 story TCB nhóm Đồng bộ CDB; SYNC-01 +ghi chú nút Xem chi tiết, giữ ✅; Changelog v3.0) · TDD §11B.7 mới (màn CDB, luật khóa, thay ảnh ghi đè chung, SP cần kiểm; Changelog v3.4) · SCREENS màn #19 + 2 quyết định UX (lượt 21).
+- **KHÔNG chạm:** màn Tra cứu DB bên Nạp (QLY-01, đọc `GPLX_CSDT`) · quyết định TDD §12/13/14.
+- **Chưa code** (⬜). **Hướng dựng:** `webui/src/pages/sync/TraCuuCDB.tsx` (tái dùng AnhModal/AnhAvatar) + endpoint CDB mới (`routers/sync.py` hoặc module mới) trỏ `sqlserver_conn_dich` + sửa `BanDongBo.tsx` (nút). Vào BUILD-PLAN qua `/kehoach` bổ sung.
+- **Còn kiểm khi code:** CDB có `usp_NguoiLX_Update` / SP đổi khóa / SP xóa (như GPLX_CSDT) không — nếu thiếu thì tắt nút tương ứng + báo.
 
 ---
 
@@ -488,9 +505,10 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 > `/capnhat` đọc mục này ở Bước 0b để biết có thay đổi nào chưa ghi sổ không.
 > So bằng **danh sách mã**, không so bằng thời gian sửa file.
 
-- **Cập nhật:** 04/10/2026 (#34 +story `HTG-07` cấu hình kết nối lên header dùng chung (gộp DB nguồn Nạp + nhiều DB đích Sync); hạ `SYNC-01`+`SYNC-02` ✅→⏳ làm lại UI; sửa bullet `HTG-01`. Thuần UI/IA; chưa code)
-- **Cập nhật trước:** 04/10/2026 (#33 +Feature "Đồng bộ CDB" 3 story `SYNC-01/02/03` SHOULD, port sync_tool v2.0 + tool chuyển sidebar module; chưa code)
+- **Cập nhật:** 04/10/2026 (#35 +Feature "Tra cứu CDB đích" 4 story `TCB-01..04` SHOULD — xem/sửa/xóa HV trên DB đích; luật khóa DKKH/BC1 đọc ở đích; chưa code)
+- **Cập nhật trước:** 04/10/2026 (#34 +story `HTG-07` cấu hình kết nối lên header dùng chung; hạ `SYNC-01`+`SYNC-02` ✅→⏳ làm lại UI (nay đã ✅ lại); sửa bullet `HTG-01`)
+- **Trước nữa:** 04/10/2026 (#33 +Feature "Đồng bộ CDB" 3 story `SYNC-01/02/03` SHOULD, port sync_tool v2.0 + tool chuyển sidebar module)
 - **Trước đó:** 04/10/2026 (#32 bổ sung tiêu chí NAP-01 + QLY-05; ⚠️ #31 có dòng bảng nhưng THIẾU mục chi tiết — cần phiên #31 bổ sung) · 03/10/2026 (gộp 2 phiên song song: #28 QLY-09 + #29 NAP-01/03 + #30 THU-01/05; THU-01 hạ ✅→⏳)
-- **Số story trong PRD:** 29 (28 MUST/SHOULD gồm `HTG-07` + `THU-04` SHOULD + `THU-05` + `HTG-04` SHOULD + `QLY-06` ⏳ + `QLY-07` + `QLY-08` + `QLY-09` + `SYNC-01/02/03` SHOULD; chưa tính NICE `QLY-04`, `THU-03`)
-- **Mã story hiện có:** `HTG-01`…`HTG-07`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `SYNC-01`, `SYNC-02`, `SYNC-03` (NICE: `QLY-04`, `THU-03`)
+- **Số story trong PRD:** 33 (32 MUST/SHOULD gồm `HTG-07` + `THU-04` SHOULD + `THU-05` + `HTG-04` SHOULD + `QLY-06` ⏳ + `QLY-07` + `QLY-08` + `QLY-09` + `SYNC-01/02/03` + `TCB-01/02/03/04` SHOULD; chưa tính NICE `QLY-04`, `THU-03`)
+- **Mã story hiện có:** `HTG-01`…`HTG-07`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `SYNC-01`, `SYNC-02`, `SYNC-03`, `TCB-01`, `TCB-02`, `TCB-03`, `TCB-04` (NICE: `QLY-04`, `THU-03`)
 - **Mã đã nghỉ hưu:** (chưa có)

@@ -1016,6 +1016,22 @@ Gác `Depends(require_session)` như các router local khác.
 
 **MaCSDT lấy từ khóa đích** (`KhoaHoc.MaCSDT` = `QTHT_ThamSoHT.MA_CSDT`, DB dev = 75032), KHÔNG bê từ bản ghi nguồn. `usp_NguoiLX_Insert` chữ ký khớp 1:1 sync_tool — port không phải sửa. Còn kiểm: `NguoiLXHS_GiayTo.MaGT` có IDENTITY không.
 
+### 11B.7 Tra cứu CDB đích — xem/sửa/xóa HV trên DB đích (TCB-01..04, CHANGES #35)
+
+Màn **Tra cứu CDB** (tab trong phân hệ Đồng bộ) soi dữ liệu HV **ở CSDL đích `GPLX_CDB_CSDT`** — song song màn Tra cứu DB bên Nạp (QLY-01) nhưng mọi truy vấn qua `sqlserver_conn_dich(db_đích)`, KHÔNG đụng `GPLX_CSDT`. Dựng màn mới `webui/src/pages/sync/TraCuuCDB.tsx`, **tái dùng** component con `AnhModal`/`AnhAvatar`/bố cục chi tiết — không sửa `TraCuuDB.tsx` (tránh vỡ QLY-01).
+
+- **Đọc:** tra khóa (mọi khóa kể cả BC1) + lưới HV theo khóa + chi tiết + ảnh (đọc `.jp2` theo `DuongDanAnh` của bản ghi CDB, qua endpoint ảnh trỏ DB đích). Endpoint mới trong `routers/sync.py` (hoặc module `sync_tracuu.py`).
+- **Luật khóa sửa/xóa — đọc trạng thái Ở ĐÍCH (độc lập DB Nạp):**
+  - **BC1** (mốc CỨNG): HV có dòng `BaoCaoI` / `TT_XuLy ≥ '05'` → FK `FK_NguoiLX_HoSo_BaoCaoI` NO_ACTION chặn xóa. Dùng chặn **xóa + đổi khóa** (TCB-04).
+  - **Đã kết xuất DKKH** (mốc MỀM): `KhoaHoc.SoQD_KhaiGiang` có giá trị (Sở đã cấp QĐ khai giảng). Dùng chặn **sửa nhân thân** (TCB-03). *(Hiện 15/15 khóa CDB dev đều có SoQD_KhaiGiang.)*
+  - **Thay ảnh (TCB-02):** cho phép bất kể DKKH/BC1 (chỉ cảnh báo) — ảnh là sửa chất lượng, cùng người.
+  - Danh mục trạng thái: `DM_TrangThai` (MaTT→TenTT chi tiết + nhóm cấp CDB `MaTTCDB`/`TenTTCDB`; 03/04="Đã đăng ký khóa học", 05-07=đang đào tạo/BC1, 09-14=kết quả/BC2).
+- **Thay ảnh (TCB-02):** AnhModal + đổi nền (`/local/anh/xu-ly` rembg) y Nạp → **ghi đè đúng file `.jp2` cũ, giữ nguyên tên + `DuongDanAnh`**. Ảnh là **1 file vật lý dùng chung** giữa Nạp và đích (sync copy path verbatim) → thay = cả 2 DB cùng đổi (user chốt). UPDATE `ChatLuongAnh`/`NgayThuNhanAnh` ở bản ghi CDB. *Vì sao giữ đường dẫn:* ảnh sinh trước theo DB Nạp, 2 DB trỏ chung — tạo file mới sẽ làm 2 DB lệch ảnh.
+- **Sửa nhân thân (TCB-03):** `usp_NguoiLX_Update` của CDB (đọc lại full giữ cột không sửa; KHÔNG đụng cột kết quả/BC1/BC2). **Còn kiểm khi code:** CDB có `usp_NguoiLX_Update` / SP đổi khóa / SP xóa không (như GPLX_CSDT).
+- **Nút "Xem chi tiết HV" ở Bàn đồng bộ (SYNC-01):** HV đã có ở đích có sẵn `MaDK đích` → tra `NguoiLX_HoSo.MaKhoaHoc` theo MaDK đó → mở TraCuuCDB với khóa + tô sáng (reuse `khoaMa`/`noiBat`). Thuần thêm nút, không đổi hành vi sync.
+
+> **Phục vụ:** TCB-01/02/03/04 · mở rộng phân hệ Đồng bộ CDB. Không chạm quyết định §12/§13/§14.
+
 ---
 
 ## 12. Security
@@ -1182,3 +1198,4 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 | 03/10/2026 | 3.1 | Redesign giao diện DESKTOP (CHANGES #30; đổi từ v3.0 vì QLY-09 đã dùng 3.0 khi gộp 2 phiên): §6.5 desktop vào thẳng form nhập tay + Quét QR/Tải ảnh thu nhỏ góc phải + popover camera prefill (THU-01, mobile giữ camera-first); §6.6 desktop chọn-nhiều-để-xóa ở "Hồ sơ đã gửi" (THU-05, lặp DELETE client như QuanTriHoSo, mobile giữ xóa lẻ). Thuần client, KHÔNG đổi Data Model/API/endpoint. |
 | 04/10/2026 | 3.2 | +§11B **Đồng bộ CDB** (CHANGES #33, SYNC-01/02/03): kiến trúc module + sidebar trái (mở rộng N, dự kiến module #3), `sqlserver_conn_dich()` nhiều DB đích, luồng sync 1 HV + MaDK batch + guard race, SSE tiến trình, rollback dual-mode, 3 nợ kỹ thuật port từ sync_tool. +§2.4 module sync. **Tool chỉ desktop**: sidebar thu gọn + nội dung ≥1280px + bảng sync cuộn ngang. |
 | 04/10/2026 | 3.3 | Cấu hình lên header (CHANGES #34, HTG-07): §5.0 + §11B.0 — bỏ route `/tool/cau-hinh` + `/sync/db-dich` khỏi sub-nav, gộp thành **panel ⚙ trên header dùng chung** (khối ① kết nối + DB nguồn Nạp · khối ② nhiều DB đích Sync, tách bạch). Thuần UI/IA — backend `/local/config*` + `/local/sync/targets` + config-store không đổi; không chạm quyết định §12/§13/§14. |
+| 04/10/2026 | 3.4 | +§11B.7 **Tra cứu CDB đích** (CHANGES #35, TCB-01..04): màn tra cứu/sửa/xóa HV trên DB đích `GPLX_CDB_CSDT` (song song QLY-01 nhưng trỏ đích); luật khóa đọc ở đích — BC1 (cứng, chặn xóa/đổi khóa) + đã kết xuất DKKH `SoQD_KhaiGiang` (mềm, chặn sửa nhân thân); thay ảnh ghi đè file `.jp2` dùng chung 2 DB; danh mục `DM_TrangThai`; nút Xem chi tiết từ Bàn đồng bộ. Không chạm quyết định §12/13/14. |
