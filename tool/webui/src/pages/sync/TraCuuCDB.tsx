@@ -16,10 +16,14 @@ import {
   napAnhCDB,
   chiTietSuaCDB,
   suaHoSoCDB,
+  khoaCungHangCDB,
+  xoaHoSoCDB,
+  doiKhoaCDB,
   type KhoaCDB,
   type HoSoRowCDB,
   type KetQuaAnh,
   type HoSoSuaIn,
+  type KhoaDich,
 } from "../../lib/api";
 
 const FORM_RONG: HoSoSuaIn = { ho_ten: "", ngay_sinh: "", gioi_tinh: "U", so_cccd: "", noi_tt: "" };
@@ -87,6 +91,16 @@ export default function TraCuuCDB() {
   const [loadingCt, setLoadingCt] = useState(false);
   const [saving, setSaving] = useState(false);
   const [suaErr, setSuaErr] = useState("");
+
+  // TCB-04 — đổi khóa (cùng hạng, chưa BC1) + xóa (chặn MaBC1).
+  const [doiMo, setDoiMo] = useState(false);
+  const [khoaDich, setKhoaDich] = useState<KhoaDich[] | null>(null);
+  const [maKhDich, setMaKhDich] = useState("");
+  const [doiBusy, setDoiBusy] = useState(false);
+  const [doiErr, setDoiErr] = useState("");
+  const [xoaMo, setXoaMo] = useState(false);
+  const [xoaBusy, setXoaBusy] = useState(false);
+  const [xoaErr, setXoaErr] = useState("");
 
   const [trang, setTrang] = useState(0);
   const [coTrang, setCoTrang] = useState(20);
@@ -213,6 +227,59 @@ export default function TraCuuCDB() {
     setSuaErr("");
     setForm(FORM_RONG);
     setAnhErr("");
+    setDoiMo(false); setDoiErr(""); setKhoaDich(null); setMaKhDich("");
+    setXoaMo(false); setXoaErr("");
+  }
+
+  // TCB-04 — mở panel đổi khóa: tải khóa cùng hạng chưa BC1.
+  async function moDoiKhoa() {
+    if (!sel) return;
+    setDoiErr("");
+    setXoaMo(false);
+    setDoiMo(true);
+    setKhoaDich(null);
+    setMaKhDich("");
+    try {
+      const ds = await khoaCungHangCDB(sel.ma_dk, targetKey ?? undefined);
+      setKhoaDich(ds);
+      setMaKhDich(ds[0]?.ma_kh ?? "");
+    } catch (e) {
+      setDoiErr(e instanceof Error ? e.message : "Không tải được khóa đích.");
+    }
+  }
+
+  async function chuyenKhoa() {
+    if (!sel || !maKhDich) return;
+    setDoiErr("");
+    setDoiBusy(true);
+    try {
+      await doiKhoaCDB(sel.ma_dk, maKhDich, targetKey ?? undefined);
+      if (khoa) setHoSo(await dsHoSoCDB(khoa.ma_kh, targetKey ?? undefined));
+      setOkMsg("Đã đổi khóa học viên ở CDB.");
+      setTimeout(() => setOkMsg(""), 3000);
+      dongChiTiet();
+    } catch (e) {
+      setDoiErr(e instanceof Error ? e.message : "Đổi khóa không thành công.");
+    } finally {
+      setDoiBusy(false);
+    }
+  }
+
+  async function xoaHv() {
+    if (!sel) return;
+    setXoaErr("");
+    setXoaBusy(true);
+    try {
+      await xoaHoSoCDB(sel.ma_dk, targetKey ?? undefined);
+      if (khoa) setHoSo(await dsHoSoCDB(khoa.ma_kh, targetKey ?? undefined));
+      setOkMsg("Đã xóa học viên khỏi CDB (ảnh dùng chung giữ nguyên cho bản Nạp).");
+      setTimeout(() => setOkMsg(""), 3500);
+      dongChiTiet();
+    } catch (e) {
+      setXoaErr(e instanceof Error ? e.message : "Xóa không thành công.");
+    } finally {
+      setXoaBusy(false);
+    }
   }
 
   // TCB-03 — mở form sửa nhân thân. Đọc chi tiết + cờ dkkh; đã kết xuất DKKH → chặn, chỉ báo.
@@ -564,6 +631,71 @@ export default function TraCuuCDB() {
               >
                 <Icon name={loadingCt ? "refresh" : "edit"} className={"w-4 h-4" + (loadingCt ? " animate-spin" : "")} /> Sửa nhân thân
               </button>
+
+              {/* TCB-04 — đổi khóa / xóa (chặn nếu HV đã BC1 ở backend; cảnh báo nếu khóa DKKH) */}
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => void moDoiKhoa()}
+                  className="flex-1 h-9 rounded-lg border border-border text-[13px] font-medium inline-flex items-center justify-center gap-1.5 hover:bg-muted transition-colors"
+                >
+                  <Icon name="send" className="w-4 h-4" /> Đổi khóa
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setXoaErr(""); setDoiMo(false); setXoaMo(true); }}
+                  className="flex-1 h-9 rounded-lg border border-destructive/40 text-[13px] font-medium text-destructive inline-flex items-center justify-center gap-1.5 hover:bg-destructive/10 transition-colors"
+                >
+                  <Icon name="x" className="w-4 h-4" /> Xóa học viên
+                </button>
+              </div>
+
+              {/* Panel đổi khóa */}
+              {doiMo && (
+                <div className="mt-3 rounded-lg border border-border bg-muted/40 p-3 space-y-2">
+                  <div className="text-[13px] font-semibold flex items-center gap-1.5"><Icon name="send" className="w-4 h-4" /> Đổi sang khóa khác (cùng hạng, chưa BC1)</div>
+                  {khoa?.dkkh && (
+                    <p className="text-[12px] text-warning flex items-start gap-1"><Icon name="warn" className="w-3.5 h-3.5 shrink-0 mt-0.5" /> Khóa đã kết xuất DKKH — vẫn đổi được, nhưng danh sách đã đăng ký với Sở sẽ đổi.</p>
+                  )}
+                  {khoaDich === null ? (
+                    <p className="text-[12px] text-muted-foreground flex items-center gap-1"><Icon name="refresh" className="w-3.5 h-3.5 animate-spin" /> Đang tải khóa…</p>
+                  ) : khoaDich.length === 0 ? (
+                    <p className="text-[12px] text-muted-foreground">Không có khóa cùng hạng (chưa BC1) để chuyển.</p>
+                  ) : (
+                    <>
+                      <select className="field-input" value={maKhDich} onChange={(e) => setMaKhDich(e.target.value)}>
+                        {khoaDich.map((k) => <option key={k.ma_kh} value={k.ma_kh}>{k.ma_kh} — {k.ten_kh}</option>)}
+                      </select>
+                      <p className="text-[11px] text-muted-foreground">Số hồ sơ cấp lại theo khóa mới; ảnh giữ nguyên (dùng chung với bản Nạp).</p>
+                      <div className="flex gap-2">
+                        <button onClick={() => { setDoiMo(false); setDoiErr(""); }} className="h-9 px-3 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Hủy</button>
+                        <button onClick={() => void chuyenKhoa()} disabled={doiBusy || !maKhDich} className="ml-auto h-9 px-4 rounded-lg bg-sync text-white text-sm font-semibold inline-flex items-center gap-2 hover:brightness-110 transition-all disabled:opacity-60">
+                          <Icon name={doiBusy ? "refresh" : "send"} className={"w-4 h-4" + (doiBusy ? " animate-spin" : "")} /> Chuyển sang khóa này
+                        </button>
+                      </div>
+                    </>
+                  )}
+                  {doiErr && <p className="text-[12px] text-destructive flex items-center gap-1"><Icon name="warn" className="w-3.5 h-3.5" /> {doiErr}</p>}
+                </div>
+              )}
+
+              {/* Panel xóa — xác nhận 2 bước */}
+              {xoaMo && (
+                <div className="mt-3 rounded-lg border border-destructive/40 bg-destructive/10 p-3 space-y-2">
+                  <div className="text-[13px] font-semibold text-destructive flex items-center gap-1.5"><Icon name="warn" className="w-4 h-4" /> Xóa học viên khỏi CDB?</div>
+                  <p className="text-[12px] text-muted-foreground">Xóa khỏi <b>CSDL đích</b> (NguoiLX + hồ sơ + giấy tờ). <b>Không hoàn tác.</b> Ảnh là file dùng chung nên giữ nguyên cho bản Nạp. Học viên đã lập Báo cáo 1 thì không xóa được.</p>
+                  {khoa?.dkkh && (
+                    <p className="text-[12px] text-warning flex items-start gap-1"><Icon name="warn" className="w-3.5 h-3.5 shrink-0 mt-0.5" /> Khóa đã kết xuất DKKH — học viên này đã nằm trong danh sách đăng ký với Sở.</p>
+                  )}
+                  {xoaErr && <p className="text-[12px] text-destructive flex items-center gap-1"><Icon name="warn" className="w-3.5 h-3.5" /> {xoaErr}</p>}
+                  <div className="flex gap-2">
+                    <button onClick={() => { setXoaMo(false); setXoaErr(""); }} className="h-9 px-3 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Hủy</button>
+                    <button onClick={() => void xoaHv()} disabled={xoaBusy} className="ml-auto h-9 px-4 rounded-lg bg-destructive text-white text-sm font-semibold inline-flex items-center gap-2 hover:brightness-110 transition-all disabled:opacity-60">
+                      <Icon name={xoaBusy ? "refresh" : "x"} className={"w-4 h-4" + (xoaBusy ? " animate-spin" : "")} /> Xóa khỏi CDB
+                    </button>
+                  </div>
+                </div>
+              )}
               </>
               ) : (
                 <div className="space-y-3">

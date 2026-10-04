@@ -736,6 +736,23 @@ export const suaHoSoCDB = (maDk: string, body: HoSoSuaIn, targetKey?: string) =>
     body: JSON.stringify(body),
   }).then(json<{ ok: boolean; ma_dk: string; canh_bao: string }>);
 
+// TCB-04 — xóa HV / đổi khóa ở CDB (chặn theo MaBC1; đổi khóa cùng hạng chưa BC1, giữ DuongDanAnh).
+export const khoaCungHangCDB = (maDk: string, targetKey?: string) =>
+  fetch(`${BASE}/local/sync/tra-cuu/khoa-cung-hang?${qs({ ma_dk: maDk, target_key: targetKey })}`, {
+    headers: authHeaders(),
+  }).then(json<KhoaDich[]>);
+export const xoaHoSoCDB = (maDk: string, targetKey?: string) =>
+  fetch(`${BASE}/local/sync/tra-cuu/xoa?${qs({ ma_dk: maDk, target_key: targetKey })}`, {
+    method: "POST",
+    headers: authHeaders(),
+  }).then(json<{ ok: boolean; ma_dk: string }>);
+export const doiKhoaCDB = (maDk: string, maKhDich: string, targetKey?: string) =>
+  fetch(`${BASE}/local/sync/tra-cuu/doi-khoa?${qs({ ma_dk: maDk, target_key: targetKey })}`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ ma_kh_dich: maKhDich }),
+  }).then(json<{ ok: boolean; ma_dk: string; ma_kh_moi: string }>);
+
 export interface SyncRunIn {
   ma_kh_nguon: string;
   ma_kh_dich: string;

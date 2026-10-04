@@ -71,6 +71,7 @@ _BODY = {"ho_ten": "Nguyễn Văn B", "ngay_sinh": "23/09/1985", "gioi_tinh": "M
 
 
 class _FakeCur:
+    """Hàng đợi kết quả theo thứ tự truy vấn: fetchone pop 1 dict, fetchall pop 1 list."""
     def __init__(self, rows, executed):
         self._rows = list(rows)
         self._executed = executed
@@ -79,6 +80,9 @@ class _FakeCur:
         self._executed.append(sql)
 
     def fetchone(self):
+        return self._rows.pop(0)
+
+    def fetchall(self):
         return self._rows.pop(0)
 
 
@@ -135,3 +139,76 @@ def test_sua_cccd_trung_hv_khac_canh_bao(auth_headers, monkeypatch):
 
 def test_sua_chua_dang_nhap_401():
     assert client.post("/local/sync/tra-cuu/sua?ma_dk=X", json=_BODY).status_code == 401
+
+
+# ---- TCB-04: xóa / đổi khóa — chặn theo MaBC1 (per-HV) ----
+def test_xoa_hv_da_bc1_chan_409(auth_headers, monkeypatch):
+    """HV có MaBC1 → 409, KHÔNG gọi usp_NguoiLX_Delete."""
+    executed = []
+    _patch(monkeypatch, [{"MaBC1": "BC1-001"}], executed)
+    r = client.post("/local/sync/tra-cuu/xoa?ma_dk=MADK-1", headers=auth_headers)
+    assert r.status_code == 409
+    assert "Báo cáo 1" in r.json()["detail"]
+    assert not any("usp_NguoiLX_Delete" in s for s in executed)
+
+
+def test_xoa_hv_chua_bc1_goi_delete(auth_headers, monkeypatch):
+    """HV chưa BC1 → gọi usp_NguoiLX_Delete, verify count=0 → ok."""
+    executed = []
+    _patch(monkeypatch, [{"MaBC1": None}, {"n": 0}], executed)
+    r = client.post("/local/sync/tra-cuu/xoa?ma_dk=MADK-2", headers=auth_headers)
+    assert r.status_code == 200
+    assert any("usp_NguoiLX_Delete" in s for s in executed)
+    assert not any("DuongDanAnh" in s or "_DELETED" in s for s in executed)  # KHÔNG động file ảnh
+
+
+def test_doi_khoa_da_bc1_chan_409(auth_headers, monkeypatch):
+    """Đổi khóa khi HV đã BC1 → 409, không UPDATE."""
+    executed = []
+    _patch(monkeypatch, [{"MaKhoaHoc": "KCU", "MaBC1": "BC1-001"}], executed)
+    r = client.post("/local/sync/tra-cuu/doi-khoa?ma_dk=MADK-3", headers=auth_headers, json={"ma_kh_dich": "KMOI"})
+    assert r.status_code == 409
+    assert not any("UPDATE" in s.upper() for s in executed)
+
+
+def test_doi_khoa_khac_hang_400(auth_headers, monkeypatch):
+    """Khóa đích khác hạng → 400."""
+    executed = []
+    _patch(monkeypatch, [
+        {"MaKhoaHoc": "KCU", "MaBC1": None},
+        [{"MaKH": "KCU", "HangGPLX": "B11", "bc1": 0}, {"MaKH": "KMOI", "HangGPLX": "A1", "bc1": 0}],
+    ], executed)
+    r = client.post("/local/sync/tra-cuu/doi-khoa?ma_dk=MADK-4", headers=auth_headers, json={"ma_kh_dich": "KMOI"})
+    assert r.status_code == 400
+    assert "hạng" in r.json()["detail"]
+
+
+def test_doi_khoa_dich_bc1_chan_409(auth_headers, monkeypatch):
+    """Khóa đích đã BC1 → 409."""
+    executed = []
+    _patch(monkeypatch, [
+        {"MaKhoaHoc": "KCU", "MaBC1": None},
+        [{"MaKH": "KCU", "HangGPLX": "B11", "bc1": 0}, {"MaKH": "KMOI", "HangGPLX": "B11", "bc1": 1}],
+    ], executed)
+    r = client.post("/local/sync/tra-cuu/doi-khoa?ma_dk=MADK-5", headers=auth_headers, json={"ma_kh_dich": "KMOI"})
+    assert r.status_code == 409
+    assert "đích" in r.json()["detail"]
+
+
+def test_doi_khoa_happy_update_giu_duongdananh(auth_headers, monkeypatch):
+    """Cùng hạng, chưa BC1 → UPDATE MaKhoaHoc+SoHoSo, KHÔNG đụng DuongDanAnh (giữ file dùng chung)."""
+    executed = []
+    _patch(monkeypatch, [
+        {"MaKhoaHoc": "KCU", "MaBC1": None},
+        [{"MaKH": "KCU", "HangGPLX": "B11", "bc1": 0}, {"MaKH": "KMOI", "HangGPLX": "B11", "bc1": 0}],
+        [{"n": 1}, {"n": 2}],  # SoHoSo đang dùng ở khóa đích
+    ], executed)
+    r = client.post("/local/sync/tra-cuu/doi-khoa?ma_dk=MADK-6", headers=auth_headers, json={"ma_kh_dich": "KMOI"})
+    assert r.status_code == 200
+    upd = [s for s in executed if s.upper().startswith("UPDATE")]
+    assert upd and "MaKhoaHoc" in upd[0] and "SoHoSo" in upd[0]
+    assert "DuongDanAnh" not in upd[0]  # giữ nguyên đường dẫn ảnh dùng chung
+
+
+def test_xoa_chua_dang_nhap_401():
+    assert client.post("/local/sync/tra-cuu/xoa?ma_dk=X").status_code == 401

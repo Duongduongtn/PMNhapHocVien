@@ -740,7 +740,7 @@
 
 #### [TCB-04] Xóa HV / Đổi khóa HV ở CDB đích
 
-**Trạng thái:** ⏳ Todo — thêm 04/10/2026 (CHANGES #35).
+**Trạng thái:** ✅ Done — 04/10/2026 (task 66; kiểm mức 1+2: 280 pytest (7 test: chặn MaBC1 xóa/đổi · khác hạng · khóa đích BC1 · giữ DuongDanAnh · không động file ảnh), build sạch, Playwright nút render; review-nghiepvu 5/5). Ghi thật (xóa/đổi khóa) kiểm Checkpoint 14 có giám sát.
 **Story:** Là nhân viên nạp DB, tôi muốn xóa một HV hoặc chuyển HV sang khóa khác trong CDB đích, để dọn HV nhầm hoặc xếp lại đúng khóa.
 
 **Done khi:**

@@ -25,7 +25,7 @@ from pydantic import BaseModel
 from app import sync_helpers
 from app.db import sqlserver_conn_dich, ConfigChuaDay
 from app.image import jp2_sang_png, thumb_jp2
-from app.nap import tach_ho_ten, validate_do_dai
+from app.nap import tach_ho_ten, validate_do_dai, sinh_so_ho_so
 from app.routers.sync import _db_dich, _loi_db  # dùng chung: chọn DB đích + gói lỗi
 # TCB-03: tái dùng Y HỆT cơ chế sửa nhân thân của Nạp (QLY-01 lát 2) — chỉ đổi mốc chặn
 # (BC1 → DKKH) và chạy trên conn_dich. KHÔNG chép lại SQL 24 tham số để tránh lệch.
@@ -396,3 +396,134 @@ def sua_ho_so_dich(body: HoSoSua, ma_dk: str = Query(..., min_length=1),
     except Exception:
         raise HTTPException(status_code=502, detail="Không sửa được hồ sơ trên CSDL đích — kiểm kết nối rồi thử lại.")
     return {"ok": True, "ma_dk": ma_dk, "canh_bao": canh_bao}
+
+
+# ── TCB-04: xóa HV / đổi khóa ở CDB đích — chặn theo MaBC1 (per-HV, chốt /reviewtdd) ──
+def _da_bc1(cur, ma_dk: str) -> bool:
+    """HV đã BC1 ở đích = NguoiLX_HoSo.MaBC1 có giá trị (đúng cái FK NO_ACTION chặn xóa).
+    KHÔNG dùng TT_XuLy, KHÔNG dùng dòng BaoCaoI cấp khóa (chốt /reviewtdd 04/10)."""
+    cur.execute("SELECT MaBC1 FROM dbo.NguoiLX_HoSo WHERE MaDK=%s", (ma_dk,))
+    r = cur.fetchone()
+    if not r:
+        raise HTTPException(status_code=404, detail="Không tìm thấy hồ sơ học viên ở CSDL đích.")
+    return bool((r["MaBC1"] or "") if isinstance(r["MaBC1"], str) else r["MaBC1"])
+
+
+@router.get("/khoa-cung-hang")
+def khoa_cung_hang_dich(ma_dk: str = Query(..., min_length=1), target_key: str | None = None) -> list[dict]:
+    """TCB-04 — khóa ĐÍCH để đổi khóa: cùng HangGPLX với khóa hiện tại của HV, **chưa BC1**,
+    khác chính nó, cùng CSĐT đích. Chỉ cùng hạng mới đổi trực tiếp (như QLY-02)."""
+    db = _db_dich(target_key)
+    sql = (
+        "SELECT k.MaKH, k.TenKH, k.HangGPLX, k.HangDT FROM dbo.KhoaHoc k "
+        "JOIN dbo.NguoiLX_HoSo hs0 ON hs0.MaDK = %s "
+        "JOIN dbo.KhoaHoc kcur ON kcur.MaKH = hs0.MaKhoaHoc "
+        "WHERE k.MaCSDT = kcur.MaCSDT AND k.TrangThai = 1 AND k.MaKH <> kcur.MaKH "
+        "AND k.HangGPLX = kcur.HangGPLX "
+        "AND NOT EXISTS (SELECT 1 FROM dbo.BaoCaoI b WHERE b.MaKH = k.MaKH) "
+        "ORDER BY k.NgayTao DESC"
+    )
+    try:
+        with sqlserver_conn_dich(db) as conn:
+            cur = conn.cursor(as_dict=True)
+            cur.execute(sql, (ma_dk,))
+            rows = cur.fetchall()
+    except Exception as e:  # noqa: BLE001
+        raise _loi_db(e)
+    return [{"ma_kh": r["MaKH"], "ten_kh": r["TenKH"], "hang_gplx": r["HangGPLX"], "hang_dt": r["HangDT"]} for r in rows]
+
+
+@router.post("/xoa")
+def xoa_ho_so_dich(ma_dk: str = Query(..., min_length=1), target_key: str | None = None,
+                   phien: Phien = Depends(require_session)):
+    """TCB-04 — xóa HV ở CDB đích (GHI). Chặn nếu HV đã BC1 (MaBC1). `usp_NguoiLX_Delete` cascade
+    NguoiLX → NguoiLX_HoSo → GiayTo. **KHÔNG động file .jp2** (dùng chung với DB Nạp — xóa file sẽ
+    làm Nạp mất ảnh); chỉ xóa bản ghi ở CDB. SP không raiserror → verify bản ghi đã mất."""
+    db = _db_dich(target_key)
+    try:
+        with sqlserver_conn_dich(db, autocommit=True) as conn:
+            cur = conn.cursor(as_dict=True)
+            if _da_bc1(cur, ma_dk):
+                raise HTTPException(status_code=409,
+                                    detail="Học viên đã lập Báo cáo 1 — không xóa được (sẽ mất khỏi Báo cáo 1/2).")
+            cur.execute("EXEC dbo.usp_NguoiLX_Delete @MaDK=%s", (ma_dk,))
+            cur.execute("SELECT COUNT(*) AS n FROM dbo.NguoiLX WHERE MaDK=%s", (ma_dk,))
+            if int(cur.fetchone()["n"]) > 0:
+                raise HTTPException(status_code=409,
+                                    detail="Không xóa được — học viên có ràng buộc (vd đã lập Báo cáo / có GPLX).")
+    except HTTPException:
+        raise
+    except ConfigChuaDay as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=502, detail="Không xóa được học viên trên CSDL đích — kiểm kết nối rồi thử lại.")
+    return {"ok": True, "ma_dk": ma_dk}
+
+
+class DoiKhoaCDBIn(BaseModel):
+    ma_kh_dich: str
+
+
+@router.post("/doi-khoa")
+def doi_khoa_dich(body: DoiKhoaCDBIn, ma_dk: str = Query(..., min_length=1),
+                  target_key: str | None = None, phien: Phien = Depends(require_session)):
+    """TCB-04 — đổi khóa HV ở CDB đích (GHI), CÙNG HẠNG, chưa BC1. Chặn nếu HV đã BC1 (MaBC1).
+
+    UPDATE 2 cột MaKhoaHoc + SoHoSo (SoHoSo sinh mới trong khóa đích qua applock). **GIỮ NGUYÊN
+    DuongDanAnh** — KHÔNG di chuyển file (ảnh dùng chung với DB Nạp; đổi đường dẫn sẽ làm Nạp mất
+    ảnh). KHÔNG dùng usp_NguoiLX_HoSo_Update (ghi đè nhiều cột, rủi ro xóa kết quả) — UPDATE nhắm cột."""
+    ma_kh_moi = (body.ma_kh_dich or "").strip()
+    if not ma_kh_moi:
+        raise HTTPException(status_code=400, detail="Chưa chọn khóa đích.")
+    db = _db_dich(target_key)
+    try:
+        with sqlserver_conn_dich(db, autocommit=True) as conn:
+            cur = conn.cursor(as_dict=True)
+            # 1) Hồ sơ hiện tại + chặn HV đã BC1
+            cur.execute("SELECT MaKhoaHoc, MaBC1 FROM dbo.NguoiLX_HoSo WHERE MaDK=%s", (ma_dk,))
+            hs = cur.fetchone()
+            if not hs:
+                raise HTTPException(status_code=404, detail="Không tìm thấy hồ sơ học viên ở CSDL đích.")
+            if bool((hs["MaBC1"] or "") if isinstance(hs["MaBC1"], str) else hs["MaBC1"]):
+                raise HTTPException(status_code=409, detail="Học viên đã lập Báo cáo 1 — không đổi khóa được.")
+            ma_kh_cu = hs["MaKhoaHoc"]
+            if ma_kh_cu == ma_kh_moi:
+                raise HTTPException(status_code=400, detail="Học viên đã ở khóa này rồi.")
+            # 2) Hai khóa: cùng hạng + khóa đích chưa BC1
+            cur.execute(
+                "SELECT MaKH, HangGPLX, "
+                "CASE WHEN EXISTS (SELECT 1 FROM dbo.BaoCaoI b WHERE b.MaKH = k.MaKH) THEN 1 ELSE 0 END AS bc1 "
+                "FROM dbo.KhoaHoc k WHERE MaKH IN (%s, %s)",
+                (ma_kh_cu, ma_kh_moi),
+            )
+            khoas = {r["MaKH"]: r for r in cur.fetchall()}
+            cu, moi = khoas.get(ma_kh_cu), khoas.get(ma_kh_moi)
+            if not moi:
+                raise HTTPException(status_code=400, detail="Khóa đích không tồn tại.")
+            if not cu:
+                raise HTTPException(status_code=400, detail="Không đọc được khóa hiện tại của học viên.")
+            if (cu["HangGPLX"] or "") != (moi["HangGPLX"] or ""):
+                raise HTTPException(status_code=400, detail="Khác hạng — không đổi trực tiếp.")
+            if moi["bc1"]:
+                raise HTTPException(status_code=409, detail="Khóa đích đã lập Báo cáo 1 — không nhận thêm được.")
+            # 3) applock khóa đích → SoHoSo mới (lấp khe) → UPDATE (giữ DuongDanAnh)
+            cur.execute("EXEC sp_getapplock @Resource=%s, @LockMode='Exclusive', @LockTimeout=15000", (ma_kh_moi,))
+            try:
+                cur.execute("SELECT CAST(SoHoSo AS INT) AS n FROM dbo.NguoiLX_HoSo WHERE MaKhoaHoc=%s", (ma_kh_moi,))
+                so_ho_so = sinh_so_ho_so({r["n"] for r in cur.fetchall() if r["n"] is not None})
+                cur.execute(
+                    "UPDATE dbo.NguoiLX_HoSo SET MaKhoaHoc=%s, SoHoSo=%s WHERE MaDK=%s",
+                    (ma_kh_moi, so_ho_so, ma_dk),
+                )
+            finally:
+                try:
+                    cur.execute("EXEC sp_releaseapplock @Resource=%s", (ma_kh_moi,))
+                except Exception:
+                    pass
+    except HTTPException:
+        raise
+    except ConfigChuaDay as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=502, detail="Không đổi khóa được trên CSDL đích — kiểm kết nối rồi thử lại.")
+    return {"ok": True, "ma_dk": ma_dk, "ma_kh_moi": ma_kh_moi}
