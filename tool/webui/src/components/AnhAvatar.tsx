@@ -36,7 +36,8 @@ export default function AnhAvatar({ coAnh, ver = 0, tai }: {
     let obj: string | null = null;
     setLoi(false);
     void tai(ver).then((kq) => {
-      if (huy) return;
+      // Unmount/đổi ver trước khi resolve → revoke ngay object URL vừa tạo, tránh rò (lưới đông, scroll nhanh).
+      if (huy) { if ("url" in kq) URL.revokeObjectURL(kq.url); return; }
       if ("url" in kq) { obj = kq.url; setUrl(kq.url); } else setLoi(true);
     });
     return () => { huy = true; if (obj) URL.revokeObjectURL(obj); };

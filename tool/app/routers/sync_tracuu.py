@@ -24,7 +24,7 @@ from pydantic import BaseModel
 
 from app import sync_helpers
 from app.db import sqlserver_conn_dich, ConfigChuaDay
-from app.image import jp2_sang_png, thumb_jp2
+from app.image import jp2_sang_png, thumb_jp2, validate_jp2
 from app.nap import tach_ho_ten, validate_do_dai, sinh_so_ho_so
 from app.routers.sync import _db_dich, _loi_db  # dùng chung: chọn DB đích + gói lỗi
 # TCB-03: tái dùng Y HỆT cơ chế sửa nhân thân của Nạp (QLY-01 lát 2) — chỉ đổi mốc chặn
@@ -88,6 +88,10 @@ def nap_anh_dich(body: NapAnhCDBIn, ma_dk: str = Query(..., min_length=1),
         raise HTTPException(status_code=400, detail="Ảnh không hợp lệ.")
     if not jp2_bytes:
         raise HTTPException(status_code=400, detail="Thiếu dữ liệu ảnh.")
+    try:
+        validate_jp2(jp2_bytes)  # ≤8 MB + magic-byte .jp2 (§7.4) — chặn file quá cỡ / không phải ảnh
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     try:
         with sqlserver_conn_dich(db, autocommit=True) as conn:
             cur = conn.cursor(as_dict=True)
@@ -310,11 +314,12 @@ def chi_tiet_sua_dich(ma_dk: str = Query(..., min_length=1), target_key: str | N
     db = _db_dich(target_key)
     sql = (
         "SELECT nl.MaDK, nl.HoVaTen, nl.NgaySinh, nl.GioiTinh, nl.SoCMT, nl.NoiTT, "
-        "tt.TenDayDu AS HKTT, hs.MaKhoaHoc, " + _DKKH_SQL + " "
+        # SCALAR SUBQUERY (TOP 1) — KHÔNG LEFT JOIN: MaDvhc không unique → join nhân dòng (BUG-11).
+        "(SELECT TOP 1 tt.TenDayDu FROM dbo.DM_DVHC tt WHERE tt.MaDvhc = nl.NoiTT_MaDVHC) AS HKTT, "
+        "hs.MaKhoaHoc, " + _DKKH_SQL + " "
         "FROM dbo.NguoiLX nl "
         "JOIN dbo.NguoiLX_HoSo hs ON hs.MaDK = nl.MaDK "
         "JOIN dbo.KhoaHoc kh ON kh.MaKH = hs.MaKhoaHoc "
-        "LEFT JOIN dbo.DM_DVHC tt ON tt.MaDvhc = nl.NoiTT_MaDVHC "
         "WHERE nl.MaDK = %s"
     )
     try:

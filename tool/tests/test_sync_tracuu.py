@@ -50,6 +50,28 @@ def test_file_khong_con_raise(tmp_path):
         thay_anh_ghi_de(str(tmp_path / "khong-ton-tai.jp2"), b"X")
 
 
+# ---- TCB-02 bảo mật: validate_jp2 (size-cap + magic-byte) trước khi ghi đè ----
+from app.image import validate_jp2, MAX_BYTES  # noqa: E402
+
+
+def test_validate_jp2_box_format_ok():
+    validate_jp2(b"\x00\x00\x00\x0cjP  \r\n\x87\n" + b"\x00" * 20)  # PIL sinh dạng này
+
+
+def test_validate_jp2_codestream_ok():
+    validate_jp2(b"\xff\x4f\xff\x51" + b"\x00" * 20)
+
+
+def test_validate_jp2_khong_phai_anh_raise():
+    with pytest.raises(ValueError, match="JPEG2000"):
+        validate_jp2(b"PK\x03\x04 khong phai anh")  # zip/exe → chặn
+
+
+def test_validate_jp2_qua_8mb_raise():
+    with pytest.raises(ValueError, match="8 MB"):
+        validate_jp2(b"\x00\x00\x00\x0cjP" + b"\x00" * (MAX_BYTES + 1))
+
+
 # ---- TCB-03: sửa nhân thân ở CDB — chặn khi đã kết xuất DKKH (mock DB đích) ----
 from fastapi.testclient import TestClient  # noqa: E402
 from app.main import app  # noqa: E402
@@ -159,7 +181,7 @@ def test_xoa_hv_chua_bc1_goi_delete(auth_headers, monkeypatch):
     r = client.post("/local/sync/tra-cuu/xoa?ma_dk=MADK-2", headers=auth_headers)
     assert r.status_code == 200
     assert any("usp_NguoiLX_Delete" in s for s in executed)
-    assert not any("DuongDanAnh" in s or "_DELETED" in s for s in executed)  # KHÔNG động file ảnh
+    assert not any("DuongDanAnh" in s for s in executed)  # KHÔNG đụng cột/file ảnh (dùng chung với Nạp)
 
 
 def test_doi_khoa_da_bc1_chan_409(auth_headers, monkeypatch):

@@ -17,6 +17,8 @@ _JP2_RATE = 10                          # tỷ lệ nén JPEG2000 → ~48 KB
 
 # magic-byte, không tin đuôi/Content-Type (§7.4)
 _MAGIC = (b"\xff\xd8\xff", b"\x89PNG\r\n\x1a\n")
+# JP2: box format (signature box PIL sinh: 00 00 00 0c 6A 50 20 20 ...) + J2K codestream (FF 4F FF 51)
+_MAGIC_JP2 = (b"\x00\x00\x00\x0cjP", b"\xff\x4f\xff\x51")
 
 
 def validate_raw(data: bytes) -> None:
@@ -24,6 +26,15 @@ def validate_raw(data: bytes) -> None:
         raise ValueError("Ảnh vượt 8 MB.")
     if not any(data.startswith(m) for m in _MAGIC):
         raise ValueError("Chỉ nhận ảnh JPEG hoặc PNG.")
+
+
+def validate_jp2(data: bytes) -> None:
+    """Kiểm ảnh .jp2 đã xử lý (TCB-02 thay ảnh): ≤8 MB + magic-byte JPEG2000 (§7.4).
+    Không tin đuôi/Content-Type; chặn ghi bytes bất kỳ (exe/zip) thành .jp2."""
+    if len(data) > MAX_BYTES:
+        raise ValueError("Ảnh vượt 8 MB.")
+    if not any(data.startswith(m) for m in _MAGIC_JP2):
+        raise ValueError("Dữ liệu không phải ảnh JPEG2000 (.jp2) hợp lệ.")
 
 
 @lru_cache(maxsize=1)
