@@ -70,6 +70,8 @@ def test_ds_ho_so_liet_ke_ca_hv_chua_anh(auth_headers, monkeypatch):
     rows = [{
         "MaDK": "M-01", "HoVaTen": "LÊ THỊ HỒNG", "NgaySinh": "19950115", "GioiTinh": "F",
         "SoCMT": "070195000775", "SO_CMND_CU": None, "SoHoSo": "058", "NoiTT": "x",
+        "NoiCT": "x", "NgayCapCMT": None, "NoiCapCMT": None, "NoiCapTen": None,
+        "HKTT": None, "HKCT": None,  # cột tên lấy bằng scalar subquery (BUG-11) — mock trả None
         "DuongDanAnh": None, "MaLoaiHs": 2,  # HV chưa ảnh (DuongDanAnh rỗng)
     }]
     monkeypatch.setattr("app.routers.hoso.sqlserver_cursor", lambda *a, **k: _FakeCMDS(rows, executed))
@@ -79,6 +81,27 @@ def test_ds_ho_so_liet_ke_ca_hv_chua_anh(auth_headers, monkeypatch):
     assert any(h["ma_dk"] == "M-01" and h["co_anh"] is False for h in data)  # HV chưa ảnh VẪN hiện
     assert not any("usp_NguoiLX_Select_By_MaKH" in s for s in executed)      # KHÔNG dùng SP lọc ảnh
     assert not any("TT_XuLy" in s for s in executed)                          # KHÔNG lọc theo TT_XuLy
+
+
+def test_ds_ho_so_khong_join_dvhc_bug11(auth_headers, monkeypatch):
+    """BUG-11: tên thường trú/cư trú/nơi cấp lấy bằng SCALAR SUBQUERY (TOP 1), KHÔNG LEFT JOIN DM_DVHC.
+    MaDvhc trong DM_DVHC không duy nhất → JOIN sẽ NHÂN dòng học viên (lưới lặp, 6 HV hiện 12+).
+    Fail nếu ai đưa JOIN trở lại: 1 dòng DB vào phải ra đúng 1 học viên, SQL không được chứa LEFT JOIN."""
+    executed = []
+    rows = [{
+        "MaDK": "M-11", "HoVaTen": "NGUYỄN VĂN A", "NgaySinh": "19900101", "GioiTinh": "M",
+        "SoCMT": "012345678901", "SO_CMND_CU": None, "SoHoSo": "001",
+        "NoiTT": "Số 1", "NoiCT": "Số 1", "NgayCapCMT": "20200101", "NoiCapCMT": "70",
+        "NoiCapTen": "Sở GTVT Bình Phước", "HKTT": "Phường X, Tỉnh Y", "HKCT": "Phường X, Tỉnh Y",
+        "DuongDanAnh": None, "MaLoaiHs": 2,
+    }]
+    monkeypatch.setattr("app.routers.hoso.sqlserver_cursor", lambda *a, **k: _FakeCMDS(rows, executed))
+    r = client.get("/local/ho-so?makh=70004K26B010", headers=auth_headers)
+    assert r.status_code == 200
+    sql = " ".join(executed)
+    assert "SELECT TOP 1" in sql and "DM_DVHC" in sql    # tên lấy bằng scalar subquery
+    assert "LEFT JOIN" not in sql.upper()                # KHÔNG join DM_DVHC (nguồn nhân dòng)
+    assert len(r.json()) == 1 and r.json()[0]["ma_dk"] == "M-11"  # 1 dòng vào → 1 HV ra, không lặp
 
 
 # ---- Lát 2: hàm thuần đổi giới tính ----
@@ -504,3 +527,29 @@ def test_dong_bo_tra_ve_vps_409(op_vps_headers, monkeypatch):
                         lambda token, uuid: (_ for _ in ()).throw(_VpsLoi("không còn bản gốc", 409)))
     r = client.post("/local/ho-so/dong-bo-tra-ve?uuid=uuid-6", headers=op_vps_headers)
     assert r.status_code == 409
+
+
+# ---- QLY-03 (BUG-12): xóa hẳn HV phải dọn luôn dòng staging 'xong' ----
+def test_xoa_han_don_dong_staging_bug12(auth_headers, monkeypatch):
+    """BUG-12: 'Xóa hẳn' (QLY-03) gỡ HV khỏi CSDT NHƯNG tab 'Đã nạp' (lọc staging 'xong') vẫn hiện HV
+    đã xóa. Fix: sau _xoa_hv_csdt → tra uuid theo MaDK → keo_ve_xoa(uuid) dọn dòng staging. Fail nếu
+    bước dọn staging bị bỏ."""
+    goi = {}
+    monkeypatch.setattr("app.routers.hoso._xoa_hv_csdt", lambda ma_dk, nguoi: {})
+    monkeypatch.setattr(_nap_mod, "lay_uuid_theo_ma_dk", lambda ma_dk: "uuid-xoa")
+    monkeypatch.setattr(_nap_mod, "keo_ve_xoa", lambda uuid: goi.update(uuid=uuid))
+    r = client.post("/local/ho-so/xoa?ma_dk=MADK-X", headers=auth_headers)
+    assert r.status_code == 200 and r.json()["ok"] is True
+    assert goi["uuid"] == "uuid-xoa"   # ĐÃ dọn dòng staging của đúng HV vừa xóa
+
+
+def test_xoa_han_khong_co_staging_khong_goi_keo_ve_xoa_bug12(auth_headers, monkeypatch):
+    """HV nhập thẳng app cũ (không qua hàng đợi) → không tra ra uuid → KHÔNG gọi keo_ve_xoa (tránh xóa
+    nhầm theo uuid rỗng). Endpoint vẫn trả ok."""
+    goi = {"called": False}
+    monkeypatch.setattr("app.routers.hoso._xoa_hv_csdt", lambda ma_dk, nguoi: {})
+    monkeypatch.setattr(_nap_mod, "lay_uuid_theo_ma_dk", lambda ma_dk: None)
+    monkeypatch.setattr(_nap_mod, "keo_ve_xoa", lambda uuid: goi.__setitem__("called", True))
+    r = client.post("/local/ho-so/xoa?ma_dk=MADK-Y", headers=auth_headers)
+    assert r.status_code == 200 and r.json()["ok"] is True
+    assert goi["called"] is False   # không có dòng staging → không đụng keo_ve_xoa
