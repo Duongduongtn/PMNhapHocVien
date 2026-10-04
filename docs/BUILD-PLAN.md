@@ -2,7 +2,7 @@
 
 > File do `/kehoach` sinh. `/tieptheo` đọc file này để biết làm gì tiếp theo.
 > **Thứ tự code** nằm ở đây. **Yêu cầu và trạng thái story** nằm ở `docs/PRD.md`.
-> Cập nhật lần cuối: 04/10/2026 (v12 — bổ sung task 61-62 theo CHANGES #34: HTG-07 bảng cấu hình chung ở header (gộp DB nguồn Nạp + nhiều DB đích Sync, bỏ route cau-hinh/db-dich) + làm đẹp UI Bàn đồng bộ; thuần UI/IA, khuyến nghị build 61→62 trước task 60)
+> Cập nhật lần cuối: 04/10/2026 (v13 — bổ sung task 63-66 theo CHANGES #35: Feature Tra cứu CDB đích (TCB-01..04) — xem/sửa/xóa HV trên DB đích; mốc chặn DKKH/BC1 đọc ở đích; đã nhúng kết quả /reviewtdd)
 
 ## Quyết định về thứ tự
 
@@ -57,6 +57,7 @@
 - **AS-001** quét thẻ CCCD thật của cơ sở — kiểm ở Checkpoint 4.
 - **AS-003** nạp thử 1 HV → mở app cũ đối chiếu — kiểm ở Checkpoint 2.
 - **MaGT identity?** — kiểm `NguoiLXHS_GiayTo.MaGT` ở `GPLX_CDB_CSDT` có IDENTITY không (quyết truyền tay hay dùng hàm `GetMaGiaytoByHosoForSync`) — cần trước **task 57**.
+- **SP sửa/đổi khóa/xóa trong CDB?** — kiểm `GPLX_CDB_CSDT` có `usp_NguoiLX_Update` / SP đổi khóa / SP xóa (như `GPLX_CSDT`) không — cần trước **task 65-66**; thiếu thì tắt nút tương ứng + báo (đã ghi trong TDD §11B.7 + CHANGES #35).
 
 ## Phase 1 — Tool nạp được 1 HV khớp app cũ *(de-risk mắt xích khó nhất)*
 
@@ -201,8 +202,13 @@
 | 60 | **SYNC-03 Lịch sử & Hủy sync**: router `/local/sync/lich-su` (đọc JSON `%APPDATA%`) + rollback (xóa theo MaDK log + `NguoiTao='SYNC'`, cascade `NguoiLX→HoSo→GiayTo`, **bắt lỗi HV đã BC1** FK NO_ACTION, cập nhật TongSoHV) + webui màn Lịch sử + modal hủy | `SYNC-03` | M | 55,57 | 1+2 | → PRD |
 | 61 | **HTG-07 Bảng cấu hình chung ở header** (CHANGES #34): `ToolLayout` +icon ⚙ góc phải header → panel/drawer **2 khối tách bạch**: ① *kết nối chung + DB NGUỒN Nạp* (gộp `CauHinh.tsx`) · ② *nhiều DB ĐÍCH Sync* (gộp `DbDich.tsx` — CRUD/mặc định/test/tùy chọn); gỡ route `/tool/cau-hinh` + `/sync/db-dich` khỏi `App.tsx` + subnav `lib/modules.ts`; mọi lối cũ trỏ 2 màn → mở panel. **Thuần UI** — backend `/local/config*`+`/local/sync/targets`+config-store KHÔNG đổi. `impeccable`+`ui-ux-pro-max` | `HTG-07`, `SYNC-02` | M | 54,56 | 1 | → PRD |
 | 62 | **SYNC-01 làm đẹp UI** (CHANGES #34): combobox năm/khóa + ô chọn DB đích gọn, nhãn rõ (năm·khóa·hạng); **danh sách HV để sync tên hài hòa, đủ dấu, căn cột, mật độ dòng vừa, không tràn/cắt chữ** (`BanDongBo.tsx`, `ComboLoc.tsx`); bám token `tool/webui`; `impeccable`+`ui-ux-pro-max`. Nghiệp vụ sync KHÔNG đổi (bám sync_tool v2.0) | `SYNC-01` | S | 59,61 | 1 | → PRD |
+| 63 | **Màn Tra cứu CDB + đọc** (TCB, CHANGES #35, TDD §11B.7): `pages/sync/TraCuuCDB.tsx` (mới, **tái dùng** `AnhModal`/`AnhAvatar`, **KHÔNG sửa** `TraCuuDB.tsx` của QLY-01) + endpoint đọc CDB qua `sqlserver_conn_dich` (tra khóa mọi khóa kể cả BC1, lưới HV avatar lazy-load + tìm tên bỏ dấu/CCCD, chi tiết + ảnh lớn + đường dẫn, thống kê đầu khóa + cờ DKKH/BC1) + nút **"Xem chi tiết HV"** ở `BanDongBo.tsx` (mở khóa chứa MaDK đích + tô sáng, reuse `khoaMa`/`noiBat`). *Nếu khi code thấy phình → cắt đôi (khóa+lưới / chi tiết+ảnh+nút).* | `TCB-01` | M | 54,55,59 | 1 | → PRD |
+| 64 | **Thay ảnh HV ở CDB** (TCB): từ chi tiết → `AnhModal` + đổi nền (`/local/anh/xu-ly` rembg, nguồn file máy / ảnh `.jp2` hiện có) → **sao lưu `<tên>_BACKUP.jp2` CÙNG thư mục (chỉ nếu chưa có)** → ghi đè đúng file, giữ tên + `DuongDanAnh` → UPDATE `ChatLuongAnh`/`NgayThuNhanAnh` ở bản ghi CDB; cho phép kể cả DKKH/BC1 (chỉ **cảnh báo**); **endpoint ghi buộc token operator** (collector 403). Ảnh dùng chung 2 DB → thay đổi cả ở Nạp | `TCB-02` | M | 63,8 | 1+2 | → PRD |
+| 65 | **Sửa nhân thân HV ở CDB** (TCB): `usp_NguoiLX_Update` của CDB (đọc lại full giữ cột không sửa, KHÔNG đụng kết quả/BC1/BC2) — **CHẶN nếu `KhoaHoc.SoQD_KhaiGiang` có giá trị** (đã kết xuất DKKH) → báo rõ; **kiểm SP tồn tại trong CDB, thiếu → tắt nút + báo**; endpoint ghi buộc token operator | `TCB-03` | M | 63 | 1+2 | → PRD |
+| 66 | **Xóa HV / Đổi khóa HV ở CDB** (TCB): xóa cascade (NguoiLX+NguoiLX_HoSo+GiayTo) / đổi khóa đích cùng hạng chưa BC1 — **CHẶN nếu `NguoiLX_HoSo.MaBC1` có giá trị** (đã BC1; vẫn **bắt lỗi FK NO_ACTION** làm lưới an toàn) · **cảnh báo** nếu DKKH chưa BC1 · xác nhận 2 bước (không hoàn tác) · **kiểm SP đổi khóa/xóa tồn tại, thiếu → tắt nút**; endpoint ghi buộc token operator | `TCB-04` | M | 63,65 | 1+2 | → PRD |
 
-> SYNC-01 cắt 3 task (57/58/59) cùng trỏ 1 story → PRD `SYNC-01` chỉ ✅ khi xong cả 3 **và** task 62 (làm đẹp UI, CHANGES #34). Task **26** (đóng gói .exe) nay phụ thuộc thêm Phase 4 → chạy **sau task 62**.
+> SYNC-01 cắt 3 task (57/58/59) cùng trỏ 1 story → PRD `SYNC-01` chỉ ✅ khi xong cả 3 **và** task 62 (làm đẹp UI, CHANGES #34). Task **26** (đóng gói .exe) nay phụ thuộc thêm Phase 4 + Feature Tra cứu CDB (TCB 63-66) → chạy **sau task 66**.
+> **Feature "Tra cứu CDB đích" (TCB-01..04, task 63-66, CHANGES #35):** mở rộng phân hệ Đồng bộ CDB — xem/sửa/xóa HV **trên DB đích** `GPLX_CDB_CSDT` ngay trong tool. Lát dọc: 63 màn+đọc → 64 thay ảnh → 65 sửa nhân thân → 66 xóa/đổi khóa. **Mốc khóa đọc Ở ĐÍCH** (độc lập DB Nạp): sửa nhân thân chặn khi DKKH (`SoQD_KhaiGiang`); xóa/đổi khóa chặn khi BC1 (`MaBC1`). Đã qua /reviewtdd (biên bản `tdd-review-04-10-2026-tcb.md`): mốc BC1=`MaBC1`, thay ảnh backup trước ghi đè, endpoint ghi buộc token operator.
 > **Thứ tự build khuyến nghị (user chốt 04/10):** làm **61 → 62 TRƯỚC task 60** — HTG-07 tái cấu trúc header/sidebar (bỏ route `db-dich`), làm trước thì SYNC-03 (task 60, thêm màn Lịch sử) ráp vào shell đã ổn định, khỏi đụng route hai lượt.
 
 ### ✅ Checkpoint 12 — sau task 54-60 (module Đồng bộ CDB)
@@ -222,6 +228,16 @@
 - [x] "Kiểm tra kết nối": khối ② báo số NguoiLX (live "729 người lái"). (khối ① ping SQL+VPS — logic cũ HTG-01 không đổi)
 - [x] Route cũ `/tool/cau-hinh` + `/sync/db-dich` **đã bỏ** khỏi sidebar/sub-nav (modules.ts + App.tsx); không còn link chết.
 - [x] **Regression:** backend `/local/config*`+`/local/sync/targets` không đổi; 265 pytest + nạp/bàn đồng bộ chạy như cũ.
+
+### ✅ Checkpoint 14 — sau task 63-66 (Feature Tra cứu CDB đích, TCB-01..04)
+- [ ] Tra 1 khóa CDB thật → lưới HV + chi tiết + ảnh **khớp phần mềm CDB**; avatar lazy-load; ảnh thiếu file → cảnh báo, không vỡ lưới.
+- [ ] Nút "Xem chi tiết HV" ở Bàn đồng bộ → mở đúng khóa chứa MaDK đích + tô sáng HV.
+- [ ] Thay ảnh (TCB-02): tạo `_BACKUP.jp2` **cùng thư mục** (chạy lần 2 KHÔNG đè backup) + ghi đè file → ảnh đổi ở **cả DB Nạp lẫn đích**; cho kể cả DKKH/BC1 (cảnh báo).
+- [ ] Sửa nhân thân (TCB-03): khóa **đã kết xuất DKKH** (`SoQD_KhaiGiang`) → **CHẶN** báo rõ; chưa DKKH → sửa được, giữ cột kết quả.
+- [ ] Xóa/đổi khóa (TCB-04): HV **`MaBC1` có giá trị** → **CHẶN** + lỗi FK NO_ACTION bắt được làm lưới; DKKH chưa BC1 → cho + cảnh báo; xác nhận 2 bước.
+- [ ] **Mức 2:** mốc chặn đọc đúng tín hiệu (`MaBC1` cho xóa, `SoQD_KhaiGiang` cho sửa) — KHÔNG đọc `TT_XuLy`; backup ảnh chỉ-nếu-chưa-có.
+- [ ] Collector gọi endpoint TCB ghi (thay ảnh/sửa/xóa/đổi khóa) → **403**.
+- [ ] Playwright 1280/1440/1920 màn Tra cứu CDB + modal chi tiết — 0 tràn.
 - [x] Màn Bàn đồng bộ: combobox + danh sách HV **đẹp, tên đủ dấu, không tràn/cắt** (avatar + teal); Playwright 1280/1440 (150 HV) 0 tràn + review-giaodien đạt.
 
 ### ✅ Checkpoint 5 — cuối dự án
@@ -265,10 +281,10 @@
 
 > `/tieptheo` so mục này với PRD mỗi buổi để biết kế hoạch còn khớp không. Lệch thì báo user chạy lại `/kehoach` chế độ bổ sung. **Không tự sửa kế hoạch.**
 
-- **Số story trong PRD khi cập nhật:** 29 (thêm `HTG-07` từ CHANGES #34; `SYNC-01/02/03` #33; chưa tính NICE `QLY-04`, `THU-03`)
-- **Mã story đã đưa vào kế hoạch:** `HTG-01`, `HTG-02`, `HTG-03`, `HTG-07`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `SYNC-01`, `SYNC-02`, `SYNC-03`
+- **Số story trong PRD khi cập nhật:** 33 (thêm `TCB-01/02/03/04` từ CHANGES #35; `HTG-07` #34; `SYNC-01/02/03` #33; chưa tính NICE `QLY-04`, `THU-03`)
+- **Mã story đã đưa vào kế hoạch:** `HTG-01`, `HTG-02`, `HTG-03`, `HTG-07`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `SYNC-01`, `SYNC-02`, `SYNC-03`, `TCB-01`, `TCB-02`, `TCB-03`, `TCB-04`
 - **Mã story chưa đưa vào:** `QLY-04`, `THU-03` (NICE, chưa đủ chi tiết) · **`HTG-04/05/06`** (thêm ở CHANGES #18, đã code thẳng — chưa có task trong plan; cần `/kehoach` bổ sung riêng nếu muốn khớp sổ)
-- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 04/10/2026 (#34)
+- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 04/10/2026 (#35)
 
 ## Changelog
 
@@ -285,4 +301,5 @@
 | 03/10/2026 | v9 — bổ sung (CHANGES #28): thêm task **48-49** (cuối Phase 3, trước task 26) — QLY-09 đối soát VPS↔CSDT: backend liệt kê lệch theo khóa + 3 action tái dùng + phòng tuyến 2 chặn phantom (48), webui panel đối soát + nút sửa 1 chạm (49) + Checkpoint 10. Thuần tool, không endpoint/SP nạp mới. +story QLY-09. 49 task. |
 | 04/10/2026 | v10 — bổ sung (CHANGES #32, sau review TDD #32): thêm task **50-53** (cuối Phase 3, trước task 26) — NAP-01 lưu nháp BỀN backend `nhap_chuan_bi`+`nhap_xoa`+3 endpoint+BUG-04 reset trong `keo_ve_upsert` (50), UI nháp bền+2 chip+nút Xử lý/Xóa nháp (51), nạp chặn thiếu địa chỉ/cảnh báo thiếu ảnh+lối tắt (52); QLY-05 bổ sung ảnh 2 nguồn file/ảnh-thô-VPS (53) + Checkpoint 11. Endpoint list nhẹ + luật ghép địa chỉ theo biên bản `tdd-review-04-10-2026.md`. Tái dùng NAP-01/QLY-05, không story mới. 53 task. |
 | 04/10/2026 | v12 — bổ sung (CHANGES #34): thêm task **61** (HTG-07 bảng cấu hình chung ở header, gộp DB nguồn Nạp + nhiều DB đích Sync, bỏ route cau-hinh/db-dich — đóng HTG-07 + SYNC-02) + task **62** (SYNC-01 làm đẹp combobox + danh sách HV) + Checkpoint 13. Thuần UI/IA, backend không đổi; dựng impeccable/ui-ux-pro-max. Khuyến nghị build 61→62 trước task 60. +1 story HTG-07. 62 task. |
+| 04/10/2026 | v13 — bổ sung (CHANGES #35, sau /reviewtdd): thêm Feature **Tra cứu CDB đích** task **63-66** (cuối Phase 4, trước task 26) — màn Tra cứu CDB + đọc qua `sqlserver_conn_dich` + nút Xem chi tiết (63, TCB-01) · thay ảnh backup `_BACKUP.jp2` trước ghi đè (64, TCB-02) · sửa nhân thân chặn DKKH (65, TCB-03) · xóa/đổi khóa chặn BC1=`MaBC1` (66, TCB-04) + Checkpoint 14 + Prerequisite kiểm SP CDB. Mốc chặn đọc Ở ĐÍCH, đã nhúng kết quả review (biên bản `tdd-review-04-10-2026-tcb.md`). Task 26 nay sau task 66. +4 story TCB. 66 task. |
 | 04/10/2026 | v11 — bổ sung (CHANGES #33): thêm **Phase 4 Đồng bộ CDB** task **54-60** — sidebar workspace shell (54), Sync nền backend config/conn_dich/sync_helpers/sync_history (55), SYNC-02 Quản lý CSDL đích (56), SYNC-01 cắt 3: backend tạo HV qua 3 SP + MaCSDT từ QTHT/khóa đích (57) · SSE+chạy (58) · UI Bàn đồng bộ bám mock (59), SYNC-03 Lịch sử & Hủy sync (60) + Checkpoint 12 + prerequisite MaGT identity. Khóa đích BC1: cảnh báo-vẫn-cho (user chốt B). Task 26 đóng gói nay sau task 60. +3 story SYNC. 60 task. |
