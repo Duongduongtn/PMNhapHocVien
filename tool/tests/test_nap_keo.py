@@ -206,6 +206,36 @@ def test_nap_lo_mot_loi_khong_hong_lo(staging_tmp, op_headers, monkeypatch):
     assert mo_khoa == ["u1"]  # HV lỗi được mở khóa lại trên VPS
 
 
+def test_nap_lo_trung_uuid_khong_goi_da_nap(staging_tmp, op_headers, monkeypatch):
+    """Phòng tuyến 2 (QLY-09, chặn phantom BUG-01): `_nap_mot` trả VÉ CŨ (`trung_uuid`, không INSERT)
+    → `nap_fn` KHÔNG gọi `vps.da_nap` (không đánh dấu imported cho bản không thực vào CSDT)."""
+    nap.keo_ve_upsert([_keo_row("u1")])
+    da_nap_goi = []
+    monkeypatch.setattr(vps_mod, "lock", lambda t, u: None)
+    monkeypatch.setattr(vps_mod, "da_nap", lambda t, u, ma_dk: da_nap_goi.append(u))
+    monkeypatch.setattr(vps_mod, "unlock", lambda t, u: None)
+    monkeypatch.setattr(
+        nap_router, "_nap_mot",
+        lambda body: {"ma_dk": "MDK-u1", "so_ho_so": "056", "so_giay_to": 3, "trung_uuid": True},
+    )
+    r = client.post("/local/nap/nap-lo", headers=op_headers, json={"items": [_nap_item("u1")]})
+    assert r.status_code == 200 and r.json()["thanh_cong"] == 1
+    assert da_nap_goi == []  # vé cũ → KHÔNG da_nap
+
+
+def test_nap_lo_nap_moi_van_goi_da_nap(staging_tmp, op_headers, monkeypatch):
+    """Đối chứng: nạp MỚI (không `trung_uuid`) → vẫn gọi `da_nap` như thường."""
+    nap.keo_ve_upsert([_keo_row("u1")])
+    da_nap_goi = []
+    monkeypatch.setattr(vps_mod, "lock", lambda t, u: None)
+    monkeypatch.setattr(vps_mod, "da_nap", lambda t, u, ma_dk: da_nap_goi.append(u))
+    monkeypatch.setattr(vps_mod, "unlock", lambda t, u: None)
+    monkeypatch.setattr(nap_router, "_nap_mot",
+                        lambda body: {"ma_dk": "MDK-u1", "so_ho_so": "056", "so_giay_to": 3})
+    client.post("/local/nap/nap-lo", headers=op_headers, json={"items": [_nap_item("u1")]})
+    assert da_nap_goi == ["u1"]
+
+
 def test_nap_lo_lock_409_ghi_loi(staging_tmp, op_headers, monkeypatch):
     nap.keo_ve_upsert([_keo_row("u1")])
     monkeypatch.setattr(vps_mod, "lock", lambda t, u: (_ for _ in ()).throw(VpsLoi("đang nạp", 409)))

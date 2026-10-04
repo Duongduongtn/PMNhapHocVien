@@ -60,6 +60,16 @@ def test_loc_theo_trang_thai(api, db_setup):
     assert all(it["trang_thai"] == "imported" for it in r.json()["items"])
 
 
+def test_loc_tra_ma_dk_va_locked_at(api, db_setup):
+    """QLY-09: list admin trả thêm ma_dk (ca ① phantom) + locked_at (ca ③ treo)."""
+    db, _ = db_setup
+    _seed(db, ho_ten="Imp", trang_thai="imported", ma_dk="MDK-1")
+    tok = _token(api, "admin1", "admin-pass")
+    it = api.get("/api/admin/ho-so?trang_thai=imported", headers=_h(tok)).json()["items"][0]
+    assert "ma_dk" in it and it["ma_dk"] == "MDK-1"
+    assert "locked_at" in it  # có field (giá trị None khi không khóa)
+
+
 def test_loc_trang_thai_sai_422(api):
     tok = _token(api, "admin1", "admin-pass")
     assert api.get("/api/admin/ho-so?trang_thai=linh_tinh", headers=_h(tok)).status_code == 422

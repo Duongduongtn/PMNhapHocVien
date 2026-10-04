@@ -297,3 +297,35 @@ def test_da_xoa_collector_403(api):
 
 def test_da_xoa_thieu_tool_key_401(api):
     assert api.get("/api/nap/da-xoa", headers=_login(api, "op1")).status_code == 401
+
+
+# ── trang-thai: tra trạng thái nhiều uuid một lượt (QLY-09 đối soát ca ②) ──
+def test_trang_thai_nhieu(api):
+    h = _op_headers(api)
+    u_pending = _gui_pending(api, "Pending")
+    u_imported = _gui_pending(api, "Imported")
+    api.post(f"/api/nap/{u_imported}/lock", headers=h)
+    api.post(f"/api/nap/{u_imported}/da-nap", headers=h, json={"ma_dk": "MDK-9"})
+    from uuid import uuid4
+    r = api.get("/api/nap/trang-thai", headers=h,
+                params={"uuids": f"{u_pending},{u_imported},{uuid4()}"})  # uuid thứ 3 không tồn tại
+    assert r.status_code == 200
+    data = {x["uuid"]: x for x in r.json()}
+    assert len(data) == 2                                   # uuid không tồn tại bị bỏ
+    assert data[u_pending]["trang_thai"] == "pending" and data[u_pending]["ma_dk"] is None
+    assert data[u_imported]["trang_thai"] == "imported" and data[u_imported]["ma_dk"] == "MDK-9"
+
+
+def test_trang_thai_uuid_rac_tra_rong(api):
+    r = api.get("/api/nap/trang-thai", headers=_op_headers(api), params={"uuids": "khong-phai-uuid,,"})
+    assert r.status_code == 200 and r.json() == []
+
+
+def test_trang_thai_collector_403(api):
+    r = api.get("/api/nap/trang-thai", headers={**_login(api, "col1"), "X-Tool-Key": TOOL_KEY},
+                params={"uuids": "x"})
+    assert r.status_code == 403
+
+
+def test_trang_thai_thieu_tool_key_401(api):
+    assert api.get("/api/nap/trang-thai", headers=_login(api, "op1"), params={"uuids": "x"}).status_code == 401

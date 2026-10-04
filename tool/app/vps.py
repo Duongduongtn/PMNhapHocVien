@@ -127,3 +127,28 @@ def tra_ve_cho_nap(vps_token: str | None, uuid: str) -> None:
         raise VpsLoi("VPS không còn bản gốc đã nạp để trả về (đã xóa hoặc đã dọn dữ liệu).", 409)
     if r.status_code != 200:
         raise VpsLoi("VPS trả lỗi khi trả hồ sơ về chờ nạp.", r.status_code)
+
+
+def trang_thai_nhieu(vps_token: str | None, uuids: list[str]) -> dict[str, dict]:
+    """QLY-09 ca ② — tra trạng thái VPS của nhiều uuid một lượt (đối soát theo khóa). Trả dict
+    {uuid: {trang_thai, ma_dk, locked_at}}; uuid không có trên VPS → KHÔNG xuất hiện trong dict."""
+    uuids = [u for u in uuids if u]
+    if not uuids:
+        return {}
+    r = _goi("GET", "/api/nap/trang-thai", vps_token, timeout=_TIMEOUT, params={"uuids": ",".join(uuids)})
+    if r.status_code != 200:
+        raise VpsLoi("VPS trả lỗi khi tra trạng thái hồ sơ.", r.status_code)
+    return {row["uuid"]: row for row in r.json()}
+
+
+def admin_ho_so(vps_token: str | None, trang_thai: str | None = None,
+                limit: int = 500, offset: int = 0) -> dict:
+    """QLY-09 ca ①③ — quét bản ghi theo trạng thái VPS (admin, tái dùng HTG-03). Trả
+    {"items": [{uuid, ma_dk, locked_at, trang_thai, ...}], "total": n}. Lỗi → VpsLoi."""
+    params: dict[str, object] = {"limit": limit, "offset": offset}
+    if trang_thai:
+        params["trang_thai"] = trang_thai
+    r = _goi("GET", "/api/admin/ho-so", vps_token, timeout=_TIMEOUT, params=params)
+    if r.status_code != 200:
+        raise VpsLoi("VPS trả lỗi khi quét bản ghi đối soát.", r.status_code)
+    return r.json()

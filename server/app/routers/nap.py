@@ -44,6 +44,13 @@ class DaNapIn(BaseModel):
     ma_dk: str
 
 
+class TrangThaiOut(BaseModel):
+    uuid: UUID
+    trang_thai: str
+    ma_dk: str | None
+    locked_at: datetime | None
+
+
 @router.get("/keo", response_model=list[KeoOut])
 def keo(
     limit: int = 200,
@@ -162,6 +169,33 @@ def lock(uuid: UUID, op: User = Depends(require_role("operator")), db: Session =
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy hồ sơ")
         raise HTTPException(status.HTTP_409_CONFLICT, "Hồ sơ đang được nạp hoặc đã nạp")
     return {"uuid": str(uuid), "trang_thai": "importing"}
+
+
+@router.get("/trang-thai", response_model=list[TrangThaiOut])
+def trang_thai_nhieu(
+    uuids: str,
+    _op: User = Depends(require_role("operator")),
+    db: Session = Depends(get_db),
+):
+    """QLY-09 (CHANGES #28) — tra trạng thái VPS của nhiều uuid một lượt (đối soát ca ② theo khóa).
+    READ thuần (không nạp mới). `uuids` = danh sách UUID ngăn bằng dấu phẩy (≤500); uuid rác/không
+    tồn tại → bỏ qua (không 400 cả lô, không trả dòng). Operator gọi được — ca ② cho cả operator."""
+    ids: list[UUID] = []
+    for s in uuids.split(","):
+        s = s.strip()
+        if not s:
+            continue
+        try:
+            ids.append(UUID(s))
+        except ValueError:
+            continue
+    if not ids:
+        return []
+    rows = db.execute(select(HoSoThuThap).where(HoSoThuThap.uuid.in_(ids[:500]))).scalars().all()
+    return [
+        {"uuid": r.uuid, "trang_thai": r.trang_thai, "ma_dk": r.ma_dk, "locked_at": r.locked_at}
+        for r in rows
+    ]
 
 
 @router.post("/{uuid}/da-nap", status_code=status.HTTP_200_OK)

@@ -510,7 +510,7 @@
 
 #### [QLY-09] Đối soát & đồng bộ trạng thái VPS↔CSDT
 
-**Trạng thái:** ⏳ Todo — yêu cầu mới 03/10/2026 (CHANGES #28, từ ca Lê Thị Hồng / BUG-01). Phạm vi chốt: đối soát **theo khóa / theo yêu cầu** (không quét toàn bộ).
+**Trạng thái:** 🔄 In Progress — task 48 (backend đối soát + phòng tuyến 2) đang code 04/10/2026. Yêu cầu mới 03/10/2026 (CHANGES #28, từ ca Lê Thị Hồng / BUG-01). Phạm vi chốt: đối soát **theo khóa / theo yêu cầu** (không quét toàn bộ).
 **Story:** Là nhân viên nạp DB (hoặc quản trị), tôi muốn tự phát hiện và sửa các bản ghi bị **lệch trạng thái giữa máy chủ (VPS) và CSDT**, để không phải nhờ kỹ thuật sửa tay cơ sở dữ liệu khi có sự cố.
 
 **Steps to Complete:**

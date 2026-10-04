@@ -47,6 +47,8 @@ class HoSoAdminOut(BaseModel):
     trang_thai: str
     co_anh: bool
     created_at: datetime
+    ma_dk: str | None = None       # QLY-09: đối soát ca ① (phantom) cần ma_dk của bản imported
+    locked_at: datetime | None = None  # QLY-09: đối soát ca ③ (importing treo) cần mốc khóa
 
 
 class HoSoAdminListOut(BaseModel):
@@ -63,6 +65,8 @@ def _ra(hs: HoSoThuThap) -> HoSoAdminOut:
         trang_thai=hs.trang_thai,
         co_anh=hs.anh_tho_path is not None,
         created_at=hs.created_at,
+        ma_dk=hs.ma_dk,
+        locked_at=hs.locked_at,
     )
 
 

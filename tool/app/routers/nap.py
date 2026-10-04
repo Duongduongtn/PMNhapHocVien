@@ -321,7 +321,12 @@ def nap_lo_endpoint(body: NapLoIn, phien: Phien = Depends(require_session)):
         except Exception:
             _mo_khoa_im_lang(token, uuid)
             raise
-        vps.da_nap(token, uuid, r["ma_dk"])  # lỗi ở đây → VpsLoi; HV đã nạp, retry hội tụ nhờ idempotent UUID
+        # Phòng tuyến 2 (QLY-09, chặn tái phát phantom BUG-01): CHỈ da_nap khi THỰC SỰ nạp mới.
+        # `_nap_mot`→`nap_mot_hv` trả vé cũ (`trung_uuid`, không INSERT) → KHÔNG đánh dấu VPS imported
+        # (nếu không, bản ghi không vào CSDT vẫn bị gắn imported = phantom). Vé cũ → VPS đã imported
+        # từ lần nạp đầu rồi, bỏ da_nap là đúng.
+        if not r.get("trung_uuid"):
+            vps.da_nap(token, uuid, r["ma_dk"])  # lỗi ở đây → VpsLoi; HV đã nạp, retry hội tụ nhờ idempotent UUID
         return {"ma_dk": r["ma_dk"], "so_ho_so": r["so_ho_so"], "so_giay_to": r["so_giay_to"]}
 
     kq = nap.nap_lo(items, nap_fn)
