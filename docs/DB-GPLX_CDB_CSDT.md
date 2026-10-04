@@ -31,7 +31,7 @@ Thứ tự: `usp_NguoiLX_Insert` → `usp_NguoiLX_HoSo_Insert` → `usp_NguoiLXH
 - `@DonViNhanHSo` = mã CSĐT khóa đích (75032).
 
 ### 1.2 `usp_NguoiLX_HoSo_Insert` (76 tham số, `@SoHoSo` OUT)
-- **Sinh SoHoSo:** `IF @SoHoSo IS NULL OR LEN=0 → @SoHoSo = dbo.CreateNewSoHoso(@MaDK, @HangGPLX, 'I')` → dạng **`<Hạng><2 số>`** đếm theo từng `MaDK` (vd `B01`). **Truyền `@SoHoSo=NULL` để đúng chuẩn** (sync_tool cũ tự sinh `001` ở Python = sai quy ước — nợ #1).
+- **Sinh SoHoSo:** `IF @SoHoSo IS NULL OR LEN=0 → @SoHoSo = dbo.CreateNewSoHoso(@MaDK, @HangGPLX, 'I')` → dạng **`<Hạng><2 số>`** (`B01`). ⚠️ **ĐÍNH CHÍNH 04/10:** dữ liệu thật CSDL đích **100% SoHoSo là số thuần `001/002`** (kể cả 502 bản `NguoiTao=ADMIN` của phần mềm CDB; 0 bản `Bxx`) → **KHÔNG truyền `@SoHoSo=NULL`** (sẽ ra `B01` lệch dữ liệu). **Port sát sync_tool**: tự sinh **SoHoSo số** (MAX(CAST(SoHoSo AS INT))+1 theo khóa, zero-pad 3) rồi INSERT thô `NguoiLX_HoSo` (sync_tool dùng INSERT thô, không dùng SP này). PK `NguoiLX_HoSo = MaDK` nên SoHoSo trùng giữa các khóa KHÔNG vi phạm PK — "nợ #1" không áp dụng.
 - ⚠️ `@NgayTao/@NgaySua` cũng hardcode `getdate()` → backdate phải UPDATE sau. `@NgayNhanHSo` thì nhận đúng tham số (OK để đặt ngày nhập HS).
 - Cột `Transfer_flag` (NOT NULL, def 0) + `IDs` (identity) KHÔNG nằm trong SP → tự nhận default.
 - Nhóm tham số kết quả (`@KetQua_LyThuyet`, `@KetQuaSH`, `@MaBC1`, `@MaBC2`…) khi tạo mới để mặc định/NULL.

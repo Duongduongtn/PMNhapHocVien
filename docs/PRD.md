@@ -612,7 +612,7 @@
 
 #### [SYNC-01] Bàn đồng bộ — chọn khóa, đối chiếu, đẩy HV sang CDB
 
-**Trạng thái:** ⏳ Todo — thêm 04/10/2026 (CHANGES #33). Port nghiệp vụ sync_tool v2.0.
+**Trạng thái:** 🔄 In Progress — task 57-59 (04/10/2026). Port nghiệp vụ sync_tool v2.0.
 **Story:** Là nhân viên nạp DB, tôi muốn chọn một khóa nguồn và một khóa đích rồi đẩy các học viên chưa có sang DB CDB, để khỏi gõ lại từng người ở phần mềm CDB.
 
 **Steps to Complete:**

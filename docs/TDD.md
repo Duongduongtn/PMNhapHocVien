@@ -1006,7 +1006,7 @@ Gác `Depends(require_session)` như các router local khác.
 ### 11B.6 Nợ kỹ thuật port từ sync_tool (quyết khi code)
 
 **Đã xác minh DB đích 04/10/2026** (chi tiết: `docs/DB-GPLX_CDB_CSDT.md`) → hướng chốt cho 3 tồn đọng:
-1. `SoHoSo` + MaDK: **gọi chính `usp_NguoiLX_Insert` + `usp_NguoiLX_HoSo_Insert`** (truyền `@MaDK`/`@SoHoSo=NULL` để DB sinh `CreateNewMaDK`/`CreateNewSoHoso` `B01`) thay vì INSERT thô → đúng chuẩn DB, hết nợ #1. (Backdate: tự sinh MaDK rồi truyền + UPDATE 4 cột ngày, vì SP hardcode getdate.)
+1. `SoHoSo` + MaDK: **PORT SÁT sync_tool v2.0** — `usp_NguoiLX_Insert` (NguoiLX, `@MaDK` OUT) + **INSERT thô `NguoiLX_HoSo`** với **SoHoSo SỐ** (MAX(CAST(SoHoSo AS INT))+1 theo khóa, zero-pad 3). ⚠️ **ĐÍNH CHÍNH 04/10 (verify dữ liệu):** CSDL đích 100% SoHoSo số thuần `001/002` (kể cả 502 bản phần mềm CDB tạo), **KHÔNG** dùng `CreateNewSoHoso` (ra `B01` lệch). PK `NguoiLX_HoSo = MaDK` → SoHoSo trùng giữa khóa không vi phạm PK ("nợ #1" không áp dụng). Backdate: tự sinh MaDK (sinh_madk_batch) + UPDATE 4 cột ngày (SP hardcode getdate).
 2. `DELETE` mồ côi: **lọc theo khóa + MaDK trong log JSON**, không quét toàn DB; rollback dựa PK(MaDK) + cascade `NguoiLX→HoSo→GiayTo`. Bắt lỗi khi HV đã BC1 (FK `HoSo→BaoCaoI` NO_ACTION chặn xóa).
 3. Copy giấy tờ: dùng `usp_NguoiLXHS_GiayTo_Insert` / hàm `GetMaGiaytoByHosoForSync`; không nuốt lỗi âm thầm — ghi cảnh báo.
 
