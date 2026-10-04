@@ -213,10 +213,11 @@ function DoiNenDialog({ maKh, tenKh, onDong, onXong }: {
 }
 
 // Props task 47 (NAP-01): "Xem trong DB" từ màn Nạp — tự mở khóa đích + làm nổi HV vừa nạp.
-export default function TraCuuDB({ khoaMa, noiBat, moNonce }: {
+export default function TraCuuDB({ khoaMa, noiBat, moNonce, locAnhBanDau }: {
   khoaMa?: string;      // mã khóa đích cần mở sẵn
   noiBat?: string[];    // MaDK các HV vừa nạp cần tô sáng
   moNonce?: number;     // đổi mỗi lần bấm "Xem trong DB" → ép mở lại dù cùng khóa
+  locAnhBanDau?: "all" | "chua" | "roi"; // CHANGES #32 — mở sẵn bộ lọc ảnh (lối tắt "bổ sung ảnh" từ Nạp lô)
 } = {}) {
   const [q, setQ] = useState("");
   const [khoaList, setKhoaList] = useState<KhoaTraCuu[] | null>(null);
@@ -258,7 +259,7 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce }: {
   const [goSyncBusy, setGoSyncBusy] = useState(false);
 
   // Nạp/thay ảnh (QLY-05)
-  const [locAnh, setLocAnh] = useState<"all" | "chua" | "roi">("all"); // lọc tình trạng ảnh
+  const [locAnh, setLocAnh] = useState<"all" | "chua" | "roi">(locAnhBanDau ?? "all"); // lọc tình trạng ảnh
   const [anhMo, setAnhMo] = useState(false);   // panel xác nhận nạp/thay ảnh
   const [anhModal, setAnhModal] = useState(false); // AnhModal (căn + xóa phông)
   const [anhSeed, setAnhSeed] = useState<string | null>(null); // ảnh nạp sẵn vào AnhModal (chỉnh ảnh cũ)
@@ -352,6 +353,7 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce }: {
   const noiBatSet = new Set(noiBat ?? []);
   useEffect(() => {
     if (!khoaMa) return;
+    setLocAnh(locAnhBanDau ?? "all"); // CHANGES #32 — mở qua lối tắt "bổ sung ảnh" → áp bộ lọc chưa ảnh
     let huy = false;
     (async () => {
       setErr("");

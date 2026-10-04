@@ -99,13 +99,14 @@ function Banner({ tone = "warning", children }: { tone?: "warning" | "error"; ch
 // NAP-01 task 47 — dialog nạp lô 3 pha (reuse mẫu DoiNenDialog của QLY-07): xác nhận → tiến độ →
 // báo cáo. Nạp TUẦN TỰ từng uuid ở client (gọi napLo 1-uuid, như "Nạp lại nhanh") để thanh % +
 // tên HV đang nạp cập nhật mượt — không thêm endpoint server (TDD §10.5). 1 HV lỗi không hỏng cả lô.
-function NapLoDialog({ khoa, items, boQua, onDong, onXong, onXemDB }: {
+function NapLoDialog({ khoa, items, boQua, onDong, onXong, onXemDB, onBoSungAnh }: {
   khoa: KhoaHoc;
   items: NapIn[];
   boQua: number; // số dòng đã chọn nhưng chưa sẵn sàng → bỏ qua lô này
   onDong: () => void;
   onXong: (okRows: { uuid: string; ma_dk: string }[]) => void; // làm tươi staging + ghi khóa đã nạp
   onXemDB: (maDks: string[]) => void; // nhảy sang Tra cứu DB, làm nổi HV vừa nạp
+  onBoSungAnh: () => void; // CHANGES #32 — mở Tra cứu DB lọc "chưa ảnh" để bổ sung ảnh HV vừa nạp thiếu ảnh
 }) {
   const [pha, setPha] = useState<"xacnhan" | "chay" | "xong">("xacnhan");
   const [dang, setDang] = useState<string | null>(null); // tên HV đang nạp
@@ -142,6 +143,10 @@ function NapLoDialog({ khoa, items, boQua, onDong, onXong, onXemDB }: {
   const loiList = kq.filter((x) => !x.ok);
   const okMaDks = okList.map((x) => x.ma_dk).filter((m): m is string => !!m);
   const pct = tongChay > 0 ? Math.round((daXuLy / tongChay) * 100) : 0;
+  // CHANGES #32 — thiếu ảnh: ảnh KHÔNG bắt buộc (BR-011) → vẫn nạp, chỉ cảnh báo + lối tắt bổ sung.
+  const khongAnh = new Set(items.filter((i) => !i.anh_jp2_b64).map((i) => i.uuid));
+  const soThieuAnh = khongAnh.size;                                    // cảnh báo trước lô
+  const okThieuAnh = okList.filter((x) => khongAnh.has(x.uuid)).length; // sau lô: HV đã nạp mà thiếu ảnh
 
   // Nạp lại CHỈ các dòng lỗi (chọn lại đúng uuid lỗi từ items gốc).
   const napLaiLoi = () => {
@@ -172,6 +177,11 @@ function NapLoDialog({ khoa, items, boQua, onDong, onXong, onXemDB }: {
               {boQua > 0 && (
                 <p className="text-[12.5px] text-warning flex items-start gap-1.5">
                   <Icon name="warn" className="w-4 h-4 shrink-0 mt-px" /> {boQua} hồ sơ chưa sẵn sàng (thiếu địa chỉ/giấy tờ) sẽ bỏ qua — chuẩn bị xong nạp sau.
+                </p>
+              )}
+              {soThieuAnh > 0 && (
+                <p className="text-[12.5px] text-warning flex items-start gap-1.5">
+                  <Icon name="imageOff" className="w-4 h-4 shrink-0 mt-px" /> {soThieuAnh} học viên nạp <b>thiếu ảnh</b> — vẫn nạp được, bổ sung ảnh sau ở Tra cứu DB (lọc "chưa ảnh").
                 </p>
               )}
               <p className="text-[12px] text-muted-foreground">Lỗi 1 học viên không hỏng cả lô — cuối cùng có báo cáo từng hồ sơ.</p>
@@ -245,6 +255,11 @@ function NapLoDialog({ khoa, items, boQua, onDong, onXong, onXemDB }: {
                   <Icon name="db" className="w-4 h-4" /> Xem trong DB
                 </button>
               )}
+              {okThieuAnh > 0 && (
+                <button onClick={onBoSungAnh} className="h-10 px-4 rounded-lg border border-warning/50 text-warning text-sm font-semibold inline-flex items-center gap-2 hover:bg-warning/5 transition-colors">
+                  <Icon name="imageOff" className="w-4 h-4" /> Bổ sung ảnh ({okThieuAnh})
+                </button>
+              )}
               <button onClick={onDong} className="ml-auto h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition-all shadow-sm">Xong</button>
             </>
           )}
@@ -299,7 +314,7 @@ export default function NapHoSo() {
   // Task 47 — dialog nạp 3 pha + "Xem trong DB"
   const [napDialog, setNapDialog] = useState<{ items: NapIn[]; boQua: number } | null>(null);
   const [napKhoa, setNapKhoa] = useState<Record<string, string>>({}); // uuid → mã khóa đã nạp (cho "Xem trong DB" dòng đã nạp)
-  const [xemDB, setXemDB] = useState<{ maKh: string; maDks: string[]; nonce: number } | null>(null);
+  const [xemDB, setXemDB] = useState<{ maKh: string; maDks: string[]; nonce: number; locAnh?: "all" | "chua" | "roi" } | null>(null);
 
   // ── Tải khóa đích ──
   useEffect(() => {
@@ -623,8 +638,9 @@ export default function NapHoSo() {
   };
 
   // Task 47 — nhảy sang Tra cứu DB, mở khóa đích + làm nổi HV vừa nạp.
-  const xemTrongDB = (maKh: string, maDks: string[]) => {
-    setXemDB({ maKh, maDks, nonce: Date.now() });
+  // CHANGES #32: locAnh="chua" → mở sẵn bộ lọc "chưa ảnh" để bổ sung ảnh HV vừa nạp thiếu ảnh.
+  const xemTrongDB = (maKh: string, maDks: string[], locAnh?: "all" | "chua" | "roi") => {
+    setXemDB({ maKh, maDks, nonce: Date.now(), locAnh });
     setMode("tracuu");
   };
 
@@ -1157,7 +1173,7 @@ export default function NapHoSo() {
       )}
 
       {/* ============ CHẾ ĐỘ TRA CỨU DB (QLY-01 — task 22) ============ */}
-      {mode === "tracuu" && <TraCuuDB khoaMa={xemDB?.maKh} noiBat={xemDB?.maDks} moNonce={xemDB?.nonce} />}
+      {mode === "tracuu" && <TraCuuDB khoaMa={xemDB?.maKh} noiBat={xemDB?.maDks} moNonce={xemDB?.nonce} locAnhBanDau={xemDB?.locAnh} />}
 
       {/* Task 47 — dialog nạp lô 3 pha */}
       {napDialog && khoa && (
@@ -1178,6 +1194,7 @@ export default function NapHoSo() {
             setDrawerOpen(false);
           }}
           onXemDB={(maDks) => { setNapDialog(null); xemTrongDB(khoa.ma_kh, maDks); }}
+          onBoSungAnh={() => { setNapDialog(null); xemTrongDB(khoa.ma_kh, [], "chua"); }}
         />
       )}
 
