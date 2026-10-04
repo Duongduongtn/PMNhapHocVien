@@ -436,10 +436,10 @@ export interface KeoVeRow {
   so_ho_so: string | null;
 }
 
-// Kéo trọn bản ghi pending từ VPS về staging. Trả số mới thêm + số làm tươi + tổng.
+// Kéo trọn bản ghi pending từ VPS về staging. Trả số mới thêm + làm tươi + bỏ-đã-xóa + reset-địa-chỉ + tổng.
 export const keoHangDoi = () =>
   fetch(`${BASE}/local/nap/keo`, { method: "POST", headers: authHeaders() }).then(
-    json<{ keo_ve: number; lam_tuoi: number; bo_da_xoa: number; tong: number }>,
+    json<{ keo_ve: number; lam_tuoi: number; bo_da_xoa: number; dia_chi_reset: number; tong: number }>,
   );
 
 export const getDanhSachKeoVe = () =>
@@ -450,6 +450,57 @@ export const boKhoiHangDoi = (uuid: string) =>
   fetch(`${BASE}/local/keo-ve/${encodeURIComponent(uuid)}`, { method: "DELETE", headers: authHeaders() }).then(
     json<{ ok: boolean; uuid: string }>,
   );
+
+// ── Nháp chuẩn bị BỀN (NAP-01 task 50/51, CHANGES #32, TDD §9.3a) ────────────
+export interface NhapCo {
+  uuid: string;
+  co_dia_chi: boolean;
+  co_anh: boolean;
+  co_tick: boolean;
+}
+
+export interface NhapChuanBi {
+  uuid: string;
+  dia_chi_json: string | null;
+  chi_tiet: string | null;
+  noi_cap: string | null;
+  tick_json: string | null;
+  jp2_b64: string | null;
+  anh_preview: string | null;
+  updated_at: string | null;
+}
+
+// Cờ NHẸ (không kèm ảnh) để vẽ 2 chip cả lưới. Danh sách rỗng → không gọi mạng.
+export const nhapCo = (uuids: string[]): Promise<NhapCo[]> =>
+  uuids.length === 0
+    ? Promise.resolve([])
+    : fetch(`${BASE}/local/nap/nhap?uuids=${encodeURIComponent(uuids.join(","))}`, {
+        headers: authHeaders(),
+      }).then(json<NhapCo[]>);
+
+// Đọc đầy đủ 1 nháp (kèm ảnh) — gọi khi mở drawer Chuẩn bị.
+export const nhapDoc = (uuid: string) =>
+  fetch(`${BASE}/local/nap/nhap/${encodeURIComponent(uuid)}`, { headers: authHeaders() }).then(
+    json<NhapChuanBi>,
+  );
+
+// Lưu (upsert) nháp — gọi khi đóng drawer / debounce.
+export const nhapLuu = (
+  uuid: string,
+  body: Partial<Omit<NhapChuanBi, "uuid" | "updated_at">>,
+) =>
+  fetch(`${BASE}/local/nap/nhap/${encodeURIComponent(uuid)}`, {
+    method: "PUT",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(body),
+  }).then(json<{ ok: boolean; uuid: string }>);
+
+// Nút "Xóa nháp" — dọn 1 nháp (gồm ảnh PII) chủ động.
+export const nhapXoa = (uuid: string) =>
+  fetch(`${BASE}/local/nap/nhap/${encodeURIComponent(uuid)}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  }).then(json<{ ok: boolean; uuid: string }>);
 
 // Ảnh thô cần Bearer → tải bằng fetch rồi tạo object URL (thẻ <img> không gửi header được).
 // Chưa có ảnh (404) → null.

@@ -15,12 +15,17 @@ import {
   taiAnhKeoVe,
   napLo,
   getSoGtvt,
+  nhapCo,
+  nhapDoc,
+  nhapLuu,
+  nhapXoa,
   type KhoaHoc,
   type LoaiXe,
   type GiayTo,
   type KeoVeRow,
   type NapIn,
   type SoGtvt,
+  type NhapCo,
 } from "../../lib/api";
 
 // Kết quả nạp 1 HV để dựng báo cáo (gộp uuid + tên để hiện ở pha báo cáo).
@@ -59,6 +64,20 @@ function NapBadge({ tt }: { tt: KeoVeRow["trang_thai"] }) {
   return (
     <span className={`inline-flex items-center gap-1 text-[11px] font-semibold border rounded-full px-2 py-0.5 whitespace-nowrap ${cfg.cls}`}>
       <Icon name={cfg.icon} className="w-3 h-3" sw={2.5} /> {cfg.label}
+    </span>
+  );
+}
+
+// Chip trạng thái chuẩn bị 1 mục (Địa chỉ/Ảnh — TDD §10.5). Xanh khi đã có, xám khi chưa (mặc định ✗).
+function ChipCo({ on, label, off }: { on: boolean; label: string; off: string }) {
+  return (
+    <span
+      className={
+        "inline-flex items-center gap-0.5 text-[10px] font-medium border rounded-full px-1.5 py-0.5 whitespace-nowrap " +
+        (on ? "text-success bg-success/10 border-success/40" : "text-muted-foreground bg-muted border-border")
+      }
+    >
+      <Icon name={on ? "check" : "x"} className="w-2.5 h-2.5" sw={3} /> {on ? label : off}
     </span>
   );
 }
@@ -259,6 +278,9 @@ export default function NapHoSo() {
   const [chon, setChon] = useState<Set<string>>(new Set());
   const [selUuid, setSelUuid] = useState<string | null>(null);
   const [nhap, setNhap] = useState<Record<string, Nhap>>({});
+  // Cờ NHẸ cho 2 chip cả lưới (co_dia_chi/co_anh/co_tick) — nháp bền task 51 (không tải ảnh).
+  const [nhapCoMap, setNhapCoMap] = useState<Record<string, NhapCo>>({});
+  const [xacNhanXoaNhap, setXacNhanXoaNhap] = useState(false); // nút "Xóa nháp" — xác nhận 2 bước inline
 
   // Danh sách Sở GTVT cho combobox "Nơi cấp" (BUG-10) — tải 1 lần
   const [soGtvt, setSoGtvt] = useState<SoGtvt[]>([]);
@@ -321,8 +343,17 @@ export default function NapHoSo() {
   // (PRD QLY-08). Chỉ đọc SQLite cục bộ, KHÔNG gọi VPS.
   useEffect(() => {
     if (mode !== "nap") return;
-    getDanhSachKeoVe().then(setKeoVe).catch(() => setKeoVe([]));
+    getDanhSachKeoVe().then((ds) => { setKeoVe(ds); taiCoNhap(ds); }).catch(() => setKeoVe([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
+
+  // Tải cờ nháp NHẸ cho các dòng chưa nạp (vẽ 2 chip) — không kèm ảnh (TDD §10.5, task 51).
+  const taiCoNhap = (ds: KeoVeRow[]) => {
+    const ids = ds.filter((r) => r.trang_thai !== "xong").map((r) => r.uuid);
+    nhapCo(ids)
+      .then((cs) => setNhapCoMap((m) => { const n = { ...m }; for (const c of cs) n[c.uuid] = c; return n; }))
+      .catch(() => {});
+  };
 
   // Task 46 polish — khóa cuộn trang nền khi mở ngăn "Chuẩn bị" (tránh cảm giác drawer bị scroll kép).
   useEffect(() => {
@@ -367,9 +398,11 @@ export default function NapHoSo() {
       const rawCu = new Map(keoVe.map((r) => [r.uuid, r.noi_tt_raw]));
       setNhap((prev) => lamTuoiNhapDiaChi(prev, rawCu, moi));
       setKeoVe(moi);
+      taiCoNhap(moi); // backend đã reset địa chỉ nháp (BUG-04) → tải lại cờ cho chip đúng
       const phan = [`${kq.keo_ve} hồ sơ mới`];
       if (kq.lam_tuoi > 0) phan.push(`làm tươi ${kq.lam_tuoi} hồ sơ chờ nạp`);
       if (kq.bo_da_xoa > 0) phan.push(`bỏ ${kq.bo_da_xoa} hồ sơ đã xóa ở app`);
+      if (kq.dia_chi_reset > 0) phan.push(`⚠ ${kq.dia_chi_reset} hồ sơ đổi địa chỉ — cần map lại`);
       setKeoMsg(`Đã kéo: ${phan.join(" · ")}. Tổng ${kq.tong} trong danh sách.`);
     } catch (e) {
       setKeoErr(e instanceof Error ? e.message : "Không kéo được hàng đợi từ VPS.");
@@ -447,8 +480,77 @@ export default function NapHoSo() {
   const chonTatCaSanSang = () =>
     setChon(new Set(daLoc.canXuly.filter(rowSanSang).map((r) => r.uuid)));
 
-  // Mở ngăn Chuẩn bị cho 1 HV (chọn dòng + trượt ngăn phải).
-  const moChuanBi = (uuid: string) => { setSelUuid(uuid); setDrawerOpen(true); };
+  // Cờ 2 chip (Địa chỉ/Ảnh) của 1 dòng: ưu tiên nháp RAM (nếu đã mở/sửa phiên này), else cờ nhẹ từ backend.
+  const coChip = (uuid: string) => {
+    const n = nhap[uuid];
+    const f = nhapCoMap[uuid];
+    return {
+      diaChi: n ? n.diaChi != null : !!f?.co_dia_chi,
+      anh: n ? !!(n.jp2 || n.anhPreview) : !!f?.co_anh,
+    };
+  };
+
+  // Mở ngăn Chuẩn bị cho 1 HV: chọn dòng + trượt ngăn phải + NẠP NHÁP BỀN đầy đủ (kèm ảnh) từ backend.
+  const moChuanBi = async (uuid: string) => {
+    setSelUuid(uuid);
+    setDrawerOpen(true);
+    setXacNhanXoaNhap(false);
+    try {
+      const d = await nhapDoc(uuid);
+      const co = d.dia_chi_json || d.chi_tiet || d.jp2_b64 || d.anh_preview || d.tick_json || d.noi_cap;
+      if (!co) return; // chưa có nháp bền → để prefill client (NAP-03) lo ô chi tiết
+      setNhap((prev) => {
+        const cu = prev[uuid];
+        let diaChi = cu?.diaChi ?? null;
+        let tick = cu?.tick ?? null;
+        try { if (d.dia_chi_json) diaChi = JSON.parse(d.dia_chi_json); } catch { /* giữ cũ */ }
+        try { if (d.tick_json) tick = JSON.parse(d.tick_json); } catch { /* giữ cũ */ }
+        return { ...prev, [uuid]: {
+          diaChi,
+          chiTiet: d.chi_tiet ?? cu?.chiTiet ?? "",
+          noiCap: d.noi_cap ?? cu?.noiCap,
+          jp2: d.jp2_b64 ?? cu?.jp2 ?? null,
+          anhPreview: d.anh_preview ?? cu?.anhPreview ?? null,
+          tick,
+        } };
+      });
+    } catch { /* chưa có nháp / lỗi mạng → dùng prefill client */ }
+  };
+
+  // Đóng drawer → LƯU nháp bền (upsert) rồi đóng. Lưu lỗi mạng thì giữ bản RAM, thử lại lần sau.
+  const luuVaDong = async () => {
+    const uuid = selUuid;
+    const n = uuid ? nhap[uuid] : undefined;
+    if (uuid && n) {
+      try {
+        await nhapLuu(uuid, {
+          dia_chi_json: n.diaChi ? JSON.stringify(n.diaChi) : null,
+          chi_tiet: n.chiTiet || null,
+          noi_cap: n.noiCap || null,
+          tick_json: n.tick ? JSON.stringify(n.tick) : null,
+          jp2_b64: n.jp2,
+          anh_preview: n.anhPreview,
+        });
+        setNhapCoMap((m) => ({ ...m, [uuid]: {
+          uuid, co_dia_chi: n.diaChi != null, co_anh: !!(n.jp2 || n.anhPreview),
+          co_tick: n.tick != null ? n.tick.length > 0 : true,
+        } }));
+      } catch { /* giữ RAM, lần đóng sau lưu lại */ }
+    }
+    setXacNhanXoaNhap(false);
+    setDrawerOpen(false);
+  };
+
+  // Nút "Xóa nháp" — dọn nháp (gồm ảnh PII) của HV đang mở, cả backend lẫn RAM (TDD-decisions §11).
+  const xoaNhap = async () => {
+    const uuid = selUuid;
+    if (!uuid) return;
+    try { await nhapXoa(uuid); } catch { /* lỗi mạng — vẫn dọn RAM */ }
+    setNhap((prev) => { const n = { ...prev }; delete n[uuid]; return n; });
+    setNhapCoMap((m) => { const x = { ...m }; delete x[uuid]; return x; });
+    setXacNhanXoaNhap(false);
+    setDrawerOpen(false);
+  };
 
   // Dựng NapIn từ 1 hàng kéo về + nháp.
   const dungNapIn = (r: KeoVeRow): NapIn | null => {
@@ -729,7 +831,7 @@ export default function NapHoSo() {
                   return (
                     <div
                       key={r.uuid}
-                      onClick={() => setSelUuid(r.uuid)}
+                      onClick={() => (r.trang_thai !== "xong" ? void moChuanBi(r.uuid) : setSelUuid(r.uuid))}
                       className={"lrow flex items-center gap-3 px-4 py-3 cursor-pointer " + (selUuid === r.uuid ? "sel bg-accent" : "hover:bg-accent/50")}
                     >
                       {r.trang_thai !== "xong" ? (
@@ -765,29 +867,31 @@ export default function NapHoSo() {
                         )}
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
-                        {/* Task 46 — trạng thái sẵn sàng / thiếu gì ngay trên dòng */}
+                        {/* Task 51 — 2 chip RIÊNG Địa chỉ/Ảnh (TDD §10.5) + cảnh báo giấy tờ nếu thiếu */}
                         {r.trang_thai !== "xong" && (() => {
-                          const ss = tinhSanSang(r);
-                          return ss.ok ? (
-                            <span className="hidden sm:inline-flex items-center gap-1 text-[10.5px] text-success font-semibold">
-                              <Icon name="check" className="w-3 h-3" sw={3} /> Sẵn sàng
-                              {ss.thieuAnh && <span className="text-warning font-medium"> · ⚠ thiếu ảnh</span>}
-                            </span>
-                          ) : (
-                            <span className="hidden sm:inline-flex items-center gap-1 text-[10.5px] text-warning font-medium" title={"Thiếu: " + ss.thieu.join(", ")}>
-                              <Icon name="warn" className="w-3 h-3" /> Thiếu {ss.thieu.join(" + ")}
-                            </span>
+                          const c = coChip(r.uuid);
+                          const thieuGiayTo = tinhSanSang(r).thieu.includes("giấy tờ");
+                          return (
+                            <div className="hidden sm:flex items-center gap-1">
+                              <ChipCo on={c.diaChi} label="Địa chỉ 2 cấp" off="Chưa map" />
+                              <ChipCo on={c.anh} label="Có hình" off="Chưa có hình" />
+                              {thieuGiayTo && (
+                                <span className="inline-flex items-center gap-0.5 text-[10px] text-warning font-medium whitespace-nowrap" title="Chưa chọn giấy tờ">
+                                  <Icon name="warn" className="w-2.5 h-2.5" /> giấy tờ
+                                </span>
+                              )}
+                            </div>
                           );
                         })()}
-                        {/* Task 46 — mở ngăn Chuẩn bị (địa chỉ + giấy tờ + ảnh) */}
+                        {/* Task 51 — nút "Xử lý" to, rõ (mở ngăn Chuẩn bị: địa chỉ + giấy tờ + ảnh) */}
                         {r.trang_thai !== "xong" && (
                           <button
                             type="button"
-                            title="Chuẩn bị hồ sơ"
-                            onClick={(e) => { e.stopPropagation(); moChuanBi(r.uuid); }}
-                            className="h-7 px-2.5 rounded-md border border-border text-[11px] font-semibold inline-flex items-center gap-1 hover:bg-muted transition-colors"
+                            title="Xử lý hồ sơ"
+                            onClick={(e) => { e.stopPropagation(); void moChuanBi(r.uuid); }}
+                            className="h-8 px-3 rounded-md bg-primary text-primary-foreground text-[12px] font-semibold inline-flex items-center gap-1 hover:brightness-110 transition-colors shadow-sm"
                           >
-                            <Icon name="edit" className="w-3.5 h-3.5" /> Chuẩn bị
+                            <Icon name="edit" className="w-3.5 h-3.5" /> Xử lý
                           </button>
                         )}
                         {/* NAP-01 task 38 — nạp lại nhanh dòng lỗi */}
@@ -865,13 +969,13 @@ export default function NapHoSo() {
           {/* NGĂN "CHUẨN BỊ" — trượt từ phải (task 46): địa chỉ + giấy tờ + ảnh, thay 2 cột cố định */}
           {drawerOpen && selRow && (
             <div className="fixed inset-0 z-40 flex justify-end">
-              <div className="absolute inset-0 bg-black/40" onClick={() => setDrawerOpen(false)} />
+              <div className="absolute inset-0 bg-black/40" onClick={() => void luuVaDong()} />
               <div className="relative w-full max-w-[460px] h-full bg-card shadow-xl flex flex-col min-h-0">
                 <div className="px-4 py-3 border-b border-border flex items-center justify-between shrink-0">
                   <h3 className="text-sm font-bold">Chuẩn bị hồ sơ</h3>
                   <div className="flex items-center gap-2">
                     <NapBadge tt={selRow.trang_thai} />
-                    <button onClick={() => setDrawerOpen(false)} aria-label="Đóng" className="text-muted-foreground hover:text-foreground">
+                    <button onClick={() => void luuVaDong()} aria-label="Đóng (lưu nháp)" className="text-muted-foreground hover:text-foreground">
                       <Icon name="x" className="w-5 h-5" />
                     </button>
                   </div>
@@ -937,7 +1041,11 @@ export default function NapHoSo() {
                       <AddressCombo key={selRow.uuid} diaChiGoc={selRow.noi_tt_raw ?? ""} onChon={(dc) => capNhatNhap(selRow.uuid, { diaChi: dc })} />
                       {layNhap(selRow.uuid).diaChi && (
                         <div className="mt-1.5 text-[11px] text-success font-medium flex items-center gap-1">
-                          <Icon name="check" className="w-3.5 h-3.5" sw={3} /> Đã map: {layNhap(selRow.uuid).diaChi!.ten_xa}, {layNhap(selRow.uuid).diaChi!.ten_tinh} (mã {layNhap(selRow.uuid).diaChi!.ma_dvhc})
+                          <Icon name="check" className="w-3.5 h-3.5" sw={3} /> Đã map:{" "}
+                          {[layNhap(selRow.uuid).chiTiet.trim(), layNhap(selRow.uuid).diaChi!.ten_xa, layNhap(selRow.uuid).diaChi!.ten_tinh]
+                            .filter(Boolean)
+                            .join(", ")}{" "}
+                          (mã {layNhap(selRow.uuid).diaChi!.ma_dvhc})
                         </div>
                       )}
                       <input
@@ -998,7 +1106,34 @@ export default function NapHoSo() {
                     </div>
                   </div>
 
-                  <div className="p-3 border-t border-border shrink-0">
+                  <div className="p-3 border-t border-border shrink-0 space-y-2">
+                    {/* Task 51 — "Xóa nháp": dọn chuẩn bị (gồm ảnh PII) của HV này (TDD-decisions §11) */}
+                    {selRow.trang_thai !== "xong" && (
+                      xacNhanXoaNhap ? (
+                        <div className="flex items-center gap-2 text-[12px]">
+                          <span className="text-muted-foreground flex-1">Xóa nháp đã chuẩn bị (địa chỉ, ảnh, giấy tờ)?</span>
+                          <button
+                            onClick={() => void xoaNhap()}
+                            className="h-8 px-3 rounded-md bg-destructive text-white font-semibold hover:brightness-110 transition-colors"
+                          >
+                            Xóa nháp
+                          </button>
+                          <button
+                            onClick={() => setXacNhanXoaNhap(false)}
+                            className="h-8 px-3 rounded-md border border-border font-semibold hover:bg-muted transition-colors"
+                          >
+                            Hủy
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setXacNhanXoaNhap(true)}
+                          className="w-full h-8 rounded-md border border-border text-muted-foreground text-[12px] font-medium inline-flex items-center justify-center gap-1.5 hover:text-destructive hover:border-destructive/40 hover:bg-destructive/5 transition-colors"
+                        >
+                          <Icon name="x" className="w-3.5 h-3.5" /> Xóa nháp
+                        </button>
+                      )
+                    )}
                     <button
                       onClick={() => { void chayNapLo([selRow]); }}
                       disabled={napBusy || !rowSanSang(selRow) || !khoa}
@@ -1032,9 +1167,15 @@ export default function NapHoSo() {
           boQua={napDialog.boQua}
           onDong={() => setNapDialog(null)}
           onXong={async (okRows) => {
-            setKeoVe(await getDanhSachKeoVe());
+            const fresh = await getDanhSachKeoVe();
+            setKeoVe(fresh);
             setChon(new Set());
             ghiNapKhoa(okRows.map((o) => o.uuid), khoa.ma_kh);
+            // Nạp xong → backend đã xóa nháp bền (task 50). Dọn RAM cho khớp + tải lại cờ.
+            const ids = new Set(okRows.map((o) => o.uuid));
+            setNhap((prev) => { const n = { ...prev }; for (const id of ids) delete n[id]; return n; });
+            taiCoNhap(fresh);
+            setDrawerOpen(false);
           }}
           onXemDB={(maDks) => { setNapDialog(null); xemTrongDB(khoa.ma_kh, maDks); }}
         />
