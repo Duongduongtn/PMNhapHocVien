@@ -138,6 +138,15 @@ class _FakeCursor:
     def fetchone(self):
         return self._fetch.pop(0)
 
+    def fetchall(self):
+        # BUG-09: bước đọc toàn bộ SoHoSo trong khóa → phần tử tương ứng là 1 LIST rows.
+        return self._fetch.pop(0)
+
+
+def _sohoso_rows(*nums):
+    """Rows cho fetchall 'SELECT SoHoSo' (BUG-09): mỗi số = 1 hồ sơ đã dùng trong khóa."""
+    return [{"n": n} for n in nums]
+
 
 class _FakeConn:
     def __init__(self, cur):
@@ -155,9 +164,10 @@ def _tat_staging(monkeypatch):
 
 
 def _ok_fetches():
-    # thứ tự fetchone: COUNT trùng CMT (NAP-06) → MAX(SoHoSo) → kết quả SP gộp (@p_out, @p_MaDK)
-    #   → TT_XuLy hiện tại (ghi_anh_update SELECT trước UPDATE; HV mới = '01') — CHANGES #22
-    return [{"n": 0}, {"m": 55}, {"@p_out": 0, "@p_MaDK": "70004-TEST"}, {"TT_XuLy": "01"}]
+    # thứ tự: fetchone COUNT trùng CMT (NAP-06) → fetchall toàn bộ SoHoSo trong khóa (BUG-09:
+    #   {1..55} liên tục → số nhỏ nhất chưa dùng = 056) → fetchone kết quả SP gộp (@p_out, @p_MaDK)
+    #   → fetchone TT_XuLy hiện tại (ghi_anh_update SELECT trước UPDATE; HV mới = '01') — CHANGES #22
+    return [{"n": 0}, _sohoso_rows(*range(1, 56)), {"@p_out": 0, "@p_MaDK": "70004-TEST"}, {"TT_XuLy": "01"}]
 
 
 def test_nap_mot_hv_khong_anh_truyen_giay_to_qua_sp(monkeypatch):
@@ -168,7 +178,7 @@ def test_nap_mot_hv_khong_anh_truyen_giay_to_qua_sp(monkeypatch):
     r = nap.nap_mot_hv(_FakeConn(cur), _HV, _KHOA, None, r"D:\A", "op", "uuid-1", giay_to)
 
     assert r["ma_dk"] == "70004-TEST"
-    assert r["so_ho_so"] == "056"               # MAX 55 + 1
+    assert r["so_ho_so"] == "056"               # {1..55} liên tục → số nhỏ nhất chưa dùng = 056 (BUG-09)
     assert r["so_giay_to"] == 2
     assert r["duong_dan_anh"] is None
     # giấy tờ đi qua @p_GiayTo của SP gộp (KHÔNG còn usp_NguoiLXHS_GiayTo_Insert rời)
@@ -200,7 +210,7 @@ def test_nap_mot_hv_co_anh_update_5_cot(monkeypatch, tmp_path):
 def test_nap_mot_hv_loi_nghiep_vu_pout(monkeypatch):
     """@p_out ≠ 0 → lỗi nghiệp vụ, raise (SP không insert, không raiserror)."""
     _tat_staging(monkeypatch)
-    cur = _FakeCursor([{"n": 0}, {"m": 55}, {"@p_out": -2, "@p_MaDK": None}])
+    cur = _FakeCursor([{"n": 0}, _sohoso_rows(), {"@p_out": -2, "@p_MaDK": None}])
 
     with pytest.raises(ValueError, match="CCCD"):
         nap.nap_mot_hv(_FakeConn(cur), _HV, _KHOA, None, r"D:\A", "op", "uuid-3")
@@ -242,7 +252,7 @@ def test_validate_do_dai_ho_dem_vuot():
 def test_nap_mot_hv_khoa_moi_sohoso_001(monkeypatch):
     """U-06: khóa mới (MAX(SoHoSo) trả NULL) → SoHoSo '001' (nhánh `m or 0`)."""
     _tat_staging(monkeypatch)
-    cur = _FakeCursor([{"n": 0}, {"m": None}, {"@p_out": 0, "@p_MaDK": "70004-MOI"}])
+    cur = _FakeCursor([{"n": 0}, _sohoso_rows(), {"@p_out": 0, "@p_MaDK": "70004-MOI"}])
     r = nap.nap_mot_hv(_FakeConn(cur), _HV, _KHOA, None, r"D:\A", "op", "uuid-moi")
     assert r["so_ho_so"] == "001"
 
@@ -250,7 +260,7 @@ def test_nap_mot_hv_khoa_moi_sohoso_001(monkeypatch):
 def test_nap_mot_hv_pout_trung_sohoso(monkeypatch):
     """U-07: @p_out=-1 (trùng SoHoSo) → ValueError, vẫn nhả applock."""
     _tat_staging(monkeypatch)
-    cur = _FakeCursor([{"n": 0}, {"m": 55}, {"@p_out": -1, "@p_MaDK": None}])
+    cur = _FakeCursor([{"n": 0}, _sohoso_rows(), {"@p_out": -1, "@p_MaDK": None}])
     with pytest.raises(ValueError, match="Số hồ sơ"):
         nap.nap_mot_hv(_FakeConn(cur), _HV, _KHOA, None, r"D:\A", "op", "uuid-7")
     assert any("sp_releaseapplock" in c[0] for c in cur.calls)
@@ -278,7 +288,7 @@ def test_nap_mot_hv_ghi_anh_update_loi_giu_hv(monkeypatch, tmp_path):
     """U-08: ghi .jp2 OK nhưng UPDATE 5 cột ảnh lỗi → HV VẪN tạo (giữ '01'), trả cờ anh_loi,
     .jp2 KHÔNG bị xóa (để retry UPDATE, §10.3), applock vẫn nhả — khác EC-022 (SP lỗi → dọn)."""
     _tat_staging(monkeypatch)
-    cur = _FakeCursorUpdateFail([{"n": 0}, {"m": 55}, {"@p_out": 0, "@p_MaDK": "70004-TEST"}, {"TT_XuLy": "01"}])
+    cur = _FakeCursorUpdateFail([{"n": 0}, _sohoso_rows(), {"@p_out": 0, "@p_MaDK": "70004-TEST"}, {"TT_XuLy": "01"}])
     r = nap.nap_mot_hv(_FakeConn(cur), _HV, _KHOA, b"JP2DATA", str(tmp_path), "op", "uuid-8")
     assert r["ma_dk"] == "70004-TEST"          # HV đã tạo, không xóa
     assert "anh_loi" in r and r["duong_dan_anh"] is None
