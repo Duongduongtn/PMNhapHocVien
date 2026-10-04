@@ -19,6 +19,7 @@ from app.routers import dvhc as dvhc_router
 from app.routers import anh as anh_router
 from app.routers import nap as nap_router
 from app.routers import doinen as doinen_router
+from app.routers import sync as sync_router
 from app.routers import doisoat as doisoat_router
 
 app = FastAPI(
@@ -53,6 +54,7 @@ app.include_router(anh_router.router, dependencies=_gac)
 app.include_router(nap_router.router, dependencies=_gac)
 app.include_router(doinen_router.router, dependencies=_gac)
 app.include_router(doisoat_router.router, dependencies=_gac)
+app.include_router(sync_router.router, dependencies=_gac)
 
 
 @app.on_event("startup")

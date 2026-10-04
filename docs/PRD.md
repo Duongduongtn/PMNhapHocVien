@@ -642,7 +642,7 @@
 
 #### [SYNC-02] Quản lý DB đích + tùy chọn đồng bộ
 
-**Trạng thái:** ⏳ Todo — thêm 04/10/2026 (CHANGES #33).
+**Trạng thái:** ✅ Done — task 56 (04/10/2026). API `/local/sync/targets` (GET/PUT + /test) + màn Quản lý CSDL đích (bảng inline-edit, radio mặc định, Kiểm tra kết nối báo số NguoiLX, tùy chọn TT_XuLy/TongSoHV); dùng chung host/user/pass với Nạp. Kiểm: tool 244 pytest (+8) · webui build+tsc+34 vitest · Playwright 1280/1440/1920 · impeccable detect sạch · review-nghiepvu 6/7 + 2b (sửa tên DB xóa test cũ). **2b phần "bắt test trước Tải" ở Bàn đồng bộ (SYNC-01, task 59).**
 **Story:** Là nhân viên nạp DB, tôi muốn khai báo các DB đích CDB và chọn DB mặc định, để đổi nơi đồng bộ mà không phải sửa file cấu hình.
 
 **Done khi:**

@@ -573,3 +573,51 @@ export const napLo = (items: NapIn[]) =>
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ items }),
   }).then(json<NapLoKetQua>);
+
+// ── Phân hệ Đồng bộ CDB — Quản lý CSDL đích (SYNC-02) ──
+export interface SyncTarget {
+  key: string;
+  name: string;
+  database: string;
+}
+export interface SyncOptions {
+  tt_xuly_force: string;
+  update_tong_so_hv: boolean;
+}
+export interface TtXuLyOption {
+  ma: string;
+  ten: string;
+  ghi_chu: string;
+}
+export interface SyncTargetsData {
+  targets: SyncTarget[];
+  selected: string;
+  options: SyncOptions;
+  tt_xuly_options: TtXuLyOption[];
+}
+export interface SyncTestKetQua {
+  ok: boolean;
+  count: number;
+  message: string;
+}
+
+export const getSyncTargets = () =>
+  fetch(`${BASE}/local/sync/targets`, { headers: authHeaders() }).then(json<SyncTargetsData>);
+
+export const saveSyncTargets = (
+  targets: SyncTarget[],
+  selected: string,
+  options: SyncOptions,
+) =>
+  fetch(`${BASE}/local/sync/targets`, {
+    method: "PUT",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ targets, selected, options }),
+  }).then(json<SyncTargetsData>);
+
+export const testSyncTarget = (database: string) =>
+  fetch(`${BASE}/local/sync/targets/test`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ database }),
+  }).then(json<SyncTestKetQua>);
