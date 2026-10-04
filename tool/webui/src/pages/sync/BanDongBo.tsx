@@ -80,7 +80,8 @@ export default function BanDongBo() {
         setTargetKey(d.selected);
       })
       .catch(() => setErr("Không đọc được cấu hình (tool backend chưa chạy?)"));
-    getSyncNam("nguon").then((ns) => { setNamNguon(ns); setSelNamNguon(ns.find((n) => n === hom_nay().getFullYear()) ?? ns[0]); }).catch(() => {});
+    getSyncNam("nguon").then((ns) => { setNamNguon(ns); setSelNamNguon(ns.find((n) => n === hom_nay().getFullYear()) ?? ns[0]); })
+      .catch(() => setErr("Không đọc được danh sách năm/khóa nguồn (GPLX_CSDT) — kiểm cấu hình kết nối hoặc đăng nhập lại."));
   }, []);
 
   useEffect(() => {
@@ -88,7 +89,7 @@ export default function BanDongBo() {
     setDaTest(false); setTestKq(null); // đổi CSDL đích → bắt kiểm tra kết nối lại (2b)
     getSyncNam("dich", targetKey)
       .then((ns) => { setNamDich(ns); setSelNamDich(ns.find((n) => n === hom_nay().getFullYear()) ?? ns[0]); })
-      .catch(() => {});
+      .catch(() => setErr("Không đọc được danh sách năm/khóa CSDL đích — kiểm cấu hình kết nối đích."));
   }, [targetKey]);
 
   const kiemTraDich = async () => {
@@ -281,7 +282,7 @@ export default function BanDongBo() {
                   Người tạo: <b className="text-foreground" style={{ fontFamily: "ui-monospace,Consolas,monospace" }}>admin</b>
                 </span>
                 <button onClick={taiDanhSach} disabled={dangTai || running || !daTest} title={!daTest ? "Kiểm tra kết nối CSDL đích trước" : undefined}
-                  className="inline-flex items-center gap-1.5 h-[34px] px-4 rounded-md bg-primary text-primary-foreground font-semibold text-[13px] whitespace-nowrap disabled:opacity-50">
+                  className="inline-flex items-center gap-1.5 h-[34px] px-4 rounded-md bg-sync text-white font-semibold text-[13px] whitespace-nowrap hover:brightness-110 transition-all disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sync">
                   <Icon name="download" className={"w-4 h-4 " + (dangTai ? "animate-pulse" : "")} /> Tải danh sách
                 </button>
               </div>
@@ -318,7 +319,7 @@ export default function BanDongBo() {
       <div className="flex-1 min-h-0 overflow-auto bg-card">
         <table className="w-full text-[13px] border-collapse min-w-[1120px]">
           <thead className="sticky top-0 z-10">
-            <tr className="bg-primary text-primary-foreground text-left [&>th]:bg-primary [&>th]:sticky [&>th]:top-0">
+            <tr className="bg-sync text-white text-left [&>th]:bg-sync [&>th]:sticky [&>th]:top-0">
               <th className="font-semibold px-2 py-1.5 w-9 text-center">
                 <input type="checkbox" checked={!!data && soChon > 0 && soChon === data.se_tao_moi} onChange={(e) => tickAll(e.target.checked)} />
               </th>
@@ -394,21 +395,29 @@ function Dong({ h, stt, ticked, onTick, tt }: {
   } else if (h.trung_cccd_nguon) {
     st = <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-success bg-success/10 border border-success/40 rounded-full px-2 py-0.5">Sẵn sàng · trùng CCCD?</span>;
   }
+  // Chữ cái đầu của tên gọi (từ cuối — cách gọi tên người Việt) làm avatar nhỏ,
+  // giúp quét danh sách dễ hơn mà không chiếm thêm cột.
+  const chuDau = ((h.ho_ten || "").trim().split(/\s+/).pop() || "?").charAt(0).toUpperCase();
   return (
     <tr className={"border-b border-border/70 " + rowbg + " " + dim}>
-      <td className="px-2 py-1 text-center">
-        <input type="checkbox" checked={ticked} disabled={locked} className="disabled:opacity-40" onChange={(e) => onTick(h.so_cmt, e.target.checked)} />
+      <td className="px-2 py-1.5 text-center">
+        <input type="checkbox" checked={ticked} disabled={locked} className="disabled:opacity-40 accent-sync" onChange={(e) => onTick(h.so_cmt, e.target.checked)} />
       </td>
-      <td className="px-2 py-1 text-center tabular-nums">{stt}</td>
-      <td className="px-2 py-1 font-medium whitespace-nowrap">{h.ho_ten}</td>
-      <td className="px-2 py-1" style={mono}>{h.so_cmt || "—"}</td>
-      <td className="px-2 py-1 text-center">{h.hang_gplx}</td>
-      <td className="px-2 py-1 whitespace-nowrap" style={mono}>{h.ma_dk_nguon}</td>
-      <td className="px-2 py-1 tabular-nums">{isoVN(h.ngay_hs_nguon)}</td>
-      <td className="px-2 py-1 whitespace-nowrap" style={mono}>{h.ma_dk_dich ?? "–"}</td>
-      <td className="px-2 py-1 tabular-nums">{isoVN(h.ngay_hs_dich)}</td>
-      <td className="px-2 py-1 text-center tabular-nums">{h.so_hs_dich ?? "–"}</td>
-      <td className="px-2 py-1">{st}</td>
+      <td className="px-2 py-1.5 text-center tabular-nums text-muted-foreground">{stt}</td>
+      <td className="px-2 py-1.5">
+        <div className="flex items-center gap-2">
+          <span className={"inline-grid place-items-center w-[22px] h-[22px] rounded-md text-[11px] font-bold shrink-0 " + (locked ? "bg-muted text-muted-foreground/70" : "bg-sync-soft text-sync")}>{chuDau}</span>
+          <span className="font-semibold text-foreground/90 whitespace-nowrap">{h.ho_ten}</span>
+        </div>
+      </td>
+      <td className="px-2 py-1.5 tracking-wide" style={mono}>{h.so_cmt || "—"}</td>
+      <td className="px-2 py-1.5 text-center">{h.hang_gplx}</td>
+      <td className="px-2 py-1.5 whitespace-nowrap text-muted-foreground" style={mono}>{h.ma_dk_nguon}</td>
+      <td className="px-2 py-1.5 tabular-nums">{isoVN(h.ngay_hs_nguon)}</td>
+      <td className="px-2 py-1.5 whitespace-nowrap text-muted-foreground" style={mono}>{h.ma_dk_dich ?? "–"}</td>
+      <td className="px-2 py-1.5 tabular-nums">{isoVN(h.ngay_hs_dich)}</td>
+      <td className="px-2 py-1.5 text-center tabular-nums">{h.so_hs_dich ?? "–"}</td>
+      <td className="px-2 py-1.5">{st}</td>
     </tr>
   );
 }
