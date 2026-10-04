@@ -612,7 +612,7 @@
 
 #### [SYNC-01] Bàn đồng bộ — chọn khóa, đối chiếu, đẩy HV sang CDB
 
-**Trạng thái:** 🔄 In Progress — task 57-59 (04/10/2026). Port nghiệp vụ sync_tool v2.0.
+**Trạng thái:** ✅ Done — task 57-59 (04/10/2026). Port sync_tool v2.0: tạo HV qua usp_NguoiLX_Insert + INSERT thô (SoHoSo SỐ, verify DB) + copy GiấyTờ, NguoiTao='admin'; năm/khóa nguồn+đích (đích cờ BC1 cảnh báo B); đối chiếu skip + E1/E2; backdate MaDK batch; tiến trình SSE (fetch-reader); UI bàn đồng bộ (combo gõ-để-lọc, bảng 11 cột header dính, phân trang, SYNC cố định, test kết nối đích gate Tải, chặn ngày tương lai/sau-KG, khóa thao tác khi đang sync). Kiểm: tool 258 pytest (+19) · webui build+34 vitest · Playwright 1280/1440/1920 · impeccable detect sạch · review-nghiepvu (4 chỗ thiếu đã sửa: ngày tương lai, disabled khi sync, combo gõ-lọc, gate test đích).
 **Story:** Là nhân viên nạp DB, tôi muốn chọn một khóa nguồn và một khóa đích rồi đẩy các học viên chưa có sang DB CDB, để khỏi gõ lại từng người ở phần mềm CDB.
 
 **Steps to Complete:**

@@ -53,16 +53,35 @@ def test_run_hang_lech_400(auth_headers, tmp_path, monkeypatch):
 
 
 def test_run_ngay_sau_kg_400(auth_headers, tmp_path, monkeypatch):
+    from datetime import timedelta
     _target(tmp_path, monkeypatch)
     _patch_conns(monkeypatch)
     monkeypatch.setattr(sync_router, "_khoa_hang_nguon", lambda c, m: "B")
     monkeypatch.setattr(sync_helpers, "get_khoa_info", lambda c, m: dict(_KHOA))
-    monkeypatch.setattr(sync_router, "_khoa_ngaykg", lambda c, m: datetime(2026, 10, 5))
+    # KG trong quá khứ; ngày ≤ hôm nay nhưng SAU KG → qua được chặn tương lai, dính chặn KG
+    kg = datetime.now().date() - timedelta(days=10)
+    monkeypatch.setattr(sync_router, "_khoa_ngaykg", lambda c, m: datetime(kg.year, kg.month, kg.day))
     monkeypatch.setattr(sync_router, "_chay_job", lambda *a, **k: None)
+    ngay = (datetime.now().date() - timedelta(days=2)).isoformat()
     r = client.post("/local/sync/run", headers=auth_headers, json={
-        "ma_kh_nguon": "K", "ma_kh_dich": "KD", "ngay_nhap_hs": "2026-10-20", "target_key": "t"})
+        "ma_kh_nguon": "K", "ma_kh_dich": "KD", "ngay_nhap_hs": ngay, "target_key": "t"})
     assert r.status_code == 400
     assert "sau NgàyKG" in r.json()["detail"]
+
+
+def test_run_ngay_tuong_lai_400(auth_headers, tmp_path, monkeypatch):
+    _target(tmp_path, monkeypatch)
+    _patch_conns(monkeypatch)
+    monkeypatch.setattr(sync_router, "_khoa_hang_nguon", lambda c, m: "B")
+    monkeypatch.setattr(sync_helpers, "get_khoa_info", lambda c, m: dict(_KHOA))
+    monkeypatch.setattr(sync_router, "_khoa_ngaykg", lambda c, m: datetime(2027, 12, 31))  # KG xa
+    monkeypatch.setattr(sync_router, "_chay_job", lambda *a, **k: None)
+    from datetime import timedelta
+    mai = (datetime.now().date() + timedelta(days=1)).isoformat()
+    r = client.post("/local/sync/run", headers=auth_headers, json={
+        "ma_kh_nguon": "K", "ma_kh_dich": "KD", "ngay_nhap_hs": mai, "target_key": "t"})
+    assert r.status_code == 400
+    assert "sau hôm nay" in r.json()["detail"]
 
 
 def test_run_ok_tra_job_id(auth_headers, tmp_path, monkeypatch):
@@ -70,10 +89,11 @@ def test_run_ok_tra_job_id(auth_headers, tmp_path, monkeypatch):
     _patch_conns(monkeypatch)
     monkeypatch.setattr(sync_router, "_khoa_hang_nguon", lambda c, m: "B")
     monkeypatch.setattr(sync_helpers, "get_khoa_info", lambda c, m: dict(_KHOA))
-    monkeypatch.setattr(sync_router, "_khoa_ngaykg", lambda c, m: datetime(2026, 10, 5))
+    monkeypatch.setattr(sync_router, "_khoa_ngaykg", lambda c, m: datetime(2099, 10, 5))  # KG tương lai xa
     monkeypatch.setattr(sync_router, "_chay_job", lambda *a, **k: None)
+    hom_nay = datetime.now().date().isoformat()
     r = client.post("/local/sync/run", headers=auth_headers, json={
-        "ma_kh_nguon": "K", "ma_kh_dich": "KD", "ngay_nhap_hs": "2026-10-05", "target_key": "t"})
+        "ma_kh_nguon": "K", "ma_kh_dich": "KD", "ngay_nhap_hs": hom_nay, "target_key": "t"})
     assert r.status_code == 200
     assert r.json()["job_id"]
 

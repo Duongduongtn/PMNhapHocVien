@@ -293,6 +293,8 @@ def run(body: RunIn) -> dict:
 
     if not khoa_info:
         raise HTTPException(status_code=400, detail="Không tìm thấy khóa đích.")
+    if body.ngay_nhap_hs > datetime.now().date():
+        raise HTTPException(status_code=400, detail="Ngày nhập HS không được sau hôm nay.")
     if hang_nguon and khoa_info["hang_gplx"] and hang_nguon != khoa_info["hang_gplx"]:
         raise HTTPException(
             status_code=400,
@@ -368,12 +370,12 @@ def _chay_job(job_id: str, db: str, body: RunIn, khoa_info: dict, tt: dict) -> N
                 ten = h.get("HoVaTen") or ""
                 if not cc:  # E1
                     loi_c += 1
-                    emit({"loai": "hv", "stt": idx, "ho_ten": ten,
+                    emit({"loai": "hv", "stt": idx, "so_cmt": cc, "ho_ten": ten,
                           "trang_thai": "Lỗi: thiếu CCCD", "mau": "loi"})
                     continue
                 if cc in enrich:  # skip
                     skip_c += 1
-                    emit({"loai": "hv", "stt": idx, "ho_ten": ten, "mau": "skip",
+                    emit({"loai": "hv", "stt": idx, "so_cmt": cc, "ho_ten": ten, "mau": "skip",
                           "trang_thai": f"Bỏ qua — đã có ({enrich[cc]['ma_dk']})"})
                     continue
                 ma_dk_pre = next(madk_iter) if madk_iter is not None else None
@@ -395,11 +397,11 @@ def _chay_job(job_id: str, db: str, body: RunIn, khoa_info: dict, tt: dict) -> N
                     except OSError:
                         pass
                     tt_txt = f"Đã tạo {kq.ma_dk}" + (" (giấy tờ lỗi)" if kq.giay_to_loi else "")
-                    emit({"loai": "hv", "stt": idx, "ho_ten": ten, "trang_thai": tt_txt,
-                          "mau": "ok", "ma_dk": kq.ma_dk})
+                    emit({"loai": "hv", "stt": idx, "so_cmt": cc, "ho_ten": ten,
+                          "trang_thai": tt_txt, "mau": "ok", "ma_dk": kq.ma_dk})
                 else:
                     loi_c += 1
-                    emit({"loai": "hv", "stt": idx, "ho_ten": ten, "mau": "loi",
+                    emit({"loai": "hv", "stt": idx, "so_cmt": cc, "ho_ten": ten, "mau": "loi",
                           "trang_thai": f"Lỗi: {kq.loi}"})
 
             if tt.get("update_tong_so_hv"):

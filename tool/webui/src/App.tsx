@@ -6,6 +6,7 @@ import TaoKhoa from "./pages/tool/TaoKhoa";
 import DangNhap from "./pages/tool/DangNhap";
 import SyncComingSoon from "./pages/sync/SyncComingSoon";
 import DbDich from "./pages/sync/DbDich";
+import BanDongBo from "./pages/sync/BanDongBo";
 import { ToolAuthProvider, useToolAuth } from "./auth/ToolAuth";
 import type { ReactNode } from "react";
 
@@ -27,7 +28,7 @@ export default function App() {
           <Route path="tool/tao-khoa" element={<CoBaoVe><TaoKhoa /></CoBaoVe>} />
           <Route path="tool/cau-hinh" element={<CauHinh />} />
           {/* Phân hệ Đồng bộ CDB (màn thật dựng ở các bước sau) */}
-          <Route path="sync/ban-dong-bo" element={<CoBaoVe><SyncComingSoon title="Bàn đồng bộ" /></CoBaoVe>} />
+          <Route path="sync/ban-dong-bo" element={<CoBaoVe><BanDongBo /></CoBaoVe>} />
           <Route path="sync/db-dich" element={<CoBaoVe><DbDich /></CoBaoVe>} />
           <Route path="sync/lich-su" element={<CoBaoVe><SyncComingSoon title="Lịch sử & Hủy sync" /></CoBaoVe>} />
         </Route>

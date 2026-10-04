@@ -621,3 +621,108 @@ export const testSyncTarget = (database: string) =>
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ database }),
   }).then(json<SyncTestKetQua>);
+
+// ── Phân hệ Đồng bộ CDB — Bàn đồng bộ (SYNC-01) ──
+export interface SyncKhoa {
+  ma_kh: string;
+  ten_kh: string;
+  hang_gplx: string;
+  ngay_kg: string | null;
+  so_hv: number;
+  bc1?: boolean;
+}
+export interface SyncHV {
+  ho_ten: string | null;
+  so_cmt: string;
+  hang_gplx: string | null;
+  ma_dk_nguon: string | null;
+  ngay_hs_nguon: string | null;
+  da_co_dich: boolean;
+  ma_dk_dich: string | null;
+  ngay_hs_dich: string | null;
+  so_hs_dich: number | null;
+  thieu_cccd: boolean;
+  trung_cccd_nguon: boolean;
+}
+export interface SyncHocVienData {
+  hoc_vien: SyncHV[];
+  tong: number;
+  da_co_dich: number;
+  se_tao_moi: number;
+  thieu_cccd: number;
+  trung_cccd_nguon: number;
+}
+
+const qs = (o: Record<string, string | number | undefined>) =>
+  Object.entries(o)
+    .filter(([, v]) => v !== undefined && v !== "")
+    .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
+    .join("&");
+
+export const getSyncNam = (ben: "nguon" | "dich", targetKey?: string) =>
+  fetch(`${BASE}/local/sync/${ben}/nam?${qs({ target_key: ben === "dich" ? targetKey : undefined })}`, {
+    headers: authHeaders(),
+  }).then(json<number[]>);
+
+export const getSyncKhoa = (ben: "nguon" | "dich", nam: number, targetKey?: string) =>
+  fetch(`${BASE}/local/sync/${ben}/khoa?${qs({ nam, target_key: ben === "dich" ? targetKey : undefined })}`, {
+    headers: authHeaders(),
+  }).then(json<SyncKhoa[]>);
+
+export const postSyncHocVien = (maKhNguon: string, targetKey?: string) =>
+  fetch(`${BASE}/local/sync/hoc-vien`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ ma_kh_nguon: maKhNguon, target_key: targetKey }),
+  }).then(json<SyncHocVienData>);
+
+export interface SyncRunIn {
+  ma_kh_nguon: string;
+  ma_kh_dich: string;
+  ngay_nhap_hs: string; // ISO yyyy-mm-dd
+  target_key?: string;
+  so_cmt_chon: string[];
+}
+export const postSyncRun = (body: SyncRunIn) =>
+  fetch(`${BASE}/local/sync/run`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(body),
+  }).then(json<{ job_id: string }>);
+
+// Đọc SSE bằng fetch (EventSource không đặt được header Bearer). Gọi onEvent cho
+// mỗi sự kiện {loai,...}. Trả AbortController để hủy (job nền vẫn chạy tới hết).
+export function openSyncStream(jobId: string, onEvent: (ev: Record<string, unknown>) => void) {
+  const ctrl = new AbortController();
+  void (async () => {
+    const r = await fetch(`${BASE}/local/sync/stream?job=${encodeURIComponent(jobId)}`, {
+      headers: authHeaders(),
+      signal: ctrl.signal,
+    });
+    if (!r.ok || !r.body) throw new Error(String(r.status));
+    const reader = r.body.getReader();
+    const dec = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i: number;
+      while ((i = buf.indexOf("\n\n")) >= 0) {
+        const chunk = buf.slice(0, i);
+        buf = buf.slice(i + 2);
+        const line = chunk.split("\n").find((l) => l.startsWith("data:"));
+        if (line) {
+          try {
+            onEvent(JSON.parse(line.slice(5).trim()));
+          } catch {
+            /* bỏ qua dòng không phải JSON (keepalive) */
+          }
+        }
+      }
+    }
+  })().catch(() => {
+    /* abort/ngắt mạng — bỏ qua, UI đã có nút chạy lại */
+  });
+  return ctrl;
+}
