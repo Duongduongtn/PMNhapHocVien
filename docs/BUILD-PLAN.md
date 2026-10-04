@@ -2,7 +2,7 @@
 
 > File do `/kehoach` sinh. `/tieptheo` đọc file này để biết làm gì tiếp theo.
 > **Thứ tự code** nằm ở đây. **Yêu cầu và trạng thái story** nằm ở `docs/PRD.md`.
-> Cập nhật lần cuối: 03/10/2026 (v8 — bổ sung task 41-47 theo CHANGES #24+#26: THU-05 xóa app web + QLY-08 gỡ về chờ nạp + NAP-01 đồng bộ xóa [lần đầu sửa server VPS] + "Dùng lại ảnh gốc" + redesign màn Nạp lô)
+> Cập nhật lần cuối: 04/10/2026 (v10 — bổ sung task 50-53 theo CHANGES #32: NAP-01 lưu nháp BỀN + 2 chip + nạp chặn/cảnh báo · QLY-05 bổ sung ảnh 2 nguồn)
 
 ## Quyết định về thứ tự
 
@@ -127,6 +127,10 @@
 | 47 | **NAP-01 redesign (2/2)** dialog nạp 3 pha (reuse `DoiNenDialog`: xác nhận → tiến độ N/tổng → báo cáo ok/lỗi+lý do + **"Nạp lại lỗi"**) + nút **"Xem trong DB"** (sang Tra cứu DB, mở khóa đích + làm nổi HV vừa nạp) | `NAP-01` | M | 46,22 | 1+2 | [x] 03/10 — `NapLoDialog` 3 pha trong NapHoSo.tsx (nạp tuần tự từng uuid để có tiến độ + tên HV, TDD §10.5) thay nút batch gọi thẳng; pha báo cáo liệt kê ok/lỗi từng HV + "Nạp lại lỗi" (lọc uuid lỗi) + "Xem trong DB". Nút "Xem DB" cả ở dòng đã nạp (map `napKhoa` uuid→khóa). TraCuuDB nhận props `khoaMa`/`noiBat` → tự mở khóa đích + tô sáng HV vừa nạp lên đầu. Build+tsc+29 vitest. Trực quan chờ chạy tool (màn có cổng login+dữ liệu) |
 | 48 | **QLY-09 (1/2)** backend đối soát (2 chế độ, TDD §11.8): **theo khóa** (ca ② — `NguoiLX_HoSo` theo `MaKhoaHoc` ↔ trạng thái VPS qua `nap_xong`/`tra-uuid`) + **quét lạc toàn hệ** (ca ①③ — tái dùng `GET /api/admin/ho-so` lọc trạng thái, check ma_dk∉CSDT = phantom / importing quá ngưỡng) + 3 action tái dùng `vps.tra_ve_cho_nap`/`da_nap`/`unlock` · **phòng tuyến 2**: `nap_fn` bỏ `da_nap` khi `_nap_mot` trả vé cũ (chặn tái phát phantom BUG-01) | `QLY-09` | M | 42,43,20,22 | 1+2 | [ ] |
 | 49 | **QLY-09 (2/2)** webui panel **"Đối soát VPS↔CSDT"** trong Tra cứu DB: **theo khóa** (operator/admin) + **"Quét bản ghi lạc"** toàn hệ (admin) → liệt kê **chỉ dòng lệch** + loại + **nút sửa 1 chạm** (Trả về chờ nạp / Đánh dấu đã nạp / Mở khóa) → làm tươi. TDD §11.8 | `QLY-09` | M | 48,22 | 1 | [ ] |
+| 50 | **NAP-01 nháp bền (1/3) — backend** (CHANGES #32, TDD §9.3a): bảng `nhap_chuan_bi` trong `staging.sqlite` + helper `nhap_xoa(uuid)` gọi ở 3 điểm kết thúc (nạp xong / bỏ hàng đợi / đồng bộ xóa VPS) + 3 endpoint `GET /local/nap/nhap?uuids=` (cờ nhẹ `co_dia_chi`/`co_anh`/`co_tick`) · `GET /local/nap/nhap/{uuid}` (full `jp2_b64`+preview) · `PUT /local/nap/nhap/{uuid}` + **BUG-04 reset địa chỉ nháp trong `keo_ve_upsert`** khi `noi_tt_raw` đổi (giữ ảnh/tick/nơi cấp). ⚠ **`impact` GitNexus TRƯỚC khi sửa `keo_ve_upsert`** (nhiều caller) | `NAP-01` | M | 20,46 | 1+2 | [x] 04/10 — bảng `nhap_chuan_bi` + CRUD + `nhap_xoa`/`nhap_reset_dia_chi` + BUG-04 trong `keo_ve_upsert` + 4 endpoint (list nhẹ/full/PUT/DELETE); impact xác nhận 1 caller LOW; +14 pytest (test_nap_keo 41 pass). UI (chip/nút) → task 51 |
+| 51 | **NAP-01 nháp bền (2/3) — UI + 2 chip + nút** (CHANGES #32, TDD §10.5): NapHoSo chuyển `nhap[uuid]` RAM→API (list dùng cờ nhẹ, full khi mở drawer, `PUT` khi đóng/debounce) · 2 chip Địa chỉ/Ảnh (mặc định ✗) · nút "Xử lý" to + cả dòng bấm · nút "Xóa nháp" trong drawer · preview địa chỉ ghép `[chi_tiet, TenDayDu].join(", ")`. Chạy skill `impeccable` | `NAP-01` | M | 50,47 | 1 | [ ] |
+| 52 | **NAP-01 nháp bền (3/3) — nạp chặn/cảnh báo** (CHANGES #32): thiếu địa chỉ → CHẶN dòng (loại khỏi lô, chip ✗) · thiếu ảnh → vẫn nạp + cảnh báo "N học viên nạp thiếu ảnh" trước lô · sau lô lối tắt mở Tra cứu DB lọc "chưa ảnh" (reuse "Xem trong DB") | `NAP-01` | S | 51,47 | 1 | [ ] |
+| 53 | **QLY-05 bổ sung ảnh HV thiếu ảnh — 2 nguồn** (CHANGES #32, TDD §11.5): AnhModal mở với (a) `chonFile` / (b) kéo ảnh thô VPS (`vps.tra_uuid`→`vps.tai_anh`→`AnhModal.napTuUrl`), ẩn (b) khi ảnh thô hết ~30 ngày → cùng luồng QLY-05 (đổi nền→`.jp2`→`nap_anh`, nâng `TT_XuLy '01'→'03'`). Thuần wiring | `QLY-05` | M | 27,35,43 | 1 | [ ] |
 | 26 | Đóng gói tool PyInstaller (.exe) + đối chiếu bảo mật OG (không `sa`, không log CCCD, HTTPS) | — | M | tất cả | 1 | [ ] |
 
 ### ✅ Checkpoint 6 — sau task 33-38 (quản lý ảnh Tra cứu DB + bảo toàn Báo cáo)
@@ -160,6 +164,15 @@
 - [ ] Mỗi nút sửa 1 chạm chạy đúng (Trả về chờ nạp / Đánh dấu đã nạp / Mở khóa) → làm tươi, dòng khớp biến mất.
 - [ ] **Mức 2:** phòng tuyến 2 — gỡ về chờ nạp rồi nạp lại CÙNG uuid → `nap_fn` KHÔNG gọi `da_nap` trên nhánh vé-cũ (VPS không bị đánh dấu imported sai).
 - [ ] Tôn trọng chặn BC1/PII ở các nút sửa đụng xóa/gỡ.
+
+### ✅ Checkpoint 11 — sau task 50-53 (nháp bền + 2 chip + 2 nguồn ảnh, CHANGES #32)
+- [ ] Nháp (địa chỉ 2 cấp + chi tiết + nơi cấp + tick + ảnh đổi nền) **sống qua F5/đóng-mở tool**; 2 chip Địa chỉ/Ảnh phản ánh đúng sau khi mở lại.
+- [ ] **Mức 2:** `keo_ve_upsert` thấy `noi_tt_raw` đổi → reset **riêng địa chỉ** nháp (giữ ảnh/tick/nơi cấp) + chip địa chỉ về ✗; `nhap_xoa` dọn **cả ảnh** ở 3 điểm kết thúc (nạp xong / bỏ hàng đợi / đồng bộ xóa VPS).
+- [ ] Chip vẽ từ endpoint cờ **nhẹ** — mở màn Nạp khóa đông KHÔNG tải full ảnh base64 cả list.
+- [ ] Nạp: thiếu địa chỉ bị **chặn** (loại khỏi lô); thiếu ảnh **cảnh báo + vẫn nạp**; lối tắt mở Tra cứu DB lọc "chưa ảnh".
+- [ ] Bổ sung ảnh 2 nguồn (file + ảnh thô VPS); ảnh thô hết hạn → ẩn nguồn VPS, chỉ còn file.
+- [ ] Nút "Xóa nháp" dọn nháp (gồm ảnh PII) chủ động.
+- [ ] Playwright 3vp (375/800/1440) màn Nạp lô + drawer — 0 tràn.
 
 ### ✅ Checkpoint 5 — cuối dự án
 - [ ] Mọi tiêu chí MUST + SHOULD trong PRD đạt.
@@ -205,7 +218,7 @@
 - **Số story trong PRD khi cập nhật:** 25 (gồm story mới `QLY-09` từ CHANGES #28; `THU-05`, `QLY-08` từ #24; chưa tính NICE `QLY-04`, `THU-03`)
 - **Mã story đã đưa vào kế hoạch:** `HTG-01`, `HTG-02`, `HTG-03`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`
 - **Mã story chưa đưa vào:** `QLY-04`, `THU-03` (NICE, chưa đủ chi tiết) · **`HTG-04/05/06`** (thêm ở CHANGES #18, đã code thẳng — chưa có task trong plan; cần `/kehoach` bổ sung riêng nếu muốn khớp sổ)
-- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 03/10/2026 (#28)
+- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 04/10/2026 (#32)
 
 ## Changelog
 
@@ -220,3 +233,4 @@
 | 02/10/2026 | v7 — bổ sung (CHANGES #22): thêm task **33-40** (Phase 3) — 🐛 vá `TT_XuLy` (33), backend ảnh (34), UI xem ảnh/avatar (35), thống kê+nút nhanh (36), chặn xóa BC1 backend (37), bỏ-hàng-đợi+nạp-lại-nhanh (38), **QLY-07** đổi nền cả khóa (39-40) + Checkpoint 6/7. QLY-01/03/05 + NAP-01 đã hạ ⏳ ở PRD. 40 task. |
 | 03/10/2026 | v8 — bổ sung (CHANGES #24+#26): thêm task **41-47** (cuối Phase 3, trước task 26 đóng gói) — THU-05 xóa app web (41 ⚠VPS), QLY-08 gỡ về chờ nạp server (42 ⚠VPS) + tool/webui (43), NAP-01 đồng bộ xóa (44 ⚠VPS), "Dùng lại ảnh gốc" AnhModal (45), redesign Nạp lô drawer+sẵn sàng (46) + dialog nạp 3 pha + Xem trong DB (47) + Checkpoint 8/9. Lần đầu sửa server VPS từ Phase 2 → deploy lại. +story QLY-08, THU-05. 47 task. |
 | 03/10/2026 | v9 — bổ sung (CHANGES #28): thêm task **48-49** (cuối Phase 3, trước task 26) — QLY-09 đối soát VPS↔CSDT: backend liệt kê lệch theo khóa + 3 action tái dùng + phòng tuyến 2 chặn phantom (48), webui panel đối soát + nút sửa 1 chạm (49) + Checkpoint 10. Thuần tool, không endpoint/SP nạp mới. +story QLY-09. 49 task. |
+| 04/10/2026 | v10 — bổ sung (CHANGES #32, sau review TDD #32): thêm task **50-53** (cuối Phase 3, trước task 26) — NAP-01 lưu nháp BỀN backend `nhap_chuan_bi`+`nhap_xoa`+3 endpoint+BUG-04 reset trong `keo_ve_upsert` (50), UI nháp bền+2 chip+nút Xử lý/Xóa nháp (51), nạp chặn thiếu địa chỉ/cảnh báo thiếu ảnh+lối tắt (52); QLY-05 bổ sung ảnh 2 nguồn file/ảnh-thô-VPS (53) + Checkpoint 11. Endpoint list nhẹ + luật ghép địa chỉ theo biên bản `tdd-review-04-10-2026.md`. Tái dùng NAP-01/QLY-05, không story mới. 53 task. |

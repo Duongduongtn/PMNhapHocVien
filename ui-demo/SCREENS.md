@@ -6,7 +6,7 @@
 - **Bản HTML chuẩn:** ui-demo-options/detailed.html
 - **Stack:** Vite + React + TypeScript + Tailwind v3 (token shadcn) + react-router-dom · font Be Vietnam Pro
 - **Cổng dev:** 3021 (sổ `~/.claude/local-ports.md`)
-- **Cập nhật lần cuối:** 03/10/2026 (gộp 2 phiên song song: **lượt 17** panel "Đối soát VPS↔CSDT" QLY-09 (CHANGES #28) · **lượt 18** redesign DESKTOP app web THU-01/05 — Quét vào thẳng form + popover quét, "Hồ sơ đã gửi" chọn-nhiều-để-xóa (CHANGES #30) + tool dời nút nạp lên header & combobox gõ-lọc địa chỉ NAP-01/03 (CHANGES #29). Lượt 16: CHANGES #26)
+- **Cập nhật lần cuối:** 04/10/2026 (**lượt 19** CHANGES #32: 2 chip Địa chỉ/Ảnh + nút "Xử lý" to + nháp bền ở màn Nạp lô; bổ sung ảnh HV thiếu ảnh từ file/VPS — ghi UX, chưa dựng). Trước: 03/10/2026 (gộp 2 phiên song song: **lượt 17** panel "Đối soát VPS↔CSDT" QLY-09 (CHANGES #28) · **lượt 18** redesign DESKTOP app web THU-01/05 — Quét vào thẳng form + popover quét, "Hồ sơ đã gửi" chọn-nhiều-để-xóa (CHANGES #30) + tool dời nút nạp lên header & combobox gõ-lọc địa chỉ NAP-01/03 (CHANGES #29). Lượt 16: CHANGES #26)
 
 ## ⚠️ Prototype gộp 1 project — KIẾN TRÚC THẬT là 2 app riêng (TDD §2.4)
 
@@ -95,6 +95,8 @@ Chú thích: ✅ Xong · 🟡 Placeholder · ⬜ Chưa có route
 | /tool/nap (Chọn tay địa chỉ) | Combobox gõ-lọc NAP-03 (CHANGES #29) | "Chọn tay" địa chỉ 2 cấp mới: 2 dropdown Tỉnh/Xã → **ô gõ-để-lọc** `ComboLoc` (gõ không dấu cũng khớp nhờ `boDau`, danh sách gợi ý lọc dần, bấm/Enter chọn). Thuần client, `getTinh`/`getXa` sẵn | 18 |
 | /tool/nap (AnhModal) | "Dùng lại ảnh gốc" (CHANGES #26) | Nút trong trình chỉnh quay về **ảnh nguyên bản** (bỏ chỉnh sửa, xác nhận nhanh): NAP-04 = ảnh thô VPS, QLY-05 = ảnh `.jp2` DB. Ẩn khi không có nguồn. Đi xa hơn "mở lại nạp ảnh đã chỉnh gần nhất" (CHANGES #23) | 16 |
 | /tool/nap (chế độ Nạp) | Redesign Nạp lô (CHANGES #26) | Mỗi dòng badge **sẵn sàng/thiếu gì**; **"Chọn tất cả sẵn sàng"** + thanh **"Nạp N học viên"** dính đáy; **drawer "Chuẩn bị"** thay cột cố định (gọn); **dialog nạp 3 pha** (xác nhận → tiến độ → báo cáo + "Nạp lại lỗi"); nút **"Xem trong DB"**. Wireframe ở Ghi chú | 16 |
+| /tool/nap (chế độ Nạp) | 2 chip + nút Xử lý + nháp bền (CHANGES #32) | Mỗi dòng **2 chip riêng** `✓/✗ Địa chỉ 2 cấp` + `✓/✗ Có hình` (mặc định ✗ xám); **cả dòng bấm được** + **nút "Xử lý" to** bên phải (thay icon nhỏ). Nháp chuẩn bị (địa chỉ+ảnh+tick) **lưu bền** nên chip đúng cả sau khi tải lại trang. Nạp **chặn thiếu địa chỉ** / **cảnh báo thiếu ảnh** + lối tắt "Bổ sung ảnh ở Tra cứu DB" | — |
+| /tool/nap (AnhModal, QLY-05) | Bổ sung ảnh HV thiếu ảnh (CHANGES #32) | HV chưa ảnh → AnhModal lấy ảnh gốc từ **Chọn file** hoặc **Kéo ảnh VPS** (nếu còn), cùng khung crop + đổi nền rồi nạp. Ảnh VPS hết hạn → chỉ còn Chọn file | — |
 | /tool/nap (Tra cứu DB) | Đối soát VPS↔CSDT QLY-09 (CHANGES #28) | **Panel admin/operator** (không collector): chọn **1 khóa** → liệt kê **chỉ dòng lệch** VPS↔CSDT, mỗi dòng nêu loại lệch + **1 nút sửa** tương ứng: ① phantom (VPS đã nạp, DB không có) → "Trả về chờ nạp" · ② DB có, VPS chưa → "Đánh dấu đã nạp" · ③ treo khóa quá lâu → "Mở khóa". Sửa xong làm tươi, dòng khớp biến mất. **Dựng trực tiếp ở tool webui khi code** (màn tool, không qua ui-demo/prototype) | 17 |
 
 ## Component dùng chung

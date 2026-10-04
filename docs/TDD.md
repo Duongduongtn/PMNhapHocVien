@@ -599,6 +599,47 @@ Một hồ sơ sống ở **2 nơi**: VPS (app web — nơi collector tạo) và
 - **Nạp lỗi:** giữ staging để thử lại.
 - Trên VPS: bản thô giữ tới 30 ngày rồi job tự xóa (BR-016) — để đối chiếu/nạp lại.
 
+### 9.3a Lưu nháp chuẩn bị BỀN (CHANGES #32)
+
+Trước #32, mọi chỉnh sửa khi chuẩn bị nạp (`nhap[uuid]`: `diaChi`, `chiTiet`, `noiCap`, `tick`, `jp2`, `anhPreview`) **chỉ sống trong RAM** của màn NapHoSo → tải lại trang/đóng tool là mất. Nay **lưu bền xuống staging** để sống qua phiên và để 2 chip trạng thái (§10.5) đúng kể cả sau khi mở lại.
+
+- **Kho:** bảng RIÊNG trong `staging.sqlite` — **`nhap_chuan_bi(uuid PRIMARY KEY, dia_chi_json, chi_tiet, noi_cap, tick_json, jp2_b64, anh_preview, updated_at)`**. *Vì sao bảng riêng chứ không thêm cột vào `keo_ve`: tách bạch DỮ LIỆU GỐC VPS (`keo_ve`, do `keo_ve_upsert` làm tươi) khỏi NHÁP OPERATOR — upsert làm tươi dòng `cho` không vô tình đè/được đè bởi nháp; xóa nháp độc lập.*
+- **Ảnh trong nháp:** `jp2_b64` (ảnh đã đổi nền, để nạp) + `anh_preview` (PNG để hiển thị) lưu **trong SQLite** cạnh nháp — là **PII ảnh căn cước nằm lại máy tool**, đi ngược nguyên tắc §9.3/§7.4 cũ; chấp nhận có điều kiện (máy nội bộ CSDT + tự xóa — xem TDD-decisions §11). Dọn như §9.3: nạp xong thì xóa.
+- **API (tool-local):**
+  - `GET /local/nap/nhap?uuids=<csv>` — **danh sách cờ NHẸ** cho cả lưới: mỗi dòng chỉ `{uuid, co_dia_chi, co_anh, co_tick}` (boolean), KHÔNG kèm `jp2_b64`/`anh_preview`. Dùng vẽ 2 chip §10.5 cho mọi dòng mà không tải ảnh. *Vì sao tách (review #32, Điểm 5): nếu dùng GET-theo-uuid full để lấy cờ thì phải tải toàn bộ base64 ảnh cả khóa chỉ để hiện 1 chip boolean → giật + tốn RAM tab.*
+  - `GET /local/nap/nhap/{uuid}` — đọc **đầy đủ** 1 nháp (kèm `jp2_b64`+`anh_preview`), **chỉ gọi khi MỞ drawer Chuẩn bị** (nạp vào `nhap[uuid]`), không gọi hàng loạt.
+  - `PUT /local/nap/nhap/{uuid}` — lưu nháp (gọi khi **đóng drawer Chuẩn bị** hoặc debounce khi đổi — không spam mỗi phím).
+- **Vòng đời — tự xóa nháp** (đi kèm mọi điểm dòng `keo_ve` kết thúc): nạp xong (`keo_ve_cap_nhat(... 'xong')`), "Bỏ khỏi hàng đợi" (`keo_ve_xoa`), đồng bộ xóa VPS (`keo_ve_xoa_neu_cho`) → **xóa dòng `nhap_chuan_bi` cùng `uuid`**. Gom thành 1 helper `nhap_xoa(uuid)` gọi chung ở các chỗ này. Thêm **nút "Xóa nháp"** trên drawer Chuẩn bị gọi cùng `nhap_xoa(uuid)` để operator **chủ động dọn** một nháp.
+- **Giới hạn PII nháp bỏ dở (review #32, Điểm 4):** nháp của một dòng `cho` mà operator **không nạp** và collector **không xóa trên app web** thì không rơi vào 3 lối tự-xóa trên → **tồn tại (gồm ảnh căn cước) tới khi operator bấm "Xóa nháp"**. Chấp nhận giới hạn này (máy nội bộ CSDT) — xem TDD-decisions §11.
+- **Cạm bẫy `keo_ve_upsert` + BUG-04 (bắt buộc):** `keo_ve_upsert` khi làm tươi dòng `cho` hiện GHI ĐÈ `noi_tt_raw` bằng bản mới từ VPS. Khi **`noi_tt_raw` ĐỔI** so với bản đang có → **reset phần ĐỊA CHỈ của nháp bền** (`dia_chi_json=NULL`, `chi_tiet` tính lại từ raw mới) + chip địa chỉ về `✗` + toast "địa chỉ của N hồ sơ đã đổi, cần map lại"; **GIỮ** `jp2_b64`/`anh_preview`/`tick_json`/`noi_cap`. `noi_tt_raw` **không đổi** → giữ nguyên nháp. *Đặt so-sánh + reset ở BACKEND (trong/cạnh `keo_ve_upsert`, so raw cũ↔mới trước khi đè) để nguồn sự thật nhất quán, thay vì chỉ ở client `lamTuoiNhapDiaChi` như hiện tại.*
+- **Luật ghép địa chỉ hiển thị (review #32 — xác minh DB thật 04/10):** DB lưu **tách** `NoiTT` (chi tiết, nvarchar 50) và địa chỉ hành chính dạng **mã** (`NoiTT_MaDVHC`/`NoiTT_MaDVQL` varchar 5) — **không có SP/view nào ghép** 2 phần, và `DM_DVHC.TenDayDu` cấp xã **đã chứa sẵn phẩy giữa các cấp** (vd `Xã Phước Hòa, Thành phố Hồ Chí Minh`). → Mọi chỗ **tool** hiển thị một dòng địa chỉ phải ghép `[chi_tiet, TenDayDu(xã)].filter(Boolean).join(", ")` (lọc rỗng, ngăn cách `", "`) — đã làm đúng ở popup Chi tiết (`TraCuuDB.tsx`), áp cùng cách cho preview địa chỉ ở drawer Nạp lô. **Lưu `NoiTT` vẫn chỉ chi tiết thuần** (không nhét tên xã/dấu phẩy — giữ §10.2). *App cũ tự render địa chỉ theo cách của nó — ngoài tầm tool.*
+
+```
+Vòng đời nháp chuẩn bị (nhap_chuan_bi, keyed theo uuid dòng keo_ve):
+
+   mở drawer / debounce sửa
+        │ PUT /local/nap/nhap/{uuid}
+        ▼
+   ┌─────────────┐   noi_tt_raw ĐỔI (keo_ve_upsert, BUG-04)
+   │  nháp bền   │──────────────────────────────┐
+   │ dia_chi,    │   reset dia_chi_json=NULL,    │
+   │ chi_tiet,   │   chi_tiet tính lại từ raw,   │
+   │ noi_cap,    │   chip địa chỉ → ✗ + toast;   │
+   │ tick,       │   GIỮ jp2/preview/tick/noi_cap│
+   │ jp2_b64,    │◀──────────────────────────────┘
+   │ anh_preview │
+   └─────────────┘
+        │ nhap_xoa(uuid) — xóa cả ảnh
+        ▼
+   (xóa khi)  • nạp xong            keo_ve_cap_nhat(...'xong')
+              • "Bỏ khỏi hàng đợi"  keo_ve_xoa
+              • đồng bộ xóa VPS     keo_ve_xoa_neu_cho
+              • nút "Xóa nháp"      operator chủ động (review #32, Điểm 4)
+
+   ⚠ Nháp bỏ dở (dòng 'cho' không nạp, VPS không xóa) TỒN TẠI tới khi
+     operator bấm "Xóa nháp" (giới hạn PII đã ghi ở TDD-decisions §11).
+```
+
 ### 9.4 Ca lỗi
 - rembg xấu (tóc/viền) → cho giữ ảnh gốc / chỉnh tay.
 - Ghi file rồi SP lỗi → dọn file `.jp2` chính thức vừa ghi, không để mồ côi (EC-022).
@@ -713,9 +754,11 @@ Collector(App web)  VPS(FastAPI/PG)   Operator(Tool)   SQL Server GPLX_CSDT   �
 
 Thuần client (webui), KHÔNG đổi endpoint nạp (`nap_lo` giữ nguyên). Mục tiêu: chọn nhiều HV nạp vào khóa chưa BC1 gọn hơn, tiến độ + báo cáo rõ.
 
-- **Trạng thái sẵn sàng mỗi dòng (client):** tính tại chỗ từ nháp `nhap[uuid]` — đủ khi `diaChi != null` (NAP-03 bắt buộc) + `tick` đã chọn giấy tờ; ảnh TÙY (thiếu ảnh vẫn nạp được, chỉ cảnh báo). Hiện `✔ Sẵn sàng` / `⚠ Thiếu địa chỉ|ảnh|giấy tờ`. Không gọi server.
+- **Trạng thái sẵn sàng mỗi dòng (client):** tính tại chỗ từ nháp **bền** của dòng (nguồn: bản lưu bền staging, nạp vào `nhap[uuid]` — §9.3a) — đủ khi `diaChi != null` (NAP-03 bắt buộc) + `tick` đã chọn giấy tờ; ảnh TÙY (thiếu ảnh vẫn nạp được, chỉ cảnh báo). Không gọi server.
+- **Hai chip trạng thái mỗi dòng (CHANGES #32):** ngoài gộp `✔ Sẵn sàng`, hiện **2 chip RIÊNG** để nhìn nhanh từng mục: **Địa chỉ** (`✓ Địa chỉ 2 cấp` khi `diaChi != null`, else `✗ Chưa map` xám) · **Ảnh** (`✓ Có hình` khi có `jp2`/ảnh nháp, else `✗ Chưa có hình` xám). Mặc định `✗` khi chưa chuẩn bị. (Giấy tờ vẫn tính vào "Sẵn sàng" nhưng không ra chip riêng — tránh rối; chip chỉ cho 2 mục user quan tâm nhất.) **Nguồn chip = cờ NHẸ** `GET /local/nap/nhap?uuids=…` (`co_dia_chi`/`co_anh`/`co_tick` — §9.3a), KHÔNG tải `jp2_b64` để vẽ chip (review #32, Điểm 5).
+- **Nạp — chặn/cảnh báo theo mức bắt buộc (CHANGES #32):** dòng **thiếu địa chỉ → KHÔNG cho nạp** (loại khỏi lô, chip địa chỉ `✗`); dòng **thiếu ảnh → VẪN nạp**, trước khi chạy lô hiện cảnh báo "N học viên nạp thiếu ảnh — bổ sung sau ở Tra cứu DB (lọc chưa ảnh)". Sau lô, nếu có HV thiếu ảnh → nút/lối tắt **chuyển sang Tra cứu DB, đặt bộ lọc "chưa ảnh"** (reuse nút "Xem trong DB") để bổ sung ngay qua QLY-05.
 - **Chọn tất cả sẵn sàng:** nút tick mọi dòng `✔ Sẵn sàng` trong nhóm "Cần xử lý"; thanh hành động dính đáy "Nạp N học viên" (reuse batch bar sẵn có).
-- **Ngăn "Chuẩn bị" (drawer):** chuyển cột-chuẩn-bị-cố-định hiện tại (AddressCombo + giấy tờ + AnhModal) thành ngăn trượt từ phải, mở theo dòng; lưu xong → dòng thành `✔ Sẵn sàng` + tự tick. Giảm tải thị giác, màn còn 1 danh sách.
+- **Ngăn "Chuẩn bị" (drawer):** chuyển cột-chuẩn-bị-cố-định hiện tại (AddressCombo + giấy tờ + AnhModal) thành ngăn trượt từ phải, mở theo dòng; lưu xong → dòng thành `✔ Sẵn sàng` + tự tick. Giảm tải thị giác, màn còn 1 danh sách. **Mở drawer (CHANGES #32):** **cả dòng bấm được** + **nút "Xử lý" to rõ bên phải** mỗi dòng (không dùng icon nhỏ) — dễ thao tác, khó bấm nhầm. Mở drawer mới gọi `GET /local/nap/nhap/{uuid}` lấy nháp đầy đủ (ảnh). Trong drawer có **nút "Xóa nháp"** (gọi `nhap_xoa` — review #32, Điểm 4) để dọn chủ động; preview địa chỉ ghép theo luật phẩy §9.3a (`[chi_tiet, TenDayDu(xã)].join(", ")`).
 - **Dialog nạp 3 pha:** reuse pattern `DoiNenDialog` (task 40 QLY-07) — (1) xác nhận (khóa đích + số sẵn sàng/bỏ qua) → (2) chạy: gọi `nap_lo(items)`, thanh % + N/tổng + tên HV đang nạp (`nap_lo` trả `{uuid, ok, loi}` từng dòng — hiện tiến độ theo kết quả trả về, không cần endpoint polling mới nếu `nap_lo` trả dần; nếu trả 1 lần thì hiển thị tiến độ theo thứ tự xử lý) → (3) báo cáo: đếm ok/lỗi + lý do từng dòng + nút "Nạp lại lỗi" (chọn lại các `uuid` lỗi, gọi `nap_lo` tiếp).
 - **Nút "Xem trong DB":** ở dòng `xong` + trong báo cáo → chuyển sang chế độ Tra cứu DB (cùng component `NapHoSo`/`TraCuuDB`), set khóa = khóa đích + làm nổi `MaDK` vừa nạp (từ kết quả `nap_lo`).
 
@@ -774,6 +817,12 @@ Chọn hạng ĐT từ `DM_HangDT` → `usp_KhoaHoc_Insert` (mã tự sinh). `Ha
 Làm SAU NAP-05, **dùng lại cơ chế ghi ảnh hướng A** (§10.3) — không gọi SP tạo hồ sơ. Luồng: màn tra cứu lọc HV theo tình trạng ảnh (`TT_XuLy='01'` chưa ảnh / `'03'` đã ảnh) → chọn HV → xử lý ảnh (tái dùng NAP-04: crop 3:4 + nền trắng + `.jp2` 353×471) → ghi `.jp2` tại `<IMG_PATH_CSDT>\<MaKhoaHoc>\<MaDK>.jp2` (ghi đè nếu đã có) → UPDATE cột ảnh `NguoiLX_HoSo` (`DuongDanAnh`, `ChatLuongAnh=1`, `NgayThuNhanAnh=getdate()`, `NguoiThuNhanAnh`) WHERE `MaDK`. Chỉ cập nhật HV đã có, không tạo bản ghi mới.
 
 **🐛 `TT_XuLy` — quy tắc "KHÔNG BAO GIỜ HẠ" (CHANGES #22).** Hàm dùng chung `ghi_anh_update` (NAP-05 + QLY-05) hiện set cứng `TT_XuLy='03'`. Nhưng `usp_BaoCao2_DSHS` lọc HV theo tập `TT_XuLy in ('11','12','13','14','16','17','18','19')` (lưu ý **thiếu `'15'`**) → hạ HV đã Báo cáo về `'03'` thì **rơi khỏi Báo cáo 2** ("HV không có trong BC1"). → Sửa: **chỉ set `'03'` khi HV CHƯA có ảnh (`TT_XuLy` hiện tại là `'01'`/`'02'`); mọi giá trị khác (`'03'` và mọi mã Báo cáo) → GIỮ NGUYÊN** — nguyên tắc thay ảnh **không bao giờ HẠ** `TT_XuLy` (dùng whitelist `'01'/'02'`, không dùng ngưỡng `< '11'`). NAP-05 nạp HV mới luôn ở `'01'` → vẫn lên `'03'` đúng. **Ghi ảnh atomic:** ghi file tạm cùng thư mục → `os.replace` sang tên đích (crash giữa chừng không để lại `.jp2` cụt). **Mở từ Tra cứu DB:** click avatar/ảnh HV đã có → ảnh `.jp2` transcode→PNG (§11.1) nạp vào `AnhModal` làm ảnh gốc → đổi nền/chỉnh → lưu đè; **file gốc 404 → AnhModal mở chế độ chọn-file mới** (báo "ảnh cũ không còn, chọn ảnh mới").
+
+**Bổ sung ảnh cho HV THIẾU ảnh — 2 nguồn (CHANGES #32).** HV đã nạp nhưng `TT_XuLy='01'` (chưa ảnh) không có `.jp2` để làm ảnh gốc. Mở `AnhModal` với nguồn ảnh gốc chọn 1 trong 2 — **tái dùng toàn bộ, không viết cơ chế nạp ảnh mới**:
+- **(a) Chọn từ file máy tính:** `AnhModal.chonFile` sẵn có → crop + đổi nền như NAP-04.
+- **(b) Kéo ảnh thô VPS:** tra `uuid` theo `ma_dk` (`vps.tra_uuid`, §4.4) → tải ảnh thô (`vps.tai_anh` / proxy `tai_anh_keo_ve`) → URL nạp vào `AnhModal.napTuUrl` (sẵn có) làm ảnh gốc. **Điều kiện:** ảnh thô còn trên VPS (bản gửi giữ ~30 ngày — §9.3/BR-016). Hết hạn/không tra được uuid → ẩn nguồn (b), chỉ còn (a), báo "ảnh gốc trên máy chủ đã hết hạn, chọn ảnh từ máy".
+
+Sau khi có ảnh gốc, cả 2 nguồn đi tiếp qua **cùng luồng QLY-05** (xuất `.jp2` → `nap_anh` → `ghi_anh_update`, nâng `TT_XuLy '01'→'03'`). *Vì sao tái dùng được trọn: `AnhModal` đã có cả `chonFile` lẫn `napTuUrl`; `vps.tra_uuid`/`vps.tai_anh` đã có cho QLY-08/NAP-01 — chỉ cần wiring.*
 *Ca lỗi:* app cũ đang khóa file `.jp2` → báo đóng app cũ rồi thử lại; ghi `.jp2` lỗi → giữ trạng thái ảnh cũ; UPDATE lỗi → retry theo `MaDK` (§10.3).
 
 ```
@@ -1015,6 +1064,8 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 |---|---|---|
+| 04/10/2026 | 3.3 | Sửa sau review TDD #32 (biên bản `tdd-review-04-10-2026.md`): §9.3a +endpoint list NHẸ `GET /local/nap/nhap?uuids=` (cờ `co_dia_chi`/`co_anh`/`co_tick` vẽ chip, không tải ảnh base64 cả khóa — Điểm 5) + nút "Xóa nháp" chủ động & ghi rõ giới hạn PII nháp bỏ dở (Điểm 4) + luật ghép địa chỉ hiển thị `join(", ")` ở lớp tool (xác minh DB: không SP ghép, `TenDayDu` đã có phẩy) + sơ đồ vòng đời nháp; §10.5 chip đọc cờ nhẹ + drawer có nút Xóa nháp; TDD-decisions §11 thu hẹp cam kết tự-xóa (nháp bỏ dở tồn tại tới khi operator tự dọn). |
+| 04/10/2026 | 3.2 | Lưu nháp chuẩn bị BỀN + bổ sung ảnh 2 nguồn (CHANGES #32, NAP-01/QLY-05): §9.3a mới — nháp (địa chỉ+chi tiết+nơi cấp+tick+ảnh) lưu bảng `nhap_chuan_bi` trong `staging.sqlite`, tự xóa khi nạp/bỏ hàng đợi/xóa VPS, reset địa chỉ nháp ở backend khi `keo_ve_upsert` thấy `noi_tt_raw` đổi (BUG-04); §10.5 thêm 2 chip Địa chỉ/Ảnh + nút "Xử lý" to + cả dòng bấm + nạp chặn thiếu địa chỉ/cảnh báo thiếu ảnh; §11.5 bổ sung ảnh cho HV thiếu ảnh từ file (`chonFile`) hoặc ảnh thô VPS (`tra_uuid`→`tai_anh`→`napTuUrl`). TDD-decisions §11 mới (lưu ảnh nháp bền — đánh đổi PII). |
 | 03/10/2026 | 3.1 | Sửa §11.8 sau review TDD (biên bản `tdd-review-03-10-2026-qly09.md`): tách đối soát làm **2 chế độ** — ① theo khóa (ca ②, neo CSDT) · ② quét lạc toàn hệ (ca ①+③, neo VPS, tái dùng `GET /api/admin/ho-so`). Lý do: bản ghi VPS không có cột khóa nên phantom (ca ①) và importing treo (ca ③) không quy được về khóa. Làm rõ cách nối `nap_xong`/`tra-uuid` + ứng xử khi thiếu nối. |
 | 03/10/2026 | 3.0 | Đối soát & đồng bộ VPS↔CSDT (CHANGES #28, QLY-09 — sau ca Lê Thị Hồng/BUG-01): §11.8 mới — panel admin/operator đối soát **theo khóa** phát hiện 3 ca lệch (① VPS imported & CSDT không có MaDK = phantom → Trả về chờ nạp; ② CSDT có HV & VPS chưa imported → Đánh dấu đã nạp; ③ importing treo quá ngưỡng → Mở khóa), tái dùng `tra_ve_cho_nap`/`da_nap`/`unlock` — KHÔNG endpoint/SP nạp mới. +Phòng tuyến 2: `nap_fn` bỏ `da_nap` khi `_nap_mot` trả vé cũ (chặn tái phát phantom). Thuần tool. |
 | 03/10/2026 | 2.9 | Chốt nghiệp vụ + UX #24 (CHANGES #26): §7.5 mới — nguyên tắc "Nạp = điểm bàn giao quyền sở hữu" (trước nạp app web làm chủ, sau nạp tool/CSDT làm chủ, app web đóng băng) + bảng edge khóa chưa BC1 + phân biệt QLY-03 "Xóa hẳn" ≠ QLY-08 "Gỡ về chờ nạp"; §7.2 lock trả bản tươi; §9.1 +prop `anhGoc` + nút "Dùng lại ảnh gốc" (NAP-04 ảnh thô VPS / QLY-05 ảnh DB); §10.5 mới — redesign màn Nạp lô (trạng thái sẵn sàng mỗi dòng, chọn-tất-cả-sẵn-sàng, drawer Chuẩn bị, dialog nạp 3 pha, nút Xem trong DB). Thuần client phần UX, không endpoint mới. |

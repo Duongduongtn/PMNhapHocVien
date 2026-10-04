@@ -182,7 +182,7 @@ def keo_hang_doi(phien: Phien = Depends(require_session), limit: int = Query(200
 
     VPS lỗi ngay từ đầu → báo lỗi; lỗi giữa chừng → giữ phần đã kéo, dừng. Kéo lại **làm tươi**
     bản còn 'chờ nạp' (CHANGES #11). Trả số thêm mới + số làm tươi + tổng trong staging."""
-    tong_moi = tong_tuoi = 0
+    tong_moi = tong_tuoi = tong_reset = 0
     cursor: str | None = None
     for _ in range(50):  # chặn vòng lặp vô hạn (tối đa ~25.000 bản ghi/lượt kéo)
         try:
@@ -193,9 +193,10 @@ def keo_hang_doi(phien: Phien = Depends(require_session), limit: int = Query(200
             break  # đã kéo được một phần → giữ, để nhân viên xử lý phần đã có
         if not rows:
             break
-        moi, tuoi = nap.keo_ve_upsert(rows)
+        moi, tuoi, reset = nap.keo_ve_upsert(rows)
         tong_moi += moi
         tong_tuoi += tuoi
+        tong_reset += reset
         if len(rows) < limit:
             break
         cursor = rows[-1].get("created_at")
@@ -216,7 +217,7 @@ def keo_hang_doi(phien: Phien = Depends(require_session), limit: int = Query(200
         pass  # kéo chính đã xong; đồng bộ xóa để lượt kéo sau, không chặn luồng
 
     return {"keo_ve": tong_moi, "lam_tuoi": tong_tuoi, "bo_da_xoa": so_bo,
-            "tong": len(nap.keo_ve_danh_sach())}
+            "dia_chi_reset": tong_reset, "tong": len(nap.keo_ve_danh_sach())}
 
 
 @router.get("/nap/danh-sach")
@@ -236,6 +237,7 @@ def bo_khoi_hang_doi(uuid: str, phien: Phien = Depends(require_session)):
     if tt != "xong":
         raise HTTPException(status_code=409, detail="Chỉ bỏ được hồ sơ đã nạp khỏi hàng đợi.")
     nap.keo_ve_xoa(uuid)
+    nap.nhap_xoa(uuid)  # dọn nháp bền kèm ảnh PII (CHANGES #32)
     return {"ok": True, "uuid": uuid}
 
 
@@ -250,6 +252,49 @@ def tai_anh_keo_ve(uuid: str, phien: Phien = Depends(require_session)):
         raise HTTPException(status_code=404, detail="Hồ sơ chưa có ảnh.")
     media = "image/png" if data[:8] == b"\x89PNG\r\n\x1a\n" else "image/jpeg"
     return Response(content=data, media_type=media)
+
+
+# ---- Nháp chuẩn bị BỀN (NAP-01, CHANGES #32, TDD §9.3a) ---------------------
+class NhapChuanBiIn(BaseModel):
+    dia_chi_json: str | None = None   # địa chỉ 2 cấp đã map (JSON); None = chưa map
+    chi_tiet: str | None = None       # số nhà/thôn (NoiTT)
+    noi_cap: str | None = None        # nơi cấp CCCD
+    tick_json: str | None = None      # danh sách MaGT đã tick (JSON)
+    jp2_b64: str | None = None        # ảnh đã đổi nền (.jp2 base64) — PII
+    anh_preview: str | None = None    # PNG xem trước (base64)
+
+
+@router.get("/nap/nhap")
+def nhap_co_list(uuids: str = Query(..., description="danh sách uuid, ngăn bằng dấu phẩy"),
+                 phien: Phien = Depends(require_session)):
+    """Cờ NHẸ (co_dia_chi/co_anh/co_tick) cho 2 chip cả lưới — KHÔNG trả ảnh (§10.5).
+    Dùng `?uuids=a,b,c`; uuid không có nháp → cả 3 cờ False."""
+    ds = [u.strip() for u in uuids.split(",") if u.strip()]
+    return nap.nhap_co(ds)
+
+
+@router.get("/nap/nhap/{uuid}")
+def nhap_doc_mot(uuid: str, phien: Phien = Depends(require_session)):
+    """Đọc ĐẦY ĐỦ 1 nháp (kèm jp2_b64 + anh_preview) — gọi khi MỞ drawer Chuẩn bị.
+    Chưa có nháp → trả rỗng (các trường None), KHÔNG 404 (dòng mới chưa chuẩn bị là bình thường)."""
+    return nap.nhap_doc(uuid) or {
+        "uuid": uuid, "dia_chi_json": None, "chi_tiet": None, "noi_cap": None,
+        "tick_json": None, "jp2_b64": None, "anh_preview": None, "updated_at": None,
+    }
+
+
+@router.put("/nap/nhap/{uuid}")
+def nhap_luu_mot(uuid: str, body: NhapChuanBiIn, phien: Phien = Depends(require_session)):
+    """Lưu (upsert) nháp chuẩn bị — gọi khi đóng drawer / debounce (không mỗi phím)."""
+    nap.nhap_luu(uuid, **body.model_dump())
+    return {"ok": True, "uuid": uuid}
+
+
+@router.delete("/nap/nhap/{uuid}")
+def nhap_xoa_mot(uuid: str, phien: Phien = Depends(require_session)):
+    """Nút "Xóa nháp" — operator chủ động dọn 1 nháp (gồm ảnh PII). Idempotent (TDD-decisions §11)."""
+    nap.nhap_xoa(uuid)
+    return {"ok": True, "uuid": uuid}
 
 
 class NapLoIn(BaseModel):
@@ -284,6 +329,7 @@ def nap_lo_endpoint(body: NapLoIn, phien: Phien = Depends(require_session)):
         if dong["ok"]:
             nap.keo_ve_cap_nhat(dong["uuid"], trang_thai="xong",
                                 ma_dk=dong.get("ma_dk"), so_ho_so=dong.get("so_ho_so"))
+            nap.nhap_xoa(dong["uuid"])  # nạp xong → dọn nháp bền kèm ảnh PII (CHANGES #32)
         else:
             nap.keo_ve_cap_nhat(dong["uuid"], trang_thai="loi", loi=dong.get("loi"))
     return kq

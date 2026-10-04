@@ -1,7 +1,7 @@
 # Quyết định kỹ thuật — Thu nhận hồ sơ học viên
 
 > Nguồn của mục 1 và mục "Risks & Trade-offs" trong `docs/TDD.md`.
-> Cập nhật lần cuối: 30/09/2026
+> Cập nhật lần cuối: 04/10/2026
 
 ## 1. Kiến trúc 3 thành phần
 
@@ -86,3 +86,12 @@
 - **Đánh đổi:** phụ thuộc SP nội bộ app cũ ("QuangLA") — nhưng chính điều đó bảo đảm khớp; app cũ đổi SP thì tool phải theo.
 - **Đã từng chốt (tới 01/10/2026):** 3 SP rời `usp_NguoiLX_Insert` → `usp_NguoiLX_HoSo_Insert` → `usp_NguoiLXHS_GiayTo_Insert` × N + compensation bù trừ tay. Đổi vì **AS-003 (nạp thử 1 HV thật 01/10/2026)** phát hiện bản ghi lệch app cũ 5 field (họ tên không IN HOA, địa chỉ lặp, `DonViHocLX`, `CHON_IN_GPLX`, `MaQuocTich`) và 3 SP rời không set được `CHON_IN_GPLX`.
 - Nguồn: PRD NAP-05 ("khớp app cũ"); AS-003 01/10/2026; CHANGES #4.
+
+## 11. Lưu nháp chuẩn bị BỀN ở máy tool, gồm cả ảnh (04/10/2026)
+
+- **Đã chốt (04/10/2026):** Nháp chuẩn bị nạp (địa chỉ 2 cấp, chi tiết, nơi cấp, tick giấy tờ, **ảnh đã đổi nền** `jp2_b64`+preview) **lưu bền** xuống `staging.sqlite` bảng `nhap_chuan_bi` (TDD §9.3a) — sống qua F5/đóng-mở tool. **Tự xóa** khi nạp xong / "Bỏ khỏi hàng đợi" / hồ sơ bị xóa trên app web.
+- **Vì sao:** operator chuẩn bị nhiều HV trước khi nạp lô; mất nháp khi lỡ tải lại trang = làm lại từ đầu, dễ tưởng mất dữ liệu. 2 chip trạng thái (Địa chỉ/Ảnh) chỉ đúng nếu nháp bền.
+- **Đánh đổi (quan trọng — PII):** lưu `jp2_b64` bền **để ảnh căn cước nằm lại máy tool** giữa lúc chờ nạp — **đi ngược nguyên tắc cũ** "không để ảnh căn cước ở máy tool" (TDD §9.3 dọn ngay, §7.4). **Chấp nhận có điều kiện:** (1) máy tool là máy nội bộ tại CSDT, không phơi ra ngoài; (2) **tự xóa nháp (gồm ảnh)** ở 3 điểm dòng `keo_ve` kết thúc — nạp xong / "Bỏ khỏi hàng đợi" / đồng bộ xóa VPS; (3) ảnh nằm trong `staging.sqlite`, không commit/không backup ra ngoài (`.gitignore`).
+- **Giới hạn đã biết (thu hẹp sau review TDD #32, Điểm 4):** điều kiện (2) **KHÔNG phủ nháp bỏ dở** — một dòng `cho` operator chuẩn bị rồi không nạp mà collector cũng không xóa trên app web thì nháp (gồm ảnh) **tồn tại tới khi operator chủ động bấm nút "Xóa nháp"** (thêm ở drawer Chuẩn bị). Job dọn PII 30 ngày trên VPS (§9) xóa ảnh thô bên VPS nhưng **không** kéo theo xóa nháp bên tool. Chấp nhận giới hạn này vì máy nội bộ; không làm job tự quét-tuổi để tránh phức tạp.
+- **Phương án đã cân nhắc:** (B) chỉ lưu bền địa chỉ+tick, KHÔNG lưu ảnh — giữ nguyên tắc PII nhưng chip "đã có hình" không bền, F5 phải chọn ảnh lại (user bác, 03/10 hỏi-đáp). (C) mã hóa ảnh nháp trong SQLite — phức tạp, lợi ích thấp vì máy nội bộ.
+- **Nguồn:** user 03/10/2026 (hỏi-đáp chốt B "lưu bền + tự xóa"); PRD NAP-01/QLY-05; CHANGES #32.

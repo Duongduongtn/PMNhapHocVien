@@ -72,18 +72,18 @@ def test_iso_to_yyyymmdd():
 
 # ---- staging keo_ve ----------------------------------------------------------
 def test_keo_ve_upsert_them_moi(staging_tmp):
-    moi, tuoi = nap.keo_ve_upsert([_keo_row("u1"), _keo_row("u2")])
-    assert (moi, tuoi) == (2, 0)
-    moi2, tuoi2 = nap.keo_ve_upsert([_keo_row("u2"), _keo_row("u3")])  # u2 còn 'cho' → làm tươi; u3 mới
-    assert (moi2, tuoi2) == (1, 1)
+    moi, tuoi, reset = nap.keo_ve_upsert([_keo_row("u1"), _keo_row("u2")])
+    assert (moi, tuoi, reset) == (2, 0, 0)
+    moi2, tuoi2, reset2 = nap.keo_ve_upsert([_keo_row("u2"), _keo_row("u3")])  # u2 còn 'cho' → làm tươi; u3 mới
+    assert (moi2, tuoi2, reset2) == (1, 1, 0)
     assert {r["uuid"] for r in nap.keo_ve_danh_sach()} == {"u1", "u2", "u3"}
 
 
 def test_keo_ve_lam_tuoi_ban_cho(staging_tmp):
     # CHANGES #11: kéo lại cập nhật bản còn 'cho' (collector sửa ở app web sau khi đã kéo).
     nap.keo_ve_upsert([_keo_row("u1", ho_ten="Tên Cũ")])
-    moi, tuoi = nap.keo_ve_upsert([_keo_row("u1", ho_ten="Tên Mới")])
-    assert (moi, tuoi) == (0, 1)
+    moi, tuoi, reset = nap.keo_ve_upsert([_keo_row("u1", ho_ten="Tên Mới")])
+    assert (moi, tuoi, reset) == (0, 1, 0)
     assert nap.keo_ve_danh_sach()[0]["ho_ten"] == "Tên Mới"
 
 
@@ -91,8 +91,8 @@ def test_keo_ve_khong_dung_ban_da_nap(staging_tmp):
     # Bản 'xong'/'loi' GIỮ nguyên, kéo lại không làm tươi.
     nap.keo_ve_upsert([_keo_row("u1", ho_ten="Tên Cũ")])
     nap.keo_ve_cap_nhat("u1", trang_thai="xong", ma_dk="M1", so_ho_so="056")
-    moi, tuoi = nap.keo_ve_upsert([_keo_row("u1", ho_ten="Tên Mới")])
-    assert (moi, tuoi) == (0, 0)
+    moi, tuoi, reset = nap.keo_ve_upsert([_keo_row("u1", ho_ten="Tên Mới")])
+    assert (moi, tuoi, reset) == (0, 0, 0)
     r = nap.keo_ve_danh_sach()[0]
     assert r["ho_ten"] == "Tên Cũ" and r["trang_thai"] == "xong"
 
@@ -125,7 +125,7 @@ def test_keo_ghi_staging(staging_tmp, op_headers, monkeypatch):
     monkeypatch.setattr(vps_mod, "da_xoa", lambda token, since=None: {"uuids": [], "moc": None})
     r = client.post("/local/nap/keo", headers=op_headers)
     assert r.status_code == 200
-    assert r.json() == {"keo_ve": 2, "lam_tuoi": 0, "bo_da_xoa": 0, "tong": 2}
+    assert r.json() == {"keo_ve": 2, "lam_tuoi": 0, "bo_da_xoa": 0, "dia_chi_reset": 0, "tong": 2}
     assert len(nap.keo_ve_danh_sach()) == 2
 
 
@@ -336,3 +336,122 @@ def test_keo_dong_bo_vps_loi_khong_hong_keo(staging_tmp, op_headers, monkeypatch
     r = client.post("/local/nap/keo", headers=op_headers)
     assert r.status_code == 200 and r.json()["bo_da_xoa"] == 0
     assert {x["uuid"] for x in nap.keo_ve_danh_sach()} == {"u1"}  # KHÔNG bỏ nhầm khi da-xoa lỗi
+
+
+# ---- NAP-01 task 50: nháp chuẩn bị BỀN (CHANGES #32, TDD §9.3a) --------------
+def test_nhap_luu_doc_round_trip(staging_tmp):
+    nap.nhap_luu("u1", dia_chi_json='{"xa":"X"}', chi_tiet="Số 1 Thôn A",
+                 noi_cap="Cục CS", tick_json="[1,3]", jp2_b64="IMG64", anh_preview="PNG64")
+    d = nap.nhap_doc("u1")
+    assert d["dia_chi_json"] == '{"xa":"X"}' and d["chi_tiet"] == "Số 1 Thôn A"
+    assert d["noi_cap"] == "Cục CS" and d["tick_json"] == "[1,3]"
+    assert d["jp2_b64"] == "IMG64" and d["anh_preview"] == "PNG64"
+    assert d["updated_at"]  # có mốc thời gian
+    assert nap.nhap_doc("khong-co") is None
+
+
+def test_nhap_luu_ghi_de(staging_tmp):
+    nap.nhap_luu("u1", chi_tiet="cũ", jp2_b64="A")
+    nap.nhap_luu("u1", chi_tiet="mới", jp2_b64="B", dia_chi_json="{}")
+    d = nap.nhap_doc("u1")
+    assert d["chi_tiet"] == "mới" and d["jp2_b64"] == "B" and d["dia_chi_json"] == "{}"
+
+
+def test_nhap_co_cac_co(staging_tmp):
+    nap.nhap_luu("u1", dia_chi_json='{"xa":"X"}', jp2_b64="IMG", tick_json="[3]")
+    nap.nhap_luu("u2", dia_chi_json=None, jp2_b64=None, tick_json="[]")  # rỗng → False hết
+    co = nap.nhap_co(["u1", "u2", "u3"])  # u3 chưa có nháp
+    assert co == [
+        {"uuid": "u1", "co_dia_chi": True, "co_anh": True, "co_tick": True},
+        {"uuid": "u2", "co_dia_chi": False, "co_anh": False, "co_tick": False},
+        {"uuid": "u3", "co_dia_chi": False, "co_anh": False, "co_tick": False},
+    ]
+    assert nap.nhap_co([]) == []
+
+
+def test_nhap_xoa_don_ca_anh(staging_tmp):
+    nap.nhap_luu("u1", jp2_b64="IMG", dia_chi_json="{}")
+    nap.nhap_xoa("u1")
+    assert nap.nhap_doc("u1") is None
+    nap.nhap_xoa("u1")  # idempotent — không lỗi khi gọi lại
+
+
+def test_bug04_reset_dia_chi_khi_raw_doi(staging_tmp):
+    """BUG-04: noi_tt_raw đổi khi làm tươi → reset địa chỉ nháp, GIỮ ảnh/tick/nơi cấp."""
+    nap.keo_ve_upsert([_keo_row("u1", noi_tt_raw="Xã X, Tỉnh Y")])
+    nap.nhap_luu("u1", dia_chi_json='{"xa":"X"}', chi_tiet="Số 1", noi_cap="Cục",
+                 tick_json="[3]", jp2_b64="IMG", anh_preview="PNG")
+    moi, tuoi, reset = nap.keo_ve_upsert([_keo_row("u1", noi_tt_raw="Xã Z, Tỉnh W")])
+    assert (moi, tuoi, reset) == (0, 1, 1)
+    d = nap.nhap_doc("u1")
+    assert d["dia_chi_json"] is None and d["chi_tiet"] is None   # địa chỉ reset
+    assert d["jp2_b64"] == "IMG" and d["anh_preview"] == "PNG"   # ảnh giữ
+    assert d["tick_json"] == "[3]" and d["noi_cap"] == "Cục"     # tick/nơi cấp giữ
+
+
+def test_bug04_khong_reset_khi_raw_khong_doi(staging_tmp):
+    nap.keo_ve_upsert([_keo_row("u1", noi_tt_raw="Xã X, Tỉnh Y")])
+    nap.nhap_luu("u1", dia_chi_json='{"xa":"X"}', chi_tiet="Số 1")
+    _, tuoi, reset = nap.keo_ve_upsert([_keo_row("u1", noi_tt_raw="Xã X, Tỉnh Y")])
+    assert (tuoi, reset) == (1, 0)  # làm tươi nhưng KHÔNG reset
+    d = nap.nhap_doc("u1")
+    assert d["dia_chi_json"] == '{"xa":"X"}' and d["chi_tiet"] == "Số 1"
+
+
+def test_bug04_raw_doi_nhung_khong_co_nhap(staging_tmp):
+    """raw đổi nhưng dòng chưa có nháp → reset=0 (không có gì để reset)."""
+    nap.keo_ve_upsert([_keo_row("u1", noi_tt_raw="Xã X, Tỉnh Y")])
+    _, tuoi, reset = nap.keo_ve_upsert([_keo_row("u1", noi_tt_raw="Xã Z, Tỉnh W")])
+    assert (tuoi, reset) == (1, 0)
+
+
+def test_nhap_xoa_khi_dong_bo_xoa(staging_tmp):
+    """Đồng bộ xóa (keo_ve_xoa_neu_cho) bỏ dòng 'cho' → dọn luôn nháp bền (ảnh PII)."""
+    nap.keo_ve_upsert([_keo_row("u1")])
+    nap.nhap_luu("u1", jp2_b64="IMG")
+    assert nap.keo_ve_xoa_neu_cho("u1") is True
+    assert nap.nhap_doc("u1") is None
+
+
+def test_nhap_don_khi_nap_xong(staging_tmp, op_headers, monkeypatch):
+    """Nạp xong qua nap-lo → nháp bền (ảnh PII) tự xóa."""
+    nap.keo_ve_upsert([_keo_row("u1")])
+    nap.nhap_luu("u1", jp2_b64="IMG", dia_chi_json="{}")
+    monkeypatch.setattr(vps_mod, "lock", lambda t, u: None)
+    monkeypatch.setattr(vps_mod, "da_nap", lambda t, u, ma_dk: None)
+    monkeypatch.setattr(vps_mod, "unlock", lambda t, u: None)
+    monkeypatch.setattr(nap_router, "_nap_mot",
+                        lambda body: {"ma_dk": "MDK-u1", "so_ho_so": "056", "so_giay_to": 3})
+    r = client.post("/local/nap/nap-lo", headers=op_headers, json={"items": [_nap_item("u1")]})
+    assert r.status_code == 200 and r.json()["thanh_cong"] == 1
+    assert nap.nhap_doc("u1") is None  # nháp đã dọn
+
+
+# ---- NAP-01 task 50: endpoint nháp bền --------------------------------------
+def test_nhap_endpoints_401(staging_tmp):
+    assert client.get("/local/nap/nhap?uuids=u1").status_code in (401, 403)
+    assert client.get("/local/nap/nhap/u1").status_code in (401, 403)
+    assert client.put("/local/nap/nhap/u1", json={}).status_code in (401, 403)
+    assert client.delete("/local/nap/nhap/u1").status_code in (401, 403)
+
+
+def test_nhap_put_get_co_delete_qua_endpoint(staging_tmp, op_headers):
+    r = client.put("/local/nap/nhap/u1", headers=op_headers, json={
+        "dia_chi_json": '{"xa":"X"}', "chi_tiet": "Số 1", "noi_cap": "Cục",
+        "tick_json": "[3]", "jp2_b64": "IMG", "anh_preview": "PNG"})
+    assert r.status_code == 200 and r.json()["ok"] is True
+    full = client.get("/local/nap/nhap/u1", headers=op_headers).json()
+    assert full["jp2_b64"] == "IMG" and full["anh_preview"] == "PNG" and full["chi_tiet"] == "Số 1"
+    co = client.get("/local/nap/nhap", headers=op_headers, params={"uuids": "u1,u2"}).json()
+    assert co == [
+        {"uuid": "u1", "co_dia_chi": True, "co_anh": True, "co_tick": True},
+        {"uuid": "u2", "co_dia_chi": False, "co_anh": False, "co_tick": False},
+    ]
+    # nút "Xóa nháp"
+    assert client.delete("/local/nap/nhap/u1", headers=op_headers).status_code == 200
+    assert client.get("/local/nap/nhap/u1", headers=op_headers).json()["jp2_b64"] is None
+
+
+def test_nhap_get_chua_co_tra_rong_khong_404(staging_tmp, op_headers):
+    full = client.get("/local/nap/nhap/moi-toanh", headers=op_headers).json()
+    assert full["uuid"] == "moi-toanh" and full["dia_chi_json"] is None and full["jp2_b64"] is None

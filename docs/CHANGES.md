@@ -4,6 +4,7 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 32 | 04/10/2026 | ➕ Thêm + ✏️ Sửa | `NAP-01`, `QLY-05` | **Lưu nháp BỀN + 2 chip trạng thái + bổ sung ảnh 2 nguồn** (màn Nạp lô). ① **Lưu nháp bền** (NAP-01): chỉnh sửa chuẩn bị (địa chỉ 2 cấp, chi tiết, nơi cấp, tick giấy tờ, **ảnh đã đổi nền**) lưu xuống `staging.sqlite` bảng `nhap_chuan_bi` thay vì chỉ RAM → F5/đóng-mở tool không mất; **tự xóa** khi nạp xong/bỏ hàng đợi/xóa VPS; reset riêng địa chỉ nháp (backend, trong `keo_ve_upsert`) khi `noi_tt_raw` đổi (BUG-04) · ② **2 chip mỗi dòng** `✓/✗ Địa chỉ 2 cấp` + `✓/✗ Có hình` (mặc định ✗) · ③ **Mở drawer**: cả dòng bấm + nút "Xử lý" to · ④ **Nạp**: chặn thiếu địa chỉ, cảnh báo thiếu ảnh + lối tắt mở Tra cứu DB lọc "chưa ảnh" · ⑤ **Bổ sung ảnh HV thiếu ảnh** (QLY-05): lấy từ **file** (`chonFile`) hoặc **ảnh thô VPS** (`tra_uuid`→`tai_anh`→`napTuUrl`, nếu còn ≤30 ngày), cùng AnhModal + đổi nền | ✅ | ✅ §9.3a/§10.5/§11.5 (v3.2) | 🟡 ghi UX (cập nhật khi code) | ⬜ |
 | 31 | 03/10/2026 | ➕ Thêm + 🐛 | `NAP-05`, `QLY-01` | **Nơi cấp căn cước + số hồ sơ + popup chi tiết** (ca Lê Thị Hồng). ① **Nơi cấp** (BUG-10): nạp tự suy **mã Sở GTVT từ số CCCD** (`cccd[2:3]`; nơi cấp = `DM_DonViGTVT` LoaiDV='SO', vd 70=Bình Phước, 75=Đồng Nai) + **combobox** chọn tay (endpoint `/local/dvhc/so-gtvt`) + **vá 6 bản ghi cũ** rỗng · ② **Số hồ sơ** (BUG-09): `MAX+1` → **số nhỏ nhất chưa dùng** (lấp khe do nạp→gỡ→nạp lại) · ③ **Popup "Chi tiết học viên"** (QLY-01): thêm Ngày cấp · Nơi cấp (tên) · Địa chỉ cư trú + địa chỉ đầy đủ (join DM_DVHC); ẩn CMND cũ ở form nạp app web giữ nguyên (đã ẩn), chi tiết vẫn hiện. Thuần tool, KHÔNG đổi SP/schema | 🟡 ghi BUGS #9/#10 | — | ✅ popup + combobox | ✅ tool build+34 vitest; vá DB xong |
 | 30 | 03/10/2026 | ✏️ Sửa + ➕ Thêm | `THU-01`, `THU-05` | Redesign giao diện **DESKTOP** app web (nhánh `lg:`, mobile giữ nguyên): **① Quét (THU-01)** — desktop vào thẳng **form nhập tay** (bỏ cổng chọn), nút **Quét QR/Tải ảnh thu nhỏ** ra góc phải tiêu đề, Quét QR mở **popover camera** đè form rồi tự điền; "Lưu & nhập tiếp" → form trống · **② Hồ sơ đã gửi (THU-05)** — desktop **chọn-nhiều-để-xóa**: cột ô tích chỉ ở dòng Chờ nạp + thanh "Đã chọn N · Xóa N" + dialog xác nhận (lặp DELETE client, tái dùng QuanTriHoSo). KHÔNG đổi Data Model/API/endpoint. (Đổi số từ #28→#30 khi gộp 2 phiên song song) | ✅ | ✅ §6.5/§6.6 (v3.0) | ✅ ghi UX (sửa màn có sẵn, không dựng mới) | 🟡 client xong (build+24 test+review-nghiepvu đủ), chưa chụp Playwright/deploy |
 | 29 | 03/10/2026 | ✏️ Sửa (UI) | `NAP-01`, `NAP-03` | Tool máy Nạp: **dời 2 nút "Chọn tất cả sẵn sàng" + "Nạp N học viên vào khóa" từ thanh dính đáy LÊN header** (NAP-01, hàng shrink-0 trong `h-[calc]` → list tự co, nút luôn thấy) · **"Chọn tay" địa chỉ: 2 dropdown → ô gõ-để-lọc** `ComboLoc` (gõ không dấu cũng khớp nhờ `boDau`, NAP-03). Thuần client, KHÔNG đổi API/DB | ✅ | — UI-only | ✅ ghi UX+wireframe | ✅ tool build+29 test (chờ chụp) |
@@ -37,6 +38,21 @@
 | 1 | 01/10/2026 | ✏️ Sửa | — | Đổi nơi lưu bảng ánh xạ `DM_DVHC_MAP`: GPLX_CSDT → SQLite cục bộ của tool | — | ✅ | — | ✅ (task 5) |
 
 Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên quan
+
+---
+
+## #32 — Lưu nháp chuẩn bị BỀN + 2 chip trạng thái + bổ sung ảnh 2 nguồn (màn Nạp lô) · 04/10/2026
+
+- **Mã:** `NAP-01`, `QLY-05` (bổ sung tiêu chí, prefix cũ, không nghỉ hưu mã).
+- **Vì sao:** chủ dự án hỏi "nháp chưa nạp có mất khi kéo lại / xóa hết trên app web không" → rà kiến trúc 3 kho tách biệt: nháp chuẩn bị (địa chỉ 2 cấp, ảnh đổi nền, tick) hiện **chỉ ở RAM** của màn, mất khi tải lại trang. Chốt nâng nháp lên **lưu bền** để người nạp chuẩn bị nhiều HV an tâm, kèm 2 chip nhìn nhanh dòng nào đã map địa chỉ / đã có ảnh, nút mở to dễ bấm, và cho bổ sung ảnh HV thiếu ảnh lấy từ file hoặc kéo lại ảnh thô VPS.
+- **Lưu nháp bền (TDD §9.3a):** bảng mới `nhap_chuan_bi` trong `staging.sqlite` (tách khỏi `keo_ve` dữ-liệu-gốc-VPS); lưu địa chỉ/chi tiết/nơi cấp/tick + ảnh (`jp2_b64`+preview). API tool-local `GET/PUT /local/nap/nhap/{uuid}`. **Tự xóa** (`nhap_xoa(uuid)`) ở mọi điểm dòng `keo_ve` kết thúc: nạp xong, "Bỏ khỏi hàng đợi", đồng bộ xóa VPS. **BUG-04:** `keo_ve_upsert` khi làm tươi thấy `noi_tt_raw` đổi → reset ĐỊA CHỈ nháp (giữ ảnh/tick/nơi cấp) + chip địa chỉ về ✗ + toast.
+- **UX màn Nạp lô (TDD §10.5):** 2 chip `✓/✗ Địa chỉ 2 cấp` + `✓/✗ Có hình` (mặc định ✗); nạp **chặn khi thiếu địa chỉ**, **cảnh báo khi thiếu ảnh** + lối tắt chuyển Tra cứu DB lọc "chưa ảnh"; mở drawer bằng cả dòng + nút "Xử lý" to.
+- **Bổ sung ảnh HV thiếu ảnh (TDD §11.5):** AnhModal lấy ảnh gốc từ **file** (`chonFile`, sẵn có) hoặc **ảnh thô VPS** (`vps.tra_uuid`→`vps.tai_anh`→`AnhModal.napTuUrl`, sẵn có) — điều kiện ảnh còn trên VPS (~30 ngày); hết hạn thì chỉ còn nguồn file. Qua cùng luồng QLY-05 (đổi nền → `.jp2` → `nap_anh`).
+- **Quyết định PII (TDD-decisions §11):** lưu ảnh nháp bền ở máy tool đi ngược nguyên tắc cũ "không để ảnh căn cước ở máy tool"; chấp nhận có điều kiện (máy nội bộ CSDT + cam kết tự xóa + không commit/backup). Phương án B (lưu bền + tự xóa) do user chốt; đã bác phương án không-lưu-ảnh.
+- **Xác minh bằng GitNexus:** `keo_ve` chỉ chứa metadata (không có chỗ lưu nháp → mới hoàn toàn); `AnhModal` đã có `chonFile`+`napTuUrl`; `nap_anh` dùng chung `ghi_anh_update`; `vps.tra_uuid`/`vps.tai_anh` sẵn có → phần ảnh tái dùng gần hết, chỉ wiring.
+- **Đã sửa:** PRD (NAP-01 +4 "Done khi" + 1 edge; QLY-05 +1 "Done khi"; cả 2 giữ trạng thái, ghi chú yêu cầu mới) · TDD §9.3a (mới) /§10.5/§11.5 + Changelog v3.2 · TDD-decisions §11 (mới).
+- **Chưa code** — vào BUILD-PLAN (nằm trong task redesign Nạp lô #26 chưa code + thêm phần nháp bền/ảnh VPS). Code UI chạy skill `impeccable`.
+- **Còn nợ:** toàn bộ phần code (⬜). Màn: cập nhật `ui-demo/SCREENS.md` ghi chú 2 chip + nút Xử lý.
 
 ---
 
@@ -433,7 +449,8 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 > `/capnhat` đọc mục này ở Bước 0b để biết có thay đổi nào chưa ghi sổ không.
 > So bằng **danh sách mã**, không so bằng thời gian sửa file.
 
-- **Cập nhật:** 03/10/2026 (gộp 2 phiên song song: #28 QLY-09 + #29 NAP-01/03 + #30 THU-01/05; THU-01 hạ ✅→⏳; không bớt story)
+- **Cập nhật:** 04/10/2026 (#32 bổ sung tiêu chí NAP-01 + QLY-05: lưu nháp bền + 2 chip + bổ sung ảnh 2 nguồn; không thêm/bớt story. ⚠️ #31 có dòng bảng nhưng THIẾU mục chi tiết — cần phiên #31 bổ sung)
+- **Cập nhật trước:** 03/10/2026 (gộp 2 phiên song song: #28 QLY-09 + #29 NAP-01/03 + #30 THU-01/05; THU-01 hạ ✅→⏳; không bớt story)
 - **Số story trong PRD:** 25 (24 MUST/SHOULD gồm `THU-04` SHOULD + `THU-05` + `HTG-04` SHOULD + `QLY-06` ⏳ + `QLY-07` + `QLY-08` + `QLY-09`; chưa tính NICE `QLY-04`, `THU-03`)
 - **Mã story hiện có:** `HTG-01`…`HTG-06`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09` (NICE: `QLY-04`, `THU-03`)
 - **Mã đã nghỉ hưu:** (chưa có)
