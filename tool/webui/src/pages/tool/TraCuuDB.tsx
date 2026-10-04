@@ -265,6 +265,7 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce, locAnhBanDau }: {
   const [anhModal, setAnhModal] = useState(false); // AnhModal (căn + xóa phông)
   const [anhSeed, setAnhSeed] = useState<string | null>(null); // ảnh nạp sẵn vào AnhModal (chỉnh ảnh cũ / kéo VPS)
   const [anhVpsBusy, setAnhVpsBusy] = useState(false); // CHANGES #32 — đang kéo ảnh thô VPS (nguồn b)
+  const [vpsKhongCo, setVpsKhongCo] = useState(false);  // CHANGES #32 — ảnh thô VPS hết hạn/404 → ẩn nguồn (b), chỉ còn (a)
   const [anhBusy, setAnhBusy] = useState(false);
   const [anhErr, setAnhErr] = useState("");
 
@@ -395,6 +396,7 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce, locAnhBanDau }: {
     try {
       const url = await taiAnhVps(sel.ma_dk);
       if (!url) {
+        setVpsKhongCo(true); // ẩn nút nguồn (b) — chỉ còn chọn-file (TDD §11.5)
         setAnhErr("Ảnh gốc trên máy chủ đã hết hạn hoặc không có — chọn ảnh từ máy.");
         return;
       }
@@ -406,6 +408,9 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce, locAnhBanDau }: {
       setAnhVpsBusy(false);
     }
   }
+
+  // Đổi HV đang chọn → reset cờ "VPS không có ảnh" (nút nguồn b hiện lại cho HV mới).
+  useEffect(() => { setVpsKhongCo(false); }, [sel?.ma_dk]);
 
   async function napAnhHv(jp2B64: string) {
     if (!sel) return;
@@ -1016,8 +1021,8 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce, locAnhBanDau }: {
                       )}
                       <div className="flex gap-2 flex-wrap">
                         <button onClick={() => { setAnhMo(false); setAnhErr(""); }} className="h-9 px-3 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Hủy</button>
-                        {/* CHANGES #32 — nguồn (b): kéo ảnh thô VPS (chỉ gợi ý khi HV chưa có ảnh) */}
-                        {!sel.co_anh && (
+                        {/* CHANGES #32 — nguồn (b): kéo ảnh thô VPS (chỉ khi HV chưa có ảnh + VPS còn ảnh; ẩn sau 404) */}
+                        {!sel.co_anh && !vpsKhongCo && (
                           <button
                             onClick={() => void keoAnhVps()}
                             disabled={anhBusy || anhVpsBusy}
@@ -1029,7 +1034,7 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce, locAnhBanDau }: {
                         <button
                           onClick={() => { setAnhErr(""); setAnhSeed(null); setAnhModal(true); }}
                           disabled={anhBusy || anhVpsBusy}
-                          className={(sel.co_anh ? "ml-auto " : "") + "h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center gap-2 hover:brightness-110 transition-all disabled:opacity-60"}
+                          className={(sel.co_anh || vpsKhongCo ? "ml-auto " : "") + "h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center gap-2 hover:brightness-110 transition-all disabled:opacity-60"}
                         >
                           <Icon name={anhBusy ? "refresh" : "image"} className={"w-4 h-4" + (anhBusy ? " animate-spin" : "")} /> {anhBusy ? "Đang lưu…" : sel.co_anh ? "Chọn & xử lý ảnh" : "Chọn ảnh từ máy"}
                         </button>
