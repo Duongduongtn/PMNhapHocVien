@@ -1,12 +1,13 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { Icon } from "../../components/Icon";
 import { useToolAuth } from "../../auth/ToolAuth";
+import { useConfigDrawer } from "../../lib/configDrawer";
 
 // Cổng đăng nhập tool (HTG-01③). Đăng nhập xác thực qua VPS; chưa cấu hình URL VPS
 // thì vào Cấu hình trước (A1 — màn Cấu hình không cần đăng nhập).
 export default function DangNhap() {
   const { dangNhap } = useToolAuth();
+  const { open: moCauHinh } = useConfigDrawer();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loi, setLoi] = useState<string | null>(null);
@@ -82,9 +83,9 @@ export default function DangNhap() {
 
         <div className="mt-4 text-center text-[12px] text-muted-foreground">
           Chưa đặt kết nối VPS?{" "}
-          <Link to="/tool/cau-hinh" className="text-primary font-medium hover:underline">
+          <button type="button" onClick={moCauHinh} className="text-primary font-medium hover:underline">
             Vào Cấu hình
-          </Link>
+          </button>
         </div>
       </div>
     </div>

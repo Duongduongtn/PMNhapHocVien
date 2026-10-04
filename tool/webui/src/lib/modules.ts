@@ -34,7 +34,6 @@ export const MODULES: ModuleDef[] = [
     subnav: [
       { to: "/tool/nap", label: "Nạp hồ sơ", icon: "file" },
       { to: "/tool/tao-khoa", label: "Tạo khóa", icon: "plus" },
-      { to: "/tool/cau-hinh", label: "Cấu hình", icon: "settings" },
     ],
   },
   {
@@ -46,7 +45,6 @@ export const MODULES: ModuleDef[] = [
     db: "GPLX_CDB_CSDT",
     subnav: [
       { to: "/sync/ban-dong-bo", label: "Bàn đồng bộ", icon: "refresh" },
-      { to: "/sync/db-dich", label: "Quản lý CSDL đích", icon: "db" },
       { to: "/sync/lich-su", label: "Lịch sử & Hủy sync", icon: "clock" },
     ],
   },

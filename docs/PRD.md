@@ -41,7 +41,7 @@
 **Done khi:**
 - ✅ App web và tool đều bắt đăng nhập; không đăng nhập không dùng được.
 - ✅ 3 vai trò: nhân viên thu nhận · nhân viên nạp DB · quản trị; mỗi người một tài khoản (không dùng chung).
-- ✅ Tool có màn **Cấu hình**: nhập kết nối SQL Server (server/database/user/password) + URL VPS + API key, có nút "Kiểm tra kết nối", lưu vào config cục bộ (mã hóa).
+- ✅ Tool có **bảng Cấu hình**: nhập kết nối SQL Server (server/database/user/password) + URL VPS + API key, có nút "Kiểm tra kết nối", lưu vào config cục bộ (mã hóa). *(04/10/2026 — CHANGES #34: bảng này **dời lên icon ⚙ ở header** dùng chung cả tool, gộp với quản lý CSDL đích; chi tiết + UI mới ở **HTG-07**. Cơ chế config-store + kiểm kết nối giữ nguyên, nên HTG-01 vẫn ✅.)*
 - ✅ Nhân viên thu nhận không gọi được chức năng nạp DB (chặn 403).
 - ❌ Không làm SSO/đăng nhập bằng Google/Zalo lần này.
 
@@ -603,6 +603,24 @@
 
 > Nguồn: user 02/10/2026 (CHANGES #18)
 
+#### [HTG-07] Bảng cấu hình kết nối dùng chung ở header
+
+**Trạng thái:** ✅ Done — task 61 (04/10/2026, CHANGES #34). drawer ⚙ ở header mọi màn (kể cả trước đăng nhập — A1), 2 khối tách bạch màu (① NẠP xanh primary · ② SYNC teal) gộp `CauHinhDrawer.tsx` từ CauHinh+DbDich; bỏ route `/tool/cau-hinh`+`/sync/db-dich` + sub-nav; đăng nhập/lối tắt mở drawer qua `useConfigDrawer()`. Kiểm: typecheck + build · Playwright 1280/1440/1920 0 tràn/0 lỗi console · impeccable detect `[]` · **review-nghiepvu 7/7 Done-khi** · **review-giaodien đạt** (sửa `rounded-xl`→`rounded-lg` theo token). Chưa commit.
+**Story:** Là người dùng tool, tôi muốn xem/sửa cấu hình kết nối DB từ bất kỳ màn nào qua một nút ⚙ trên thanh header, với DB để **Nạp** và các DB để **Sync sang** tách bạch rõ ràng, để khỏi lạc không biết cài kết nối ở đâu và khỏi nhầm hai loại DB.
+
+**Done khi:**
+- ✅ Thanh header (góc phải, mọi màn) có **icon ⚙ Cấu hình**; bấm mở **một bảng cấu hình chung** (dạng panel/drawer), đóng lại về đúng màn đang xem.
+- ✅ Bảng chia **hai khối tách bạch, có nhãn rõ**:
+  - **① Kết nối chung + CSDL NGUỒN để Nạp:** Server / User / Mật khẩu (dùng chung cả tool) + tên **DB nguồn** `GPLX_CSDT` + URL VPS + API key + nút "Kiểm tra kết nối". *(nội dung HTG-01)*
+  - **② CSDL ĐÍCH để Sync sang:** danh sách **nhiều DB đích** (thêm/sửa/xóa, chỉ khác tên database — dùng chung Server/User/Pass ở khối ①), chọn **1 mặc định**, **Kiểm tra kết nối** từng cái, + tùy chọn đồng bộ (`TT_XuLy`, cập nhật `TongSoHV`). *(nội dung SYNC-02, dời vào đây)*
+- ✅ Người dùng **phân biệt được** đâu là DB để nạp, đâu là các DB để đẩy dữ liệu sang (nhãn + bố cục, không lẫn vào một danh sách phẳng).
+- ✅ **Bỏ** route màn Cấu hình riêng (`/tool/cau-hinh`) và mục "Quản lý CSDL đích" khỏi sidebar/sub-nav — chỉ vào từ header. Mọi lối cũ trỏ tới hai màn này chuyển sang mở bảng header.
+- ✅ Lưu **mã hóa cục bộ**; khối ① và khối ② vẫn là hai khối config riêng như cũ (không trộn chung một bản ghi).
+- ❌ Không khai Server/User/Pass riêng cho từng DB đích (vẫn dùng chung khối ①).
+- ❌ Không đụng cơ chế config-store/kiểm-kết-nối đã có (chỉ dời + gộp lớp UI).
+
+> Nguồn: user 04/10/2026 (CHANGES #34) · gộp HTG-01 ③ + SYNC-02 · dựng UI bằng `impeccable` + `ui-ux-pro-max`
+
 ---
 
 ### 🟣 Đồng bộ CDB (workspace riêng — tool máy CSDT)
@@ -612,7 +630,7 @@
 
 #### [SYNC-01] Bàn đồng bộ — chọn khóa, đối chiếu, đẩy HV sang CDB
 
-**Trạng thái:** ✅ Done — task 57-59 (04/10/2026). Port sync_tool v2.0: tạo HV qua usp_NguoiLX_Insert + INSERT thô (SoHoSo SỐ, verify DB) + copy GiấyTờ, NguoiTao='admin'; năm/khóa nguồn+đích (đích cờ BC1 cảnh báo B); đối chiếu skip + E1/E2; backdate MaDK batch; tiến trình SSE (fetch-reader); UI bàn đồng bộ (combo gõ-để-lọc, bảng 11 cột header dính, phân trang, SYNC cố định, test kết nối đích gate Tải, chặn ngày tương lai/sau-KG, khóa thao tác khi đang sync). Kiểm: tool 258 pytest (+19) · webui build+34 vitest · Playwright 1280/1440/1920 · impeccable detect sạch · review-nghiepvu (4 chỗ thiếu đã sửa: ngày tương lai, disabled khi sync, combo gõ-lọc, gate test đích).
+**Trạng thái:** ✅ Done — task 57-59 + **task 62 làm đẹp UI** (04/10/2026, CHANGES #34): danh sách HV thêm avatar chữ-cái-đầu (theo tên gọi) + tên đậm đủ dấu không cắt + giãn dòng vừa (py-1.5) + CCCD mono; header bảng + nút Tải/SYNC đồng màu teal; +thông báo lỗi khi tải năm/khóa thất bại (bỏ catch câm). Kiểm: typecheck+build · Playwright 1280/1440 (150 HV thật, 0 tràn, 0 lỗi console) · detect `[]` · review-nghiepvu đủ · review-giaodien đạt. Nghiệp vụ sync KHÔNG đổi (bám sync_tool v2.0). Chưa commit. *(Đã làm trước đó — task 57-59, 04/10/2026, pass kiểm: Port sync_tool v2.0 tạo HV qua usp_NguoiLX_Insert + INSERT thô (SoHoSo SỐ, verify DB) + copy GiấyTờ, NguoiTao='admin'; năm/khóa nguồn+đích (đích cờ BC1 cảnh báo B); đối chiếu skip + E1/E2; backdate MaDK batch; tiến trình SSE (fetch-reader); UI bàn đồng bộ combo gõ-để-lọc + bảng 11 cột header dính + phân trang + SYNC cố định + test kết nối đích gate Tải + chặn ngày tương lai/sau-KG + khóa thao tác khi đang sync. Kiểm: tool 258 pytest · webui build+34 vitest · Playwright 1280/1440/1920 · impeccable detect sạch · review-nghiepvu đủ.)*
 **Story:** Là nhân viên nạp DB, tôi muốn chọn một khóa nguồn và một khóa đích rồi đẩy các học viên chưa có sang DB CDB, để khỏi gõ lại từng người ở phần mềm CDB.
 
 **Steps to Complete:**
@@ -636,17 +654,19 @@
 
 **Tiện ích UI (thêm 04/10, ngoài v2.0):** (a) combo khóa **gõ-để-lọc** (như màn Nạp) · (b) toggle **"Chỉ hiện HV sẽ tạo mới"** (ẩn dòng đã skip) · (c) **đếm dòng đang tick** cạnh nút SYNC.
 
+**Chuẩn giao diện (CHANGES #34, 04/10/2026 — làm lại bằng `impeccable` + `ui-ux-pro-max`):** combobox năm/khóa và ô chọn DB đích trình bày gọn, nhãn rõ (năm · khóa · hạng); **danh sách HV để sync hiển thị tên hài hòa, dễ đọc** (họ tên đủ dấu, căn cột, mật độ dòng vừa phải), không để tràn/cắt chữ; bám design-system token của `tool/webui`, kiểm Playwright 1280/1440/1920.
+
 **Edge cases:** HV đã có ở đích → skip · race trùng MaDK (2 phiên cùng khóa cùng ngày) → kiểm tồn tại + sinh lại, tối đa 3 lần rồi báo lỗi HV đó · copy giấy tờ lỗi → vẫn tính HV thành công (best-effort) · **E1 HV nguồn thiếu CCCD** (`SoCMT` rỗng) → chặn + báo riêng (không để lỗi giữa lô, vì `NguoiLX.SoCMT` NOT NULL) · **E2 trùng CCCD trong chính danh sách nguồn** → cảnh báo (PK là MaDK nên vẫn tạo được 2, để người dùng quyết) · **E3 mất kết nối CSDL đích giữa lô** → dừng, HV đã tạo giữ nguyên + đã ghi log → sync lại tự skip HV đã tạo · E4 HV nguồn chưa có ảnh → vẫn ép `TT_XuLy` theo tùy chọn (mặc định 03, giữ v2.0).
 
 > Nguồn: user 04/10/2026 · port sync_tool GPLX v2.0 · Phụ lục XXVII TT 17/2026/TT-BXD (format mã)
 
 #### [SYNC-02] Quản lý DB đích + tùy chọn đồng bộ
 
-**Trạng thái:** ✅ Done — task 56 (04/10/2026). API `/local/sync/targets` (GET/PUT + /test) + màn Quản lý CSDL đích (bảng inline-edit, radio mặc định, Kiểm tra kết nối báo số NguoiLX, tùy chọn TT_XuLy/TongSoHV); dùng chung host/user/pass với Nạp. Kiểm: tool 244 pytest (+8) · webui build+tsc+34 vitest · Playwright 1280/1440/1920 · impeccable detect sạch · review-nghiepvu 6/7 + 2b (sửa tên DB xóa test cũ). **2b phần "bắt test trước Tải" ở Bàn đồng bộ (SYNC-01, task 59).**
+**Trạng thái:** ✅ Done — task 61 (04/10/2026, CHANGES #34): quản lý nhiều DB đích dời vào **khối ② bảng cấu hình header** (`CauHinhDrawer.tsx`: bảng target teal + radio mặc định + Kiểm tra báo số NguoiLX + Thêm + tùy chọn TT_XuLy/TongSoHV), bỏ màn `/sync/db-dich` riêng; API `/local/sync/targets` + config-store **giữ nguyên**. Kiểm: typecheck+build+Playwright 3vp+detect `[]` · review-nghiepvu đủ · review-giaodien đạt. Chưa commit. *(Đã làm trước đó — task 56, 04/10/2026, pass kiểm: API `/local/sync/targets` GET/PUT+/test + màn Quản lý CSDL đích bảng inline-edit + radio mặc định + Kiểm tra kết nối báo số NguoiLX + tùy chọn TT_XuLy/TongSoHV, dùng chung host/user/pass với Nạp. Kiểm: tool 244 pytest · webui build+34 vitest · Playwright · impeccable sạch · review-nghiepvu đủ.)*
 **Story:** Là nhân viên nạp DB, tôi muốn khai báo các DB đích CDB và chọn DB mặc định, để đổi nơi đồng bộ mà không phải sửa file cấu hình.
 
 **Done khi:**
-- ✅ Thêm/sửa/xóa **nhiều DB đích** (tên hiển thị + tên database); dùng chung Server/User/Pass với cấu hình nạp.
+- ✅ Thêm/sửa/xóa **nhiều DB đích** (tên hiển thị + tên database); dùng chung Server/User/Pass với cấu hình nạp. *(04/10 — UI này nằm ở khối ② bảng cấu hình header HTG-07, không còn màn riêng.)*
 - ✅ Chọn 1 DB đích **mặc định** cho Bàn đồng bộ; đổi DB đích → bắt kiểm tra kết nối lại.
 - ✅ **Test kết nối** từng DB đích (báo số `NguoiLX`).
 - ✅ Tùy chọn áp cho mọi DB đích: `TT_XuLy` gán sau sync (mặc định `03`), bật/tắt cập nhật `KhoaHoc.TongSoHV`.
@@ -795,3 +815,4 @@
 | 01/10/2026 | v2.6 — app web nhập liên tiếp (CHANGES #13): THU-01/THU-02 +AC "Lưu & nhập hồ sơ tiếp" (gửi không ảnh + toast) + badge/bộ lọc "Thiếu ảnh" → hạ THU-01 & THU-02 ✅→⏳; +story **THU-04** (SHOULD) cảnh báo trùng CCCD app web (cảnh báo mềm, soi hàng đợi); +story **QLY-06** (📝 Draft) mở hồ sơ khóa khác cho HV đã có — còn nợ kiểm DB | PM |
 | 01/10/2026 | v2.7 — redesign UX nhập liệu (CHANGES #14): THU-01/THU-02 +AC ẩn ô CMND cũ (vẫn lưu từ QR) + ô ngày gõ tay/nút lịch (giữ năm-only) + desktop tách nút/bố cục/phím tắt. Giữ THU-01/02 ⏳ | PM |
 | 04/10/2026 | v2.8 — +Feature **Đồng bộ CDB** (CHANGES #33, SHOULD): 3 story `SYNC-01`/`SYNC-02`/`SYNC-03` port từ sync_tool GPLX v2.0, workspace riêng tách khỏi Nạp; +NFR kiến trúc workspace (mở rộng N module, dự kiến workspace #3 "Cập nhật kết quả học tập"); +3 edge case Sync | PM |
+| 04/10/2026 | v2.9 — cấu hình kết nối lên header (CHANGES #34): +story **HTG-07** (bảng cấu hình chung mở từ icon ⚙ header, gộp HTG-01 ③ + SYNC-02, tách rõ DB nguồn Nạp / nhiều DB đích Sync); sửa bullet Cấu hình HTG-01 trỏ sang HTG-07 (giữ ✅); hạ **SYNC-02 ✅→⏳** (quản lý đích dời vào bảng header) + **SYNC-01 ✅→⏳** (làm đẹp combobox + danh sách HV bằng impeccable/ui-ux-pro-max) | PM |

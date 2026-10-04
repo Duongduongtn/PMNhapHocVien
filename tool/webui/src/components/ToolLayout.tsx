@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { NavLink, Outlet, Link, useLocation } from "react-router-dom";
 import { Icon } from "./Icon";
+import CauHinhDrawer from "./CauHinhDrawer";
+import { ConfigDrawerContext } from "../lib/configDrawer";
 import { NHAN_VAI_TRO, useToolAuth } from "../auth/ToolAuth";
 import { MODULES, moduleForPath, type ModuleDef } from "../lib/modules";
 
@@ -30,6 +32,8 @@ export default function ToolLayout() {
   const active: ModuleDef = moduleForPath(pathname);
   const acc = ACCENT[active.accent];
 
+  const [cfgOpen, setCfgOpen] = useState(false);
+
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try {
       return localStorage.getItem(SB_KEY) === "1";
@@ -51,6 +55,7 @@ export default function ToolLayout() {
 
   // UI-1/2: khóa khung = 100svh, chỉ vùng nội dung cuộn → giống app Windows.
   return (
+    <ConfigDrawerContext.Provider value={{ open: () => setCfgOpen(true) }}>
     <div className="h-[100svh] overflow-hidden bg-background flex flex-col">
       {/* Thanh tiêu đề */}
       <header className="shrink-0 h-12 bg-card border-b border-border flex items-center gap-3 px-4">
@@ -60,20 +65,29 @@ export default function ToolLayout() {
           </span>
           Thu nhận &amp; đồng bộ hồ sơ — Tool máy CSDT
         </Link>
-        {user && (
-          <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2">
+          {user && (
             <span className="text-[12px] text-muted-foreground max-w-[220px] truncate">
               {user.ho_ten || user.username}
               <span className="text-muted-foreground/60"> · {NHAN_VAI_TRO[user.vai_tro] ?? user.vai_tro}</span>
             </span>
+          )}
+          <button
+            onClick={() => setCfgOpen(true)}
+            title="Cấu hình kết nối (dùng chung cả tool)"
+            className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Icon name="settings" className="w-4 h-4" /> Cấu hình
+          </button>
+          {user && (
             <button
               onClick={() => void dangXuat()}
               className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[12px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Icon name="logout" className="w-3.5 h-3.5" /> Đăng xuất
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </header>
 
       <div className="flex-1 min-h-0 flex">
@@ -180,5 +194,7 @@ export default function ToolLayout() {
         </main>
       </div>
     </div>
+    <CauHinhDrawer open={cfgOpen} onClose={() => setCfgOpen(false)} />
+    </ConfigDrawerContext.Provider>
   );
 }

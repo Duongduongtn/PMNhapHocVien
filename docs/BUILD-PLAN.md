@@ -2,7 +2,7 @@
 
 > File do `/kehoach` sinh. `/tieptheo` đọc file này để biết làm gì tiếp theo.
 > **Thứ tự code** nằm ở đây. **Yêu cầu và trạng thái story** nằm ở `docs/PRD.md`.
-> Cập nhật lần cuối: 04/10/2026 (v11 — bổ sung **Phase 4 Đồng bộ CDB** task 54-60 theo CHANGES #33: SYNC-01/02/03 port sync_tool v2.0, sidebar workspace, SSE, rollback; khóa đích BC1 cảnh báo-vẫn-cho (B))
+> Cập nhật lần cuối: 04/10/2026 (v12 — bổ sung task 61-62 theo CHANGES #34: HTG-07 bảng cấu hình chung ở header (gộp DB nguồn Nạp + nhiều DB đích Sync, bỏ route cau-hinh/db-dich) + làm đẹp UI Bàn đồng bộ; thuần UI/IA, khuyến nghị build 61→62 trước task 60)
 
 ## Quyết định về thứ tự
 
@@ -199,8 +199,11 @@
 | 58 | **SYNC-01 (2/3) SSE + chạy**: `POST /local/sync/run` (job nền thread + `asyncio.Queue`, ngắt SSE job vẫn chạy hết) + `GET /local/sync/stream` (SSE từng HV `{stt,trang_thai}` + tổng kết) + validate hạng khớp / ngày ≤ NgàyKG / backdate >90 hỏi | `SYNC-01 (2/3)` | M | 57 | 1+2 | [x] |
 | 59 | **SYNC-01 (3/3) UI Bàn đồng bộ**: màn React bám `ui-mock/sync.html` + skill UI — khung chọn khóa **cố định/thu gọn**, bảng 11 cột **header dính** + **phân trang** (mẫu `PhanTrang`), **SYNC cố định chân**, tiến trình SSE, HV đã có nền vàng + khóa tick; **cảnh báo khi khóa đích đã BC1 (vẫn cho sync — B)**; **(a)** combo khóa gõ-để-lọc · **(b)** toggle "Chỉ hiện HV sẽ tạo mới" · **(c)** đếm dòng đang tick cạnh SYNC; chặn/cảnh báo E1/E2; bỏ ô cán bộ + bỏ CSV | `SYNC-01 (3/3)` | M | 54,57,58 | 1 | [x] |
 | 60 | **SYNC-03 Lịch sử & Hủy sync**: router `/local/sync/lich-su` (đọc JSON `%APPDATA%`) + rollback (xóa theo MaDK log + `NguoiTao='SYNC'`, cascade `NguoiLX→HoSo→GiayTo`, **bắt lỗi HV đã BC1** FK NO_ACTION, cập nhật TongSoHV) + webui màn Lịch sử + modal hủy | `SYNC-03` | M | 55,57 | 1+2 | → PRD |
+| 61 | **HTG-07 Bảng cấu hình chung ở header** (CHANGES #34): `ToolLayout` +icon ⚙ góc phải header → panel/drawer **2 khối tách bạch**: ① *kết nối chung + DB NGUỒN Nạp* (gộp `CauHinh.tsx`) · ② *nhiều DB ĐÍCH Sync* (gộp `DbDich.tsx` — CRUD/mặc định/test/tùy chọn); gỡ route `/tool/cau-hinh` + `/sync/db-dich` khỏi `App.tsx` + subnav `lib/modules.ts`; mọi lối cũ trỏ 2 màn → mở panel. **Thuần UI** — backend `/local/config*`+`/local/sync/targets`+config-store KHÔNG đổi. `impeccable`+`ui-ux-pro-max` | `HTG-07`, `SYNC-02` | M | 54,56 | 1 | → PRD |
+| 62 | **SYNC-01 làm đẹp UI** (CHANGES #34): combobox năm/khóa + ô chọn DB đích gọn, nhãn rõ (năm·khóa·hạng); **danh sách HV để sync tên hài hòa, đủ dấu, căn cột, mật độ dòng vừa, không tràn/cắt chữ** (`BanDongBo.tsx`, `ComboLoc.tsx`); bám token `tool/webui`; `impeccable`+`ui-ux-pro-max`. Nghiệp vụ sync KHÔNG đổi (bám sync_tool v2.0) | `SYNC-01` | S | 59,61 | 1 | → PRD |
 
-> SYNC-01 cắt 3 task (57/58/59) cùng trỏ 1 story → PRD `SYNC-01` chỉ ✅ khi xong cả 3. Task **26** (đóng gói .exe) nay phụ thuộc thêm Phase 4 → chạy **sau task 60**.
+> SYNC-01 cắt 3 task (57/58/59) cùng trỏ 1 story → PRD `SYNC-01` chỉ ✅ khi xong cả 3 **và** task 62 (làm đẹp UI, CHANGES #34). Task **26** (đóng gói .exe) nay phụ thuộc thêm Phase 4 → chạy **sau task 62**.
+> **Thứ tự build khuyến nghị (user chốt 04/10):** làm **61 → 62 TRƯỚC task 60** — HTG-07 tái cấu trúc header/sidebar (bỏ route `db-dich`), làm trước thì SYNC-03 (task 60, thêm màn Lịch sử) ráp vào shell đã ổn định, khỏi đụng route hai lượt.
 
 ### ✅ Checkpoint 12 — sau task 54-60 (module Đồng bộ CDB)
 - [ ] Sync thật 1 khóa nhỏ → HV vào CDB **khớp phần mềm**: MaDK `75032-yyyyMMdd-nnnnnn`, SoHoSo dạng `B01` (qua `CreateNewSoHoso`), `NguoiTao=admin`; mở phần mềm CDB đối chiếu.
@@ -211,6 +214,14 @@
 - [ ] Tiến trình **SSE** chạy (thanh %, dòng đổi trạng thái); ngắt trang giữa chừng job vẫn xong.
 - [ ] **Regression Nạp**: sau đổi sidebar, màn Nạp/Tạo khóa/Cấu hình hành vi KHÔNG đổi.
 - [ ] Playwright 1280/1440/1920: sidebar + 3 màn Sync — 0 tràn ngang, header bảng dính, 0 lỗi console.
+
+### ✅ Checkpoint 13 — sau task 61-62 (cấu hình header + làm đẹp UI sync, CHANGES #34)
+- [ ] Icon ⚙ hiện trên header ở **mọi màn**; bấm mở panel cấu hình; đóng về đúng màn đang xem.
+- [ ] Panel chia **2 khối rõ**: ① kết nối chung + DB nguồn Nạp `GPLX_CSDT` · ② danh sách nhiều DB đích Sync (thêm/sửa/xóa/mặc định/test) — người dùng phân biệt được 2 loại.
+- [ ] "Kiểm tra kết nối" ở cả 2 khối chạy đúng (khối ① ping SQL+VPS; khối ② báo số NguoiLX từng đích).
+- [ ] Route cũ `/tool/cau-hinh` + `/sync/db-dich` **đã bỏ** khỏi sidebar/sub-nav; không còn link chết.
+- [ ] **Regression:** lưu/đọc config nạp + targets sync vẫn đúng (backend không đổi) — nạp + bàn đồng bộ chạy như cũ.
+- [ ] Màn Bàn đồng bộ: combobox + danh sách HV **đẹp, tên đủ dấu, không tràn/cắt**; Playwright 1280/1440/1920 0 tràn + `review-giaodien` đạt.
 
 ### ✅ Checkpoint 5 — cuối dự án
 - [ ] Mọi tiêu chí MUST + SHOULD trong PRD đạt.
@@ -253,10 +264,10 @@
 
 > `/tieptheo` so mục này với PRD mỗi buổi để biết kế hoạch còn khớp không. Lệch thì báo user chạy lại `/kehoach` chế độ bổ sung. **Không tự sửa kế hoạch.**
 
-- **Số story trong PRD khi cập nhật:** 28 (thêm `SYNC-01/02/03` từ CHANGES #33; trước đó `QLY-09` #28, `THU-05`/`QLY-08` #24; chưa tính NICE `QLY-04`, `THU-03`)
-- **Mã story đã đưa vào kế hoạch:** `HTG-01`, `HTG-02`, `HTG-03`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `SYNC-01`, `SYNC-02`, `SYNC-03`
+- **Số story trong PRD khi cập nhật:** 29 (thêm `HTG-07` từ CHANGES #34; `SYNC-01/02/03` #33; chưa tính NICE `QLY-04`, `THU-03`)
+- **Mã story đã đưa vào kế hoạch:** `HTG-01`, `HTG-02`, `HTG-03`, `HTG-07`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `SYNC-01`, `SYNC-02`, `SYNC-03`
 - **Mã story chưa đưa vào:** `QLY-04`, `THU-03` (NICE, chưa đủ chi tiết) · **`HTG-04/05/06`** (thêm ở CHANGES #18, đã code thẳng — chưa có task trong plan; cần `/kehoach` bổ sung riêng nếu muốn khớp sổ)
-- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 04/10/2026 (#33)
+- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 04/10/2026 (#34)
 
 ## Changelog
 
@@ -272,4 +283,5 @@
 | 03/10/2026 | v8 — bổ sung (CHANGES #24+#26): thêm task **41-47** (cuối Phase 3, trước task 26 đóng gói) — THU-05 xóa app web (41 ⚠VPS), QLY-08 gỡ về chờ nạp server (42 ⚠VPS) + tool/webui (43), NAP-01 đồng bộ xóa (44 ⚠VPS), "Dùng lại ảnh gốc" AnhModal (45), redesign Nạp lô drawer+sẵn sàng (46) + dialog nạp 3 pha + Xem trong DB (47) + Checkpoint 8/9. Lần đầu sửa server VPS từ Phase 2 → deploy lại. +story QLY-08, THU-05. 47 task. |
 | 03/10/2026 | v9 — bổ sung (CHANGES #28): thêm task **48-49** (cuối Phase 3, trước task 26) — QLY-09 đối soát VPS↔CSDT: backend liệt kê lệch theo khóa + 3 action tái dùng + phòng tuyến 2 chặn phantom (48), webui panel đối soát + nút sửa 1 chạm (49) + Checkpoint 10. Thuần tool, không endpoint/SP nạp mới. +story QLY-09. 49 task. |
 | 04/10/2026 | v10 — bổ sung (CHANGES #32, sau review TDD #32): thêm task **50-53** (cuối Phase 3, trước task 26) — NAP-01 lưu nháp BỀN backend `nhap_chuan_bi`+`nhap_xoa`+3 endpoint+BUG-04 reset trong `keo_ve_upsert` (50), UI nháp bền+2 chip+nút Xử lý/Xóa nháp (51), nạp chặn thiếu địa chỉ/cảnh báo thiếu ảnh+lối tắt (52); QLY-05 bổ sung ảnh 2 nguồn file/ảnh-thô-VPS (53) + Checkpoint 11. Endpoint list nhẹ + luật ghép địa chỉ theo biên bản `tdd-review-04-10-2026.md`. Tái dùng NAP-01/QLY-05, không story mới. 53 task. |
+| 04/10/2026 | v12 — bổ sung (CHANGES #34): thêm task **61** (HTG-07 bảng cấu hình chung ở header, gộp DB nguồn Nạp + nhiều DB đích Sync, bỏ route cau-hinh/db-dich — đóng HTG-07 + SYNC-02) + task **62** (SYNC-01 làm đẹp combobox + danh sách HV) + Checkpoint 13. Thuần UI/IA, backend không đổi; dựng impeccable/ui-ux-pro-max. Khuyến nghị build 61→62 trước task 60. +1 story HTG-07. 62 task. |
 | 04/10/2026 | v11 — bổ sung (CHANGES #33): thêm **Phase 4 Đồng bộ CDB** task **54-60** — sidebar workspace shell (54), Sync nền backend config/conn_dich/sync_helpers/sync_history (55), SYNC-02 Quản lý CSDL đích (56), SYNC-01 cắt 3: backend tạo HV qua 3 SP + MaCSDT từ QTHT/khóa đích (57) · SSE+chạy (58) · UI Bàn đồng bộ bám mock (59), SYNC-03 Lịch sử & Hủy sync (60) + Checkpoint 12 + prerequisite MaGT identity. Khóa đích BC1: cảnh báo-vẫn-cho (user chốt B). Task 26 đóng gói nay sau task 60. +3 story SYNC. 60 task. |

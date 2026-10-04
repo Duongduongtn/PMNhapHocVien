@@ -366,8 +366,10 @@ POST /local/khoa/:ma_kh/doi-nen      Đổi nền trắng cả khóa (job nền 
 > **Phục vụ:** `HTG-01`
 *Vì sao JWT + API key: token người dùng để truy vết ai thao tác; API key riêng cho máy tool để phân biệt kênh pull, thu hồi độc lập.*
 
-### 5.0 Màn Cấu hình tool (HTG-01)
-Tool có màn **Cấu hình** (gọi `/local/config`): nhập kết nối SQL Server (server/database/user/password), URL VPS, API key; nút **"Kiểm tra kết nối"** (`POST /local/config/test`) thử nối SQL Server + ping VPS trước khi lưu; lưu vào config cục bộ **mã hóa** (§15). Chưa cấu hình xong → chặn mọi chức năng nạp.
+### 5.0 Cấu hình tool (HTG-01 → bảng header HTG-07)
+Tool có **bảng Cấu hình** (gọi `/local/config`): nhập kết nối SQL Server (server/database/user/password), URL VPS, API key; nút **"Kiểm tra kết nối"** (`POST /local/config/test`) thử nối SQL Server + ping VPS trước khi lưu; lưu vào config cục bộ **mã hóa** (§15). Chưa cấu hình xong → chặn mọi chức năng nạp.
+
+> **04/10/2026 (CHANGES #34, HTG-07):** bảng này **không còn là màn route riêng** `/tool/cau-hinh` — dời lên **panel mở từ icon ⚙ trên header**, dùng chung mọi màn, và **gộp** khối quản lý nhiều DB đích Sync (SYNC-02, §11B.1) vào cùng panel, chia **hai khối tách bạch**: ① Kết nối chung + **DB NGUỒN để Nạp** `GPLX_CSDT` · ② **các DB ĐÍCH để Sync** (nhiều, chọn mặc định). Backend `/local/config*` + `/local/sync/targets` + config-store **giữ nguyên** — chỉ dời/gộp lớp UI. Dựng bằng `impeccable` + `ui-ux-pro-max`.
 
 ### 5.1 Luồng đăng nhập
 ```
@@ -943,9 +945,11 @@ Tool có **nhiều module độc lập**, điều hướng **2 cấp**: **sideba
 ```
 Sidebar          Module                 sub-nav (màn trong module)                → DB ghi
 ───────────────────────────────────────────────────────────────────────────────────────
-◉ Nạp hồ sơ      Thu nhận hồ sơ (xanh)   /tool/{nap,tao-khoa,cau-hinh}             → GPLX_CSDT
-○ Đồng bộ CDB    Đồng bộ CDB (hổ phách)  /sync/{ban-dong-bo,db-dich,lich-su}       → GPLX_CDB_CSDT
+◉ Nạp hồ sơ      Thu nhận hồ sơ (xanh)   /tool/{nap,tao-khoa}                      → GPLX_CSDT
+○ Đồng bộ CDB    Đồng bộ CDB (hổ phách)  /sync/{ban-dong-bo,lich-su}               → GPLX_CDB_CSDT
 ○ Kết quả học tập (dự kiến)              /ketqua/* (chưa đặc tả)
+
+⚙ Cấu hình (header, dùng chung — HTG-07, CHANGES #34): panel mở từ icon ⚙ trên header, KHÔNG nằm trong sub-nav module. Hai khối: ① kết nối chung + DB nguồn Nạp GPLX_CSDT · ② nhiều DB đích Sync. Thay cho route /tool/cau-hinh + /sync/db-dich (đã bỏ khỏi sub-nav).
 ```
 
 - **Backend tách module:** `app/routers/sync.py` + `app/sync_service.py` (vòng sync, rollback) + `app/sync_helpers.py` (sinh MaDK, enrich, load năm/khóa, copy row, snapshot — port `db_helpers.py`) + `app/sync_history.py` (port nguyên). **Không import** `nap.py`/`anh.py`/… và ngược lại — tránh xung đột + nhầm lẫn.
@@ -1177,3 +1181,4 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 | 02/10/2026 | 2.3 | Zoom trình chỉnh ảnh (CHANGES #21): §9.1 thang zoom mũ (3^t, t∈[−1,1], giữa=cỡ gốc) cho thu nhỏ dưới 1× + lăn chuột; grab tự do 4 hướng (nới clamp giữ ≥1/4 ảnh). |
 | 03/10/2026 | 3.1 | Redesign giao diện DESKTOP (CHANGES #30; đổi từ v3.0 vì QLY-09 đã dùng 3.0 khi gộp 2 phiên): §6.5 desktop vào thẳng form nhập tay + Quét QR/Tải ảnh thu nhỏ góc phải + popover camera prefill (THU-01, mobile giữ camera-first); §6.6 desktop chọn-nhiều-để-xóa ở "Hồ sơ đã gửi" (THU-05, lặp DELETE client như QuanTriHoSo, mobile giữ xóa lẻ). Thuần client, KHÔNG đổi Data Model/API/endpoint. |
 | 04/10/2026 | 3.2 | +§11B **Đồng bộ CDB** (CHANGES #33, SYNC-01/02/03): kiến trúc module + sidebar trái (mở rộng N, dự kiến module #3), `sqlserver_conn_dich()` nhiều DB đích, luồng sync 1 HV + MaDK batch + guard race, SSE tiến trình, rollback dual-mode, 3 nợ kỹ thuật port từ sync_tool. +§2.4 module sync. **Tool chỉ desktop**: sidebar thu gọn + nội dung ≥1280px + bảng sync cuộn ngang. |
+| 04/10/2026 | 3.3 | Cấu hình lên header (CHANGES #34, HTG-07): §5.0 + §11B.0 — bỏ route `/tool/cau-hinh` + `/sync/db-dich` khỏi sub-nav, gộp thành **panel ⚙ trên header dùng chung** (khối ① kết nối + DB nguồn Nạp · khối ② nhiều DB đích Sync, tách bạch). Thuần UI/IA — backend `/local/config*` + `/local/sync/targets` + config-store không đổi; không chạm quyết định §12/§13/§14. |

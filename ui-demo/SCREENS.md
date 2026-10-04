@@ -6,7 +6,7 @@
 - **Bản HTML chuẩn:** ui-demo-options/detailed.html
 - **Stack:** Vite + React + TypeScript + Tailwind v3 (token shadcn) + react-router-dom · font Be Vietnam Pro
 - **Cổng dev:** 3021 (sổ `~/.claude/local-ports.md`)
-- **Cập nhật lần cuối:** 04/10/2026 (**lượt 19** CHANGES #32: 2 chip Địa chỉ/Ảnh + nút "Xử lý" to + nháp bền ở màn Nạp lô; bổ sung ảnh HV thiếu ảnh từ file/VPS — ghi UX, chưa dựng). Trước: 03/10/2026 (gộp 2 phiên song song: **lượt 17** panel "Đối soát VPS↔CSDT" QLY-09 (CHANGES #28) · **lượt 18** redesign DESKTOP app web THU-01/05 — Quét vào thẳng form + popover quét, "Hồ sơ đã gửi" chọn-nhiều-để-xóa (CHANGES #30) + tool dời nút nạp lên header & combobox gõ-lọc địa chỉ NAP-01/03 (CHANGES #29). Lượt 16: CHANGES #26)
+- **Cập nhật lần cuối:** 04/10/2026 (**lượt 20** CHANGES #34: cấu hình kết nối **dời lên panel ⚙ header dùng chung**, gộp DB nguồn Nạp + nhiều DB đích Sync (tách bạch rõ), bỏ màn `/tool/cau-hinh` + `/sync/db-dich`; làm đẹp combobox + danh sách HV màn Bàn đồng bộ — impeccable/ui-ux-pro-max, dựng thẳng `tool/webui`). Trước: **lượt 19** CHANGES #32: 2 chip Địa chỉ/Ảnh + nút "Xử lý" to + nháp bền ở màn Nạp lô; bổ sung ảnh HV thiếu ảnh từ file/VPS — ghi UX, chưa dựng. Trước: 03/10/2026 (gộp 2 phiên song song: **lượt 17** panel "Đối soát VPS↔CSDT" QLY-09 (CHANGES #28) · **lượt 18** redesign DESKTOP app web THU-01/05 — Quét vào thẳng form + popover quét, "Hồ sơ đã gửi" chọn-nhiều-để-xóa (CHANGES #30) + tool dời nút nạp lên header & combobox gõ-lọc địa chỉ NAP-01/03 (CHANGES #29). Lượt 16: CHANGES #26)
 
 ## ⚠️ Prototype gộp 1 project — KIẾN TRÚC THẬT là 2 app riêng (TDD §2.4)
 
@@ -29,7 +29,7 @@ Prototype là tham chiếu **style/layout**, không phải scaffold thật.
 | 1 | Quét QR căn cước + preview + gửi | THU-01, THU-02 | `/app/quet` | ✅ Xong | 1 |
 | 2 | Nạp hồ sơ vào DB (list · thông tin · ảnh) | NAP-01, NAP-02, NAP-03, NAP-04, NAP-05, NAP-06, QLY-01 | `/tool/nap` | ✅ Xong | 1 |
 | 3 | Đăng nhập & phân quyền | HTG-01 | `/dang-nhap` | ✅ Xong | 2 |
-| 4 | Cấu hình kết nối | HTG-01 | `/tool/cau-hinh` | ✅ Xong | 2 |
+| 4 | Cấu hình kết nối (DB nguồn Nạp + nhiều DB đích Sync) — **panel mở từ icon ⚙ header** | HTG-01, HTG-07, SYNC-02 | header ⚙ (bỏ route `/tool/cau-hinh`) | ⬜ Làm lại (CHANGES #34 — dời lên header, gộp quản lý DB đích; dựng thẳng `tool/webui`) | 2 |
 | 5 | Tạo khóa học | KHO-01 | `/tool/tao-khoa` | ✅ Xong | 2 |
 | 6 | Hồ sơ tôi đã gửi | THU-02 | `/app/da-gui` | ✅ Xong | 3 |
 | 7 | Tài khoản (app web) | HTG-01 | `/app/tai-khoan` | ✅ Xong | 3 |
@@ -41,8 +41,8 @@ Prototype là tham chiếu **style/layout**, không phải scaffold thật.
 | 13 | Nạp lô + IA 2 chế độ (hàng chờ VPS badge ⚪🔴🟢) | NAP-01 | `/tool/nap` (chế độ Nạp hồ sơ / Tra cứu DB) | ✅ Xong (+⬜ "Bỏ khỏi hàng đợi" & "Nạp lại nhanh" CHANGES #22) | 5 |
 | 14 | Tra cứu DB: avatar lưới (3 ca: có ảnh/chưa ảnh/mất file) + xem ảnh lớn+đường dẫn + thống kê đầu khóa + thao tác nhanh | QLY-01 | `/tool/nap` (tab DB) | ✅ Xong | 13 |
 | 15 | Đổi nền trắng cả khóa (phạm vi + sao lưu _BACKUP + thanh tiến độ) | QLY-07 | `/tool/nap` (tab DB → dialog) | ✅ Xong | 13 |
-| 16 | Sync · Bàn đồng bộ (chọn khóa nguồn/đích · ngày+cán bộ · bảng HV đối chiếu đích · SYNC + tiến trình SSE · CSV) | SYNC-01 | `/sync/ban-dong-bo` | ⬜ Chưa có route (dựng thẳng `tool/webui`, không qua ui-demo) | — |
-| 17 | Sync · Quản lý DB đích (nhiều DB đích + chọn mặc định + test + tùy chọn TT_XuLy/TongSoHV) | SYNC-02 | `/sync/db-dich` | ⬜ Chưa có route (dựng thẳng `tool/webui`) | — |
+| 16 | Sync · Bàn đồng bộ (chọn khóa nguồn/đích · ngày nhập HS · bảng HV đối chiếu đích · SYNC + tiến trình SSE) | SYNC-01 | `/sync/ban-dong-bo` | ⬜ Đã dựng (task 57-59) — **làm đẹp lại** combobox + danh sách HV (CHANGES #34, impeccable/ui-ux-pro-max) | — |
+| 17 | Sync · Quản lý DB đích → **dời vào khối ② của panel ⚙ header** (xem màn #4/HTG-07) | SYNC-02, HTG-07 | header ⚙ (bỏ route `/sync/db-dich`) | ⬜ Làm lại (CHANGES #34) | — |
 | 18 | Sync · Lịch sử & Hủy sync khóa (log JSON + rollback dual-mode) | SYNC-03 | `/sync/lich-su` | ⬜ Chưa có route (dựng thẳng `tool/webui`) | — |
 | — | Hàng đợi VPS + xóa PII 30 ngày | HTG-02 | (backend, không có UI) | ⬜ Không dựng | — |
 | — | Kết xuất Excel (NICE) | QLY-04 | (mới có nút, chưa luồng) | ⬜ NICE — sau | — |
@@ -62,8 +62,10 @@ Chú thích: ✅ Xong · 🟡 Placeholder · ⬜ Chưa có route
 | /tool/nap | Địa chỉ | Combobox tra DM_DVHC: gõ tên/mã → chọn "mã — địa chỉ", lấy đúng MaDvhc/MaDVQL | 1 |
 | /tool/nap | Ảnh | Modal chỉnh riêng (crop 3:4 kéo/zoom + xóa phông + kết quả nền trắng) | 1 |
 | /tool/nap | TT_XuLy/TrangThai theo ảnh | Có ảnh→TT_XuLy 03, thiếu ảnh→01; TrangThai=1 không đổi (verify DB) — hiện ở dòng "Tự điền" | 1 |
-| /tool/tao-khoa, /tool/cau-hinh | Form layout | Một trang; tái dùng pattern "Tự điền chip + nhóm BẮT BUỘC (viền đỏ, *) + accordion Thông tin thêm" như /tool/nap | 2 |
-| /tool/cau-hinh | Kiểm tra kết nối | Nút "Kiểm tra kết nối" → badge kết quả inline (thành công/lỗi), không popup | 2 |
+| /tool/tao-khoa | Form layout | Một trang; tái dùng pattern "Tự điền chip + nhóm BẮT BUỘC (viền đỏ, *) + accordion Thông tin thêm" như /tool/nap | 2 |
+| Cấu hình (⚙ header, HTG-07) | Kiểm tra kết nối | Nút "Kiểm tra kết nối" → badge kết quả inline (thành công/lỗi), không popup | 2 |
+| Cấu hình (⚙ header, HTG-07) | Dùng chung cả tool + phân biệt DB | **Panel mở từ icon ⚙ góc phải header** (mọi màn), KHÔNG là route riêng, KHÔNG nằm trong sub-nav. Chia **hai khối tách bạch có nhãn rõ**: ① *Kết nối chung + CSDL NGUỒN để Nạp* (Server/User/Pass + `GPLX_CSDT` + VPS + API key) · ② *Các CSDL ĐÍCH để Sync* (danh sách nhiều DB, chọn mặc định, test, tùy chọn). Người dùng nhìn là biết đâu là DB nạp, đâu là các DB đẩy sang — không trộn một danh sách phẳng. Bỏ màn `/tool/cau-hinh` + `/sync/db-dich`. Dựng impeccable/ui-ux-pro-max | (#34) |
+| /sync/ban-dong-bo | Làm đẹp combobox + danh sách HV (CHANGES #34) | Combobox năm/khóa + ô chọn DB đích gọn, nhãn rõ (năm · khóa · hạng); **danh sách HV để sync: tên hiển thị hài hòa, đủ dấu, căn cột, mật độ dòng vừa phải, không tràn/cắt chữ**; bám token `tool/webui`; impeccable/ui-ux-pro-max; Playwright 1280/1440/1920 | (#34) |
 | /dang-nhap | Bố cục | Card giữa màn (username + password + nút); 3 vai trò theo tài khoản, không SSO | 2 |
 | Tool (ToolLayout) | Điều hướng nhiều module | **Sidebar trái** = danh sách module (Nạp hồ sơ · Đồng bộ CDB · dự kiến Kết quả học tập) → bấm module hiện sub-nav + màn của module; mỗi module màu nhấn + banner DB riêng; sidebar thu gọn được (icon ↔ nhãn); đăng ký mảng MODULES (mở rộng N). Nav Nạp cũ → sub-nav module Nạp (hành vi màn không đổi) | (SYNC) |
 | Tool (toàn bộ) | Bề rộng · thiết bị | **CHỈ desktop** (không responsive/mobile); nội dung ≥1280px, canh giữa ~1500px; sidebar nhường bề ngang; **bảng nhiều cột cuộn ngang trong vùng bảng**, không co cột cắt chữ/MaDK. Kiểm Playwright 1280/1440/1920 bắt tràn ngang trước khi xong | (SYNC) |

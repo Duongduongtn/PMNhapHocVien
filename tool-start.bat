@@ -8,7 +8,7 @@ cd /d "%~dp0"
 echo === Don tien trinh cu tren cong 8000 / 3011 (neu co) ===
 call "%~dp0tool-stop.bat" quiet
 echo === Khoi dong backend (FastAPI, cong 8000) ===
-start "Tool Backend 8000" cmd /k "chcp 65001 >nul & cd tool & set PYTHONUTF8=1& .venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000"
+start "Tool Backend 8000" cmd /k "chcp 65001 >nul & cd tool & set PYTHONUTF8=1& .venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload --reload-dir app"
 echo === Khoi dong webui (Vite, cong 3011) ===
 start "Tool WebUI 3011" cmd /k "chcp 65001 >nul & cd tool\webui & pnpm dev"
 echo === Doi vai giay roi mo trinh duyet ===
