@@ -502,6 +502,36 @@ export const nhapXoa = (uuid: string) =>
     headers: authHeaders(),
   }).then(json<{ ok: boolean; uuid: string }>);
 
+// ── QLY-09: Đối soát VPS↔CSDT (CHANGES #28, task 48/49) ──────────────────────
+export interface DoiSoatDong {
+  loai: string;              // "①" | "②" | "③"
+  uuid?: string;
+  ma_dk?: string;
+  ho_ten?: string | null;
+  trang_thai_vps?: string;   // ca ②
+  locked_at?: string;        // ca ③
+  hanh_dong: string;         // "da_nap" | "tra_ve_cho_nap" | "unlock"
+}
+export interface KhongTraDuoc { ma_dk: string; ho_ten?: string | null; ly_do?: string }
+
+export const doiSoatKhoa = (maKh: string) =>
+  fetch(`${BASE}/local/doi-soat/khoa?ma_kh=${encodeURIComponent(maKh)}`, { headers: authHeaders() })
+    .then(json<{ ca2: DoiSoatDong[]; khong_tra_duoc: KhongTraDuoc[] }>);
+
+export const quetLac = () =>
+  fetch(`${BASE}/local/doi-soat/lac`, { headers: authHeaders() })
+    .then(json<{ phantom: DoiSoatDong[]; treo: DoiSoatDong[] }>);
+
+const _dsPost = (path: string) =>
+  fetch(`${BASE}${path}`, { method: "POST", headers: authHeaders() }).then(json<{ ok: boolean }>);
+
+export const doiSoatDaNap = (uuid: string, maDk: string) =>
+  _dsPost(`/local/doi-soat/da-nap?uuid=${encodeURIComponent(uuid)}&ma_dk=${encodeURIComponent(maDk)}`);
+export const doiSoatTraVe = (uuid: string) =>
+  _dsPost(`/local/doi-soat/tra-ve?uuid=${encodeURIComponent(uuid)}`);
+export const doiSoatMoKhoa = (uuid: string) =>
+  _dsPost(`/local/doi-soat/mo-khoa?uuid=${encodeURIComponent(uuid)}`);
+
 // Ảnh thô cần Bearer → tải bằng fetch rồi tạo object URL (thẻ <img> không gửi header được).
 // Chưa có ảnh (404) → null.
 export const taiAnhKeoVe = async (uuid: string): Promise<string | null> => {

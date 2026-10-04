@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Icon } from "../../components/Icon";
 import AnhModal from "../../components/AnhModal";
 import MoKhoaKhacDialog from "../../components/MoKhoaKhacDialog";
+import DoiSoatDialog from "../../components/DoiSoatDialog";
 import { PhanTrang } from "../../components/PhanTrang";
 import { boDau, ymdToVN, maskNgay, nghiSaiChinhTa } from "../../lib/format";
 import {
@@ -278,6 +279,7 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce, locAnhBanDau }: {
 
   // Đổi nền trắng cả khóa (QLY-07 task 40)
   const [doiNenMo, setDoiNenMo] = useState(false);
+  const [doiSoatMo, setDoiSoatMo] = useState(false); // QLY-09 task 49 — panel đối soát VPS↔CSDT
 
   async function timKhoa() {
     setErr("");
@@ -683,11 +685,19 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce, locAnhBanDau }: {
             <span className="text-[13px] font-bold">{khoa.ten_kh}</span>
             <span className="text-[12px] text-muted-foreground tabular-nums">{khoa.ma_kh} · hạng {khoa.hang_gplx}</span>
             {khoa.bc1 && <Bc1Chip />}
+            {/* QLY-09 task 49 — đối soát máy chủ ↔ CSDT (theo khóa này + quét lạc toàn hệ nếu admin) */}
+            <button
+              type="button"
+              onClick={() => setDoiSoatMo(true)}
+              className="ml-auto inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-border text-[13px] font-medium hover:bg-muted transition-colors"
+            >
+              <Icon name="refresh" className="w-4 h-4" /> Đối soát máy chủ
+            </button>
             {/* QLY-07 task 40 — đổi nền trắng cả khóa (được phép cả khi BC1: ảnh không nằm trong báo cáo) */}
             <button
               type="button"
               onClick={() => setDoiNenMo(true)}
-              className="ml-auto inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-border text-[13px] font-medium hover:bg-muted transition-colors"
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-border text-[13px] font-medium hover:bg-muted transition-colors"
             >
               <Icon name="image" className="w-4 h-4" /> Đổi nền cả khóa
             </button>
@@ -1213,6 +1223,15 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce, locAnhBanDau }: {
             setTimeout(() => setOkMsg(""), 3500);
             if (khoa) setHoSo(await dsHoSoTheoKhoa(khoa.ma_kh)); // làm tươi avatar lưới
           }}
+        />
+      )}
+
+      {/* Đối soát VPS↔CSDT (QLY-09 task 49) */}
+      {doiSoatMo && (
+        <DoiSoatDialog
+          khoaMa={khoa?.ma_kh}
+          tenKhoa={khoa?.ten_kh || undefined}
+          onDong={() => setDoiSoatMo(false)}
         />
       )}
     </div>
