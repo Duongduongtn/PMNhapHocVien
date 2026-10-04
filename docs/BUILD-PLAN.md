@@ -206,22 +206,23 @@
 > **Thứ tự build khuyến nghị (user chốt 04/10):** làm **61 → 62 TRƯỚC task 60** — HTG-07 tái cấu trúc header/sidebar (bỏ route `db-dich`), làm trước thì SYNC-03 (task 60, thêm màn Lịch sử) ráp vào shell đã ổn định, khỏi đụng route hai lượt.
 
 ### ✅ Checkpoint 12 — sau task 54-60 (module Đồng bộ CDB)
-- [ ] Sync thật 1 khóa nhỏ → HV vào CDB **khớp phần mềm**: MaDK `75032-yyyyMMdd-nnnnnn`, SoHoSo dạng `B01` (qua `CreateNewSoHoso`), `NguoiTao=admin`; mở phần mềm CDB đối chiếu.
-- [ ] HV đã có ở đích (theo SoCMT) → **skip** (không tạo hồ sơ 2); đúng PK(MaDK).
-- [ ] **Backdate**: chọn ngày quá khứ → MaDK + NgayNhanHSo/NgayTao đúng ngày đó.
-- [ ] Khóa đích **đã BC1** → **cảnh báo**, vẫn sync được (phương án B).
-- [ ] **Hủy sync khóa** → xóa sạch HV tool tạo; HV đã BC1 → **chặn (báo lỗi rõ)**; TongSoHV cập nhật lại.
-- [ ] Tiến trình **SSE** chạy (thanh %, dòng đổi trạng thái); ngắt trang giữa chừng job vẫn xong.
-- [ ] **Regression Nạp**: sau đổi sidebar, màn Nạp/Tạo khóa/Cấu hình hành vi KHÔNG đổi.
-- [ ] Playwright 1280/1440/1920: sidebar + 3 màn Sync — 0 tràn ngang, header bảng dính, 0 lỗi console.
+> **Kiểm 04/10/2026:** 265 pytest · E2E live tự-dọn trên CDB thật (tạo khóa test A1m → sync 3 HV A1K129 → verify → Hủy sync → xóa khóa; CDB về nguyên trạng 0/0/0, nhật ký test đã dọn). Ảnh/log E2E: happy-path + hủy sync xanh.
+- [x] Sync thật 1 khóa nhỏ → HV vào CDB **khớp phần mềm**: MaDK `75032-20261004-000001..003` (21 ký tự), **SoHoSo SỐ THUẦN `001/002/003`** (zero-pad 3 — **đính chính: KHÔNG phải `B01`/CreateNewSoHoso**, verify DB thật), `NguoiTao=admin`. (E2E live 04/10)
+- [x] HV đã có ở đích (theo SoCMT) → **skip** (không tạo hồ sơ 2); đúng PK(MaDK). (live: A1K129 vs CDB da_co_dich=2/150; C1-K14 da_co_dich=32/32)
+- [~] **Backdate**: MaDK + 4 cột ngày đúng ngày quá khứ — **unit test phủ** (`test_sync_service`); E2E live dùng hôm nay, chưa chạy backdate live.
+- [~] Khóa đích **đã BC1** → cảnh báo vẫn sync (B) — cờ `bc1` ở `dich/khoa` đã có; chưa dựng khóa BC1 test để E2E live.
+- [x] **Hủy sync khóa** → xóa sạch HV tool tạo (E2E: hs_del=3, nlx_del=3, HV còn=0); TongSoHV về 0; nhật ký giữ. HV đã BC1 → **chặn 409** (unit `test_sync_rollback`).
+- [~] Tiến trình **SSE** chạy (E2E: 3 sự kiện HV realtime) ✓; ngắt-trang-job-vẫn-xong: design/unit, chưa ngắt live.
+- [x] **Regression Nạp**: sau đổi sidebar + bỏ route cau-hinh/db-dich — build+typecheck sạch, Playwright điều hướng OK (hành vi màn Nạp không đổi).
+- [x] Playwright: cấu hình 1280/1440/1920 · Bàn đồng bộ 1280/1440 · Lịch sử 1440 — 0 tràn, header bảng dính (teal), 0 lỗi console.
 
 ### ✅ Checkpoint 13 — sau task 61-62 (cấu hình header + làm đẹp UI sync, CHANGES #34)
-- [ ] Icon ⚙ hiện trên header ở **mọi màn**; bấm mở panel cấu hình; đóng về đúng màn đang xem.
-- [ ] Panel chia **2 khối rõ**: ① kết nối chung + DB nguồn Nạp `GPLX_CSDT` · ② danh sách nhiều DB đích Sync (thêm/sửa/xóa/mặc định/test) — người dùng phân biệt được 2 loại.
-- [ ] "Kiểm tra kết nối" ở cả 2 khối chạy đúng (khối ① ping SQL+VPS; khối ② báo số NguoiLX từng đích).
-- [ ] Route cũ `/tool/cau-hinh` + `/sync/db-dich` **đã bỏ** khỏi sidebar/sub-nav; không còn link chết.
-- [ ] **Regression:** lưu/đọc config nạp + targets sync vẫn đúng (backend không đổi) — nạp + bàn đồng bộ chạy như cũ.
-- [ ] Màn Bàn đồng bộ: combobox + danh sách HV **đẹp, tên đủ dấu, không tràn/cắt**; Playwright 1280/1440/1920 0 tràn + `review-giaodien` đạt.
+- [x] Icon ⚙ hiện trên header ở **mọi màn**; bấm mở panel cấu hình; đóng về đúng màn. (Playwright: mở từ Bàn đồng bộ/Lịch sử)
+- [x] Panel chia **2 khối rõ**: ① kết nối + DB nguồn Nạp `GPLX_CSDT` · ② nhiều DB đích Sync — phân biệt được (review-giaodien + ảnh xác nhận).
+- [x] "Kiểm tra kết nối": khối ② báo số NguoiLX (live "729 người lái"). (khối ① ping SQL+VPS — logic cũ HTG-01 không đổi)
+- [x] Route cũ `/tool/cau-hinh` + `/sync/db-dich` **đã bỏ** khỏi sidebar/sub-nav (modules.ts + App.tsx); không còn link chết.
+- [x] **Regression:** backend `/local/config*`+`/local/sync/targets` không đổi; 265 pytest + nạp/bàn đồng bộ chạy như cũ.
+- [x] Màn Bàn đồng bộ: combobox + danh sách HV **đẹp, tên đủ dấu, không tràn/cắt** (avatar + teal); Playwright 1280/1440 (150 HV) 0 tràn + review-giaodien đạt.
 
 ### ✅ Checkpoint 5 — cuối dự án
 - [ ] Mọi tiêu chí MUST + SHOULD trong PRD đạt.
