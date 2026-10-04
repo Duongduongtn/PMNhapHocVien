@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Icon } from "../../components/Icon";
 import { PhanTrang } from "../../components/PhanTrang";
 import { ComboLoc } from "../../components/ComboLoc";
@@ -32,6 +33,7 @@ const toISO = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padSta
 interface RowTT { trang_thai: string; mau: string }
 
 export default function BanDongBo() {
+  const navigate = useNavigate();
   const [targets, setTargets] = useState<SyncTarget[]>([]);
   const [targetKey, setTargetKey] = useState("");
   const [namNguon, setNamNguon] = useState<number[]>([]);
@@ -339,7 +341,7 @@ export default function BanDongBo() {
             {trang.length === 0 && (
               <tr><td colSpan={11} className="px-3 py-8 text-center text-muted-foreground">{data ? "Không có dòng khớp." : "Chưa tải danh sách."}</td></tr>
             )}
-            {trang.map((h, i) => <Dong key={h.so_cmt || `r${i}`} h={h} stt={page * pageSize + i + 1} ticked={chon.has(h.so_cmt)} onTick={tickRow} tt={rowTT[h.so_cmt]} />)}
+            {trang.map((h, i) => <Dong key={h.so_cmt || `r${i}`} h={h} stt={page * pageSize + i + 1} ticked={chon.has(h.so_cmt)} onTick={tickRow} tt={rowTT[h.so_cmt]} onXem={(maDk) => navigate(`/sync/tra-cuu?ma_dk=${encodeURIComponent(maDk)}`)} />)}
           </tbody>
         </table>
       </div>
@@ -376,8 +378,9 @@ export default function BanDongBo() {
   );
 }
 
-function Dong({ h, stt, ticked, onTick, tt }: {
+function Dong({ h, stt, ticked, onTick, tt, onXem }: {
   h: SyncHV; stt: number; ticked: boolean; onTick: (cc: string, v: boolean) => void; tt?: RowTT;
+  onXem: (maDkDich: string) => void;
 }) {
   const locked = h.da_co_dich || h.thieu_cccd;
   const mono = { fontFamily: "ui-monospace,Consolas,monospace", fontSize: "12px" } as const;
@@ -414,7 +417,18 @@ function Dong({ h, stt, ticked, onTick, tt }: {
       <td className="px-2 py-1.5 text-center">{h.hang_gplx}</td>
       <td className="px-2 py-1.5 whitespace-nowrap text-muted-foreground" style={mono}>{h.ma_dk_nguon}</td>
       <td className="px-2 py-1.5 tabular-nums">{isoVN(h.ngay_hs_nguon)}</td>
-      <td className="px-2 py-1.5 whitespace-nowrap text-muted-foreground" style={mono}>{h.ma_dk_dich ?? "–"}</td>
+      <td className="px-2 py-1.5 whitespace-nowrap text-muted-foreground" style={mono}>
+        {h.da_co_dich && h.ma_dk_dich ? (
+          <button
+            type="button"
+            onClick={() => onXem(h.ma_dk_dich!)}
+            title="Xem chi tiết học viên ở Tra cứu CDB"
+            className="inline-flex items-center gap-1 text-sync hover:underline"
+          >
+            {h.ma_dk_dich} <Icon name="search" className="w-3 h-3" />
+          </button>
+        ) : (h.ma_dk_dich ?? "–")}
+      </td>
       <td className="px-2 py-1.5 tabular-nums">{isoVN(h.ngay_hs_dich)}</td>
       <td className="px-2 py-1.5 text-center tabular-nums">{h.so_hs_dich ?? "–"}</td>
       <td className="px-2 py-1.5">{st}</td>

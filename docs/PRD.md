@@ -694,7 +694,7 @@
 
 #### [TCB-01] Tra cứu CDB đích — tra khóa, lưới HV, xem chi tiết + ảnh
 
-**Trạng thái:** ⏳ Todo — thêm 04/10/2026 (CHANGES #35).
+**Trạng thái:** ✅ Done — 04/10/2026 (task 63; kiểm mức 1: pytest 265 pass, build sạch, Playwright 1280/1440/1920 render đúng, review-nghiepvu 4/4).
 **Story:** Là nhân viên nạp DB, tôi muốn tra một khóa học ở CSDL đích CDB rồi xem danh sách học viên và chi tiết + ảnh từng người, để kiểm lại dữ liệu đã đồng bộ sang đích mà không phải mở phần mềm CDB.
 
 **Done khi:**

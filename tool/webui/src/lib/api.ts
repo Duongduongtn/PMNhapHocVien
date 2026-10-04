@@ -676,6 +676,35 @@ export const postSyncHocVien = (maKhNguon: string, targetKey?: string) =>
     body: JSON.stringify({ ma_kh_nguon: maKhNguon, target_key: targetKey }),
   }).then(json<SyncHocVienData>);
 
+// ── TCB-01: Tra cứu CDB đích (đọc GPLX_CDB_CSDT) ──
+export interface KhoaCDB {
+  ma_kh: string;
+  ten_kh: string;
+  hang_gplx: string;
+  hang_dt: string | null;
+  bc1: boolean;   // khóa đã lập Báo cáo 1 (cấp khóa) — cờ cảnh báo
+  dkkh: boolean;  // đã kết xuất DKKH (SoQD_KhaiGiang có giá trị)
+}
+// Dòng HV đích = HoSoRow + tt_xuly (hiện thêm ở chi tiết CDB).
+export type HoSoRowCDB = HoSoRow & { tt_xuly: string | null };
+
+export const traCuuKhoaCDB = (q: string, targetKey?: string) =>
+  fetch(`${BASE}/local/sync/tra-cuu/khoa?${qs({ q, target_key: targetKey })}`, { headers: authHeaders() }).then(
+    json<KhoaCDB[]>,
+  );
+export const dsHoSoCDB = (makh: string, targetKey?: string) =>
+  fetch(`${BASE}/local/sync/tra-cuu/ho-so?${qs({ makh, target_key: targetKey })}`, { headers: authHeaders() }).then(
+    json<HoSoRowCDB[]>,
+  );
+export const khoaCuaMaDkCDB = (maDk: string, targetKey?: string) =>
+  fetch(`${BASE}/local/sync/tra-cuu/khoa-cua-madk?${qs({ ma_dk: maDk, target_key: targetKey })}`, {
+    headers: authHeaders(),
+  }).then(json<KhoaCDB>);
+export const taiAnhCDB = (maDk: string, targetKey?: string, v = 0) =>
+  taiAnhPNG(`/local/sync/tra-cuu/anh?${qs({ ma_dk: maDk, target_key: targetKey, v: v || undefined })}`);
+export const taiAnhThumbCDB = (maDk: string, targetKey?: string, v = 0) =>
+  taiAnhPNG(`/local/sync/tra-cuu/anh-thumb?${qs({ ma_dk: maDk, target_key: targetKey, v: v || undefined })}`);
+
 export interface SyncRunIn {
   ma_kh_nguon: string;
   ma_kh_dich: string;

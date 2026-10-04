@@ -45,6 +45,7 @@ export const MODULES: ModuleDef[] = [
     db: "GPLX_CDB_CSDT",
     subnav: [
       { to: "/sync/ban-dong-bo", label: "Bàn đồng bộ", icon: "refresh" },
+      { to: "/sync/tra-cuu", label: "Tra cứu CDB", icon: "search" },
       { to: "/sync/lich-su", label: "Lịch sử & Hủy sync", icon: "clock" },
     ],
   },

@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Icon } from "../../components/Icon";
 import AnhModal from "../../components/AnhModal";
+import AnhAvatar from "../../components/AnhAvatar";
 import MoKhoaKhacDialog from "../../components/MoKhoaKhacDialog";
 import DoiSoatDialog from "../../components/DoiSoatDialog";
 import { PhanTrang } from "../../components/PhanTrang";
@@ -44,49 +45,6 @@ function Bc1Chip() {
 }
 
 const FORM_RONG: HoSoSuaIn = { ho_ten: "", ngay_sinh: "", gioi_tinh: "U", so_cccd: "", noi_tt: "" };
-
-// QLY-01 task 35 — avatar mỗi dòng lưới, lazy-load (IntersectionObserver): chỉ tải thumbnail khi
-// dòng lọt viewport, không request cả khóa. 3 ca (TDD §11.1):
-//   co_anh=false → icon người (chưa ảnh) · thumb OK → ảnh · 404/422 → icon ảnh-vỡ (khác icon người).
-function AnhAvatar({ maDk, coAnh, ver = 0 }: { maDk: string; coAnh: boolean; ver?: number }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [url, setUrl] = useState<string | null>(null);
-  const [loi, setLoi] = useState(false);     // file mất/hỏng
-  const [hien, setHien] = useState(false);   // đã lọt viewport
-
-  useEffect(() => {
-    if (!coAnh || hien) return;
-    const el = ref.current;
-    if (!el) return;
-    const io = new IntersectionObserver(
-      (ents) => { if (ents.some((e) => e.isIntersecting)) { setHien(true); io.disconnect(); } },
-      { rootMargin: "120px" },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, [coAnh, hien]);
-
-  useEffect(() => {
-    if (!hien || !coAnh) return;
-    let huy = false;
-    let obj: string | null = null;
-    setLoi(false);
-    void taiAnhThumb(maDk, ver).then((kq) => {
-      if (huy) return;
-      if ("url" in kq) { obj = kq.url; setUrl(kq.url); } else setLoi(true);
-    });
-    return () => { huy = true; if (obj) URL.revokeObjectURL(obj); };
-  }, [hien, coAnh, maDk, ver]);
-
-  const box = "w-9 h-9 rounded-md border flex items-center justify-center overflow-hidden shrink-0";
-  if (!coAnh)
-    return <div className={box + " border-border bg-muted"} title="Chưa có ảnh"><Icon name="user" className="w-5 h-5 text-muted-foreground" /></div>;
-  if (loi)
-    return <div className={box + " border-destructive/40 bg-destructive/10"} title="DB có đường dẫn nhưng mất/hỏng file ảnh"><Icon name="imageOff" className="w-5 h-5 text-destructive" /></div>;
-  if (url)
-    return <div className={box + " border-border bg-muted"}><img src={url} alt="" className="w-full h-full object-cover" /></div>;
-  return <div ref={ref} className={box + " border-border bg-muted"}><Icon name="image" className="w-4 h-4 text-muted-foreground/40" /></div>;
-}
 
 // QLY-07 task 40 — dialog đổi nền trắng cả khóa: chọn phạm vi + sao lưu → chạy nền → polling tiến độ.
 function DoiNenDialog({ maKh, tenKh, onDong, onXong }: {
@@ -773,7 +731,7 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce, locAnhBanDau }: {
                 <tbody>
                   {rowsTrang.map((h) => (
                     <tr key={h.ma_dk} onClick={() => setSel(h)} className={"border-t border-border cursor-pointer transition-colors " + (noiBatSet.has(h.ma_dk) ? "bg-success/10 hover:bg-success/15" : "hover:bg-muted/60")}>
-                      <td className="px-2 py-1.5"><AnhAvatar maDk={h.ma_dk} coAnh={h.co_anh} ver={anhVer} /></td>
+                      <td className="px-2 py-1.5"><AnhAvatar coAnh={h.co_anh} ver={anhVer} tai={(v) => taiAnhThumb(h.ma_dk, v)} /></td>
                       <td className="px-3 py-2 tabular-nums">{h.so_ho_so || "—"}</td>
                       <td className="px-3 py-2 font-semibold">{h.ho_ten || "(chưa có tên)"}</td>
                       <td className="px-3 py-2">{gioiTinhVN(h.gioi_tinh)}</td>
