@@ -605,6 +605,73 @@
 
 ---
 
+### 🟣 Đồng bộ CDB (workspace riêng — tool máy CSDT)
+**Trạng thái:** ⏳ Todo
+
+> Nghiệp vụ **TÁCH HOÀN TOÀN** khỏi Nạp hồ sơ: workspace riêng trong tool (công tắc đổi màu nhấn, banner nhắc DB đích), module backend riêng (`routers/sync.py` + `sync_service.py` + `sync_helpers.py` — **không import** module nạp). Port nghiệp vụ từ công cụ đồng bộ GPLX v2.0 (`D:\Du_An\GPLX\sync_tool`). Chuyển học viên đã có trong DB nguồn `GPLX_CSDT` sang DB đích CDB `GPLX_CDB_CSDT` (cùng Server/User/Pass, **chỉ khác tên DB**). Nghiệp vụ DB đích: **1 người = 1 hồ sơ = 1 MaDK**.
+
+#### [SYNC-01] Bàn đồng bộ — chọn khóa, đối chiếu, đẩy HV sang CDB
+
+**Trạng thái:** ⏳ Todo — thêm 04/10/2026 (CHANGES #33). Port nghiệp vụ sync_tool v2.0.
+**Story:** Là nhân viên nạp DB, tôi muốn chọn một khóa nguồn và một khóa đích rồi đẩy các học viên chưa có sang DB CDB, để khỏi gõ lại từng người ở phần mềm CDB.
+
+**Steps to Complete:**
+1. Chọn **khóa nguồn** (Năm + Khóa ở `GPLX_CSDT`) và **khóa đích** (DB đích + Năm + Khóa ở CDB) — hai khóa phải cùng hạng xe.
+2. Chọn **Ngày nhập HS** (≤ NgàyKG khóa đích). *(Không hỏi cán bộ — xem Done khi.)*
+3. Bấm **Tải danh sách**: hiện HV khóa nguồn, đối chiếu CCCD với DB đích (cột MaDK đích / NgàyHS đích / Số HS).
+4. Tick chọn HV cần đồng bộ (HV đã có ở đích bị khóa tick).
+5. Bấm **SYNC** → xác nhận → tiến trình chạy trực tiếp từng HV → tổng kết.
+
+**Done khi:**
+- ✅ Chỉ sync khi **hạng khóa nguồn = hạng khóa đích** (lệch → chặn, báo rõ hai hạng).
+- ✅ **Ngày nhập HS ≤ NgàyKG** khóa đích (bằng ngày KG vẫn được); quá hôm nay/sau KG → chặn; backdate > 90 ngày → hỏi xác nhận.
+- ✅ Khóa đích **đã lập Báo cáo 1 (BC1)** → **vẫn cho chọn/sync nhưng hiện cảnh báo** (HV mới không nằm trong BC1 đã nộp; khác NAP-02 chặn cứng — vì sync là thao tác bù dữ liệu chủ động). *(user chốt B, 04/10/2026)*
+- ✅ HV **chưa có** ở đích → tạo mới `NguoiLX` + `NguoiLX_HoSo` (+ copy `NguoiLXHS_GiayTo` nếu có); `NguoiTao/NguoiSua` = **`admin`** (giống bản ghi phần mềm CDB tạo — **verify DB 04/10/2026**: CDB chỉ dùng tài khoản hệ thống `admin`/`ADMIN`, không có cán bộ riêng từng người → **bỏ ô "Cán bộ nạp"**, không phải 'SYNC' như công cụ cũ).
+- ✅ HV **đã có** ở đích (đối chiếu theo SoCMT) → **tự bỏ qua** (1 người = 1 hồ sơ = 1 MaDK), ghi "Bỏ qua" vào kết quả.
+- ✅ **MaDK** đúng `MaCSDT-yyyyMMdd-nnnnnn` (21 ký tự): ngày = hôm nay → SP tự sinh; backdate → tự sinh batch `MAX+1…MAX+N` theo prefix + backdate `NgayNhanHSo/NgayTao/NgaySua`.
+- ✅ `TT_XuLy` gán theo tùy chọn (mặc định `03`); gán `SoHoSo` theo quy ước DB đích.
+- ✅ Tiến trình hiển thị **trực tiếp** (thanh % + trạng thái từng HV); lỗi 1 HV không dừng cả lô, ghi lý do; tổng kết cuối (tạo mới / bỏ qua / lỗi).
+- ✅ Mọi thao tác ghi vào **DB đích** đang chọn; banner cố định nhắc tên DB đích; đang sync thì chặn đổi khóa/DB/đóng tool.
+- ❌ Không đổi/thêm hồ sơ thứ 2 cho HV đã có; không sync sang khóa khác hạng.
+
+**Tiện ích UI (thêm 04/10, ngoài v2.0):** (a) combo khóa **gõ-để-lọc** (như màn Nạp) · (b) toggle **"Chỉ hiện HV sẽ tạo mới"** (ẩn dòng đã skip) · (c) **đếm dòng đang tick** cạnh nút SYNC.
+
+**Edge cases:** HV đã có ở đích → skip · race trùng MaDK (2 phiên cùng khóa cùng ngày) → kiểm tồn tại + sinh lại, tối đa 3 lần rồi báo lỗi HV đó · copy giấy tờ lỗi → vẫn tính HV thành công (best-effort) · **E1 HV nguồn thiếu CCCD** (`SoCMT` rỗng) → chặn + báo riêng (không để lỗi giữa lô, vì `NguoiLX.SoCMT` NOT NULL) · **E2 trùng CCCD trong chính danh sách nguồn** → cảnh báo (PK là MaDK nên vẫn tạo được 2, để người dùng quyết) · **E3 mất kết nối CSDL đích giữa lô** → dừng, HV đã tạo giữ nguyên + đã ghi log → sync lại tự skip HV đã tạo · E4 HV nguồn chưa có ảnh → vẫn ép `TT_XuLy` theo tùy chọn (mặc định 03, giữ v2.0).
+
+> Nguồn: user 04/10/2026 · port sync_tool GPLX v2.0 · Phụ lục XXVII TT 17/2026/TT-BXD (format mã)
+
+#### [SYNC-02] Quản lý DB đích + tùy chọn đồng bộ
+
+**Trạng thái:** ⏳ Todo — thêm 04/10/2026 (CHANGES #33).
+**Story:** Là nhân viên nạp DB, tôi muốn khai báo các DB đích CDB và chọn DB mặc định, để đổi nơi đồng bộ mà không phải sửa file cấu hình.
+
+**Done khi:**
+- ✅ Thêm/sửa/xóa **nhiều DB đích** (tên hiển thị + tên database); dùng chung Server/User/Pass với cấu hình nạp.
+- ✅ Chọn 1 DB đích **mặc định** cho Bàn đồng bộ; đổi DB đích → bắt kiểm tra kết nối lại.
+- ✅ **Test kết nối** từng DB đích (báo số `NguoiLX`).
+- ✅ Tùy chọn áp cho mọi DB đích: `TT_XuLy` gán sau sync (mặc định `03`), bật/tắt cập nhật `KhoaHoc.TongSoHV`.
+- ✅ Cấu hình lưu **mã hóa cục bộ**, khối riêng (không trộn cấu hình nạp); xóa khỏi danh sách **không** xóa database thật.
+- ❌ Không khai Server/User/Pass riêng cho đích (dùng chung với nạp).
+
+> Nguồn: user 04/10/2026 · port cơ chế `[targets]` của sync_tool v1.06+
+
+#### [SYNC-03] Lịch sử & Hủy sync khóa
+
+**Trạng thái:** ⏳ Todo — thêm 04/10/2026 (CHANGES #33).
+**Story:** Là nhân viên nạp DB, tôi muốn xem các lần đã sync và hủy một khóa sync nhầm, để dọn sạch học viên do tool tạo mà không đụng dữ liệu khác.
+
+**Done khi:**
+- ✅ Mỗi lần SYNC ghi 1 **bản log JSON** ở máy tool (`%APPDATA%\GPLX_Sync\history`): khóa đích/nguồn, ngày sync, cán bộ, danh sách `MaDK` đã tạo (ghi sau mỗi HV để không mất khi tool tắt đột ngột).
+- ✅ Xem danh sách lần sync theo khóa đích; bấm **Hủy sync khóa** → xác nhận → xóa `NguoiLX` + `NguoiLX_HoSo` + `NguoiLXHS_GiayTo` của các `MaDK` trong log.
+- ✅ **Tương thích ngược**: hủy được cả HV sync bằng công cụ cũ (đánh dấu `NguoiTao='SYNC'`).
+- ✅ Cập nhật lại `KhoaHoc.TongSoHV` sau khi hủy (nếu bật tùy chọn); **không hoàn tác được** → xác nhận rõ số bản ghi sẽ xóa.
+- ✅ File log giữ lại sau khi hủy (xóa tay khi không cần trace); file log hỏng → bỏ qua file đó, vẫn hủy được lần khác.
+- ❌ Không tự xóa học viên do phần mềm khác tạo (chỉ theo log + nhóm `NguoiTao='SYNC'`).
+
+> Nguồn: user 04/10/2026 · port rollback dual-mode sync_tool v2.0
+
+---
+
 ### 🟠 NICE TO HAVE (sau này thêm)
 
 - [ ] [QLY-04] Kết xuất/báo cáo danh sách học viên (Excel) — có log, giới hạn, chỉ quản trị.
@@ -652,8 +719,9 @@
 
 - **Performance:** app web thao tác < 2s; API VPS < 500 ms (p95); xóa phông + xuất `.jp2` < 5s/ảnh; nạp 1 HV < 2s.
 - **Security:** HTTPS toàn bộ; token/JWT + API key; SQL login riêng (không `sa`); PII căn cước giữ tối đa 30 ngày rồi tự xóa; không log nội dung CCCD; chặn IDOR; nạp DB chỉ ở tool (app web không có endpoint nạp).
-- **Responsive:** Both. App web **mobile-first, giao diện như app mobile thật** khi dùng trên điện thoại: điều hướng dạng bottom nav/tab, thao tác chạm (nút to, vuốt), **ẩn hoặc thu gọn** các thành phần không cần trên mobile — KHÔNG phải giao diện desktop bị co nhỏ. Bản desktop của app web mới hiển thị đầy đủ dạng bảng/nhiều cột. Tool UI desktop (localhost).
+- **Responsive:** App web **mobile-first, giao diện như app mobile thật** khi dùng trên điện thoại: điều hướng dạng bottom nav/tab, thao tác chạm (nút to, vuốt), **ẩn hoặc thu gọn** các thành phần không cần trên mobile — KHÔNG phải giao diện desktop bị co nhỏ. Bản desktop của app web mới hiển thị đầy đủ dạng bảng/nhiều cột. **Tool máy tính CHỈ desktop** (localhost, không mobile/responsive): thiết kế cho cửa sổ rộng, nội dung giữ bề rộng tối thiểu dễ đọc (ngắm ≥1280px, canh giữa ~1500px); sidebar module thu gọn được để nhường bề ngang; bảng nhiều cột cho cuộn ngang trong vùng bảng — **không để khung quá hẹp làm vỡ/chật giao diện**. Dựng UI tool phải **dùng skill UI** (ui-ux-pro-max/impeccable) bám design system đang có.
 - **Chuẩn hiển thị cảnh báo (CHANGES #6):** mọi cảnh báo/lỗi khi nạp (trùng CCCD, sai chính tả tên, thiếu ảnh, lỗi nạp lô) phải **inline (không hộp thoại modal), NỔI BẬT** (banner có nền + viền + icon, không chỉ dòng chữ nhỏ) và **nêu rõ NGUYÊN NHÂN cụ thể** (vd "CCCD 070… đã có ở Số hồ sơ 014 trong khóa này"). Trạng thái nạp lô dùng màu + icon + chữ (⚪ chờ / 🔴 lỗi / 🟢 xong) — **không chỉ dựa màu** (phủ người mù màu).
+- **Kiến trúc module + sidebar (tách nghiệp vụ trong tool):** tool máy CSDT chia thành **nhiều module độc lập**, điều hướng **2 cấp**: **sidebar bên trái** liệt kê các module — bấm module nào thì vùng nội dung bên phải hiện **các màn/cửa sổ phiên làm việc** của module đó (mỗi module có **sub-nav riêng** + **màu nhấn** + **banner nhắc DB** đang ghi vào). Hiện có **Thu nhận hồ sơ** (sub-nav: Nạp hồ sơ · Tạo khóa · Cấu hình — ghi `GPLX_CSDT`) và **Đồng bộ CDB** (sub-nav: Bàn đồng bộ · Quản lý DB đích · Lịch sử & Hủy — ghi `GPLX_CDB_CSDT`); **dự kiến thêm "Cập nhật kết quả học tập"** (module #3, chưa đặc tả). Sidebar + router + module backend phải **mở rộng được cho N module** (đăng ký thêm một dòng, không hardcode); các module **không import chéo** nhau để tránh xung đột và nhầm lẫn UX. (Việc đổi điều hướng Nạp từ thanh nav trên cùng → sub-nav trong module chỉ là đổi vị trí điều hướng, **hành vi màn Nạp không đổi**.)
 - **Concurrency:** ~10 nhân viên thu nhận đồng thời; 1–2 tool; đầu khóa ~60 bản ghi/đợt; sinh Số hồ sơ có khóa tuần tự.
 - **Uptime:** VPS ~99% (nội bộ, không SLA gắt); tool phụ thuộc máy DB.
 
@@ -673,6 +741,12 @@
 | Hai người/hai tool cùng nạp một bản ghi | Khóa bản ghi khi `importing`; chỉ tạo 1 HV |
 | Bấm nút thao tác hai lần (nạp/gửi) | Disable + idempotent theo UUID; không tạo bản ghi trùng |
 | Bản ghi PII quá 30 ngày đang nạp | Job xóa bỏ qua bản `importing` |
+| Sync: HV đã có trong DB đích | Tự bỏ qua (1 người=1 hồ sơ=1 MaDK), không tạo trùng |
+| Sync: hai phiên cùng khóa cùng ngày sinh trùng MaDK | Kiểm tồn tại trước INSERT + sinh lại (tối đa 3 lần) rồi báo lỗi riêng HV đó |
+| Sync: lỗi 1 HV giữa lô | Ghi lý do, sync tiếp HV khác; vào tổng kết cuối |
+| Sync: HV nguồn thiếu CCCD (SoCMT rỗng) | Chặn + báo riêng trước sync (NguoiLX.SoCMT NOT NULL) |
+| Sync: trùng CCCD trong danh sách nguồn | Cảnh báo, để người dùng quyết (PK=MaDK, vẫn tạo được) |
+| Sync: mất kết nối CSDL đích giữa lô | Dừng; HV đã tạo giữ nguyên + đã ghi log → sync lại tự skip |
 
 ---
 
@@ -720,3 +794,4 @@
 | 01/10/2026 | v2.5 — sửa UX app web sau test điện thoại (CHANGES #12): THU-01 (màn vào không tự mở camera, header logo không phải nút, layout mobile dính đáy, khung bám QR) + THU-02 (ảnh thật ở list/chi tiết, xem/sửa/chụp lại hồ sơ chờ nạp); hạ THU-01 & THU-02 ✅→⏳ Todo | PM |
 | 01/10/2026 | v2.6 — app web nhập liên tiếp (CHANGES #13): THU-01/THU-02 +AC "Lưu & nhập hồ sơ tiếp" (gửi không ảnh + toast) + badge/bộ lọc "Thiếu ảnh" → hạ THU-01 & THU-02 ✅→⏳; +story **THU-04** (SHOULD) cảnh báo trùng CCCD app web (cảnh báo mềm, soi hàng đợi); +story **QLY-06** (📝 Draft) mở hồ sơ khóa khác cho HV đã có — còn nợ kiểm DB | PM |
 | 01/10/2026 | v2.7 — redesign UX nhập liệu (CHANGES #14): THU-01/THU-02 +AC ẩn ô CMND cũ (vẫn lưu từ QR) + ô ngày gõ tay/nút lịch (giữ năm-only) + desktop tách nút/bố cục/phím tắt. Giữ THU-01/02 ⏳ | PM |
+| 04/10/2026 | v2.8 — +Feature **Đồng bộ CDB** (CHANGES #33, SHOULD): 3 story `SYNC-01`/`SYNC-02`/`SYNC-03` port từ sync_tool GPLX v2.0, workspace riêng tách khỏi Nạp; +NFR kiến trúc workspace (mở rộng N module, dự kiến workspace #3 "Cập nhật kết quả học tập"); +3 edge case Sync | PM |

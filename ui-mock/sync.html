@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1280" />
+<title>Tool nạp DB — Mock module Đồng bộ CDB (SYNC)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: { sans: ['"Be Vietnam Pro"', "system-ui", "sans-serif"] },
+        colors: {
+          background: "hsl(210 40% 96%)",
+          foreground: "hsl(222 47% 11%)",
+          card: "hsl(0 0% 100%)",
+          primary: "hsl(222 76% 40%)",
+          "primary-foreground": "hsl(0 0% 100%)",
+          muted: "hsl(210 40% 96%)",
+          "muted-foreground": "hsl(215 16% 47%)",
+          accent: "hsl(224 76% 94%)",
+          destructive: "hsl(0 72% 51%)",
+          success: "hsl(142 71% 38%)",
+          warning: "hsl(32 90% 42%)",
+          border: "hsl(214 32% 91%)",
+          input: "hsl(214 32% 88%)",
+          ring: "hsl(222 76% 40%)",
+          sync: "hsl(184 65% 32%)",
+          "sync-soft": "hsl(184 55% 95%)",
+          "sync-border": "hsl(184 45% 80%)",
+        },
+        borderRadius: { lg: "0.625rem", md: "0.5rem", sm: "0.375rem" },
+      },
+    },
+  };
+</script>
+<style>
+  :root { color-scheme: light; }
+  body { font-family: "Be Vietnam Pro", system-ui, sans-serif; background: hsl(210 40% 96%); color: hsl(222 47% 11%); -webkit-font-smoothing: antialiased; }
+  .field-label { font-size: 11px; font-weight: 600; color: hsl(215 16% 40%); }
+  .field-input { width: 100%; font-size: 13px; padding: 5px 8px; border-radius: 8px; border: 1px solid hsl(214 32% 88%); background: #fff; color: hsl(222 47% 11%); transition: border-color .15s, box-shadow .15s; }
+  .field-input:focus { outline: none; border-color: hsl(222 76% 40%); box-shadow: 0 0 0 3px hsl(222 76% 40% / .15); }
+  select.field-input { cursor: pointer; }
+  .lrow { border-bottom: 1px solid hsl(214 32% 93%); transition: background .1s; }
+  .lrow:hover { background: hsl(224 76% 97%); }
+  ::-webkit-scrollbar { height: 10px; width: 10px; }
+  ::-webkit-scrollbar-thumb { background: hsl(214 20% 80%); border-radius: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  .app-min { min-width: 1180px; }
+  .tabnum { font-variant-numeric: tabular-nums; }
+  .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 12px; }
+  thead.sticky-h th { position: sticky; top: 0; z-index: 10; background: hsl(222 76% 40%); }
+</style>
+</head>
+<body class="h-screen overflow-hidden">
+<div class="app-min h-full flex flex-col">
+
+  <!-- ============ THANH TIÊU ĐỀ ============ -->
+  <header class="shrink-0 h-12 bg-card border-b border-border flex items-center gap-3 px-4">
+    <div class="flex items-center gap-2 font-semibold text-[15px]">
+      <span class="inline-grid place-items-center w-6 h-6 rounded-md bg-primary text-white">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg>
+      </span>
+      Tool nạp DB — máy CSDT 70004
+    </div>
+    <span class="text-[11px] text-muted-foreground border border-border rounded-full px-2 py-0.5">mock giao diện · chưa nối dữ liệu</span>
+    <div class="ml-auto flex items-center gap-2 text-[13px] text-muted-foreground">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+      tvgh.nva <span class="text-muted-foreground/60">· Nhân viên nạp</span>
+    </div>
+  </header>
+
+  <div class="flex-1 min-h-0 flex">
+
+    <!-- ============ SIDEBAR PHÂN HỆ ============ -->
+    <aside id="sidebar" class="shrink-0 w-[220px] bg-card border-r border-border flex flex-col transition-all">
+      <div class="px-3 pt-3 pb-1.5 flex items-center justify-between">
+        <span class="sb-label text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Phân hệ</span>
+        <button onclick="toggleSidebar()" title="Thu gọn" class="w-6 h-6 grid place-items-center rounded-md hover:bg-muted text-muted-foreground">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+      </div>
+      <nav class="px-2 space-y-1">
+        <button onclick="setModule('nap')" data-mod="nap" class="mod-btn w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium text-foreground hover:bg-muted">
+          <svg class="w-[18px] h-[18px] shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg>
+          <span class="sb-label">Nạp hồ sơ</span>
+        </button>
+        <button onclick="setModule('sync')" data-mod="sync" class="mod-btn w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium text-foreground hover:bg-muted">
+          <svg class="w-[18px] h-[18px] shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+          <span class="sb-label">Đồng bộ CDB</span>
+        </button>
+        <button onclick="setModule('ketqua')" data-mod="ketqua" class="mod-btn w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium text-muted-foreground hover:bg-muted">
+          <svg class="w-[18px] h-[18px] shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
+          <span class="sb-label flex items-center gap-1.5">Kết quả học tập <span class="text-[9px] border border-border rounded px-1 py-px">dự kiến</span></span>
+        </button>
+      </nav>
+      <div class="mt-auto px-3 py-3 border-t border-border">
+        <div class="sb-label text-[11px] text-muted-foreground leading-relaxed">Mỗi phân hệ ghi vào một CSDL riêng. Bấm để chuyển — thanh công cụ &amp; màu đổi theo phân hệ.</div>
+      </div>
+    </aside>
+
+    <!-- ============ VÙNG NỘI DUNG (khung cố định, chỉ bảng cuộn) ============ -->
+    <main class="flex-1 min-w-0 flex flex-col overflow-hidden">
+
+      <!-- Sub-nav -->
+      <div id="subnav-wrap" class="shrink-0 bg-card border-b border-border px-4 h-11 flex items-center gap-1"></div>
+
+      <!-- Banner CSDL đích -->
+      <div id="db-banner" class="shrink-0 hidden items-center gap-2 px-4 py-1.5 text-[12.5px] bg-warning/10 border-b border-warning/30 text-warning">
+        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+        <span>Đang thao tác trên <b>CSDL ĐÍCH: GPLX_CDB_CSDT</b> (CDB chính) — khác CSDL nguồn của phần Nạp.</span>
+        <button onclick="setSub('db-dich')" class="ml-auto text-[12px] underline underline-offset-2 hover:no-underline">đổi CSDL đích</button>
+      </div>
+
+      <!-- ======= SYNC-01: Bàn đồng bộ (layout khung cố định) ======= -->
+      <section data-page="ban-dong-bo" class="page flex flex-col min-h-0 flex-1">
+
+        <!-- KHUNG CHỌN KHÓA — cố định (shrink-0), gọn 2 hàng, thu gọn được -->
+        <div class="shrink-0 bg-card border-b border-border">
+          <div class="px-4 py-2 flex items-center gap-2">
+            <span class="text-[13px] font-bold">Bàn đồng bộ</span>
+            <span class="text-[10px] font-semibold text-sync bg-sync-soft border border-sync-border rounded-full px-1.5 py-px">SYNC-01</span>
+            <span class="ml-2 inline-flex items-center gap-1.5 text-[12px] text-muted-foreground"><span class="w-1.5 h-1.5 rounded-full bg-success"></span>Nguồn <b class="text-foreground">GPLX_CSDT</b> · <span class="w-1.5 h-1.5 rounded-full bg-success"></span>Đích <b class="text-foreground">GPLX_CDB_CSDT</b></span>
+            <button onclick="toggleSel()" id="btnSel" class="ml-auto inline-flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground">
+              <svg id="selCaret" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg> thu gọn khung chọn
+            </button>
+          </div>
+          <div id="selBody" class="px-4 pb-2.5 grid grid-cols-[1fr_1fr_auto] gap-x-6 gap-y-2 items-end">
+            <div>
+              <label class="field-label">① Khóa nguồn (GPLX_CSDT)</label>
+              <div class="flex gap-1.5 mt-0.5">
+                <select class="field-input !w-[72px]"><option>2026</option><option>2025</option></select>
+                <select class="field-input"><option>B2 K01/2026 — B (45 HV)</option><option>A1 K12/2026 — A1 (60 HV)</option></select>
+              </div>
+            </div>
+            <div>
+              <label class="field-label">② Khóa đích (GPLX_CDB_CSDT) — cùng hạng</label>
+              <div class="flex gap-1.5 mt-0.5">
+                <select class="field-input !w-[72px]"><option>2026</option><option>2025</option></select>
+                <select class="field-input"><option>B K260101 — B (KG 05/10/2026, 12 HV)</option><option>B K260088 — B (KG 20/10, 0 HV)</option></select>
+              </div>
+            </div>
+            <button class="inline-flex items-center gap-1.5 h-[30px] px-3 rounded-md border border-border text-[12.5px] hover:bg-muted whitespace-nowrap"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Kiểm tra</button>
+            <div>
+              <label class="field-label">③ Ngày nhập hồ sơ <span class="text-muted-foreground font-normal">(≤ ngày KG 05/10)</span></label>
+              <input class="field-input !w-40 mt-0.5" value="05/10/2026" />
+            </div>
+            <div class="text-[11.5px] text-muted-foreground self-center">
+              Người tạo ghi vào CDB: <b class="text-foreground mono">admin</b> <span class="text-muted-foreground/70">(giống phần mềm CDB — không hỏi cán bộ)</span>
+            </div>
+            <div class="flex items-end gap-2">
+              <button class="inline-flex items-center gap-1.5 h-[30px] px-3 rounded-md bg-primary text-white font-semibold text-[12.5px] whitespace-nowrap"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M3 21h18"/></svg>Tải danh sách</button>
+            </div>
+          </div>
+          <!-- hàng tóm tắt + tìm (luôn hiện, cả khi thu gọn) -->
+          <div class="px-4 py-1.5 border-t border-border/70 flex items-center gap-3 bg-muted/30">
+            <span class="text-[12.5px] text-muted-foreground"><b class="text-foreground tabnum">320</b> HV · Đã có ở đích <b class="text-warning tabnum">18</b> · Sẽ tạo mới <b class="text-success tabnum">302</b></span>
+            <span id="selSummary" class="hidden text-[12px] text-muted-foreground truncate">Nguồn: B2 K01/2026 — B · Đích: B K260101 — B · Ngày 05/10/2026 · người tạo: admin</span>
+            <label class="ml-auto inline-flex items-center gap-1.5 text-[12px] text-muted-foreground cursor-pointer whitespace-nowrap"><input type="checkbox" id="onlyNew" onchange="setOnlyNew(this.checked)"> Chỉ hiện HV sẽ tạo mới</label>
+            <div class="relative">
+              <svg class="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              <input class="field-input !w-56 !pl-8" placeholder="Tìm tên / CCCD" />
+            </div>
+          </div>
+        </div>
+
+        <!-- BẢNG — chiếm hết chiều cao còn lại, chỉ phần này cuộn, header dính -->
+        <div class="flex-1 min-h-0 overflow-auto bg-card">
+          <table class="w-full text-[13px] border-collapse min-w-[1120px]">
+            <thead class="sticky-h">
+              <tr class="bg-primary text-white text-left">
+                <th class="font-semibold px-2 py-1.5 w-9 text-center"><input type="checkbox" id="chkAll" checked onchange="toggleAll(this)"></th>
+                <th class="font-semibold px-2 py-1.5 w-10 text-center">STT</th>
+                <th class="font-semibold px-2 py-1.5">Họ và tên</th>
+                <th class="font-semibold px-2 py-1.5">Số CCCD</th>
+                <th class="font-semibold px-2 py-1.5 w-12 text-center">Hạng</th>
+                <th class="font-semibold px-2 py-1.5">MaDK nguồn</th>
+                <th class="font-semibold px-2 py-1.5 w-[86px]">NgàyHS nguồn</th>
+                <th class="font-semibold px-2 py-1.5">MaDK đích</th>
+                <th class="font-semibold px-2 py-1.5 w-[86px]">NgàyHS đích</th>
+                <th class="font-semibold px-2 py-1.5 w-12 text-center">Số HS</th>
+                <th class="font-semibold px-2 py-1.5 w-36">Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody id="tblHV"></tbody>
+          </table>
+        </div>
+
+        <!-- CHÂN CỐ ĐỊNH: SYNC + tiến trình + phân trang (kiểu tool thật) -->
+        <div class="shrink-0 border-t border-border bg-card">
+          <div class="px-4 py-2 flex items-center gap-3 flex-wrap">
+            <label class="inline-flex items-center gap-2 text-[13px] font-medium cursor-pointer"><input type="checkbox" checked onchange="toggleAll(this); document.getElementById('chkAll').checked=this.checked"> Chọn tất cả sẵn sàng</label>
+            <button onclick="demoSync()" id="btnSync" class="inline-flex items-center gap-2 h-9 px-5 rounded-lg bg-sync text-white font-semibold text-[13px] hover:brightness-110"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg><span id="btnSyncTxt">SYNC 302 học viên</span></button>
+            <span id="selCount" class="text-[12px] text-muted-foreground tabnum">đã chọn 302</span>
+            <div class="flex items-center gap-2 min-w-[260px]">
+              <div class="flex-1 h-2 rounded-full bg-muted overflow-hidden"><div id="progBar" class="h-full bg-sync transition-all" style="width:0%"></div></div>
+              <span id="progTxt" class="text-[12px] text-muted-foreground tabnum whitespace-nowrap w-[120px]">chưa chạy</span>
+            </div>
+            <!-- Phân trang: mẫu PhanTrang.tsx của tool -->
+            <div class="ml-auto flex items-center gap-2 text-[13px]">
+              <span class="text-muted-foreground tabnum" id="pgRange">1–50 / 320</span>
+              <button onclick="goPage(-1)" class="h-8 w-8 rounded-md border border-border inline-flex items-center justify-center hover:bg-muted disabled:opacity-40"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button>
+              <span class="tabnum" id="pgLabel">Trang 1/7</span>
+              <button onclick="goPage(1)" class="h-8 w-8 rounded-md border border-border inline-flex items-center justify-center hover:bg-muted disabled:opacity-40"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></button>
+              <select id="pgSize" onchange="setPageSize(this.value)" class="h-8 rounded-md border border-border bg-card px-2 text-[13px]"><option value="50">50/trang</option><option value="20">20/trang</option><option value="100">100/trang</option></select>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ======= Các màn khác (cuộn thường) ======= -->
+      <div data-page="nap" class="page hidden h-full overflow-auto p-4">
+        <div class="rounded-lg border border-dashed border-border bg-card p-10 text-center text-muted-foreground max-w-3xl">
+          <svg class="w-10 h-10 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg>
+          <div class="font-semibold text-foreground mb-1">Phân hệ “Nạp hồ sơ” (đã có)</div>
+          <p class="text-[13px] max-w-md mx-auto">Các màn Nạp hồ sơ · Tạo khóa · Cấu hình hiện có nằm ở đây, giữ nguyên hành vi — chỉ chuyển điều hướng xuống sub-nav của phân hệ.</p>
+        </div>
+      </div>
+
+      <div data-page="db-dich" class="page hidden h-full overflow-auto p-4">
+        <div class="flex items-center gap-2 mb-3"><h1 class="text-base font-bold">Quản lý CSDL đích</h1><span class="text-[11px] font-semibold text-sync bg-sync-soft border border-sync-border rounded-full px-2 py-0.5">SYNC-02</span></div>
+        <p class="text-[12.5px] text-muted-foreground mb-3 max-w-2xl">Các CSDL đích có thể đồng bộ sang. Dùng chung Server / User / Mật khẩu với phần Cấu hình nạp — chỉ khác tên CSDL.</p>
+        <div class="rounded-lg border border-border bg-card overflow-hidden max-w-3xl mb-3">
+          <table class="w-full text-[13px]">
+            <thead><tr class="bg-primary text-white text-left"><th class="font-semibold px-3 py-2 w-10"></th><th class="font-semibold px-3 py-2">Tên hiển thị</th><th class="font-semibold px-3 py-2">Database</th><th class="font-semibold px-3 py-2 w-48">Kết nối</th></tr></thead>
+            <tbody>
+              <tr class="lrow bg-sync-soft/60"><td class="px-3 py-2 text-center"><input type="radio" name="tg" checked></td><td class="px-3 py-2 font-medium">CDB chính</td><td class="px-3 py-2 mono">GPLX_CDB_CSDT</td><td class="px-3 py-2"><span class="inline-flex items-center gap-1 text-[12px] text-success"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>12.550 HV</span><button class="ml-2 text-[12px] text-primary underline underline-offset-2">Kiểm tra</button></td></tr>
+              <tr class="lrow"><td class="px-3 py-2 text-center"><input type="radio" name="tg"></td><td class="px-3 py-2 font-medium">CDB mô tô</td><td class="px-3 py-2 mono">GPLX_CDB_CSDT_MOTO</td><td class="px-3 py-2"><button class="text-[12px] text-primary underline underline-offset-2">Kiểm tra</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="flex items-center gap-2 mb-5 max-w-3xl">
+          <button class="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-primary text-white text-[13px] font-medium whitespace-nowrap"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></svg>Thêm CSDL đích</button>
+          <button class="h-8 px-3 rounded-md border border-border text-[13px] hover:bg-muted">Sửa</button>
+          <button class="h-8 px-3 rounded-md border border-destructive/40 text-destructive text-[13px] hover:bg-destructive/5">Xóa</button>
+          <span class="text-[11.5px] text-muted-foreground ml-1">(◉ = CSDL đích mặc định · Xóa chỉ gỡ khỏi tool, không xóa database thật)</span>
+        </div>
+        <div class="rounded-lg border border-border bg-muted/40 p-4 max-w-3xl">
+          <h3 class="text-[13px] font-bold text-sync mb-3">Tùy chọn đồng bộ (áp cho mọi CSDL đích)</h3>
+          <div class="flex items-center gap-3 mb-3"><label class="field-label !text-[12px] w-56">Trạng thái xử lý gán sau sync</label><select class="field-input !w-80"><option>03 — Đã nhận ảnh chân dung (sẵn sàng Kết xuất DKKH)</option><option>01 — Nhận hồ sơ</option></select></div>
+          <label class="inline-flex items-center gap-2 text-[13px] cursor-pointer"><input type="checkbox" checked>Cập nhật lại tổng số HV của khóa sau sync (đếm lại số thực tế)</label>
+        </div>
+      </div>
+
+      <div data-page="lich-su" class="page hidden h-full overflow-auto p-4">
+        <div class="flex items-center gap-2 mb-3"><h1 class="text-base font-bold">Lịch sử &amp; Hủy sync</h1><span class="text-[11px] font-semibold text-sync bg-sync-soft border border-sync-border rounded-full px-2 py-0.5">SYNC-03</span></div>
+        <p class="text-[12.5px] text-muted-foreground mb-3 max-w-3xl">Các lần sync đã ghi nhật ký trên máy tool. Hủy một khóa sẽ xóa học viên do tool tạo (Người lái + Hồ sơ + Giấy tờ) khỏi CSDL đích — không hoàn tác được.</p>
+        <div class="rounded-lg border border-border bg-card overflow-hidden max-w-4xl">
+          <table class="w-full text-[13px]">
+            <thead><tr class="bg-primary text-white text-left"><th class="font-semibold px-3 py-2">Khóa đích</th><th class="font-semibold px-3 py-2 w-36">Ngày sync</th><th class="font-semibold px-3 py-2 w-28">Cán bộ</th><th class="font-semibold px-3 py-2 w-20 text-center">Tạo</th><th class="font-semibold px-3 py-2">Khóa nguồn</th><th class="font-semibold px-3 py-2 w-40"></th></tr></thead>
+            <tbody>
+              <tr class="lrow"><td class="px-3 py-2 font-medium">B K260101 — B</td><td class="px-3 py-2 tabnum">05/10/2026 14:22</td><td class="px-3 py-2">tvgh.nva</td><td class="px-3 py-2 text-center tabnum">31 HV</td><td class="px-3 py-2">B2 K01/2026</td><td class="px-3 py-2"><button class="text-[12px] text-primary underline underline-offset-2 mr-3">Xem</button><button onclick="document.getElementById('rbModal').classList.remove('hidden')" class="text-[12px] text-destructive underline underline-offset-2">Hủy sync</button></td></tr>
+              <tr class="lrow"><td class="px-3 py-2 font-medium">A1 K260098 — A1</td><td class="px-3 py-2 tabnum">03/10/2026 09:10</td><td class="px-3 py-2">tvgh.nvb</td><td class="px-3 py-2 text-center tabnum">20 HV</td><td class="px-3 py-2">A1 K12/2026</td><td class="px-3 py-2"><button class="text-[12px] text-primary underline underline-offset-2 mr-3">Xem</button><button onclick="document.getElementById('rbModal').classList.remove('hidden')" class="text-[12px] text-destructive underline underline-offset-2">Hủy sync</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div data-page="ketqua" class="page hidden h-full overflow-auto p-4">
+        <div class="rounded-lg border border-dashed border-border bg-card p-10 text-center text-muted-foreground max-w-3xl">
+          <div class="font-semibold text-foreground mb-1">Phân hệ “Cập nhật kết quả học tập” (dự kiến)</div>
+          <p class="text-[13px] max-w-md mx-auto">Phân hệ thứ 3, chưa đặc tả. Sidebar + khung backend đã thiết kế để thêm phân hệ mới chỉ bằng một dòng đăng ký, không sửa khung.</p>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- Modal hủy sync -->
+<div id="rbModal" class="hidden fixed inset-0 bg-black/30 grid place-items-center z-50">
+  <div class="bg-card rounded-xl border border-border shadow-xl w-[460px] p-5">
+    <h3 class="font-bold text-[15px] mb-2 flex items-center gap-2 text-destructive"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>Hủy sync khóa B K260101 — B?</h3>
+    <ul class="text-[13px] text-foreground space-y-1 mb-3 list-disc pl-5"><li>Nhật ký máy tool: <b class="tabnum">31 HV</b> sẽ bị xóa khỏi CSDL đích</li><li>Nhóm công cụ cũ (NguoiTao=SYNC): <b class="tabnum">0 HV</b></li></ul>
+    <p class="text-[12.5px] text-muted-foreground mb-4">Xóa Người lái + Hồ sơ + Giấy tờ của các mã này. <b>Không hoàn tác được.</b></p>
+    <div class="flex justify-end gap-2"><button onclick="document.getElementById('rbModal').classList.add('hidden')" class="h-9 px-4 rounded-lg border border-border text-[13px] hover:bg-muted">Hủy</button><button onclick="document.getElementById('rbModal').classList.add('hidden')" class="h-9 px-4 rounded-lg bg-destructive text-white font-semibold text-[13px]">Xóa 31 hồ sơ</button></div>
+  </div>
+</div>
+
+<script>
+  // ---- Sinh 320 HV mẫu (để minh họa phân trang + mật độ dòng) ----
+  const HO = ["Nguyễn","Trần","Lê","Phạm","Võ","Đặng","Bùi","Hoàng","Ngô","Dương","Đỗ","Hồ","Phan","Vũ"];
+  const DEM = ["Văn","Thị","Hoàng","Minh","Quốc","Thanh","Hữu","Đức","Thu","Ngọc"];
+  const TEN = ["An","Bình","Cường","Dung","Em","Phương","Giang","Hạnh","Inh","Kim","Lan","My","Nam","Oanh","Phúc","Quân","Sơn","Tâm","Uyên","Vinh"];
+  const TOTAL = 320;
+  const HV = [];
+  for (let i=0;i<TOTAL;i++){
+    const ten = HO[i%HO.length]+" "+DEM[i%DEM.length]+" "+TEN[i%TEN.length];
+    const cccd = "0792010"+String(11200+i).padStart(5,"0");
+    const seq = String(12+i).padStart(6,"0");
+    const dd = String((i%28)+1).padStart(2,"0");
+    const daCo = (i%18===1); // rải vài HV đã có ở đích
+    HV.push([ten, cccd, "B", "70004-20260101-"+seq, dd+"/10/2026",
+      daCo ? {dk:"70004-20250918-"+String(200+i).padStart(6,"0"), ng:"18/09/2025", so:1} : null]);
+  }
+
+  const NEW_TOTAL = HV.filter(r=>!r[5]).length;  // 302
+  let selectedNew = NEW_TOTAL, onlyNew = false, page = 0, pageSize = 50;
+  function viewList(){ return onlyNew ? HV.filter(r=>!r[5]) : HV; }
+  function updateSelCount(){
+    document.getElementById("selCount").textContent = `đã chọn ${selectedNew}`;
+    document.getElementById("btnSyncTxt").textContent = `SYNC ${selectedNew} học viên`;
+  }
+  function rowTick(el){ selectedNew += el.checked ? 1 : -1; if(selectedNew<0) selectedNew=0; updateSelCount(); }
+  function setOnlyNew(v){ onlyNew=v; page=0; renderHV(); }
+  function renderHV(){
+    const data = viewList(), total = data.length;
+    const start = page*pageSize, slice = data.slice(start, start+pageSize);
+    document.getElementById("tblHV").innerHTML = slice.map((r,idx)=>{
+      const i = start+idx, co = r[5];
+      const rowbg = co ? "bg-warning/10" : (i%2 ? "bg-background/40" : "");
+      const dim = co ? "text-muted-foreground" : "";
+      const chk = co ? `<input type="checkbox" disabled class="opacity-40">` : `<input type="checkbox" class="rowchk" checked onchange="rowTick(this)">`;
+      const st = co
+        ? `<span class="inline-flex items-center gap-1 text-[11px] font-semibold text-warning bg-warning/10 border border-warning/40 rounded-full px-2 py-0.5">Đã có ở đích</span>`
+        : `<span class="inline-flex items-center gap-1 text-[11px] font-semibold text-success bg-success/10 border border-success/40 rounded-full px-2 py-0.5">Sẵn sàng</span>`;
+      return `<tr class="lrow ${rowbg} ${dim}">
+        <td class="px-2 py-1 text-center">${chk}</td>
+        <td class="px-2 py-1 text-center tabnum">${i+1}</td>
+        <td class="px-2 py-1 font-medium whitespace-nowrap">${r[0]}</td>
+        <td class="px-2 py-1 mono">${r[1]}</td>
+        <td class="px-2 py-1 text-center">${r[2]}</td>
+        <td class="px-2 py-1 mono whitespace-nowrap">${r[3]}</td>
+        <td class="px-2 py-1 tabnum">${r[4]}</td>
+        <td class="px-2 py-1 mono whitespace-nowrap">${co?co.dk:"–"}</td>
+        <td class="px-2 py-1 tabnum">${co?co.ng:"–"}</td>
+        <td class="px-2 py-1 text-center tabnum">${co?co.so:"–"}</td>
+        <td class="px-2 py-1">${st}</td>
+      </tr>`;
+    }).join("");
+    const soTrang = Math.max(1, Math.ceil(total/pageSize));
+    const tu = total ? start+1 : 0, den = Math.min(total, start+pageSize);
+    document.getElementById("pgRange").textContent = `${tu}–${den} / ${total}`;
+    document.getElementById("pgLabel").textContent = `Trang ${page+1}/${soTrang}`;
+    updateSelCount();
+  }
+  function goPage(d){ const soTrang=Math.ceil(viewList().length/pageSize); page=Math.min(soTrang-1,Math.max(0,page+d)); renderHV(); }
+  function setPageSize(v){ pageSize=+v; page=0; renderHV(); }
+  function toggleAll(src){ document.querySelectorAll(".rowchk").forEach(c=>c.checked=src.checked); selectedNew = src.checked ? NEW_TOTAL : 0; updateSelCount(); }
+
+  function demoSync(){
+    const bar=document.getElementById("progBar"), txt=document.getElementById("progTxt");
+    let i=0; const total=302;
+    const t=setInterval(()=>{ i+=7; if(i>=total){i=total;clearInterval(t);txt.textContent=`Xong · ${total} mới`;} bar.style.width=(i/total*100)+"%"; if(i<total)txt.textContent=`Đồng bộ… ${i}/${total}`; },90);
+  }
+
+  // ---- Điều hướng ----
+  const SUBNAV = { nap:[], ketqua:[], sync:[["ban-dong-bo","Bàn đồng bộ"],["db-dich","Quản lý CSDL đích"],["lich-su","Lịch sử & Hủy sync"]] };
+  let curSub="ban-dong-bo";
+  function setModule(mod){
+    document.querySelectorAll(".mod-btn").forEach(b=>{
+      const on=b.dataset.mod===mod;
+      b.classList.toggle("bg-sync-soft", on&&mod==="sync"); b.classList.toggle("text-sync", on&&mod==="sync");
+      b.classList.toggle("bg-accent", on&&mod!=="sync"); b.classList.toggle("font-semibold", on);
+      b.style.boxShadow = on ? "inset 3px 0 0 "+(mod==="sync"?"hsl(184 65% 32%)":"hsl(222 76% 40%)") : "";
+    });
+    document.getElementById("db-banner").classList.toggle("hidden", mod!=="sync");
+    document.getElementById("db-banner").classList.toggle("flex", mod==="sync");
+    const wrap=document.getElementById("subnav-wrap"), subs=SUBNAV[mod];
+    if(!subs.length){ wrap.innerHTML=`<span class="text-[13px] font-semibold ${mod==='nap'?'text-primary':'text-muted-foreground'}">${mod==='nap'?'Nạp hồ sơ · Tạo khóa · Cấu hình':'Phân hệ dự kiến'}</span>`; showPage(mod); return; }
+    wrap.innerHTML=subs.map(([k,l])=>`<button onclick="setSub('${k}')" data-sub="${k}" class="sub-btn h-8 px-3 rounded-md text-[13px] font-medium">${l}</button>`).join("");
+    setSub(subs.some(s=>s[0]===curSub)?curSub:subs[0][0]);
+  }
+  function setSub(sub){
+    curSub=sub;
+    document.querySelectorAll(".sub-btn").forEach(b=>{ const on=b.dataset.sub===sub; b.classList.toggle("bg-sync-soft",on); b.classList.toggle("text-sync",on); b.classList.toggle("font-semibold",on); b.classList.toggle("text-muted-foreground",!on); });
+    showPage(sub);
+  }
+  function showPage(key){ document.querySelectorAll(".page").forEach(p=>p.classList.toggle("hidden", p.dataset.page!==key)); }
+
+  function toggleSel(){
+    const body=document.getElementById("selBody"), sum=document.getElementById("selSummary"), car=document.getElementById("selCaret"), btn=document.getElementById("btnSel");
+    const hide=body.classList.toggle("hidden");
+    sum.classList.toggle("hidden", !hide);
+    car.style.transform = hide ? "rotate(-90deg)" : "";
+    btn.lastChild.textContent = hide ? " mở khung chọn" : " thu gọn khung chọn";
+  }
+  function toggleSidebar(){
+    const sb=document.getElementById("sidebar");
+    const collapsed = sb.classList.toggle("w-[220px]")===false;
+    sb.classList.toggle("w-[56px]", collapsed);
+    document.querySelectorAll(".sb-label").forEach(e=>e.classList.toggle("hidden", collapsed));
+  }
+
+  renderHV();
+  setModule("sync");
+</script>
+</body>
+</html>

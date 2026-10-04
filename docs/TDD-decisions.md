@@ -95,3 +95,33 @@
 - **Giới hạn đã biết (thu hẹp sau review TDD #32, Điểm 4):** điều kiện (2) **KHÔNG phủ nháp bỏ dở** — một dòng `cho` operator chuẩn bị rồi không nạp mà collector cũng không xóa trên app web thì nháp (gồm ảnh) **tồn tại tới khi operator chủ động bấm nút "Xóa nháp"** (thêm ở drawer Chuẩn bị). Job dọn PII 30 ngày trên VPS (§9) xóa ảnh thô bên VPS nhưng **không** kéo theo xóa nháp bên tool. Chấp nhận giới hạn này vì máy nội bộ; không làm job tự quét-tuổi để tránh phức tạp.
 - **Phương án đã cân nhắc:** (B) chỉ lưu bền địa chỉ+tick, KHÔNG lưu ảnh — giữ nguyên tắc PII nhưng chip "đã có hình" không bền, F5 phải chọn ảnh lại (user bác, 03/10 hỏi-đáp). (C) mã hóa ảnh nháp trong SQLite — phức tạp, lợi ích thấp vì máy nội bộ.
 - **Nguồn:** user 03/10/2026 (hỏi-đáp chốt B "lưu bền + tự xóa"); PRD NAP-01/QLY-05; CHANGES #32.
+
+## 12. Tool chia module + sidebar trái (04/10/2026)
+
+- **Đã chốt (04/10/2026):** Tool máy tính chia thành **nhiều module độc lập**, điều hướng 2 cấp bằng **sidebar bên trái** (danh sách module) → vùng nội dung hiện sub-nav + màn của module. Module đăng ký trong mảng `MODULES` (mở rộng N). Hiện: Thu nhận hồ sơ, Đồng bộ CDB; dự kiến Cập nhật kết quả học tập.
+- **Vì sao:** thêm nghiệp vụ Sync (và sắp tới "kết quả học tập") vào chung thanh nav trên cùng sẽ chật và dễ cho operator thao tác nhầm DB (Nạp ghi `GPLX_CSDT`, Sync ghi `GPLX_CDB_CSDT`). Sidebar tách bạch từng module + màu nhấn + banner DB, và nới được cho nhiều module hơn top-nav.
+- **Phương án đã cân nhắc:** (B) công tắc 2 workspace ở thanh tiêu đề — user bác vì sắp có module #3, top-bar không nới tốt. (C) giữ 1 thanh nav phẳng gộp hết màn — rối, dễ nhầm DB.
+- **Đánh đổi:** đổi khung `ToolLayout` (đang là top-nav) → sidebar; hành vi các màn Nạp không đổi, chỉ chuyển vị trí điều hướng.
+- **Nguồn:** user 04/10/2026 (hỏi-đáp trong buổi thiết kế SYNC); PRD ⑥ NFR; TDD §11B.0.
+
+## 13. Kết nối DB đích CDB dùng chung host/user/pass, nhiều đích (04/10/2026)
+
+- **Đã chốt (04/10/2026):** DB đích đồng bộ (`GPLX_CDB_CSDT`) **dùng chung Server/User/Pass** với cấu hình Nạp, **chỉ khác tên database** (`sqlserver_conn_dich(db_name)`). Hỗ trợ **nhiều DB đích** (khối `sync_targets[]` + `sync_selected` trong `config.enc`), chọn 1 mặc định, test kết nối từng cái.
+- **Vì sao:** user xác nhận thông số kết nối đích giống hệt file `env.txt`, chỉ khác tên DB. Nhiều đích để sync sang CDB ô tô / mô tô khác nhau mà không sửa file.
+- **Phương án đã cân nhắc:** (B) 1 trường tên DB đích đơn — gọn nhưng không đổi nhanh nhiều đích. (C) khối kết nối đích riêng đầy đủ server/user/pass — thừa vì cùng server.
+- **Nguồn:** user 04/10/2026; `D:\Du_An\PMCSĐTLX\DBcu\env.txt`; port `[targets]` sync_tool; TDD §11B.1.
+
+## 14. Tiến trình sync đẩy trực tiếp bằng SSE (04/10/2026)
+
+- **Đã chốt (04/10/2026):** `POST /local/sync/run` chạy vòng sync ở thread nền + `GET /local/sync/stream` (Server-Sent Events) đẩy tiến trình từng HV về UI (thanh %, trạng thái từng dòng), như trải nghiệm realtime của sync_tool. Job lưu dict theo `job_id`; ngắt SSE giữa chừng thì job vẫn chạy hết (an toàn dữ liệu).
+- **Vì sao:** sync vài chục–vài trăm HV cần thấy tiến trình, không để màn "đứng hình". SSE một chiều đủ dùng, nhẹ hơn WebSocket, hợp localhost 1 người.
+- **Phương án đã cân nhắc:** (B) chạy xong trả kết quả 1 lần (spinner) — đơn giản nhưng mất cảm giác tiến trình với lô lớn. (C) polling — tốn request, trễ.
+- **Nguồn:** user 04/10/2026 (chọn SSE); TDD §11B.3.
+
+## 15. Bỏ ô "Cán bộ nạp", ghi NguoiTao='admin' (04/10/2026, verify DB)
+
+- **Đã chốt (04/10/2026):** Bàn đồng bộ **không hỏi cán bộ**; ghi `NguoiTao=NguoiSua='admin'` cho mọi bản ghi sync. (Có thể nâng thành tùy chọn trong SYNC-02 sau, mặc định `admin`.)
+- **Vì sao:** kết nối thật `GPLX_CDB_CSDT` (04/10) cho thấy `NguoiTao` chỉ có `ADMIN` (502) + `SYNC` (226, công cụ cũ) + 1 trống; 10 bản ghi mới nhất đều `admin`. CDB **không có khái niệm cán bộ riêng** — phần mềm ghi một tài khoản hệ thống. Ghi `admin` để bản sync **trùng khít** bản ghi phần mềm tạo, không để dấu vết lạ (khác công cụ cũ ghi 'SYNC').
+- **Khác sync_tool v2.0:** bản gốc thêm ô "Cán bộ nạp" thay 'SYNC' — nay bỏ vì DB không dùng giá trị đó.
+- **Đánh đổi:** mất truy vết "ai sync" trong DB; chấp nhận vì nhật ký JSON máy tool vẫn ghi batch, và CDB vốn chỉ dùng `admin`.
+- **Nguồn:** user 04/10/2026 ("bỏ ô cán bộ, mặc định giống DB"); probe DB `GPLX_CDB_CSDT`; TDD §11B.2.

@@ -2,7 +2,7 @@
 
 > File do `/kehoach` sinh. `/tieptheo` đọc file này để biết làm gì tiếp theo.
 > **Thứ tự code** nằm ở đây. **Yêu cầu và trạng thái story** nằm ở `docs/PRD.md`.
-> Cập nhật lần cuối: 04/10/2026 (v10 — bổ sung task 50-53 theo CHANGES #32: NAP-01 lưu nháp BỀN + 2 chip + nạp chặn/cảnh báo · QLY-05 bổ sung ảnh 2 nguồn)
+> Cập nhật lần cuối: 04/10/2026 (v11 — bổ sung **Phase 4 Đồng bộ CDB** task 54-60 theo CHANGES #33: SYNC-01/02/03 port sync_tool v2.0, sidebar workspace, SSE, rollback; khóa đích BC1 cảnh báo-vẫn-cho (B))
 
 ## Quyết định về thứ tự
 
@@ -11,6 +11,7 @@
 - **`HTG-01` cắt 3 task theo nơi chạy:** ① cấu hình kết nối tool (local, Phase 1) · ② auth JWT trên VPS (Phase 2) · ③ login UI + tool gate (Phase 2). PRD chỉ chuyển ✅ khi xong cả 3.
 - **`NAP-05` và `HTG-02` cắt đôi** để không còn task cỡ L.
 - **1 người build → tuần tự một luồng**, không tách nhánh song song (quyết định chủ dự án 01/10/2026).
+- **Phase 4 Đồng bộ CDB (task 54-60) — module mới tách khỏi Nạp:** SHOULD, xếp cuối sau mọi task Nạp/thu thập (không đảo lên MUST). Đổi `ToolLayout`→sidebar (task 54) đụng chrome dùng chung → chạy một mình, nhưng **hành vi màn Nạp không đổi** (không hạ story Nạp). Ghi vào CSDL đích GPLX_CDB_CSDT (≠ CSDL Nạp) → module backend tách (`sync_*`), không import Nạp. Tạo HV **qua 3 SP chuẩn CDB** + MaCSDT từ `QTHT.MA_CSDT`/khóa đích (đã phân tích DB: `docs/DB-GPLX_CDB_CSDT.md`). Khóa đích đã BC1: **cảnh báo, vẫn cho sync** (user chốt B 04/10) — khác NAP-02 chặn cứng, vì sync là thao tác bù dữ liệu chủ động.
 - **#24/#26 (task 41-47) — lần đầu sửa server VPS từ Phase 2:** task 41/42/44 đổi server đang chạy prod → phải **deploy lại VPS** + verify 3 vai trò/luồng gửi-kéo ngay sau (Checkpoint 8). Thứ tự trong cụm: 41 (THU-05, tạo `deleted` — nền cho 44) → 42 (server QLY-08) → 43 (tool QLY-08, dep 42) → 44 (đồng bộ xóa, dep 41). Task 45-47 thuần client (ảnh gốc + redesign Nạp lô), code sau, chạy skill `impeccable` lúc dựng UI.
 
 ## Cây phụ thuộc
@@ -38,6 +39,16 @@
                       ├── HTG-01③ Login UI (webapp + tool gate)
                       ├── THU-01 Quét QR + preview  ◀ AS-001
                       └── THU-02 Nhập tay + ảnh + gửi VPS
+
+[Phase 4 — Module Đồng bộ CDB]  (ghi vào GPLX_CDB_CSDT, tách khỏi Nạp)
+    Sidebar workspace shell (54, đổi ToolLayout) ─┐
+    Sync nền backend (55: config đích + conn_dich + sync_helpers + sync_history)
+          ├── SYNC-02 Quản lý CSDL đích (56)
+          ├── SYNC-01 backend tạo HV qua 3 SP + MaCSDT từ QTHT/khóa đích (57)
+          │     ├── SYNC-01 SSE + chạy (58)
+          │     └── SYNC-01 UI Bàn đồng bộ (59, bám mock + sidebar 54)
+          └── SYNC-03 Lịch sử & Hủy sync (60)
+                 └── (26) Đóng gói .exe — sau Phase 4
 ```
 
 ## Prerequisite (chủ dự án/ops làm trước khi tới task liên quan)
@@ -45,6 +56,7 @@
 - **Tạo SQL login riêng cho tool** (không dùng `sa`) trên máy DB `DESKTOP-UBV2GQI` — cần trước **task 4**. Hiện mới có `sa` (chỉ dùng đọc-kiểm READ ONLY).
 - **AS-001** quét thẻ CCCD thật của cơ sở — kiểm ở Checkpoint 4.
 - **AS-003** nạp thử 1 HV → mở app cũ đối chiếu — kiểm ở Checkpoint 2.
+- **MaGT identity?** — kiểm `NguoiLXHS_GiayTo.MaGT` ở `GPLX_CDB_CSDT` có IDENTITY không (quyết truyền tay hay dùng hàm `GetMaGiaytoByHosoForSync`) — cần trước **task 57**.
 
 ## Phase 1 — Tool nạp được 1 HV khớp app cũ *(de-risk mắt xích khó nhất)*
 
@@ -174,6 +186,32 @@
 - [ ] Nút "Xóa nháp" dọn nháp (gồm ảnh PII) chủ động.
 - [ ] Playwright 3vp (375/800/1440) màn Nạp lô + drawer — 0 tràn.
 
+## Phase 4 — Đồng bộ CDB (workspace mới, tách khỏi Nạp)
+
+> Feature SHOULD thêm ở CHANGES #33. Port nghiệp vụ `D:\Du_An\GPLX\sync_tool` v2.0 vào `tool/`, tách module bằng **sidebar workspace** (mở rộng N — đón module #3 "Kết quả đào tạo"). Ghi vào **CSDL đích GPLX_CDB_CSDT** — đọc `docs/DB-GPLX_CDB_CSDT.md` trước khi code. UI dựng thẳng `tool/webui` bám mock `ui-mock/sync.html` + skill UI (KHÔNG qua ui-demo). Tool CHỈ desktop (≥1280px, bảng cuộn ngang).
+
+| # | Task | Story | Quy mô | Phụ thuộc | Kiểm | Xong |
+|---|---|---|---|---|---|---|
+| 54 | **Sidebar workspace shell**: `ToolLayout` top-nav→**sidebar module** (registry `MODULES` mở rộng N + màu nhấn + banner CSDL); nav Nạp (Nạp/Tạo khóa/Cấu hình)→sub-nav trong module Nạp — **hành vi màn Nạp KHÔNG đổi** (chỉ đổi vị trí điều hướng) | — | M | 3 | 1 | [x] |
+| 55 | **Sync nền backend**: config `sync_targets/sync_selected/sync_options` (mã hóa, khối riêng) + `db.py sqlserver_conn_dich(db)` + `sync_helpers.py` (port `db_helpers`: `sinh_madk_batch`, `kiem_tra_madk_ton_tai`, `enrich_from_db_dich`, load năm/khóa theo year, **MaCSDT từ `QTHT_ThamSoHT.MA_CSDT`/khóa đích**, copy/snapshot) + `sync_history.py` (port HistoryStore/SyncBatch) — `pyodbc ?`→`pymssql %s` | — | M | 4 | 1+2 | [ ] |
+| 56 | **SYNC-02 Quản lý CSDL đích**: router `/local/sync/targets` GET/POST (CRUD + chọn mặc định + test kết nối báo số NguoiLX) + options TT_XuLy(mặc định 03)/TongSoHV; webui màn DB đích (bảng target + radio + Thêm/Sửa/Xóa + tùy chọn) | `SYNC-02` | M | 54,55 | 1+2 | → PRD |
+| 57 | **SYNC-01 (1/3) backend tạo HV**: `sync_service.sync_one_hv` qua **3 SP** `usp_NguoiLX_Insert`(`@MaDK=NULL`/precomputed)+`usp_NguoiLX_HoSo_Insert`(`@SoHoSo=NULL`→`CreateNewSoHoso`)+`usp_NguoiLXHS_GiayTo_Insert` (kiểm MaGT identity — prerequisite); **MaCSDT từ khóa đích**; `NguoiTao=admin`; backdate MaDK batch + UPDATE 4 cột ngày; guard MaDK trùng; endpoints năm/khóa (nguồn+đích, **khóa đích trả cờ `bc1`** cho cảnh báo B) + hoc-vien+enrich (skip HV đã có); **E1** chặn HV thiếu CCCD + **E2** đánh dấu trùng CCCD trong DS nguồn + **E3** sync-lại-an-toàn (idempotent qua skip) | `SYNC-01 (1/3)` | M | 55 | 1+2 | [ ] |
+| 58 | **SYNC-01 (2/3) SSE + chạy**: `POST /local/sync/run` (job nền thread + `asyncio.Queue`, ngắt SSE job vẫn chạy hết) + `GET /local/sync/stream` (SSE từng HV `{stt,trang_thai}` + tổng kết) + validate hạng khớp / ngày ≤ NgàyKG / backdate >90 hỏi | `SYNC-01 (2/3)` | M | 57 | 1+2 | [ ] |
+| 59 | **SYNC-01 (3/3) UI Bàn đồng bộ**: màn React bám `ui-mock/sync.html` + skill UI — khung chọn khóa **cố định/thu gọn**, bảng 11 cột **header dính** + **phân trang** (mẫu `PhanTrang`), **SYNC cố định chân**, tiến trình SSE, HV đã có nền vàng + khóa tick; **cảnh báo khi khóa đích đã BC1 (vẫn cho sync — B)**; **(a)** combo khóa gõ-để-lọc · **(b)** toggle "Chỉ hiện HV sẽ tạo mới" · **(c)** đếm dòng đang tick cạnh SYNC; chặn/cảnh báo E1/E2; bỏ ô cán bộ + bỏ CSV | `SYNC-01 (3/3)` | M | 54,57,58 | 1 | [ ] |
+| 60 | **SYNC-03 Lịch sử & Hủy sync**: router `/local/sync/lich-su` (đọc JSON `%APPDATA%`) + rollback (xóa theo MaDK log + `NguoiTao='SYNC'`, cascade `NguoiLX→HoSo→GiayTo`, **bắt lỗi HV đã BC1** FK NO_ACTION, cập nhật TongSoHV) + webui màn Lịch sử + modal hủy | `SYNC-03` | M | 55,57 | 1+2 | → PRD |
+
+> SYNC-01 cắt 3 task (57/58/59) cùng trỏ 1 story → PRD `SYNC-01` chỉ ✅ khi xong cả 3. Task **26** (đóng gói .exe) nay phụ thuộc thêm Phase 4 → chạy **sau task 60**.
+
+### ✅ Checkpoint 12 — sau task 54-60 (module Đồng bộ CDB)
+- [ ] Sync thật 1 khóa nhỏ → HV vào CDB **khớp phần mềm**: MaDK `75032-yyyyMMdd-nnnnnn`, SoHoSo dạng `B01` (qua `CreateNewSoHoso`), `NguoiTao=admin`; mở phần mềm CDB đối chiếu.
+- [ ] HV đã có ở đích (theo SoCMT) → **skip** (không tạo hồ sơ 2); đúng PK(MaDK).
+- [ ] **Backdate**: chọn ngày quá khứ → MaDK + NgayNhanHSo/NgayTao đúng ngày đó.
+- [ ] Khóa đích **đã BC1** → **cảnh báo**, vẫn sync được (phương án B).
+- [ ] **Hủy sync khóa** → xóa sạch HV tool tạo; HV đã BC1 → **chặn (báo lỗi rõ)**; TongSoHV cập nhật lại.
+- [ ] Tiến trình **SSE** chạy (thanh %, dòng đổi trạng thái); ngắt trang giữa chừng job vẫn xong.
+- [ ] **Regression Nạp**: sau đổi sidebar, màn Nạp/Tạo khóa/Cấu hình hành vi KHÔNG đổi.
+- [ ] Playwright 1280/1440/1920: sidebar + 3 màn Sync — 0 tràn ngang, header bảng dính, 0 lỗi console.
+
 ### ✅ Checkpoint 5 — cuối dự án
 - [ ] Mọi tiêu chí MUST + SHOULD trong PRD đạt.
 - [ ] Đối chiếu bảo mật OG đóng trước go-live (chặn go-live nếu chưa đạt).
@@ -215,10 +253,10 @@
 
 > `/tieptheo` so mục này với PRD mỗi buổi để biết kế hoạch còn khớp không. Lệch thì báo user chạy lại `/kehoach` chế độ bổ sung. **Không tự sửa kế hoạch.**
 
-- **Số story trong PRD khi cập nhật:** 25 (gồm story mới `QLY-09` từ CHANGES #28; `THU-05`, `QLY-08` từ #24; chưa tính NICE `QLY-04`, `THU-03`)
-- **Mã story đã đưa vào kế hoạch:** `HTG-01`, `HTG-02`, `HTG-03`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`
+- **Số story trong PRD khi cập nhật:** 28 (thêm `SYNC-01/02/03` từ CHANGES #33; trước đó `QLY-09` #28, `THU-05`/`QLY-08` #24; chưa tính NICE `QLY-04`, `THU-03`)
+- **Mã story đã đưa vào kế hoạch:** `HTG-01`, `HTG-02`, `HTG-03`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `SYNC-01`, `SYNC-02`, `SYNC-03`
 - **Mã story chưa đưa vào:** `QLY-04`, `THU-03` (NICE, chưa đủ chi tiết) · **`HTG-04/05/06`** (thêm ở CHANGES #18, đã code thẳng — chưa có task trong plan; cần `/kehoach` bổ sung riêng nếu muốn khớp sổ)
-- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 04/10/2026 (#32)
+- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 04/10/2026 (#33)
 
 ## Changelog
 
@@ -234,3 +272,4 @@
 | 03/10/2026 | v8 — bổ sung (CHANGES #24+#26): thêm task **41-47** (cuối Phase 3, trước task 26 đóng gói) — THU-05 xóa app web (41 ⚠VPS), QLY-08 gỡ về chờ nạp server (42 ⚠VPS) + tool/webui (43), NAP-01 đồng bộ xóa (44 ⚠VPS), "Dùng lại ảnh gốc" AnhModal (45), redesign Nạp lô drawer+sẵn sàng (46) + dialog nạp 3 pha + Xem trong DB (47) + Checkpoint 8/9. Lần đầu sửa server VPS từ Phase 2 → deploy lại. +story QLY-08, THU-05. 47 task. |
 | 03/10/2026 | v9 — bổ sung (CHANGES #28): thêm task **48-49** (cuối Phase 3, trước task 26) — QLY-09 đối soát VPS↔CSDT: backend liệt kê lệch theo khóa + 3 action tái dùng + phòng tuyến 2 chặn phantom (48), webui panel đối soát + nút sửa 1 chạm (49) + Checkpoint 10. Thuần tool, không endpoint/SP nạp mới. +story QLY-09. 49 task. |
 | 04/10/2026 | v10 — bổ sung (CHANGES #32, sau review TDD #32): thêm task **50-53** (cuối Phase 3, trước task 26) — NAP-01 lưu nháp BỀN backend `nhap_chuan_bi`+`nhap_xoa`+3 endpoint+BUG-04 reset trong `keo_ve_upsert` (50), UI nháp bền+2 chip+nút Xử lý/Xóa nháp (51), nạp chặn thiếu địa chỉ/cảnh báo thiếu ảnh+lối tắt (52); QLY-05 bổ sung ảnh 2 nguồn file/ảnh-thô-VPS (53) + Checkpoint 11. Endpoint list nhẹ + luật ghép địa chỉ theo biên bản `tdd-review-04-10-2026.md`. Tái dùng NAP-01/QLY-05, không story mới. 53 task. |
+| 04/10/2026 | v11 — bổ sung (CHANGES #33): thêm **Phase 4 Đồng bộ CDB** task **54-60** — sidebar workspace shell (54), Sync nền backend config/conn_dich/sync_helpers/sync_history (55), SYNC-02 Quản lý CSDL đích (56), SYNC-01 cắt 3: backend tạo HV qua 3 SP + MaCSDT từ QTHT/khóa đích (57) · SSE+chạy (58) · UI Bàn đồng bộ bám mock (59), SYNC-03 Lịch sử & Hủy sync (60) + Checkpoint 12 + prerequisite MaGT identity. Khóa đích BC1: cảnh báo-vẫn-cho (user chốt B). Task 26 đóng gói nay sau task 60. +3 story SYNC. 60 task. |

@@ -92,7 +92,8 @@ pmcsdtlx-thunhan/
 │   └── tests/         pytest (auth, queue, pii-job)
 ├── tool/              Python FastAPI + React     → tool máy DB (đóng gói PyInstaller)
 │   ├── app/           pull, dvhc-map, image, import(SP), khoahoc
-│   ├── webui/         React (build → static nhúng)
+│   │                  + sync: routers/sync.py, sync_service.py, sync_helpers.py, sync_history.py (§11B — không import nạp)
+│   ├── webui/         React (build → static nhúng) — ToolLayout = sidebar module + sub-nav; pages/sync/*
 │   ├── db/            builder nạp DM_DVHC_MAP → SQLite cục bộ + dataset vietnamadminunits đóng kèm
 │   └── tests/         pytest (sohoso, import-sp, image-jp2)
 ├── docker-compose.yml (VPS: api + postgres + nginx)
@@ -931,6 +932,88 @@ Bối cảnh: mốc "Nạp" chuyển quyền sở hữu (§7.5) đi qua **2 kho 
 
 ---
 
+## 11B. Đồng bộ CDB (tool — workspace riêng) — SYNC-01/02/03 (CHANGES #33)
+
+> Port nghiệp vụ từ `D:\Du_An\GPLX\sync_tool` **v2.0** (3 file: `sync_gplx.py` + `db_helpers.py` + `sync_history.py`). Đổi driver `pyodbc` (`?`) → **`pymssql`** (`%s`) cho khớp tool. **Tách hoàn toàn** khỏi nghiệp vụ Nạp.
+
+### 11B.0 Kiến trúc tách workspace (mở rộng N module)
+
+Tool có **nhiều module độc lập**, điều hướng **2 cấp**: **sidebar bên trái** liệt kê module → bấm module nào thì vùng nội dung hiện **sub-nav + các màn** của module đó (mỗi module 1 bộ route + màu nhấn + banner DB). **Không hardcode** — đăng ký module qua một bảng (id, nhãn, icon, màu, route gốc, sub-nav) để thêm module #3 "Cập nhật kết quả học tập" (dự kiến) chỉ bằng một dòng, không sửa khung.
+
+```
+Sidebar          Module                 sub-nav (màn trong module)                → DB ghi
+───────────────────────────────────────────────────────────────────────────────────────
+◉ Nạp hồ sơ      Thu nhận hồ sơ (xanh)   /tool/{nap,tao-khoa,cau-hinh}             → GPLX_CSDT
+○ Đồng bộ CDB    Đồng bộ CDB (hổ phách)  /sync/{ban-dong-bo,db-dich,lich-su}       → GPLX_CDB_CSDT
+○ Kết quả học tập (dự kiến)              /ketqua/* (chưa đặc tả)
+```
+
+- **Backend tách module:** `app/routers/sync.py` + `app/sync_service.py` (vòng sync, rollback) + `app/sync_helpers.py` (sinh MaDK, enrich, load năm/khóa, copy row, snapshot — port `db_helpers.py`) + `app/sync_history.py` (port nguyên). **Không import** `nap.py`/`anh.py`/… và ngược lại — tránh xung đột + nhầm lẫn.
+- **Frontend:** đổi khung `ToolLayout` từ thanh nav trên cùng → **sidebar trái (danh sách module) + vùng nội dung có sub-nav**. Module đăng ký trong một mảng `MODULES` (mở rộng N). Màn sync: `webui/src/pages/sync/*`. Nav Nạp hiện tại chuyển thành sub-nav module Nạp — **hành vi màn Nạp không đổi**.
+- **Bề rộng (tool CHỈ desktop — không mobile/responsive):** thiết kế cho cửa sổ rộng; **sidebar thu gọn được** (icon-only ~56px ↔ mở ~220px) để nhường bề ngang cho nội dung; vùng nội dung giữ bề rộng tối thiểu dễ đọc (ngắm ~1280px trở lên, canh giữa tối đa ~1500px như hiện tại). **Bảng Bàn đồng bộ nhiều cột (11 cột) → cho cuộn ngang TRONG vùng bảng**, không ép co cột tới mức chữ/`MaDK` 21 ký tự bị cắt. Kiểm bề rộng bằng Playwright ở 1280/1440/1920, bắt tràn ngang + cột chồng chữ trước khi coi là xong.
+
+*Vì sao tách cứng: Nạp ghi vào DB nguồn (`GPLX_CSDT`), Sync ghi vào DB đích (`GPLX_CDB_CSDT`) — trộn nav/module dễ khiến nhân viên thao tác nhầm DB. Tách module backend để sửa bên này không vỡ bên kia.*
+
+### 11B.1 Kết nối DB đích (nhiều đích)
+
+- `app/db.py` thêm `sqlserver_conn_dich(db_name)` / `sqlserver_cursor_dich(db_name)`: **dùng chung** `sqlserver_host/user/password` của cấu hình nạp, **chỉ thay `database`**.
+- Cấu hình (khối riêng trong `config.enc`, mã hóa Fernet như hiện tại):
+  ```json
+  "sync_targets": [{"key":"cdb_chinh","name":"CDB chính","database":"GPLX_CDB_CSDT"}],
+  "sync_selected": "cdb_chinh",
+  "sync_options": {"tt_xuly_force":"03","update_tong_so_hv":true}
+  ```
+- Bàn đồng bộ cần **2 kết nối cùng lúc**: nguồn (`sqlserver_conn`) + đích (`sqlserver_conn_dich`), cùng 1 SQL Server, khác DB.
+
+### 11B.2 Luồng sync 1 HV (nghiệp vụ DB đích: 1 người = 1 hồ sơ = 1 MaDK)
+
+```
+Tải DS: đọc HV khóa nguồn (JOIN NguoiLX+NguoiLX_HoSo) → enrich đối chiếu đích theo SoCMT
+   → phân nhánh:  đã có đích → SKIP   |   chưa có → NEW
+SYNC NEW: dọn NguoiLX mồ côi → sinh/nhận MaDK → usp_NguoiLX_Insert (NguoiTao='admin')
+   → [backdate] UPDATE NgayTao/NgaySua → INSERT NguoiLX_HoSo (SoHoSo, TT_XuLy, NgàyHS)
+   → copy NguoiLXHS_GiayTo (best-effort) → ghi log JSON (sau mỗi HV) → emit SSE
+Sau lô: cập nhật KhoaHoc.TongSoHV (nếu bật)
+```
+
+- **MaDK** `MaCSDT-yyyyMMdd-nnnnnn` (21 ký tự, MaCSDT đúng 5 số — `70004` đạt): ngày=hôm nay → để SP tự sinh; **backdate** → `sinh_madk_batch` query `MAX(SUBSTRING(MaDK,16,6))` theo prefix, cấp dải `[MAX+1..MAX+N]`, backdate `NgayNhanHSo/NgayTao/NgaySua`.
+- **Guard race:** trước INSERT, `kiem_tra_madk_ton_tai` → trùng thì sinh lại, tối đa 3 lần rồi báo lỗi HV đó.
+- **Validate:** hạng khóa nguồn = hạng khóa đích; `NgayNhanHSo ≤ NgayKG` khóa đích; backdate > 90 ngày → hỏi.
+
+### 11B.3 Tiến trình trực tiếp (SSE)
+
+- `POST /local/sync/run` → tạo `job_id`, chạy vòng sync ở **thread nền**, đẩy sự kiện vào `asyncio.Queue`.
+- `GET /local/sync/stream?job=<id>` → `text/event-stream`, emit mỗi HV `{stt, ho_ten, trang_thai, mau, ma_dk_moi}` + sự kiện tổng kết `{ok, skip, loi, tong_so_hv}`.
+- Ngắt SSE giữa chừng → **job vẫn chạy tới hết** (an toàn dữ liệu); client vào lại đọc tổng kết. App 1 người dùng → job lưu dict theo `job_id`, không cần hàng đợi bền.
+
+### 11B.4 Lịch sử & rollback (dual-mode)
+
+- Log JSON máy tool: `%APPDATA%\GPLX_Sync\history\<MaKhoaHoc>_<timestamp>.json` (atomic write, ghi sau mỗi HV). Schema `SyncBatch`: khoa_moi/khoa_cu, ngày, cán bộ, `ma_dk_moi[]`.
+- **Hủy sync khóa:** xóa `NguoiLX`+`NguoiLX_HoSo`+`NguoiLXHS_GiayTo` của các MaDK trong log **cộng** nhóm `NguoiTao='SYNC'` (tương thích công cụ cũ) → cập nhật `TongSoHV`.
+
+### 11B.5 API
+
+```
+GET  /local/sync/targets · POST /local/sync/targets            quản lý DB đích + options
+GET  /local/sync/nam?db= · GET /local/sync/khoa?db=&nam=        combo năm/khóa (nguồn & đích)
+POST /local/sync/hoc-vien                                       HV khóa nguồn + enrich đích
+POST /local/sync/run → {job_id}  ·  GET /local/sync/stream?job= chạy + SSE
+GET  /local/sync/lich-su?db= · POST /local/sync/rollback        lịch sử + hủy sync khóa
+```
+
+Gác `Depends(require_session)` như các router local khác.
+
+### 11B.6 Nợ kỹ thuật port từ sync_tool (quyết khi code)
+
+**Đã xác minh DB đích 04/10/2026** (chi tiết: `docs/DB-GPLX_CDB_CSDT.md`) → hướng chốt cho 3 tồn đọng:
+1. `SoHoSo` + MaDK: **gọi chính `usp_NguoiLX_Insert` + `usp_NguoiLX_HoSo_Insert`** (truyền `@MaDK`/`@SoHoSo=NULL` để DB sinh `CreateNewMaDK`/`CreateNewSoHoso` `B01`) thay vì INSERT thô → đúng chuẩn DB, hết nợ #1. (Backdate: tự sinh MaDK rồi truyền + UPDATE 4 cột ngày, vì SP hardcode getdate.)
+2. `DELETE` mồ côi: **lọc theo khóa + MaDK trong log JSON**, không quét toàn DB; rollback dựa PK(MaDK) + cascade `NguoiLX→HoSo→GiayTo`. Bắt lỗi khi HV đã BC1 (FK `HoSo→BaoCaoI` NO_ACTION chặn xóa).
+3. Copy giấy tờ: dùng `usp_NguoiLXHS_GiayTo_Insert` / hàm `GetMaGiaytoByHosoForSync`; không nuốt lỗi âm thầm — ghi cảnh báo.
+
+**MaCSDT lấy từ khóa đích** (`KhoaHoc.MaCSDT` = `QTHT_ThamSoHT.MA_CSDT`, DB dev = 75032), KHÔNG bê từ bản ghi nguồn. `usp_NguoiLX_Insert` chữ ký khớp 1:1 sync_tool — port không phải sửa. Còn kiểm: `NguoiLXHS_GiayTo.MaGT` có IDENTITY không.
+
+---
+
 ## 12. Security
 
 | Nhóm | Cơ chế |
@@ -1093,3 +1176,4 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 | 02/10/2026 | 2.2 | Nâng cấp trình chỉnh ảnh (CHANGES #20): §9.1 thêm xoay ảnh (−90°/+90° + tinh chỉnh độ nghiêng, xoay client-side trước khi crop) + khung chân dung mẫu overlay (không dính ảnh xuất); §9.2 ghi rõ `tool-start.bat` KHÔNG đặt `TOOL_SKIP_WARMUP=1` (warm-up để ảnh sau nhanh, giữ model u2net — phương án A). |
 | 02/10/2026 | 2.3 | Zoom trình chỉnh ảnh (CHANGES #21): §9.1 thang zoom mũ (3^t, t∈[−1,1], giữa=cỡ gốc) cho thu nhỏ dưới 1× + lăn chuột; grab tự do 4 hướng (nới clamp giữ ≥1/4 ảnh). |
 | 03/10/2026 | 3.1 | Redesign giao diện DESKTOP (CHANGES #30; đổi từ v3.0 vì QLY-09 đã dùng 3.0 khi gộp 2 phiên): §6.5 desktop vào thẳng form nhập tay + Quét QR/Tải ảnh thu nhỏ góc phải + popover camera prefill (THU-01, mobile giữ camera-first); §6.6 desktop chọn-nhiều-để-xóa ở "Hồ sơ đã gửi" (THU-05, lặp DELETE client như QuanTriHoSo, mobile giữ xóa lẻ). Thuần client, KHÔNG đổi Data Model/API/endpoint. |
+| 04/10/2026 | 3.2 | +§11B **Đồng bộ CDB** (CHANGES #33, SYNC-01/02/03): kiến trúc module + sidebar trái (mở rộng N, dự kiến module #3), `sqlserver_conn_dich()` nhiều DB đích, luồng sync 1 HV + MaDK batch + guard race, SSE tiến trình, rollback dual-mode, 3 nợ kỹ thuật port từ sync_tool. +§2.4 module sync. **Tool chỉ desktop**: sidebar thu gọn + nội dung ≥1280px + bảng sync cuộn ngang. |

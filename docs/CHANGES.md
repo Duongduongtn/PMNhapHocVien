@@ -4,6 +4,7 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 33 | 04/10/2026 | ➕ Thêm | `SYNC-01`, `SYNC-02`, `SYNC-03` | **Feature mới "Đồng bộ CDB"** (SHOULD) — port nghiệp vụ từ `D:\Du_An\GPLX\sync_tool` **v2.0** vào tool máy CSDT, **tách hoàn toàn** khỏi Nạp. **SYNC-01** Bàn đồng bộ (chọn khóa nguồn `GPLX_CSDT` + đích CDB cùng hạng · ngày nhập HS ≤ NgàyKG · `NguoiTao=admin` giống CDB, **bỏ ô cán bộ** · tải DS đối chiếu đích · skip HV đã có 1người=1HS · MaDK `MaCSDT-yyyyMMdd-nnnnnn` backdate batch · tiến trình **SSE**) · **SYNC-02** Quản lý DB đích (nhiều DB đích dùng chung host/user/pass, chọn mặc định, test, TT_XuLy mặc định 03 + cập nhật TongSoHV) · **SYNC-03** Lịch sử & Hủy sync (log JSON %APPDATA% + rollback dual-mode `NguoiTao='SYNC'`). **Kiến trúc:** tool đổi sang **sidebar trái = danh sách module** (mở rộng N — dự kiến module #3 "Cập nhật kết quả học tập"); backend tách `routers/sync.py`+`sync_service.py`+`sync_helpers.py`+`sync_history.py` không import nạp; **tool CHỈ desktop** (≥1280px, sidebar thu gọn, bảng cuộn ngang) | ✅ | ✅ §11B + §2.4 (v3.2) | ⬜ 3 màn ⬜ SCREENS #16/17/18 (dựng bằng /prototype-next hoặc thẳng tool thật) | ⬜ |
 | 32 | 04/10/2026 | ➕ Thêm + ✏️ Sửa | `NAP-01`, `QLY-05` | **Lưu nháp BỀN + 2 chip trạng thái + bổ sung ảnh 2 nguồn** (màn Nạp lô). ① **Lưu nháp bền** (NAP-01): chỉnh sửa chuẩn bị (địa chỉ 2 cấp, chi tiết, nơi cấp, tick giấy tờ, **ảnh đã đổi nền**) lưu xuống `staging.sqlite` bảng `nhap_chuan_bi` thay vì chỉ RAM → F5/đóng-mở tool không mất; **tự xóa** khi nạp xong/bỏ hàng đợi/xóa VPS; reset riêng địa chỉ nháp (backend, trong `keo_ve_upsert`) khi `noi_tt_raw` đổi (BUG-04) · ② **2 chip mỗi dòng** `✓/✗ Địa chỉ 2 cấp` + `✓/✗ Có hình` (mặc định ✗) · ③ **Mở drawer**: cả dòng bấm + nút "Xử lý" to · ④ **Nạp**: chặn thiếu địa chỉ, cảnh báo thiếu ảnh + lối tắt mở Tra cứu DB lọc "chưa ảnh" · ⑤ **Bổ sung ảnh HV thiếu ảnh** (QLY-05): lấy từ **file** (`chonFile`) hoặc **ảnh thô VPS** (`tra_uuid`→`tai_anh`→`napTuUrl`, nếu còn ≤30 ngày), cùng AnhModal + đổi nền | ✅ | ✅ §9.3a/§10.5/§11.5 (v3.2) | 🟡 ghi UX (cập nhật khi code) | ⬜ |
 | 31 | 03/10/2026 | ➕ Thêm + 🐛 | `NAP-05`, `QLY-01` | **Nơi cấp căn cước + số hồ sơ + popup chi tiết** (ca Lê Thị Hồng). ① **Nơi cấp** (BUG-10): nạp tự suy **mã Sở GTVT từ số CCCD** (`cccd[2:3]`; nơi cấp = `DM_DonViGTVT` LoaiDV='SO', vd 70=Bình Phước, 75=Đồng Nai) + **combobox** chọn tay (endpoint `/local/dvhc/so-gtvt`) + **vá 6 bản ghi cũ** rỗng · ② **Số hồ sơ** (BUG-09): `MAX+1` → **số nhỏ nhất chưa dùng** (lấp khe do nạp→gỡ→nạp lại) · ③ **Popup "Chi tiết học viên"** (QLY-01): thêm Ngày cấp · Nơi cấp (tên) · Địa chỉ cư trú + địa chỉ đầy đủ (join DM_DVHC); ẩn CMND cũ ở form nạp app web giữ nguyên (đã ẩn), chi tiết vẫn hiện. Thuần tool, KHÔNG đổi SP/schema | 🟡 ghi BUGS #9/#10 | — | ✅ popup + combobox | ✅ tool build+34 vitest; vá DB xong |
 | 30 | 03/10/2026 | ✏️ Sửa + ➕ Thêm | `THU-01`, `THU-05` | Redesign giao diện **DESKTOP** app web (nhánh `lg:`, mobile giữ nguyên): **① Quét (THU-01)** — desktop vào thẳng **form nhập tay** (bỏ cổng chọn), nút **Quét QR/Tải ảnh thu nhỏ** ra góc phải tiêu đề, Quét QR mở **popover camera** đè form rồi tự điền; "Lưu & nhập tiếp" → form trống · **② Hồ sơ đã gửi (THU-05)** — desktop **chọn-nhiều-để-xóa**: cột ô tích chỉ ở dòng Chờ nạp + thanh "Đã chọn N · Xóa N" + dialog xác nhận (lặp DELETE client, tái dùng QuanTriHoSo). KHÔNG đổi Data Model/API/endpoint. (Đổi số từ #28→#30 khi gộp 2 phiên song song) | ✅ | ✅ §6.5/§6.6 (v3.0) | ✅ ghi UX (sửa màn có sẵn, không dựng mới) | 🟡 client xong (build+24 test+review-nghiepvu đủ), chưa chụp Playwright/deploy |
@@ -38,6 +39,29 @@
 | 1 | 01/10/2026 | ✏️ Sửa | — | Đổi nơi lưu bảng ánh xạ `DM_DVHC_MAP`: GPLX_CSDT → SQLite cục bộ của tool | — | ✅ | — | ✅ (task 5) |
 
 Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên quan
+
+---
+
+## #33 — Feature "Đồng bộ CDB" (SYNC-01/02/03) + tool chuyển sang sidebar module · 04/10/2026
+
+- **Mã mới:** `SYNC-01` (Bàn đồng bộ), `SYNC-02` (Quản lý DB đích), `SYNC-03` (Lịch sử & Hủy sync) — prefix `SYNC` mới, nhóm SHOULD.
+- **Vì sao:** cần đưa nghiệp vụ đồng bộ học viên `GPLX_CSDT` → CDB `GPLX_CDB_CSDT` (đang chạy bằng công cụ rời `sync_tool` v2.0, CustomTkinter) vào chung tool máy CSDT, nhưng **tách bạch** để không lẫn với Nạp (hai bên ghi vào 2 DB khác nhau — dễ thao tác nhầm).
+- **Nguồn port:** `D:\Du_An\GPLX\sync_tool` v2.0 = 3 file `sync_gplx.py` + `db_helpers.py` + `sync_history.py` (đã đọc trọn; không còn logic ngoài 3 file). Format mã theo Phụ lục XXVII TT 17/2026/TT-BXD.
+- **Đã sửa/thêm:**
+  - PRD: thêm nhóm 🟣 "Đồng bộ CDB" (3 story) cuối SHOULD; ⑥ NFR thêm kiến trúc module+sidebar + tool chỉ-desktop; ⑦ thêm 3 edge Sync; Changelog v2.8.
+  - TDD: §11B (kiến trúc module/sidebar · kết nối đích nhiều DB · luồng sync + MaDK batch + guard race · SSE · rollback dual-mode · 3 nợ kỹ thuật) + §2.4 cây thư mục; Changelog v3.2.
+  - TDD-decisions: §12 (sidebar module), §13 (kết nối đích dùng chung host/user/pass, nhiều đích), §14 (SSE).
+  - SCREENS: màn #16/17/18 (⬜) + quyết định UX (sidebar, tool desktop ≥1280px bảng cuộn ngang, bám design system tool thật + dùng skill UI).
+  - **Phân tích DB đích (04/10)** → `docs/DB-GPLX_CDB_CSDT.md` (mới): cách tạo HV chuẩn (3 SP `usp_NguoiLX_Insert`/`usp_NguoiLX_HoSo_Insert`/`usp_NguoiLXHS_GiayTo_Insert`) · sinh mã (`CreateNewMaDK` hardcode getdate, `CreateNewSoHoso` `B01`) · MaCSDT lấy từ khóa đích = `QTHT.MA_CSDT`=75032 · PK(MaDK) + FK cascade (xóa khóa/người kéo xóa hồ sơ; BaoCaoI chặn xóa) · cột kết quả đào tạo sẵn trong `NguoiLX_HoSo` (cho module #3). CLAUDE.md thêm trỏ đọc trước khi code CDB. TDD §11B.6 cập nhật hướng chốt 3 nợ kỹ thuật.
+  - **Khóa đích đã BC1 (04/10):** cảnh báo nhưng **vẫn cho sync** (phương án B — khác NAP-02 chặn cứng; sync là bù dữ liệu chủ động). sync_tool gốc không chặn/không cảnh báo. PRD SYNC-01 +tiêu chí.
+  - **Tiện ích + edge thêm (04/10, user đồng ý):** UI (a) combo khóa gõ-để-lọc · (b) toggle "chỉ hiện HV sẽ tạo mới" · (c) đếm dòng tick cạnh SYNC. Edge: E1 chặn HV thiếu CCCD · E2 cảnh báo trùng CCCD trong DS nguồn · E3 sync-lại an toàn khi mất kết nối giữa lô (idempotent qua skip). E4 (HV chưa ảnh) giữ nguyên v2.0 (ép TT_XuLy 03). Dropdown khóa nguồn+đích bám đúng v2.0: combo Năm (DISTINCT YEAR NgayKG, mặc định năm nay) + combo Khóa (TrangThai=1 + năm).
+  - **Chốt qua mock `ui-mock/sync.html` (04/10):** ① **bỏ ô "Cán bộ nạp"** → `NguoiTao/NguoiSua='admin'` (probe DB `GPLX_CDB_CSDT`: NguoiTao chỉ `ADMIN`/`SYNC`, 10 bản mới nhất `admin` — CDB không có cán bộ riêng; TDD-decisions §15) · ② **bỏ Xuất CSV** (không cần) · ③ tối ưu danh sách: khung chọn khóa **cố định + thu gọn được**, **header bảng dính**, **nút SYNC cố định ở chân**, **phân trang** 20/50/100 (mẫu `PhanTrang.tsx`), dòng dày hơn để hiện nhiều HV.
+- **Còn nợ:**
+  - **Chưa code** (⬜). **Hướng dựng UI đã chốt (user 04/10, phương án A):** BỎ QUA `ui-demo` (prototype cũ đã lệch so với `tool/webui` thật) → dựng **1 mock HTML sidebar + 3 màn Sync bám token `tool/webui` thật** (dùng skill UI `ui-ux-pro-max`/`impeccable`) để chốt layout → **code thẳng vào `tool/webui`** (gồm đổi `ToolLayout`→sidebar). KHÔNG dùng `/prototype-next`.
+  - **Xác minh trước khi code:** chữ ký `usp_NguoiLX_Insert` + hàm `CreateNewMaDK` trên DB đích CSDT **70004** có giống bản 75032 mà sync_tool giả định.
+  - **3 nợ kỹ thuật port** (quyết giữ/vá khi code): `SoHoSo` sinh ở Python (nên gọi `CreateNewSoHoso`) · `DELETE` NguoiLX mồ côi quét toàn DB (nên lọc khóa) · `except: pass` khi copy giấy tờ.
+  - Đổi `ToolLayout` sang sidebar đụng chrome module Nạp (hành vi màn Nạp **không đổi** → không hạ trạng thái story Nạp).
+- **Chưa làm tay:** `/kehoach` bổ sung (~3-4 task: config+kết nối đích → API+SSE → UI sidebar+3 màn → rollback); `/reviewtdd` (đã sửa §11B + Data-flow); `/prototype-next` hoặc build thẳng.
 
 ---
 
@@ -449,8 +473,9 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 > `/capnhat` đọc mục này ở Bước 0b để biết có thay đổi nào chưa ghi sổ không.
 > So bằng **danh sách mã**, không so bằng thời gian sửa file.
 
-- **Cập nhật:** 04/10/2026 (#32 bổ sung tiêu chí NAP-01 + QLY-05: lưu nháp bền + 2 chip + bổ sung ảnh 2 nguồn; không thêm/bớt story. ⚠️ #31 có dòng bảng nhưng THIẾU mục chi tiết — cần phiên #31 bổ sung)
-- **Cập nhật trước:** 03/10/2026 (gộp 2 phiên song song: #28 QLY-09 + #29 NAP-01/03 + #30 THU-01/05; THU-01 hạ ✅→⏳; không bớt story)
-- **Số story trong PRD:** 25 (24 MUST/SHOULD gồm `THU-04` SHOULD + `THU-05` + `HTG-04` SHOULD + `QLY-06` ⏳ + `QLY-07` + `QLY-08` + `QLY-09`; chưa tính NICE `QLY-04`, `THU-03`)
-- **Mã story hiện có:** `HTG-01`…`HTG-06`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09` (NICE: `QLY-04`, `THU-03`)
+- **Cập nhật:** 04/10/2026 (#33 +Feature "Đồng bộ CDB" 3 story `SYNC-01/02/03` SHOULD, port sync_tool v2.0 + tool chuyển sidebar module; chưa code)
+- **Cập nhật trước:** 04/10/2026 (#32 bổ sung tiêu chí NAP-01 + QLY-05: lưu nháp bền + 2 chip + bổ sung ảnh 2 nguồn; không thêm/bớt story. ⚠️ #31 có dòng bảng nhưng THIẾU mục chi tiết — cần phiên #31 bổ sung)
+- **Cập nhật trước nữa:** 03/10/2026 (gộp 2 phiên song song: #28 QLY-09 + #29 NAP-01/03 + #30 THU-01/05; THU-01 hạ ✅→⏳; không bớt story)
+- **Số story trong PRD:** 28 (27 MUST/SHOULD gồm `THU-04` SHOULD + `THU-05` + `HTG-04` SHOULD + `QLY-06` ⏳ + `QLY-07` + `QLY-08` + `QLY-09` + `SYNC-01/02/03` SHOULD; chưa tính NICE `QLY-04`, `THU-03`)
+- **Mã story hiện có:** `HTG-01`…`HTG-06`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `SYNC-01`, `SYNC-02`, `SYNC-03` (NICE: `QLY-04`, `THU-03`)
 - **Mã đã nghỉ hưu:** (chưa có)

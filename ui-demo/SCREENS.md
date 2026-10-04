@@ -41,6 +41,9 @@ Prototype là tham chiếu **style/layout**, không phải scaffold thật.
 | 13 | Nạp lô + IA 2 chế độ (hàng chờ VPS badge ⚪🔴🟢) | NAP-01 | `/tool/nap` (chế độ Nạp hồ sơ / Tra cứu DB) | ✅ Xong (+⬜ "Bỏ khỏi hàng đợi" & "Nạp lại nhanh" CHANGES #22) | 5 |
 | 14 | Tra cứu DB: avatar lưới (3 ca: có ảnh/chưa ảnh/mất file) + xem ảnh lớn+đường dẫn + thống kê đầu khóa + thao tác nhanh | QLY-01 | `/tool/nap` (tab DB) | ✅ Xong | 13 |
 | 15 | Đổi nền trắng cả khóa (phạm vi + sao lưu _BACKUP + thanh tiến độ) | QLY-07 | `/tool/nap` (tab DB → dialog) | ✅ Xong | 13 |
+| 16 | Sync · Bàn đồng bộ (chọn khóa nguồn/đích · ngày+cán bộ · bảng HV đối chiếu đích · SYNC + tiến trình SSE · CSV) | SYNC-01 | `/sync/ban-dong-bo` | ⬜ Chưa có route (dựng thẳng `tool/webui`, không qua ui-demo) | — |
+| 17 | Sync · Quản lý DB đích (nhiều DB đích + chọn mặc định + test + tùy chọn TT_XuLy/TongSoHV) | SYNC-02 | `/sync/db-dich` | ⬜ Chưa có route (dựng thẳng `tool/webui`) | — |
+| 18 | Sync · Lịch sử & Hủy sync khóa (log JSON + rollback dual-mode) | SYNC-03 | `/sync/lich-su` | ⬜ Chưa có route (dựng thẳng `tool/webui`) | — |
 | — | Hàng đợi VPS + xóa PII 30 ngày | HTG-02 | (backend, không có UI) | ⬜ Không dựng | — |
 | — | Kết xuất Excel (NICE) | QLY-04 | (mới có nút, chưa luồng) | ⬜ NICE — sau | — |
 | — | Offline app web (NICE) | THU-03 | — | ⬜ NICE — sau | — |
@@ -62,6 +65,10 @@ Chú thích: ✅ Xong · 🟡 Placeholder · ⬜ Chưa có route
 | /tool/tao-khoa, /tool/cau-hinh | Form layout | Một trang; tái dùng pattern "Tự điền chip + nhóm BẮT BUỘC (viền đỏ, *) + accordion Thông tin thêm" như /tool/nap | 2 |
 | /tool/cau-hinh | Kiểm tra kết nối | Nút "Kiểm tra kết nối" → badge kết quả inline (thành công/lỗi), không popup | 2 |
 | /dang-nhap | Bố cục | Card giữa màn (username + password + nút); 3 vai trò theo tài khoản, không SSO | 2 |
+| Tool (ToolLayout) | Điều hướng nhiều module | **Sidebar trái** = danh sách module (Nạp hồ sơ · Đồng bộ CDB · dự kiến Kết quả học tập) → bấm module hiện sub-nav + màn của module; mỗi module màu nhấn + banner DB riêng; sidebar thu gọn được (icon ↔ nhãn); đăng ký mảng MODULES (mở rộng N). Nav Nạp cũ → sub-nav module Nạp (hành vi màn không đổi) | (SYNC) |
+| Tool (toàn bộ) | Bề rộng · thiết bị | **CHỈ desktop** (không responsive/mobile); nội dung ≥1280px, canh giữa ~1500px; sidebar nhường bề ngang; **bảng nhiều cột cuộn ngang trong vùng bảng**, không co cột cắt chữ/MaDK. Kiểm Playwright 1280/1440/1920 bắt tràn ngang trước khi xong | (SYNC) |
+| /sync/ban-dong-bo | Dựng UI | Bám **design system tool thật** (`tool/webui` token/shadcn hiện tại — KHÔNG theo prototype cũ đã lệch); dùng **skill UI** (ui-ux-pro-max/impeccable) khi dựng. Bảng 11 cột: ☑·STT·Họ tên·CCCD·Hạng·MaDK nguồn·NgàyHS nguồn·MaDK đích·NgàyHS đích·Số HS·Trạng thái; HV đã có ở đích nền vàng + khóa tick | (SYNC) |
+| /sync/* | Màu nhấn | Module Đồng bộ CDB dùng tông **hổ phách/teal** phân biệt với Nạp (xanh primary), trong khuôn khổ token hiện có; banner cố định nhắc DB đích đang ghi | (SYNC) |
 | App web (AppLayout, Quét) | Responsive desktop (PRD ⑥) | Mobile-first giữ nguyên; desktop ≥lg: sidebar trái + nội dung nhiều cột; Đã gửi desktop = table. ⚠️ "Quét = camera trái/form phải" **đã bỏ** — thay bằng desktop vào thẳng form + popover quét (lượt 18, CHANGES #30) | 2 |
 | /app/da-gui | Danh sách + chi tiết | Lọc Tất cả/Chờ nạp/Đã nạp; mobile = card list, desktop = table; bấm dòng → modal chi tiết (ảnh thô + thông tin) | 3 |
 | /admin/ho-so | Xóa PII | Bảng + checkbox chọn nhiều + lọc trạng thái/khoảng ngày; xóa tay → dialog xác nhận (không khôi phục, BR-016) | 3 |
