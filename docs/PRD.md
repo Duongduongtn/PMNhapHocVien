@@ -715,7 +715,7 @@
 
 **Done khi:**
 - ✅ Từ chi tiết HV → mở **AnhModal** (tái dùng Y NGUYÊN của Nạp: căn 3:4 + zoom/xoay + **đổi nền** qua `/local/anh/xu-ly` rembg); nguồn ảnh để chỉnh: **file máy** hoặc **ảnh hiện có** (nạp lại .jp2 cũ để chỉnh tiếp).
-- ✅ Lưu → **ghi đè đúng file `.jp2` cũ, GIỮ NGUYÊN tên file + `DuongDanAnh`** (ảnh là 1 file vật lý **dùng chung** giữa DB Nạp và DB đích → thay ảnh thì **cả 2 DB cùng đổi**); cập nhật `ChatLuongAnh`/`NgayThuNhanAnh` ở bản ghi CDB.
+- ✅ Lưu → **ghi đè đúng file `.jp2` cũ, GIỮ NGUYÊN tên file + `DuongDanAnh`** (ảnh là 1 file vật lý **dùng chung** giữa DB Nạp và DB đích → thay ảnh thì **cả 2 DB cùng đổi**); **trước khi ghi đè, sao lưu ảnh cũ sang `<tên>_BACKUP.jp2` cùng thư mục (chỉ nếu chưa có)** để khôi phục khi thay nhầm; cập nhật `ChatLuongAnh`/`NgayThuNhanAnh` ở bản ghi CDB.
 - ✅ **Cho phép thay ảnh kể cả khi khóa đã kết xuất DKKH / đã BC1** — chỉ **cảnh báo** (ảnh là sửa chất lượng, cùng một người; bám tiền lệ QLY-05 Nạp cho đổi ảnh khi BC1).
 - ❌ Không đổi đường dẫn/tên file ảnh (giữ chung với bản nguồn); không tạo file ảnh thứ 2.
 
@@ -745,7 +745,7 @@
 
 **Done khi:**
 - ✅ Xóa 1 HV (NguoiLX + NguoiLX_HoSo + GiayTo, cascade) / Đổi khóa HV sang khóa đích khác **cùng hạng** (chưa BC1).
-- ✅ **CHẶN nếu HV ĐÃ BC1** (có dòng `BaoCaoI` / `TT_XuLy ≥ 05` — FK `BaoCaoI` NO_ACTION chặn xóa) → báo rõ "HV đã lập Báo cáo 1, không xóa/đổi khóa được".
+- ✅ **CHẶN nếu HV ĐÃ BC1** — nhận biết bằng **`NguoiLX_HoSo.MaBC1` có giá trị** (đúng cái FK NO_ACTION chặn xóa; KHÔNG dùng `TT_XuLy ≥ 05` hay dòng `BaoCaoI` cấp khóa — chốt /reviewtdd 04/10) → báo rõ "HV đã lập Báo cáo 1, không xóa/đổi khóa được"; vẫn bắt lỗi FK làm lưới an toàn.
 - ✅ Khóa **đã kết xuất DKKH nhưng CHƯA BC1** → vẫn cho xóa/đổi khóa nhưng **cảnh báo** (danh sách đã đăng ký với Sở). *(Ngưỡng chặn cứng là BC1 — nhất quán với Hủy sync SYNC-03 xóa HV ở TT_XuLy=03.)*
 - ✅ Xác nhận rõ trước khi xóa (không hoàn tác được).
 - ❌ Không xóa/đổi khóa HV đã BC1; không đổi sang khóa khác hạng.

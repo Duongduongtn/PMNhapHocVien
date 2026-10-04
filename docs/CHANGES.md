@@ -57,6 +57,7 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 - **KHÔNG chạm:** màn Tra cứu DB bên Nạp (QLY-01, đọc `GPLX_CSDT`) · quyết định TDD §12/13/14.
 - **Chưa code** (⬜). **Hướng dựng:** `webui/src/pages/sync/TraCuuCDB.tsx` (tái dùng AnhModal/AnhAvatar) + endpoint CDB mới (`routers/sync.py` hoặc module mới) trỏ `sqlserver_conn_dich` + sửa `BanDongBo.tsx` (nút). Vào BUILD-PLAN qua `/kehoach` bổ sung.
 - **Còn kiểm khi code:** CDB có `usp_NguoiLX_Update` / SP đổi khóa / SP xóa (như GPLX_CSDT) không — nếu thiếu thì tắt nút tương ứng + báo.
+- **Tinh chỉnh sau /reviewtdd (04/10, biên bản `docs/tdd-review-04-10-2026-tcb.md`, TDD v3.5):** (1) mốc "đã BC1" chốt lại = **`NguoiLX_HoSo.MaBC1` có giá trị** (đúng cái FK NO_ACTION chặn — bỏ cách hiểu `TT_XuLy≥'05'`/dòng BaoCaoI cấp khóa vì 3 tín hiệu lệch nhau) → cập nhật câu chữ PRD TCB-04; (2) thay ảnh TCB-02 **sao lưu `_BACKUP.jp2` cùng thư mục ảnh trước khi ghi đè** → cập nhật PRD TCB-02; (3) endpoint TCB ghi buộc token operator; (4) nới câu chữ §12 "DB đích"; (5) +bảng ma trận quyết định. Không đổi phạm vi/tính năng — chỉ làm chính xác lại quyết định đã chốt ở #35.
 
 ---
 
