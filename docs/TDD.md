@@ -1067,6 +1067,39 @@ Màn **Tra cứu CDB** (tab trong phân hệ Đồng bộ) soi dữ liệu HV **
 
 ---
 
+## 11C. Đóng gói & khởi chạy tool độc lập — DGT-01..04 (CHANGES #38)
+
+Đóng gói tool (`tool/`) thành **một file `.exe`** chạy tại máy CSDT không cần cài Python/Node. Kiến trúc đã sẵn sàng cho việc này: frontend dùng `BASE = import.meta.env.DEV ? "http://localhost:8000" : ""` (bản production đường dẫn tương đối) → **FastAPI phục vụ luôn giao diện trên cùng origin**, hết CORS, hết cổng dev 3011 riêng.
+
+### 11C.1 Đóng gói (DGT-01)
+- **Build frontend tĩnh:** `cd tool/webui && pnpm build` → `tool/webui/dist/`.
+- **FastAPI phục vụ `dist/`:** mount `StaticFiles` ở `app/main.py` cho mọi path không phải `/local/*` (SPA fallback về `index.html`). Giữ `/local/*` như cũ.
+- **PyInstaller** gói `app/main.py` (one-folder khuyến nghị — khởi động nhanh hơn one-file) + **`--add-data`** kèm: `webui/dist/`, `db/data/dvhc_map.sqlite`, mọi file SQL/mẫu. Thư viện Python (fastapi, uvicorn, **pymssql**, Pillow, rembg, cryptography) gói sẵn trong exe → máy đích không cài gì.
+- **pymssql** có phần biên dịch C (FreeTDS) — PyInstaller gói `.pyd` nhưng **bắt buộc test trên máy sạch** (gotcha hay gặp nhất).
+- **Thư mục ghi:** config (`config/key.bin`), nháp (`staging.sqlite`), ảnh `_BACKUP`, ảnh tạm → ghi vào **`%APPDATA%\<tool>\`** (hoặc cạnh exe), KHÔNG vào `Program Files` (không ghi được). Hiện `config_store`/`nap` dùng đường dẫn tương đối theo `__file__` → **phải đổi gốc dữ liệu sang thư mục ghi được khi chạy dạng đóng gói** (phát hiện `sys.frozen`).
+
+### 11C.2 Khởi chạy (DGT-02)
+- **Tự mở trình duyệt:** khi uvicorn sẵn sàng, `webbrowser.open("http://127.0.0.1:<port>")`. Không mở được → in địa chỉ ra cửa sổ khởi động.
+- **Khay hệ thống (tray):** `pystray` (hoặc tương đương) — menu "Mở giao diện" (mở lại trình duyệt) + "Thoát" (tắt uvicorn gọn). Ẩn console (`--windowed`).
+- **Chống chạy 2 bản (single-instance):** khóa file hoặc thử bind cổng cố định — đã chạy thì **mở lại trình duyệt vào bản đang chạy**, không bật bản hai. Cổng mặc định bận (do app khác) → dò cổng trống, mở đúng cổng đó.
+- **Tự chạy khi bật máy (tùy chọn):** shortcut trong `shell:startup` hoặc registry `Run`, bật/tắt từ trong tool.
+
+### 11C.3 Wizard thiết lập lần đầu (DGT-03)
+- **Nhận "máy sạch":** chưa có `key.bin`/chưa đủ cấu hình (`config_store`) → frontend route vào **wizard**, không vào màn đăng nhập. `/local/config` + `/local/config/test` + `/local/auth/login` **không bị gác token** (đã có — "config là bước mồi", `main.py`) nên wizard chạy trước đăng nhập không vướng.
+- **3 bước, test-before-next:** (1) kiểm môi trường — thư mục ghi được + ping VPS; (2) cấu hình SQL nguồn/đích + VPS, nút "Kiểm tra kết nối" (`/local/config/test` + `testSyncTarget` sẵn có) **phải xanh mới cho Tiếp**; (3) đăng nhập (`/local/auth/login` qua VPS), lỗi VPS → quay lại sửa URL. Tái dùng nội dung `CauHinhDrawer.tsx`, chỉ xếp lại thành stepper toàn màn.
+- **Lần sau:** đã có cấu hình → bỏ wizard, vào thẳng (đăng nhập, hoặc vào luôn nếu còn phiên — §11C.4).
+
+### 11C.4 Phiên đăng nhập vĩnh viễn (DGT-04)
+- **Hiện trạng:** `session.py` giữ `Phien` trong RAM → tắt exe là mất; token client ở `localStorage` sống qua F5/đóng-mở trình duyệt (CHANGES #36).
+- **Thêm:** **lưu phiên ra đĩa** (file trong thư mục ghi được, **mã hóa bằng `key.bin`** sẵn có — tái dùng `config_store._fernet()`), **không gắn hạn**. Khởi động: nạp lại phiên từ đĩa → `require_session` chấp nhận token cũ → vào thẳng.
+- **Đăng xuất** (`/local/auth/logout` → `session.dang_xuat`, nút UI đã có): xóa phiên ở **đĩa + client** → lối ra duy nhất.
+- **Thu hồi từ xa:** khi có mạng, định kỳ (vd lúc khởi động + mỗi N giờ) ngầm hỏi VPS tài khoản còn hiệu lực (tái dùng đường xác thực VPS) — VPS khóa → xóa phiên, buộc đăng nhập lại. Không có mạng → vẫn vào bằng phiên đĩa, kiểm khi có mạng lại.
+- **Rủi ro (chấp nhận, user 05/10):** phiên vĩnh viễn = ai ngồi vào máy cũng vào thẳng (sửa/xóa GPLX + xem căn cước). Chấp nhận vì máy nội bộ CSDT 1 người dùng — xem §16. **Chỉ áp cho tool**; đăng nhập app web (VPS, đa người) giữ phiên thường, không đổi.
+
+> **Phục vụ:** DGT-01/02/03/04. Không chạm nghiệp vụ Nạp/Sync/TCB — thuần đóng gói + khởi chạy + vòng đời phiên của tool. Quyết định kỹ thuật: TDD-decisions §16.
+
+---
+
 ## 12. Security
 
 | Nhóm | Cơ chế |
@@ -1154,9 +1187,13 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 | Lộ PII trên VPS | Thấp | Cao | HTTPS + auth + xóa 30 ngày + không log CCCD |
 | Tool dùng `sa` | — | Cao | Tạo SQL login riêng (OG-004) |
 | Đồng hồ máy DB sai giờ | Thấp | Trung bình | So giờ trước go-live (MaDK/tên file theo timestamp) |
+| **Phiên tool vĩnh viễn → ai ngồi vào máy cũng vào thẳng** (DGT-04) | Trung bình | Cao | **Chấp nhận** (user 05/10): máy nội bộ CSDT 1 người dùng. Giảm nhẹ: nút Đăng xuất + thu hồi từ xa (VPS khóa tài khoản → đá ra). Nếu máy thành dùng chung → thêm "hỏi mật khẩu khi xóa/đổi khóa" (để sau) |
+| **exe đóng gói chạy sai trên máy sạch** (pymssql/FreeTDS, đường dẫn ghi) | Trung bình | Cao | Test trên máy sạch trước go-live; ghi dữ liệu vào `%APPDATA%`; kèm hướng dẫn SmartScreen / ký số |
 
 ### 16.2 Trade-offs đã quyết
 **Ghi DB chỉ qua SP (không ORM):** ✅ khớp app cũ, an toàn ❌ không tự sinh/migrate schema (chấp nhận — DB có sẵn).
+**Phiên tool vĩnh viễn (DGT-04):** ✅ đăng nhập 1 lần dùng mãi, hợp ca làm hằng ngày ❌ mất lớp khóa đăng nhập khi máy bị người khác tiếp cận (chấp nhận — máy nội bộ 1 người; có thu hồi từ xa làm lưới).
+**Đóng gói PyInstaller (DGT-01):** ✅ máy đích không cài Python/Node, mở như phần mềm thường ❌ exe to, phải test trên máy sạch, SmartScreen cảnh báo nếu chưa ký số.
 **Tool pull ra VPS:** ✅ máy DB sau NAT vẫn chạy, không mở cổng ❌ không realtime (đủ cho nhịp đợt).
 **DM_DVHC_MAP trong DB đích:** ✅ cập nhật một chỗ ❌ thêm 1 bảng trong production (chỉ đọc từ tool).
 **Ảnh thô filesystem VPS:** ✅ đơn giản, rẻ ❌ phải xóa cả file lẫn dòng khi dọn PII.
@@ -1231,6 +1268,7 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 | 03/10/2026 | 3.1 | Redesign giao diện DESKTOP (CHANGES #30; đổi từ v3.0 vì QLY-09 đã dùng 3.0 khi gộp 2 phiên): §6.5 desktop vào thẳng form nhập tay + Quét QR/Tải ảnh thu nhỏ góc phải + popover camera prefill (THU-01, mobile giữ camera-first); §6.6 desktop chọn-nhiều-để-xóa ở "Hồ sơ đã gửi" (THU-05, lặp DELETE client như QuanTriHoSo, mobile giữ xóa lẻ). Thuần client, KHÔNG đổi Data Model/API/endpoint. |
 | 04/10/2026 | 3.2 | +§11B **Đồng bộ CDB** (CHANGES #33, SYNC-01/02/03): kiến trúc module + sidebar trái (mở rộng N, dự kiến module #3), `sqlserver_conn_dich()` nhiều DB đích, luồng sync 1 HV + MaDK batch + guard race, SSE tiến trình, rollback dual-mode, 3 nợ kỹ thuật port từ sync_tool. +§2.4 module sync. **Tool chỉ desktop**: sidebar thu gọn + nội dung ≥1280px + bảng sync cuộn ngang. |
 | 04/10/2026 | 3.3 | Cấu hình lên header (CHANGES #34, HTG-07): §5.0 + §11B.0 — bỏ route `/tool/cau-hinh` + `/sync/db-dich` khỏi sub-nav, gộp thành **panel ⚙ trên header dùng chung** (khối ① kết nối + DB nguồn Nạp · khối ② nhiều DB đích Sync, tách bạch). Thuần UI/IA — backend `/local/config*` + `/local/sync/targets` + config-store không đổi; không chạm quyết định §12/§13/§14. |
+| 05/10/2026 | 4.0 | **+§11C Đóng gói & khởi chạy tool** (CHANGES #38, DGT-01..04): đóng gói exe PyInstaller + FastAPI phục vụ `webui/dist` cùng cổng (BASE="" sẵn có) + ghi dữ liệu vào `%APPDATA%` khi `sys.frozen`; tự mở trình duyệt + khay hệ thống + chống chạy 2 bản + tự chạy khi bật máy; wizard thiết lập lần đầu (tái dùng `/config/test` + `CauHinhDrawer`); **phiên vĩnh viễn** (lưu đĩa mã hóa `key.bin` + thu hồi từ xa, chỉ áp tool). +2 rủi ro §16 (phiên vĩnh viễn, exe máy sạch). Quyết định: TDD-decisions §16. |
 | 05/10/2026 | 3.9 | Sửa sau /reviewtdd §11B.7 (biên bản `tdd-review-05-10-2026-tcb37.md`, phạm vi #37): +`chi-tiet-sua` (CDB) trả thêm `NoiTT_MaDVHC/MaDVQL/NgayCapCMT/NoiCapCMT` để preselect form; **luật bỏ-trống-giữ-cũ** cho 3 trường mới (fallback `cur_row`, không ghi đè rỗng) + tách `dung_tham_so_update_cdb` nhưng vẫn tái dùng `_EXEC_UPDATE`; +edge xã cũ trước sáp nhập (preselect trống là bình thường); +kiểm CDB có đủ `DM_DVHC` mới/SP xã/`DM_DonViGTVT`. 0 Chặn · 3 Nên sửa · 1 Ghi nhận. |
 | 05/10/2026 | 3.8 | **Mở rộng trường sửa nhân thân TCB-03** (CHANGES #37): §11B.7 — thêm địa chỉ thường trú 2 cấp (`NoiTT_MaDVHC`/`MaDVQL`) + ngày cấp CCCD (`NgayCapCMT`) + nơi cấp CCCD (`NoiCapCMT`); **tách model riêng cho CDB** (không mở rộng `HoSoSua` dùng chung — Nạp QLY-01 giữ 5 trường, user chốt); danh mục Tỉnh/Xã + Sở phải đọc từ **DB đích** (`target_key`). `usp_NguoiLX_Update` đã nhận sẵn các tham số. |
 | 05/10/2026 | 3.7 | Sửa sau review (biên bản `tdd-review-05-10-2026.md`, phạm vi vùng sửa #36): §11B.2 làm rõ filter khi **chưa chọn khóa nguồn** (bỏ lọc hạng) + ghi hành vi **tự kiểm kết nối khi vào màn**; §5.5 thêm **sơ đồ khôi phục phiên F5** + edge **localStorage bị chặn → fallback bộ nhớ**. 0 phát hiện Chặn; đều là bổ sung/làm rõ tài liệu (code đã đúng). |

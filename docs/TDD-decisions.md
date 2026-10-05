@@ -125,3 +125,16 @@
 - **Khác sync_tool v2.0:** bản gốc thêm ô "Cán bộ nạp" thay 'SYNC' — nay bỏ vì DB không dùng giá trị đó.
 - **Đánh đổi:** mất truy vết "ai sync" trong DB; chấp nhận vì nhật ký JSON máy tool vẫn ghi batch, và CDB vốn chỉ dùng `admin`.
 - **Nguồn:** user 04/10/2026 ("bỏ ô cán bộ, mặc định giống DB"); probe DB `GPLX_CDB_CSDT`; TDD §11B.2.
+
+## 16. Đóng gói tool bằng PyInstaller + phiên đăng nhập vĩnh viễn (05/10/2026)
+
+- **Đã chốt (05/10/2026):**
+  - **Đóng gói:** tool thành **một exe PyInstaller** (one-folder), FastAPI phục vụ luôn `webui/dist` trên cùng cổng; máy đích không cần Python/Node. Dữ liệu ghi vào `%APPDATA%` khi chạy dạng đóng gói (`sys.frozen`).
+  - **Phiên đăng nhập tool: VĨNH VIỄN** — lưu phiên ra đĩa (mã hóa `key.bin`), mở exe lần sau vào thẳng, **chỉ "Đăng xuất" mới thoát**; thêm thu hồi từ xa (ngầm hỏi VPS khi có mạng).
+- **Vì sao:**
+  - Máy CSDT không được cài thêm công cụ dev; cần mang đi như một phần mềm. PyInstaller gói sẵn mọi thư viện → không cài gì. Kiến trúc đã sẵn (`BASE=""` ở bản production → cùng origin).
+  - Ca làm hằng ngày của một nhân viên nạp tại máy nội bộ: đăng nhập lại mỗi lần mở là phiền vô ích. User chọn **vĩnh viễn** (không chọn mốc 30 ngày / hết ca).
+- **Phương án đã cân nhắc (độ dài phiên):** (A) trượt 30 ngày theo sử dụng · (B) **vĩnh viễn** ← chọn · (C) hết ca 8-12h. User chốt B.
+- **Đánh đổi:** phiên vĩnh viễn = ai ngồi vào máy cũng vào thẳng (sửa/xóa GPLX + xem căn cước). **Chấp nhận** vì máy nội bộ CSDT 1 người dùng; lưới an toàn = nút Đăng xuất + thu hồi từ xa. Máy thành dùng chung sau này → thêm "hỏi mật khẩu khi xóa/đổi khóa" (để sau). pymssql/FreeTDS phải test trên máy sạch.
+- **Phạm vi:** chỉ **tool**; đăng nhập app web (VPS, đa người) giữ phiên thường, KHÔNG đổi.
+- **Nguồn:** user 05/10/2026; TDD §11C; CHANGES #38; PRD DGT-01..04.

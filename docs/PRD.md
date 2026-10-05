@@ -44,6 +44,7 @@
 - ✅ Tool có **bảng Cấu hình**: nhập kết nối SQL Server (server/database/user/password) + URL VPS + API key, có nút "Kiểm tra kết nối", lưu vào config cục bộ (mã hóa). *(04/10/2026 — CHANGES #34: bảng này **dời lên icon ⚙ ở header** dùng chung cả tool, gộp với quản lý CSDL đích; chi tiết + UI mới ở **HTG-07**. Cơ chế config-store + kiểm kết nối giữ nguyên, nên HTG-01 vẫn ✅.)*
 - ✅ Nhân viên thu nhận không gọi được chức năng nạp DB (chặn 403).
 - ❌ Không làm SSO/đăng nhập bằng Google/Zalo lần này.
+- *(05/10/2026 — CHANGES #38) **Phiên đăng nhập của TOOL** chuyển sang vĩnh viễn (lưu đĩa, chỉ Đăng xuất mới thoát) — chi tiết ở **DGT-04**. Chỉ áp cho tool; đăng nhập app web giữ nguyên phiên thường → HTG-01 vẫn ✅.*
 
 > Nguồn: CAP-014 · BR-020 · OG-001, OG-002, OG-004 · EC-050
 
@@ -762,6 +763,76 @@
 
 ---
 
+### 🟣 Đóng gói & khởi chạy tool độc lập (chỉ tool máy CSDT)
+
+**Trạng thái:** ⏳ Todo — nhóm mới (CHANGES #38, 05/10/2026). Mục tiêu: mang tool sang máy CSDT khác **không cần cài Python/Node**, mở như một phần mềm bình thường, lần sau dùng không phải thiết lập lại.
+
+#### [DGT-01] Đóng gói tool thành file .exe chạy độc lập
+
+**Trạng thái:** ⏳ Todo
+**Story:** Là người triển khai, tôi muốn đóng gói tool thành **một file `.exe`** mang sang máy CSDT khác chạy được ngay, để không phải cài Python, Node hay thư viện gì trên máy đó.
+
+**Done khi:**
+- ⬜ Build ra exe (PyInstaller) **gói sẵn Python + mọi thư viện backend** (FastAPI, uvicorn, pymssql, Pillow/rembg, cryptography…) → máy đích **không cài gì thêm**.
+- ⬜ Giao diện build tĩnh (`vite build`) được **FastAPI phục vụ ngay trên cùng cổng** với API → không cần Node/cổng dev 3011 riêng; đường dẫn tương đối (`BASE=""` ở bản production — đã có sẵn).
+- ⬜ Dữ liệu kèm theo (`dvhc_map.sqlite`, file SQL/mẫu) được nhét vào gói; tool ghi cấu hình/nháp/ảnh tạm vào thư mục **ghi được** (`%APPDATA%` hoặc cạnh exe), không vào `Program Files`.
+- ⬜ **Test trên 1 máy sạch** (không có Python/Node) → chạy được, nối SQL Server, nạp/tra cứu bình thường.
+
+**Edge cases:** pymssql có phần biên dịch C (FreeTDS) — phải verify gói kèm chạy trên máy sạch · Windows SmartScreen cảnh báo exe chưa ký số → kèm hướng dẫn "Vẫn chạy" hoặc ký số sau · máy đích phải **tới được SQL Server + VPS qua mạng** (như hiện tại).
+
+> Nguồn: user 05/10/2026 (CHANGES #38). Tech Stack ④ đã nêu "Tool đóng gói PyInstaller".
+
+#### [DGT-02] Khởi chạy thuận tiện — tự mở trình duyệt, khay hệ thống, chống chạy 2 bản
+
+**Trạng thái:** ⏳ Todo
+**Story:** Là người dùng tool, tôi muốn **nháy đúp exe là trình duyệt tự mở đúng trang**, không phải gõ địa chỉ, và lần sau dùng cũng nhanh như mở một phần mềm.
+
+**Done khi:**
+- ⬜ Mỗi lần chạy exe **tự mở trình duyệt vào đúng trang** (localhost cổng của tool); trình duyệt không bật được thì hiện sẵn địa chỉ để gõ tay.
+- ⬜ Có **biểu tượng khay hệ thống** (system tray) với "Mở giao diện" + "Thoát" — thay cho cửa sổ console đen; thoát tool gọn bằng nút này.
+- ⬜ **Chặn chạy 2 bản**: đang chạy rồi mà mở lại exe → **đưa tab/giao diện cũ lên trước**, không bật bản thứ hai.
+- ⬜ Cổng mặc định bận → tự nhảy cổng trống và mở đúng cổng đó.
+- ⬜ **Tùy chọn tự chạy khi bật máy** (bật/tắt được) — máy CSDT cố định thì bật để lúc nào cũng sẵn.
+
+**Edge cases:** cổng 8000 bị phần mềm khác chiếm → nhảy cổng · người dùng đóng tab nhưng tool vẫn chạy khay → nhấp khay hiện lại · nhiều trình duyệt mặc định → mở trình duyệt hệ thống đang đặt.
+
+> Nguồn: user 05/10/2026 (CHANGES #38).
+
+#### [DGT-03] Wizard thiết lập lần đầu trên máy sạch
+
+**Trạng thái:** ⏳ Todo
+**Story:** Là người dùng, lần đầu chạy tool trên máy mới tôi muốn được **dẫn từng bước** để khai báo kết nối, thay vì bị thả vào app trống rồi gặp lỗi khó hiểu.
+
+**Done khi:**
+- ⬜ Máy chưa có cấu hình → vào **wizard thiết lập**, KHÔNG vào thẳng màn đăng nhập (vì chưa có URL VPS thì không đăng nhập được).
+- ⬜ **Bước kiểm tra môi trường:** thư mục ghi được · mạng tới VPS — đỏ mục nào thì báo cách sửa, chưa cho qua.
+- ⬜ **Bước cấu hình kết nối:** SQL Server nguồn + DB đích Sync + VPS; **tái dùng nút "Kiểm tra kết nối" sẵn có** (`/local/config/test`) — **test xanh mới cho sang bước sau**.
+- ⬜ **Bước đăng nhập** (qua VPS); VPS lỗi → báo rõ "không nối được máy chủ trung tâm" + nút quay lại sửa địa chỉ VPS (không bắt làm lại cả wizard).
+- ⬜ **Lần sau đã có cấu hình → bỏ qua wizard**, vào thẳng (đăng nhập hoặc vào luôn nếu còn phiên — xem DGT-04).
+
+**Edge cases:** SQL sai mật khẩu/không thấy máy/sai tên DB → báo lỗi **cụ thể**, không nói chung chung · đặt exe trong `Program Files` không ghi được → bắt lỗi sớm ở bước kiểm môi trường.
+
+> Nguồn: user 05/10/2026 (CHANGES #38). Tái dùng `CauHinhDrawer` + `/local/config/test` + `/local/auth/login` sẵn có, chỉ xếp lại thành wizard.
+
+#### [DGT-04] Phiên đăng nhập vĩnh viễn (đăng nhập 1 lần, chỉ Đăng xuất mới thoát)
+
+**Trạng thái:** ⏳ Todo
+**Story:** Là người dùng tool hằng ngày, tôi muốn **đăng nhập một lần rồi dùng mãi** — mở lại tool không phải gõ tài khoản lại — chỉ khi bấm "Đăng xuất" mới thoát.
+
+**Done khi:**
+- ⬜ Sau khi đăng nhập, **phiên lưu ra đĩa** (mã hóa bằng `key.bin` sẵn có), **không hết hạn**.
+- ⬜ Mở exe lần sau → **tự nạp phiên → vào thẳng, không hỏi đăng nhập** (token trình duyệt đã sống qua F5/đóng-mở trình duyệt; mảnh đĩa này cho sống qua cả tắt/mở exe).
+- ⬜ Nút **"Đăng xuất" (đã có sẵn)** là lối ra duy nhất → xóa phiên ở đĩa + trình duyệt → lần sau mới hỏi đăng nhập lại.
+- ⬜ **Thu hồi từ xa:** khi có mạng, định kỳ ngầm hỏi VPS tài khoản còn hiệu lực — VPS khóa tài khoản thì tự đá ra (không bắt người dùng bình thường đăng nhập lại).
+
+**Edge cases:** mất `key.bin` (đổi máy, dọn máy) → phiên cũ không giải mã được → đăng nhập lại (chấp nhận) · VPS không có mạng lúc khởi động → vẫn vào bằng phiên đĩa, kiểm hiệu lực khi có mạng lại.
+
+**Rủi ro đã nêu & chấp nhận (user 05/10):** phiên vĩnh viễn = **ai ngồi vào máy cũng vào thẳng** tool sửa/xóa hồ sơ GPLX + xem căn cước, kể cả máy bỏ không lâu ngày. Chấp nhận vì **máy nội bộ CSDT, một người dùng**. Nếu sau này máy dùng chung → cân nhắc "hỏi mật khẩu khi xóa/đổi khóa" (để sau).
+
+> Nguồn: user 05/10/2026 (CHANGES #38). Chỉ áp cho **tool**; đăng nhập app web (HTG-01) giữ nguyên hành vi phiên thường.
+
+---
+
 ### 🟠 NICE TO HAVE (sau này thêm)
 
 - [ ] [QLY-04] Kết xuất/báo cáo danh sách học viên (Excel) — có log, giới hạn, chỉ quản trị.
@@ -890,3 +961,4 @@
 | 04/10/2026 | v3.0 — +Feature **Tra cứu CDB đích** (CHANGES #35, mở rộng phân hệ Đồng bộ CDB): 4 story **TCB-01** (tra khóa+lưới HV+chi tiết+ảnh, +nút Xem chi tiết từ Bàn đồng bộ) · **TCB-02** (thay ảnh — tái dùng AnhModal+đổi nền, ghi đè file dùng chung 2 DB) · **TCB-03** (sửa nhân thân — chặn nếu đã kết xuất DKKH) · **TCB-04** (xóa HV/đổi khóa — chặn nếu đã BC1). Trạng thái khóa đọc Ở ĐÍCH (DKKH=SoQD_KhaiGiang, BC1=TT_XuLy≥05/BaoCaoI). SYNC-01 thêm nút điều hướng (giữ ✅) | PM |
 | 05/10/2026 | v3.1 — **sửa định nghĩa DKKH** (CHANGES #36): "đã kết xuất DKKH" = có gói `DANG_KY_KHOA_HOC` gửi Sở (`TRANS_CLI_HangDoiGui`), **KHÔNG** phải `SoQD_KhaiGiang` (sai — mọi khóa đều có) → áp TCB-01/02/03/04 (chip + chặn sửa nhân thân TCB-03). +SYNC-01: filter khóa đích "cùng hạng & chưa DKKH" (mặc định bật) + khóa xếp mới-nhất-trước (hiện ngày KG combo nguồn + sort phụ MaKH DESC) + giữ phiên đăng nhập qua F5. Giữ ✅ (code đã viết+verify live 05/10) | PM |
 | 05/10/2026 | v3.2 — **mở rộng trường sửa nhân thân TCB-03** (CHANGES #37): thêm địa chỉ thường trú 2 cấp (Tỉnh+Xã) + ngày cấp CCCD + nơi cấp CCCD; danh mục Xã/Sở đọc từ DB đích. Chỉ TCB-03 (user chốt); Nạp QLY-01 giữ 5 trường. TCB-03 hạ ✅→⏳ (bản 5 trường đã nghiệm thu ghi-thật tại máy CSDT 05/10). | PM |
+| 05/10/2026 | v3.3 — **+Nhóm "Đóng gói & khởi chạy tool độc lập"** (CHANGES #38): 4 story mới `DGT-01` (đóng gói exe PyInstaller + FastAPI phục vụ UI cùng cổng) · `DGT-02` (tự mở trình duyệt + khay hệ thống + chống chạy 2 bản + tùy chọn tự chạy khi bật máy) · `DGT-03` (wizard thiết lập lần đầu, tái dùng test-before-save) · `DGT-04` (phiên đăng nhập **vĩnh viễn** lưu đĩa + thu hồi từ xa, chỉ Đăng xuất mới thoát). HTG-01 +dòng trỏ DGT-04 (chỉ tool; web giữ phiên thường, vẫn ✅). | PM |
