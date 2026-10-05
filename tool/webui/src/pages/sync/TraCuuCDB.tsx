@@ -632,35 +632,42 @@ export default function TraCuuCDB() {
                 <Icon name={loadingCt ? "refresh" : "edit"} className={"w-4 h-4" + (loadingCt ? " animate-spin" : "")} /> Sửa nhân thân
               </button>
 
-              {/* TCB-04 — đổi khóa / xóa (chặn nếu HV đã BC1 ở backend; cảnh báo nếu khóa DKKH) */}
+              {/* TCB-04 — đổi khóa / xóa: khóa đã kết xuất DKKH (gửi Sở) hoặc đã BC1 → KHÔNG cho (backend chặn 409) */}
               <div className="mt-2 flex gap-2">
                 <button
                   type="button"
                   onClick={() => void moDoiKhoa()}
-                  className="flex-1 h-9 rounded-lg border border-border text-[13px] font-medium inline-flex items-center justify-center gap-1.5 hover:bg-muted transition-colors"
+                  disabled={!!khoa?.dkkh}
+                  title={khoa?.dkkh ? "Khóa đã kết xuất DKKH — không đổi khóa" : undefined}
+                  className="flex-1 h-9 rounded-lg border border-border text-[13px] font-medium inline-flex items-center justify-center gap-1.5 hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Icon name="send" className="w-4 h-4" /> Đổi khóa
                 </button>
                 <button
                   type="button"
                   onClick={() => { setXoaErr(""); setDoiMo(false); setXoaMo(true); }}
-                  className="flex-1 h-9 rounded-lg border border-destructive/40 text-[13px] font-medium text-destructive inline-flex items-center justify-center gap-1.5 hover:bg-destructive/10 transition-colors"
+                  disabled={!!khoa?.dkkh}
+                  title={khoa?.dkkh ? "Khóa đã kết xuất DKKH — không xóa học viên" : undefined}
+                  className="flex-1 h-9 rounded-lg border border-destructive/40 text-[13px] font-medium text-destructive inline-flex items-center justify-center gap-1.5 hover:bg-destructive/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Icon name="x" className="w-4 h-4" /> Xóa học viên
                 </button>
               </div>
+              {khoa?.dkkh && (
+                <p className="mt-1.5 text-[12px] text-warning flex items-start gap-1">
+                  <Icon name="warn" className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  Khóa đã kết xuất DKKH (đã gửi danh sách đăng ký lên Sở) — <b>không đổi khóa / xóa học viên</b> (sẽ lệch danh sách với Sở).
+                </p>
+              )}
 
               {/* Panel đổi khóa */}
               {doiMo && (
                 <div className="mt-3 rounded-lg border border-border bg-muted/40 p-3 space-y-2">
-                  <div className="text-[13px] font-semibold flex items-center gap-1.5"><Icon name="send" className="w-4 h-4" /> Đổi sang khóa khác (cùng hạng, chưa BC1)</div>
-                  {khoa?.dkkh && (
-                    <p className="text-[12px] text-warning flex items-start gap-1"><Icon name="warn" className="w-3.5 h-3.5 shrink-0 mt-0.5" /> Khóa đã kết xuất DKKH — vẫn đổi được, nhưng danh sách đã đăng ký với Sở sẽ đổi.</p>
-                  )}
+                  <div className="text-[13px] font-semibold flex items-center gap-1.5"><Icon name="send" className="w-4 h-4" /> Đổi sang khóa khác (cùng hạng, chưa BC1 & chưa DKKH)</div>
                   {khoaDich === null ? (
                     <p className="text-[12px] text-muted-foreground flex items-center gap-1"><Icon name="refresh" className="w-3.5 h-3.5 animate-spin" /> Đang tải khóa…</p>
                   ) : khoaDich.length === 0 ? (
-                    <p className="text-[12px] text-muted-foreground">Không có khóa cùng hạng (chưa BC1) để chuyển.</p>
+                    <p className="text-[12px] text-muted-foreground">Không có khóa cùng hạng (chưa BC1 & chưa DKKH) để chuyển.</p>
                   ) : (
                     <>
                       <select className="field-input" value={maKhDich} onChange={(e) => setMaKhDich(e.target.value)}>
@@ -683,10 +690,7 @@ export default function TraCuuCDB() {
               {xoaMo && (
                 <div className="mt-3 rounded-lg border border-destructive/40 bg-destructive/10 p-3 space-y-2">
                   <div className="text-[13px] font-semibold text-destructive flex items-center gap-1.5"><Icon name="warn" className="w-4 h-4" /> Xóa học viên khỏi CDB?</div>
-                  <p className="text-[12px] text-muted-foreground">Xóa khỏi <b>CSDL đích</b> (NguoiLX + hồ sơ + giấy tờ). <b>Không hoàn tác.</b> Ảnh là file dùng chung nên giữ nguyên cho bản Nạp. Học viên đã lập Báo cáo 1 thì không xóa được.</p>
-                  {khoa?.dkkh && (
-                    <p className="text-[12px] text-warning flex items-start gap-1"><Icon name="warn" className="w-3.5 h-3.5 shrink-0 mt-0.5" /> Khóa đã kết xuất DKKH — học viên này đã nằm trong danh sách đăng ký với Sở.</p>
-                  )}
+                  <p className="text-[12px] text-muted-foreground">Xóa khỏi <b>CSDL đích</b> (NguoiLX + hồ sơ + giấy tờ). <b>Không hoàn tác.</b> Ảnh là file dùng chung nên giữ nguyên cho bản Nạp. Khóa đã kết xuất DKKH hoặc học viên đã lập Báo cáo 1 thì không xóa được.</p>
                   {xoaErr && <p className="text-[12px] text-destructive flex items-center gap-1"><Icon name="warn" className="w-3.5 h-3.5" /> {xoaErr}</p>}
                   <div className="flex gap-2">
                     <button onClick={() => { setXoaMo(false); setXoaErr(""); }} className="h-9 px-3 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Hủy</button>

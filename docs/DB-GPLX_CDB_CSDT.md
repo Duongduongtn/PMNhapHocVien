@@ -82,5 +82,31 @@ Dữ liệu kết quả đào tạo **nằm sẵn trong `NguoiLX_HoSo`** (không
 3. Xác nhận `KhoaHoc.MaCSDT` của mọi khóa đích = `QTHT.MA_CSDT` (75032) — nếu lệch, ưu tiên `KhoaHoc.MaCSDT` của khóa đang chọn.
 4. Dữ liệu dev hiện là CSĐT 75032; nếu production là CSĐT khác thì mã CSĐT tự đổi theo khóa/QTHT (code không hardcode).
 
+## 7. "Đã kết xuất DKKH" — định nghĩa đúng (verify 05/10/2026)
+
+**DKKH = Đăng ký khóa học đã kết xuất/gửi lên Sở (TW).** Dùng để: (a) chặn sửa nhân thân HV ở Tra cứu CDB (TCB-03); (b) lọc khóa đích ở Bàn đồng bộ (chỉ nạp vào khóa **chưa** gửi Sở — thêm HV sau khi đã gửi sẽ lệch danh sách đã đăng ký).
+
+**Tín hiệu ĐÚNG:** khóa đã kết xuất DKKH ⇔ tồn tại gói trong **`TRANS_CLI_HangDoiGui`** có **`KieuDuLieu = 'DANG_KY_KHOA_HOC'`** mà **`DuongDan` (tên file) chứa MaKH của khóa**, neo giữa 2 dấu `_`:
+```
+C:\DKKH_<MaCSDT>_<MaSoGTVT>_<MaKH>_<yyyyMMdd>_<HHmmss>.zip
+      vd: DKKH_75032_75_75032K260009_20261002_092630.zip  ← khóa 75032K260009
+```
+SQL (dùng CHARINDEX để tránh `%`/`%%` của pymssql) — định nghĩa CHUNG ở `tool/app/sync_helpers.py: dkkh_exists_sql(alias)`:
+```sql
+EXISTS (SELECT 1 FROM dbo.TRANS_CLI_HangDoiGui g
+        WHERE g.KieuDuLieu = 'DANG_KY_KHOA_HOC'
+          AND CHARINDEX('_' + <alias>.MaKH + '_', g.DuongDan) > 0)
+```
+Mốc tính "đã kết xuất" = **có BẤT KỲ gói nào** (bất kể `TrangThai` 0/1/2 — nghĩa 0/1/2 chưa xác minh; một khi đã sinh file đăng ký là đã kết xuất).
+
+**KHÔNG dùng các tín hiệu sau (đã loại sau khi tra dữ liệu thật):**
+- ❌ `KhoaHoc.SoQD_KhaiGiang` có giá trị — **mọi khóa đều có** số QĐ khai giảng nội bộ (16/16 khóa), không phân biệt đã/chưa gửi Sở. *(Đây là định nghĩa SAI dùng ở TCB-02/03/04 trước 05/10 — đã sửa sang tín hiệu TRANS_CLI.)*
+- ❌ `KhoaHoc.TT_Xuly` — **luôn NULL** ở CSĐT này.
+- ❌ `NguoiLX_HoSo.TT_XuLy` per-HV — khóa đã gửi DKKH nhưng HV vẫn ở `03` ("Đã nhận ảnh chân dung" = CDB "Đã đăng ký khóa học"), không đổi theo việc gửi Sở.
+
+**Bảng `TRANS_CLI_HangDoiGui`** (hàng đợi gửi TW): `Id, NoiGui, NoiNhan, DuongDan, KickThuocFile, TrangThai, NguoiTao, NgayTao, KieuDuLieu`. `KieuDuLieu` ∈ {`DANG_KY_KHOA_HOC`, `BAO_CAO1`, `BAO_CAO2`, `KET_QUA_DAO_TAO`}. **Chỉ có ở CSDL ĐÍCH** → `dkkh_exists_sql` chỉ dùng cho truy vấn đích (nguồn GPLX_CSDT không chắc có bảng này).
+
+> Kiểm chứng 05/10: 16 khóa đích 2026 → 14 đã DKKH, **2 chưa** (`75032K26C1003` C1-K09 — có SoQD nhưng chưa gửi Sở; `75032K260010` B01-KTEST — khóa test). Dùng SoQD thì cả 16 "đã DKKH" → filter rỗng và TCB-03 chặn nhầm C1-K09.
+
 ---
-*Ghi bởi phân tích 04/10/2026 phục vụ SYNC-01/02/03 + module Cập nhật kết quả đào tạo. Cập nhật lại nếu schema CDB đổi.*
+*Ghi bởi phân tích 04/10/2026 phục vụ SYNC-01/02/03 + module Cập nhật kết quả đào tạo. §7 thêm 05/10/2026 (định nghĩa DKKH đúng). Cập nhật lại nếu schema CDB đổi.*

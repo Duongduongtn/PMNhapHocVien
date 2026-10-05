@@ -163,11 +163,22 @@ def test_sua_chua_dang_nhap_401():
     assert client.post("/local/sync/tra-cuu/sua?ma_dk=X", json=_BODY).status_code == 401
 
 
-# ---- TCB-04: xóa / đổi khóa — chặn theo MaBC1 (per-HV) ----
-def test_xoa_hv_da_bc1_chan_409(auth_headers, monkeypatch):
-    """HV có MaBC1 → 409, KHÔNG gọi usp_NguoiLX_Delete."""
+# ---- TCB-04: xóa / đổi khóa — chặn theo DKKH (gửi Sở) + MaBC1 (per-HV) ----
+def test_xoa_khoa_da_dkkh_chan_409(auth_headers, monkeypatch):
+    """Khóa đã kết xuất DKKH → 409 TRƯỚC khi kiểm BC1 / gọi Delete (CHANGES #36)."""
     executed = []
-    _patch(monkeypatch, [{"MaBC1": "BC1-001"}], executed)
+    _patch(monkeypatch, [{"MaKhoaHoc": "KCU", "dkkh": 1}], executed)
+    r = client.post("/local/sync/tra-cuu/xoa?ma_dk=MADK-0", headers=auth_headers)
+    assert r.status_code == 409
+    assert "DKKH" in r.json()["detail"]
+    assert not any("usp_NguoiLX_Delete" in s for s in executed)
+
+
+def test_xoa_hv_da_bc1_chan_409(auth_headers, monkeypatch):
+    """Khóa chưa DKKH nhưng HV có MaBC1 → 409, KHÔNG gọi usp_NguoiLX_Delete."""
+    executed = []
+    # fetchone: _da_dkkh (dkkh=0) → _da_bc1 (MaBC1)
+    _patch(monkeypatch, [{"MaKhoaHoc": "KCU", "dkkh": 0}, {"MaBC1": "BC1-001"}], executed)
     r = client.post("/local/sync/tra-cuu/xoa?ma_dk=MADK-1", headers=auth_headers)
     assert r.status_code == 409
     assert "Báo cáo 1" in r.json()["detail"]
@@ -175,9 +186,9 @@ def test_xoa_hv_da_bc1_chan_409(auth_headers, monkeypatch):
 
 
 def test_xoa_hv_chua_bc1_goi_delete(auth_headers, monkeypatch):
-    """HV chưa BC1 → gọi usp_NguoiLX_Delete, verify count=0 → ok."""
+    """Khóa chưa DKKH + HV chưa BC1 → gọi usp_NguoiLX_Delete, verify count=0 → ok."""
     executed = []
-    _patch(monkeypatch, [{"MaBC1": None}, {"n": 0}], executed)
+    _patch(monkeypatch, [{"MaKhoaHoc": "KCU", "dkkh": 0}, {"MaBC1": None}, {"n": 0}], executed)
     r = client.post("/local/sync/tra-cuu/xoa?ma_dk=MADK-2", headers=auth_headers)
     assert r.status_code == 200
     assert any("usp_NguoiLX_Delete" in s for s in executed)
@@ -210,19 +221,45 @@ def test_doi_khoa_dich_bc1_chan_409(auth_headers, monkeypatch):
     executed = []
     _patch(monkeypatch, [
         {"MaKhoaHoc": "KCU", "MaBC1": None},
-        [{"MaKH": "KCU", "HangGPLX": "B11", "bc1": 0}, {"MaKH": "KMOI", "HangGPLX": "B11", "bc1": 1}],
+        [{"MaKH": "KCU", "HangGPLX": "B11", "bc1": 0, "dkkh": 0}, {"MaKH": "KMOI", "HangGPLX": "B11", "bc1": 1, "dkkh": 0}],
     ], executed)
     r = client.post("/local/sync/tra-cuu/doi-khoa?ma_dk=MADK-5", headers=auth_headers, json={"ma_kh_dich": "KMOI"})
     assert r.status_code == 409
     assert "đích" in r.json()["detail"]
 
 
-def test_doi_khoa_happy_update_giu_duongdananh(auth_headers, monkeypatch):
-    """Cùng hạng, chưa BC1 → UPDATE MaKhoaHoc+SoHoSo, KHÔNG đụng DuongDanAnh (giữ file dùng chung)."""
+def test_doi_khoa_cu_da_dkkh_chan_409(auth_headers, monkeypatch):
+    """Khóa HIỆN TẠI của HV đã DKKH → 409 (không chuyển ra khỏi khóa đã gửi Sở) — CHANGES #36."""
     executed = []
     _patch(monkeypatch, [
         {"MaKhoaHoc": "KCU", "MaBC1": None},
-        [{"MaKH": "KCU", "HangGPLX": "B11", "bc1": 0}, {"MaKH": "KMOI", "HangGPLX": "B11", "bc1": 0}],
+        [{"MaKH": "KCU", "HangGPLX": "B11", "bc1": 0, "dkkh": 1}, {"MaKH": "KMOI", "HangGPLX": "B11", "bc1": 0, "dkkh": 0}],
+    ], executed)
+    r = client.post("/local/sync/tra-cuu/doi-khoa?ma_dk=MADK-5b", headers=auth_headers, json={"ma_kh_dich": "KMOI"})
+    assert r.status_code == 409
+    assert "DKKH" in r.json()["detail"]
+    assert not any("UPDATE" in s.upper() for s in executed)
+
+
+def test_doi_khoa_dich_da_dkkh_chan_409(auth_headers, monkeypatch):
+    """Khóa ĐÍCH đã DKKH → 409 (không nhận thêm HV vào khóa đã gửi Sở) — CHANGES #36."""
+    executed = []
+    _patch(monkeypatch, [
+        {"MaKhoaHoc": "KCU", "MaBC1": None},
+        [{"MaKH": "KCU", "HangGPLX": "B11", "bc1": 0, "dkkh": 0}, {"MaKH": "KMOI", "HangGPLX": "B11", "bc1": 0, "dkkh": 1}],
+    ], executed)
+    r = client.post("/local/sync/tra-cuu/doi-khoa?ma_dk=MADK-5c", headers=auth_headers, json={"ma_kh_dich": "KMOI"})
+    assert r.status_code == 409
+    assert "DKKH" in r.json()["detail"]
+    assert not any("UPDATE" in s.upper() for s in executed)
+
+
+def test_doi_khoa_happy_update_giu_duongdananh(auth_headers, monkeypatch):
+    """Cùng hạng, cả hai chưa DKKH & chưa BC1 → UPDATE MaKhoaHoc+SoHoSo, KHÔNG đụng DuongDanAnh."""
+    executed = []
+    _patch(monkeypatch, [
+        {"MaKhoaHoc": "KCU", "MaBC1": None},
+        [{"MaKH": "KCU", "HangGPLX": "B11", "bc1": 0, "dkkh": 0}, {"MaKH": "KMOI", "HangGPLX": "B11", "bc1": 0, "dkkh": 0}],
         [{"n": 1}, {"n": 2}],  # SoHoSo đang dùng ở khóa đích
     ], executed)
     r = client.post("/local/sync/tra-cuu/doi-khoa?ma_dk=MADK-6", headers=auth_headers, json={"ma_kh_dich": "KMOI"})

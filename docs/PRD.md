@@ -642,6 +642,8 @@
 
 **Done khi:**
 - ✅ Chỉ sync khi **hạng khóa nguồn = hạng khóa đích** (lệch → chặn, báo rõ hai hạng).
+- ✅ **Lọc khóa đích hợp lệ** (CHANGES #36): checkbox *"Chỉ khóa cùng hạng & chưa kết xuất DKKH"* (**mặc định bật**) → combo khóa đích chỉ hiện khóa **cùng hạng** với khóa nguồn **và chưa kết xuất DKKH** (chưa gửi đăng ký khóa học lên Sở — xem định nghĩa ở TCB-03); **bỏ tích** → hiện mọi khóa. Lọc ra rỗng → gợi ý "bỏ tích để xem tất cả". *(Thêm HV vào khóa đã gửi Sở sẽ lệch danh sách đã đăng ký → ngăn chọn nhầm từ đầu.)*
+- ✅ **Khóa xếp mới-nhất-trước** (CHANGES #36): combo nguồn + đích xếp theo **NgàyKG giảm dần, MaKH DESC** (sort phụ cho ổn định khi trùng ngày); combo **nguồn hiện thêm ngày KG** để thấy rõ thứ tự (đích vốn đã có).
 - ✅ **Ngày nhập HS ≤ NgàyKG** khóa đích (bằng ngày KG vẫn được); quá hôm nay/sau KG → chặn; backdate > 90 ngày → hỏi xác nhận.
 - ✅ Khóa đích **đã lập Báo cáo 1 (BC1)** → **vẫn cho chọn/sync nhưng hiện cảnh báo** (HV mới không nằm trong BC1 đã nộp; khác NAP-02 chặn cứng — vì sync là thao tác bù dữ liệu chủ động). *(user chốt B, 04/10/2026)*
 - ✅ HV **chưa có** ở đích → tạo mới `NguoiLX` + `NguoiLX_HoSo` (+ copy `NguoiLXHS_GiayTo` nếu có); `NguoiTao/NguoiSua` = **`admin`** (giống bản ghi phần mềm CDB tạo — **verify DB 04/10/2026**: CDB chỉ dùng tài khoản hệ thống `admin`/`ADMIN`, không có cán bộ riêng từng người → **bỏ ô "Cán bộ nạp"**, không phải 'SYNC' như công cụ cũ).
@@ -657,6 +659,8 @@
 **Chuẩn giao diện (CHANGES #34, 04/10/2026 — làm lại bằng `impeccable` + `ui-ux-pro-max`):** combobox năm/khóa và ô chọn DB đích trình bày gọn, nhãn rõ (năm · khóa · hạng); **danh sách HV để sync hiển thị tên hài hòa, dễ đọc** (họ tên đủ dấu, căn cột, mật độ dòng vừa phải), không để tràn/cắt chữ; bám design-system token của `tool/webui`, kiểm Playwright 1280/1440/1920.
 
 **Ghi chú (CHANGES #35):** màn này sẽ thêm **nút "Xem chi tiết HV"** cho HV đã có ở đích → mở tab Tra cứu CDB + tô sáng (tiêu chí thuộc **TCB-01**). Thuần thêm nút điều hướng, **không đổi hành vi sync** nên SYNC-01 giữ ✅.
+
+**Ghi chú (CHANGES #36, 05/10/2026):** 3 cải tiến, **không đổi nghiệp vụ sync lõi** nên SYNC-01 giữ ✅ — (a) filter khóa đích "cùng hạng & chưa DKKH" (mặc định bật) + (b) khóa xếp mới-nhất-trước (2 bullet Done khi trên) + (c) **giữ phiên đăng nhập qua F5** (xem HTG-01 / bảng edge "Session"). Định nghĩa "đã kết xuất DKKH" đổi sang tín hiệu đúng — xem **TCB-03**.
 
 **Edge cases:** HV đã có ở đích → skip · race trùng MaDK (2 phiên cùng khóa cùng ngày) → kiểm tồn tại + sinh lại, tối đa 3 lần rồi báo lỗi HV đó · copy giấy tờ lỗi → vẫn tính HV thành công (best-effort) · **E1 HV nguồn thiếu CCCD** (`SoCMT` rỗng) → chặn + báo riêng (không để lỗi giữa lô, vì `NguoiLX.SoCMT` NOT NULL) · **E2 trùng CCCD trong chính danh sách nguồn** → cảnh báo (PK là MaDK nên vẫn tạo được 2, để người dùng quyết) · **E3 mất kết nối CSDL đích giữa lô** → dừng, HV đã tạo giữ nguyên + đã ghi log → sync lại tự skip HV đã tạo · E4 HV nguồn chưa có ảnh → vẫn ép `TT_XuLy` theo tùy chọn (mặc định 03, giữ v2.0).
 
@@ -730,13 +734,13 @@
 
 **Done khi:**
 - ✅ Từ chi tiết HV → sửa **nhân thân**: họ tên, ngày sinh, giới tính, CCCD, địa chỉ thường trú (ghi qua SP update của CDB; đọc lại full bản ghi để giữ cột không sửa).
-- ✅ **CHẶN sửa nếu khóa đích ĐÃ KẾT XUẤT DKKH** (`KhoaHoc.SoQD_KhaiGiang` có giá trị) → báo rõ "khóa đã đăng ký khai giảng với Sở, không sửa nhân thân qua tool".
+- ✅ **CHẶN sửa nếu khóa đích ĐÃ KẾT XUẤT DKKH** → báo rõ "khóa đã đăng ký khai giảng với Sở, không sửa nhân thân qua tool". **Định nghĩa "đã kết xuất DKKH" (sửa CHANGES #36, 05/10/2026):** khóa có gói **`DANG_KY_KHOA_HOC` đã gửi lên Sở/TW** (bản ghi `TRANS_CLI_HangDoiGui` tên file chứa MaKH). **KHÔNG** dùng `KhoaHoc.SoQD_KhaiGiang` — mọi khóa đều có số QĐ khai giảng nội bộ nên không phân biệt được đã/chưa gửi Sở (verify DB 05/10: 16 khóa đều có SoQD nhưng chỉ 14 đã gửi). Chi tiết: `docs/DB-GPLX_CDB_CSDT.md` §7.
 - ✅ Chỉ sửa nhân thân (`usp_NguoiLX_Update`), **KHÔNG đụng** cột kết quả thi / BC1 / BC2 của hồ sơ (như thu hẹp phạm vi QLY-01).
 - ❌ Không sửa ảnh ở đây (ảnh là TCB-02); không đổi khóa/xóa ở đây (TCB-04).
 
 **Edge cases:** SP `usp_NguoiLX_Update` không có trong CDB → báo không hỗ trợ, tắt nút sửa (kiểm khi code) · CCCD trùng người khác trong khóa → cảnh báo.
 
-> Nguồn: user 04/10/2026 (CHANGES #35) · mốc chặn = đã kết xuất DKKH (đọc ở đích) · tham chiếu QLY-01 lát 2
+> Nguồn: user 04/10/2026 (CHANGES #35) · mốc chặn = đã kết xuất DKKH (đọc ở đích = có gói DANG_KY_KHOA_HOC gửi Sở, sửa #36) · tham chiếu QLY-01 lát 2
 
 #### [TCB-04] Xóa HV / Đổi khóa HV ở CDB đích
 
@@ -746,13 +750,13 @@
 **Done khi:**
 - ✅ Xóa 1 HV (NguoiLX + NguoiLX_HoSo + GiayTo, cascade) / Đổi khóa HV sang khóa đích khác **cùng hạng** (chưa BC1).
 - ✅ **CHẶN nếu HV ĐÃ BC1** — nhận biết bằng **`NguoiLX_HoSo.MaBC1` có giá trị** (đúng cái FK NO_ACTION chặn xóa; KHÔNG dùng `TT_XuLy ≥ 05` hay dòng `BaoCaoI` cấp khóa — chốt /reviewtdd 04/10) → báo rõ "HV đã lập Báo cáo 1, không xóa/đổi khóa được"; vẫn bắt lỗi FK làm lưới an toàn.
-- ✅ Khóa **đã kết xuất DKKH nhưng CHƯA BC1** → vẫn cho xóa/đổi khóa nhưng **cảnh báo** (danh sách đã đăng ký với Sở). *(Ngưỡng chặn cứng là BC1 — nhất quán với Hủy sync SYNC-03 xóa HV ở TT_XuLy=03.)*
+- ✅ **CHẶN nếu khóa ĐÃ KẾT XUẤT DKKH** (gửi danh sách đăng ký lên Sở — xem định nghĩa TCB-03) → **không xóa HV, không đổi khóa** (sửa CHANGES #36, 05/10/2026 — user: thêm/bớt HV ở khóa đã gửi Sở là lệch danh sách đã nộp). Áp cả **khóa đi lẫn khóa đến** khi đổi khóa. DKKH luôn trước BC1 trong quy trình nên là mốc chặn sớm hơn (bao trùm BC1); vẫn giữ chặn BC1 + bắt lỗi FK làm lưới. UI **vô hiệu nút Đổi khóa/Xóa** + ghi lý do; danh sách khóa để đổi **chỉ hiện khóa cùng hạng chưa DKKH + chưa BC1**.
 - ✅ Xác nhận rõ trước khi xóa (không hoàn tác được).
-- ❌ Không xóa/đổi khóa HV đã BC1; không đổi sang khóa khác hạng.
+- ❌ Không xóa/đổi khóa HV ở khóa đã DKKH hoặc đã BC1; không đổi sang khóa khác hạng; không đổi sang khóa đích đã DKKH/BC1.
 
-**Edge cases:** đổi khóa mà khóa đích mới đã BC1 → chặn · không còn khóa cùng hạng chưa BC1 để chuyển → báo.
+**Edge cases:** đổi khóa mà khóa đích đã DKKH/BC1 → chặn · khóa hiện tại của HV đã DKKH → chặn (nút mờ) · không còn khóa cùng hạng chưa DKKH & chưa BC1 để chuyển → báo.
 
-> Nguồn: user 04/10/2026 (CHANGES #35) · ngưỡng chặn BC1 (đọc ở đích) · tham chiếu QLY-02 (đổi khóa) + QLY-03 (xóa)
+> Nguồn: user 04/10/2026 (CHANGES #35) + 05/10/2026 (CHANGES #36, nâng ngưỡng chặn lên DKKH) · đọc ở đích · tham chiếu QLY-02 (đổi khóa) + QLY-03 (xóa)
 
 ---
 
@@ -819,6 +823,7 @@
 | Mất mạng giữa chừng | App web giữ nháp, gửi lại theo UUID (không trùng); tool xử lý staging đã kéo |
 | File ảnh quá lớn/không hợp lệ | Nén/chuẩn hóa; báo lỗi nếu không phải ảnh |
 | Session hết hạn | Yêu cầu đăng nhập lại; không mất dữ liệu đang nhập (nháp local) |
+| Tải lại trang (F5) khi đang đăng nhập | **Giữ phiên, không văng ra đăng nhập** (token lưu localStorage, khôi phục qua `/local/auth/me`); token đã hết hiệu lực → tự xóa, về đăng nhập (CHANGES #36) |
 | SQL Server lỗi giữa lúc nạp | Rollback transaction, giữ `pending`, cho thử lại |
 | VPS/tunnel lỗi | Tool báo lỗi, làm việc trên staging; thử lại |
 | Nạp lại bản ghi đã nạp | Chặn (không tạo HV thứ 2) |
@@ -881,3 +886,4 @@
 | 04/10/2026 | v2.8 — +Feature **Đồng bộ CDB** (CHANGES #33, SHOULD): 3 story `SYNC-01`/`SYNC-02`/`SYNC-03` port từ sync_tool GPLX v2.0, workspace riêng tách khỏi Nạp; +NFR kiến trúc workspace (mở rộng N module, dự kiến workspace #3 "Cập nhật kết quả học tập"); +3 edge case Sync | PM |
 | 04/10/2026 | v2.9 — cấu hình kết nối lên header (CHANGES #34): +story **HTG-07** (bảng cấu hình chung mở từ icon ⚙ header, gộp HTG-01 ③ + SYNC-02, tách rõ DB nguồn Nạp / nhiều DB đích Sync); sửa bullet Cấu hình HTG-01 trỏ sang HTG-07 (giữ ✅); hạ **SYNC-02 ✅→⏳** (quản lý đích dời vào bảng header) + **SYNC-01 ✅→⏳** (làm đẹp combobox + danh sách HV bằng impeccable/ui-ux-pro-max) | PM |
 | 04/10/2026 | v3.0 — +Feature **Tra cứu CDB đích** (CHANGES #35, mở rộng phân hệ Đồng bộ CDB): 4 story **TCB-01** (tra khóa+lưới HV+chi tiết+ảnh, +nút Xem chi tiết từ Bàn đồng bộ) · **TCB-02** (thay ảnh — tái dùng AnhModal+đổi nền, ghi đè file dùng chung 2 DB) · **TCB-03** (sửa nhân thân — chặn nếu đã kết xuất DKKH) · **TCB-04** (xóa HV/đổi khóa — chặn nếu đã BC1). Trạng thái khóa đọc Ở ĐÍCH (DKKH=SoQD_KhaiGiang, BC1=TT_XuLy≥05/BaoCaoI). SYNC-01 thêm nút điều hướng (giữ ✅) | PM |
+| 05/10/2026 | v3.1 — **sửa định nghĩa DKKH** (CHANGES #36): "đã kết xuất DKKH" = có gói `DANG_KY_KHOA_HOC` gửi Sở (`TRANS_CLI_HangDoiGui`), **KHÔNG** phải `SoQD_KhaiGiang` (sai — mọi khóa đều có) → áp TCB-01/02/03/04 (chip + chặn sửa nhân thân TCB-03). +SYNC-01: filter khóa đích "cùng hạng & chưa DKKH" (mặc định bật) + khóa xếp mới-nhất-trước (hiện ngày KG combo nguồn + sort phụ MaKH DESC) + giữ phiên đăng nhập qua F5. Giữ ✅ (code đã viết+verify live 05/10) | PM |

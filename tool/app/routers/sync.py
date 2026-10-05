@@ -177,11 +177,12 @@ def dich_nam(target_key: str | None = None) -> list[int]:
 
 @router.get("/dich/khoa")
 def dich_khoa(nam: int, target_key: str | None = None) -> list[dict]:
-    """Khóa đích theo năm, kèm cờ `bc1` (đã lập Báo cáo 1 → cảnh báo, phương án B)."""
+    """Khóa đích theo năm, kèm cờ `bc1` (đã lập BC1) + `dkkh` (đã kết xuất đăng ký
+    khóa học lên Sở) — cờ dkkh cho bộ lọc "chỉ khóa chưa DKKH" ở Bàn đồng bộ."""
     db = _db_dich(target_key)
     try:
         with sqlserver_conn_dich(db) as conn:
-            return sync_helpers.load_khoa_hoc_by_year(conn, nam, with_bc1=True)
+            return sync_helpers.load_khoa_hoc_by_year(conn, nam, with_bc1=True, with_dkkh=True)
     except Exception as e:  # noqa: BLE001
         raise _loi_db(e)
 

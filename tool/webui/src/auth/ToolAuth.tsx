@@ -1,6 +1,6 @@
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { datToken, toolDangNhap, toolDangXuat } from "../lib/api";
+import { coToken, datToken, toolDangNhap, toolDangXuat, toolMe } from "../lib/api";
 
 export const NHAN_VAI_TRO: Record<string, string> = {
   operator: "Nhân viên nạp DB",
@@ -15,6 +15,7 @@ interface ToolNguoiDung {
 
 interface ToolAuthCtx {
   user: ToolNguoiDung | null;
+  dangKhoiTao: boolean; // đang khôi phục phiên từ token đã lưu (F5) → chưa biết login hay chưa
   dangNhap: (username: string, password: string) => Promise<void>;
   dangXuat: () => Promise<void>;
 }
@@ -23,6 +24,18 @@ const Ctx = createContext<ToolAuthCtx | null>(null);
 
 export function ToolAuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<ToolNguoiDung | null>(null);
+  const [dangKhoiTao, setDangKhoiTao] = useState(coToken()); // có token lưu → thử khôi phục trước
+
+  // Khôi phục phiên khi tải lại trang: có token lưu thì hỏi /me; token hết hạn thì xóa.
+  useEffect(() => {
+    if (!coToken()) return;
+    let huy = false;
+    toolMe()
+      .then((me) => { if (!huy) setUser({ username: me.username, ho_ten: me.ho_ten, vai_tro: me.vai_tro }); })
+      .catch(() => { if (!huy) datToken(null); })
+      .finally(() => { if (!huy) setDangKhoiTao(false); });
+    return () => { huy = true; };
+  }, []);
 
   const dangNhap = useCallback(async (username: string, password: string) => {
     const kq = await toolDangNhap(username, password);
@@ -39,7 +52,7 @@ export function ToolAuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const value = useMemo(() => ({ user, dangNhap, dangXuat }), [user, dangNhap, dangXuat]);
+  const value = useMemo(() => ({ user, dangKhoiTao, dangNhap, dangXuat }), [user, dangKhoiTao, dangNhap, dangXuat]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

@@ -61,11 +61,19 @@ export default function BanDongBo() {
   const [tongKet, setTongKet] = useState("");
   const [daTest, setDaTest] = useState(false); // 2b: bắt test kết nối đích trước khi Tải
   const [testKq, setTestKq] = useState<(SyncTestKetQua & { dang?: boolean }) | null>(null);
+  const [locKhoaHopLe, setLocKhoaHopLe] = useState(true); // mặc định: chỉ khóa đích cùng hạng + CHƯA kết xuất DKKH
   const streamRef = useRef<AbortController | null>(null);
 
   const dichTarget = targets.find((t) => t.key === targetKey);
-  const khoaDichSel = khoaDich.find((k) => k.ma_kh === maKhDich);
   const khoaNguonSel = khoaNguon.find((k) => k.ma_kh === maKhNguon);
+  // Khóa đích hợp lệ để nạp: cùng hạng với khóa nguồn + chưa kết xuất DKKH lên Sở
+  // (thêm HV vào khóa đã gửi Sở sẽ lệch danh sách đã đăng ký). Tắt lọc = hiện mọi khóa.
+  const khoaDichLoc = useMemo(() => {
+    if (!locKhoaHopLe) return khoaDich;
+    const hang = khoaNguonSel?.hang_gplx;
+    return khoaDich.filter((k) => !k.dkkh && (!hang || k.hang_gplx === hang));
+  }, [khoaDich, locKhoaHopLe, khoaNguonSel]);
+  const khoaDichSel = khoaDich.find((k) => k.ma_kh === maKhDich);
   // Lịch chọn ngày giới hạn tối đa = min(hôm nay, NgàyKG khóa đích)
   const maxNgayISO = (() => {
     const t0 = new Date(); t0.setHours(0, 0, 0, 0);
@@ -107,6 +115,19 @@ export default function BanDongBo() {
     }
   };
 
+  // Tự kiểm kết nối đích khi vào màn / đổi CSDL đích — khỏi phải bấm tay mỗi lần
+  // (nút "Kiểm tra kết nối đích" vẫn còn để thử lại khi mạng chập chờn).
+  useEffect(() => {
+    const t = targets.find((x) => x.key === targetKey);
+    if (!t) return;
+    let huy = false;
+    setTestKq({ ok: false, count: 0, message: "", dang: true });
+    testSyncTarget(t.database)
+      .then((kq) => { if (!huy) { setTestKq({ ...kq, dang: false }); setDaTest(kq.ok); } })
+      .catch(() => { if (!huy) { setTestKq({ ok: false, count: 0, message: "Gọi kiểm tra thất bại", dang: false }); setDaTest(false); } });
+    return () => { huy = true; };
+  }, [targetKey, targets]);
+
   useEffect(() => {
     if (!selNamNguon) return;
     getSyncKhoa("nguon", selNamNguon).then((ks) => { setKhoaNguon(ks); setMaKhNguon(ks[0]?.ma_kh ?? ""); }).catch(() => setKhoaNguon([]));
@@ -114,8 +135,14 @@ export default function BanDongBo() {
 
   useEffect(() => {
     if (!selNamDich || !targetKey) return;
-    getSyncKhoa("dich", selNamDich, targetKey).then((ks) => { setKhoaDich(ks); setMaKhDich(ks[0]?.ma_kh ?? ""); }).catch(() => setKhoaDich([]));
+    getSyncKhoa("dich", selNamDich, targetKey).then((ks) => setKhoaDich(ks)).catch(() => setKhoaDich([]));
   }, [selNamDich, targetKey]);
+
+  // Giữ khóa đích đang chọn luôn nằm trong danh sách đã lọc; rớt khỏi lọc → chọn khóa đầu (hoặc rỗng).
+  useEffect(() => {
+    if (khoaDichLoc.length === 0) { setMaKhDich((cur) => (cur ? "" : cur)); return; }
+    if (!khoaDichLoc.some((k) => k.ma_kh === maKhDich)) setMaKhDich(khoaDichLoc[0].ma_kh);
+  }, [khoaDichLoc, maKhDich]);
 
   const taiDanhSach = async () => {
     if (!maKhNguon) { setErr("Chưa chọn khóa nguồn."); return; }
@@ -204,7 +231,7 @@ export default function BanDongBo() {
 
   useEffect(() => () => streamRef.current?.abort(), []);
 
-  const fmtKhoaNguon = (k: SyncKhoa) => `${k.ten_kh} — ${k.hang_gplx} (${k.so_hv} HV)`;
+  const fmtKhoaNguon = (k: SyncKhoa) => `${k.ten_kh} — ${k.hang_gplx} (KG ${isoVN(k.ngay_kg)}, ${k.so_hv} HV)`;
   const fmtKhoaDich = (k: SyncKhoa) => `${k.ten_kh} — ${k.hang_gplx} (KG ${isoVN(k.ngay_kg)}, ${k.so_hv} HV)`;
 
   return (
@@ -252,8 +279,19 @@ export default function BanDongBo() {
                   </select>
                   <ComboLoc className="flex-1 min-w-0" value={maKhDich} disabled={running}
                     placeholder="Gõ tên/mã khóa đích…"
-                    options={khoaDich.map((k) => ({ ma: k.ma_kh, ten: fmtKhoaDich(k) }))}
+                    options={khoaDichLoc.map((k) => ({ ma: k.ma_kh, ten: fmtKhoaDich(k) }))}
                     onChon={setMaKhDich} />
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  <label className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground cursor-pointer whitespace-nowrap">
+                    <input type="checkbox" checked={locKhoaHopLe} disabled={running} onChange={(e) => setLocKhoaHopLe(e.target.checked)} />
+                    Chỉ khóa cùng hạng & chưa kết xuất DKKH
+                  </label>
+                  {locKhoaHopLe && khoaDich.length > 0 && khoaDichLoc.length === 0 && (
+                    <span className="text-[11.5px] text-warning whitespace-nowrap">
+                      Không có khóa đích phù hợp — bỏ tích để xem tất cả.
+                    </span>
+                  )}
                 </div>
               </div>
             </div>

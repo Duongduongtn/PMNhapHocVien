@@ -425,7 +425,8 @@ Admin đầu tiên tạo bằng script seed (CLI trên VPS), không mở API sel
 ```
 
 - **Gác quyền:** mọi `/local/*` nghiệp vụ (khóa học, DVHC, ảnh, nạp, tra cứu) qua `require_session`. **Miễn** `/local/config*` (bước mồi đặt URL VPS — A1) và `/local/auth/*` (cửa đăng nhập).
-- **Session store:** in-memory trong tiến trình tool (1 máy, 1 người). Tool khởi động lại → đăng nhập lại. `logout` xóa token khỏi store.
+- **Session store (server):** in-memory trong tiến trình tool (1 máy, 1 người, không TTL). Tool khởi động lại → mất phiên, đăng nhập lại. `logout` xóa token khỏi store.
+- **Giữ token phía client qua F5 (CHANGES #36, 05/10/2026):** UI lưu `session_token` vào `localStorage` (không chỉ bộ nhớ); tải lại trang → khôi phục phiên bằng `GET /local/auth/me` (token còn hiệu lực → vào thẳng; 401 → xóa token, về đăng nhập). Trước đây token chỉ ở bộ nhớ → F5 là văng ra đăng nhập. *(Tool là app localhost 1 người dùng tại máy CSDT → lưu token localStorage chấp nhận được.)*
 - **Còn mở:** 1 hay nhiều phiên đồng thời — hiện cho n phiên; chốt sau khi có yêu cầu (xem `TDD-decisions.md §4a`).
 
 ---
@@ -983,6 +984,9 @@ Sau lô: cập nhật KhoaHoc.TongSoHV (nếu bật)
 - **MaDK** `MaCSDT-yyyyMMdd-nnnnnn` (21 ký tự, MaCSDT đúng 5 số — `70004` đạt): ngày=hôm nay → để SP tự sinh; **backdate** → `sinh_madk_batch` query `MAX(SUBSTRING(MaDK,16,6))` theo prefix, cấp dải `[MAX+1..MAX+N]`, backdate `NgayNhanHSo/NgayTao/NgaySua`.
 - **Guard race:** trước INSERT, `kiem_tra_madk_ton_tai` → trùng thì sinh lại, tối đa 3 lần rồi báo lỗi HV đó.
 - **Validate:** hạng khóa nguồn = hạng khóa đích; `NgayNhanHSo ≤ NgayKG` khóa đích; backdate > 90 ngày → hỏi.
+- **Chọn khóa (CHANGES #36, 05/10/2026):**
+  - `load_khoa_hoc_by_year` **ORDER BY NgayKG DESC, MaKH DESC** (mới-nhất-trước + sort phụ ổn định khi trùng ngày); combo nguồn hiện thêm ngày KG. Endpoint `dich/khoa` trả thêm cờ **`dkkh`** (`with_dkkh=True` → `sync_helpers.dkkh_exists_sql`), chỉ bật cho đích (bảng `TRANS_CLI_HangDoiGui` chỉ có ở đích).
+  - **Filter khóa đích** (client, mặc định bật): combo đích chỉ hiện khóa **`hang_gplx == hang khóa nguồn` AND `!dkkh`** (chưa gửi đăng ký lên Sở); bỏ tích → hiện tất cả. Giữ người dùng khỏi chọn khóa khác hạng (sync sẽ chặn) hoặc khóa đã gửi Sở (thêm HV lệch danh sách đã đăng ký).
 
 ### 11B.3 Tiến trình trực tiếp (SSE)
 
@@ -1023,19 +1027,19 @@ Màn **Tra cứu CDB** (tab trong phân hệ Đồng bộ) soi dữ liệu HV **
 - **Đọc:** tra khóa (mọi khóa kể cả BC1) + lưới HV theo khóa + chi tiết + ảnh (đọc `.jp2` theo `DuongDanAnh` của bản ghi CDB, qua endpoint ảnh trỏ DB đích). Endpoint mới trong `routers/sync.py` (hoặc module `sync_tracuu.py`). **Các endpoint TCB GHI** (thay ảnh / sửa nhân thân / xóa / đổi khóa) buộc **token operator** như mọi `/local/*` (collector → 403).
 - **Luật khóa sửa/xóa — đọc trạng thái Ở ĐÍCH (độc lập DB Nạp):**
   - **BC1** (mốc CỨNG): nhận biết bằng **`NguoiLX_HoSo.MaBC1` có giá trị** — đúng cái FK `FK_NguoiLX_HoSo_BaoCaoI` NO_ACTION chặn xóa (chốt /reviewtdd 04/10). **KHÔNG** dùng `TT_XuLy ≥ '05'` (thang chưa đối chiếu `DM_TrangThai` thật, dễ lệch) và **KHÔNG** dùng dòng `BaoCaoI` cấp khóa (`EXISTS … WHERE MaKH` — chặn rộng hơn FK, lệch cấp HV). Dùng chặn **xóa + đổi khóa** (TCB-04); vẫn **bắt lỗi FK** làm lưới an toàn phòng khi `MaBC1` NULL mà DELETE vẫn vướng FK khác.
-  - **Đã kết xuất DKKH** (mốc MỀM): `KhoaHoc.SoQD_KhaiGiang` có giá trị (Sở đã cấp QĐ khai giảng). Dùng chặn **sửa nhân thân** (TCB-03). *(Hiện 15/15 khóa CDB dev đều có SoQD_KhaiGiang.)*
+  - **Đã kết xuất DKKH** (mốc MỀM): khóa **đã gửi đăng ký khóa học lên Sở/TW** = tồn tại gói `TRANS_CLI_HangDoiGui` có `KieuDuLieu='DANG_KY_KHOA_HOC'` mà `DuongDan` (tên file) chứa MaKH của khóa. Định nghĩa chung: `sync_helpers.dkkh_exists_sql(alias)` (CHARINDEX, tránh `%` pymssql). Dùng chặn **sửa nhân thân** (TCB-03). **KHÔNG dùng `KhoaHoc.SoQD_KhaiGiang`** (sai — mọi khóa đều có số QĐ khai giảng nội bộ nên luôn bật; verify DB 05/10: 16 khóa đều có SoQD nhưng chỉ 14 đã gửi Sở) và KHÔNG dùng `KhoaHoc.TT_Xuly` (luôn NULL). Chi tiết: `docs/DB-GPLX_CDB_CSDT.md` §7. *(Sửa CHANGES #36, 05/10/2026 — trước đây dùng SoQD, chặn nhầm khóa chưa gửi Sở.)*
   - **Thay ảnh (TCB-02):** cho phép bất kể DKKH/BC1 (chỉ cảnh báo) — ảnh là sửa chất lượng, cùng người.
-  - Danh mục trạng thái: `DM_TrangThai` (MaTT→TenTT chi tiết + nhóm cấp CDB `MaTTCDB`/`TenTTCDB`; 03/04="Đã đăng ký khóa học", 05-07=đang đào tạo/BC1, 09-14=kết quả/BC2). *Thang này chỉ để HIỂN THỊ tên trạng thái, KHÔNG dùng làm mốc chặn (mốc chặn đọc `MaBC1`/`SoQD_KhaiGiang` như trên).*
+  - Danh mục trạng thái: `DM_TrangThai` (MaTT→TenTT chi tiết + nhóm cấp CDB `MaTTCDB`/`TenTTCDB`; 03/04="Đã đăng ký khóa học", 05-07=đang đào tạo/BC1, 09-14=kết quả/BC2). *Thang này chỉ để HIỂN THỊ tên trạng thái, KHÔNG dùng làm mốc chặn (mốc chặn đọc `MaBC1` + gói DKKH như trên). Lưu ý `NguoiLX_HoSo.TT_XuLy` per-HV cũng không phản ánh DKKH: khóa đã gửi DKKH, HV vẫn ở `03`.*
 
 **Ma trận quyết định (thao tác × mốc khóa đọc ở đích):**
 
-| Thao tác | Chưa DKKH | Đã DKKH (`SoQD_KhaiGiang` có giá trị) | Đã BC1 (`MaBC1` có giá trị) |
+| Thao tác | Chưa DKKH | Đã DKKH (có gói `DANG_KY_KHOA_HOC` gửi Sở) | Đã BC1 (`MaBC1` có giá trị) |
 |---|---|---|---|
 | Thay ảnh (TCB-02) | cho | cho (cảnh báo) | cho (cảnh báo) |
 | Sửa nhân thân (TCB-03) | cho | **CHẶN** | **CHẶN** |
-| Xóa / đổi khóa (TCB-04) | cho | cho (cảnh báo) | **CHẶN** (FK NO_ACTION) |
+| Xóa / đổi khóa (TCB-04) | cho | **CHẶN** (#36) | **CHẶN** (FK NO_ACTION) |
 
-*TCB-03 hiện thực chỉ kiểm **một mốc DKKH** (`SoQD_KhaiGiang`): BC1 luôn sau DKKH trong quy trình (muốn BC1 phải đã kết xuất đăng ký khai giảng) nên khóa BC1 đương nhiên đã bị chặn bởi DKKH — không cần kiểm BC1 riêng. EC: CCCD trùng HV khác trong khóa → **cảnh báo mềm, vẫn lưu** (không chặn).*
+*TCB-03 + TCB-04 chặn chủ yếu bằng **mốc DKKH** (gói `DANG_KY_KHOA_HOC` gửi Sở, `dkkh_exists_sql`/`dkkh_exists_cond`): BC1 luôn sau DKKH trong quy trình (muốn BC1 phải đã kết xuất đăng ký khai giảng) nên khóa BC1 đương nhiên đã bị DKKH chặn — BC1 (`MaBC1`) + lỗi FK giữ làm lưới an toàn. **TCB-04 (CHANGES #36, 05/10):** xóa HV → chặn nếu khóa HV đã DKKH; đổi khóa → chặn nếu **khóa đi HOẶC khóa đến** đã DKKH; endpoint `khoa-cung-hang` lọc sẵn khóa đã DKKH/BC1 (`NOT dkkh_exists_cond`). EC: CCCD trùng HV khác trong khóa (TCB-03) → **cảnh báo mềm, vẫn lưu** (không chặn).*
 - **Thay ảnh (TCB-02):** AnhModal + đổi nền (`/local/anh/xu-ly` rembg) y Nạp → **ghi đè đúng file `.jp2` cũ, giữ nguyên tên + `DuongDanAnh`**. Ảnh là **1 file vật lý dùng chung** giữa Nạp và đích (sync copy path verbatim) → thay = cả 2 DB cùng đổi (user chốt). **Trước khi ghi đè, sao lưu ảnh cũ sang `<tên>_BACKUP.jp2` CÙNG thư mục** (chỉ tạo nếu chưa có) — lỡ tay thay nhầm còn khôi phục, vì ảnh dùng chung nên mất là mất ở cả 2 DB (bám tiền lệ `_BACKUP` QLY-07 §11.6). UPDATE `ChatLuongAnh`/`NgayThuNhanAnh` ở bản ghi CDB. *Vì sao giữ đường dẫn:* ảnh sinh trước theo DB Nạp, 2 DB trỏ chung — tạo file mới sẽ làm 2 DB lệch ảnh.
 - **Sửa nhân thân (TCB-03):** `usp_NguoiLX_Update` của CDB (đọc lại full giữ cột không sửa; KHÔNG đụng cột kết quả/BC1/BC2). **Còn kiểm khi code:** CDB có `usp_NguoiLX_Update` / SP đổi khóa / SP xóa không (như GPLX_CSDT).
 - **Nút "Xem chi tiết HV" ở Bàn đồng bộ (SYNC-01):** HV đã có ở đích có sẵn `MaDK đích` → tra `NguoiLX_HoSo.MaKhoaHoc` theo MaDK đó → mở TraCuuCDB với khóa + tô sáng (reuse `khoaMa`/`noiBat`). Thuần thêm nút, không đổi hành vi sync.
@@ -1208,5 +1212,6 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 | 03/10/2026 | 3.1 | Redesign giao diện DESKTOP (CHANGES #30; đổi từ v3.0 vì QLY-09 đã dùng 3.0 khi gộp 2 phiên): §6.5 desktop vào thẳng form nhập tay + Quét QR/Tải ảnh thu nhỏ góc phải + popover camera prefill (THU-01, mobile giữ camera-first); §6.6 desktop chọn-nhiều-để-xóa ở "Hồ sơ đã gửi" (THU-05, lặp DELETE client như QuanTriHoSo, mobile giữ xóa lẻ). Thuần client, KHÔNG đổi Data Model/API/endpoint. |
 | 04/10/2026 | 3.2 | +§11B **Đồng bộ CDB** (CHANGES #33, SYNC-01/02/03): kiến trúc module + sidebar trái (mở rộng N, dự kiến module #3), `sqlserver_conn_dich()` nhiều DB đích, luồng sync 1 HV + MaDK batch + guard race, SSE tiến trình, rollback dual-mode, 3 nợ kỹ thuật port từ sync_tool. +§2.4 module sync. **Tool chỉ desktop**: sidebar thu gọn + nội dung ≥1280px + bảng sync cuộn ngang. |
 | 04/10/2026 | 3.3 | Cấu hình lên header (CHANGES #34, HTG-07): §5.0 + §11B.0 — bỏ route `/tool/cau-hinh` + `/sync/db-dich` khỏi sub-nav, gộp thành **panel ⚙ trên header dùng chung** (khối ① kết nối + DB nguồn Nạp · khối ② nhiều DB đích Sync, tách bạch). Thuần UI/IA — backend `/local/config*` + `/local/sync/targets` + config-store không đổi; không chạm quyết định §12/§13/§14. |
+| 05/10/2026 | 3.6 | **Sửa định nghĩa DKKH** (CHANGES #36): §11B.7 "đã kết xuất DKKH" = có gói `DANG_KY_KHOA_HOC` gửi Sở (`TRANS_CLI_HangDoiGui`, helper `sync_helpers.dkkh_exists_sql`), **KHÔNG** phải `SoQD_KhaiGiang` (sai — mọi khóa đều có) → sửa ma trận quyết định + ghi chú TCB-03; §11B.2 +filter khóa đích "cùng hạng & chưa DKKH" (mặc định bật) + khóa xếp mới-nhất-trước (ORDER BY NgayKG DESC, MaKH DESC + cờ `dkkh`); §5.5 +giữ token client qua F5 (localStorage + `/local/auth/me`). Chi tiết DB: `docs/DB-GPLX_CDB_CSDT.md` §7. |
 | 04/10/2026 | 3.5 | Sửa §11B.7 sau /reviewtdd (biên bản `tdd-review-04-10-2026-tcb.md`): mốc "đã BC1" = **`NguoiLX_HoSo.MaBC1` có giá trị** (đúng cái FK NO_ACTION chặn — bỏ `TT_XuLy≥'05'` & dòng BaoCaoI cấp khóa, Điểm 2) + vẫn bắt lỗi FK làm lưới; thay ảnh TCB-02 **sao lưu `_BACKUP.jp2` cùng thư mục trước khi ghi đè** (Điểm 3); endpoint TCB ghi **buộc token operator** (Điểm 4); nới câu chữ §12 "DB đích" (UPDATE cột ảnh trực tiếp parameterized, không còn "chỉ gọi SP"); +**bảng ma trận quyết định** 3 thao tác × 3 mốc (Điểm 6). |
 | 04/10/2026 | 3.4 | +§11B.7 **Tra cứu CDB đích** (CHANGES #35, TCB-01..04): màn tra cứu/sửa/xóa HV trên DB đích `GPLX_CDB_CSDT` (song song QLY-01 nhưng trỏ đích); luật khóa đọc ở đích — BC1 (cứng, chặn xóa/đổi khóa) + đã kết xuất DKKH `SoQD_KhaiGiang` (mềm, chặn sửa nhân thân); thay ảnh ghi đè file `.jp2` dùng chung 2 DB; danh mục `DM_TrangThai`; nút Xem chi tiết từ Bàn đồng bộ. Không chạm quyết định §12/13/14. |

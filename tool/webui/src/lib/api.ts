@@ -2,11 +2,26 @@
 // Khi đóng gói .exe, webui static do chính FastAPI phục vụ → cùng origin (BASE rỗng).
 const BASE = import.meta.env.DEV ? "http://localhost:8000" : "";
 
-// Session token cục bộ (HTG-01③) — giữ trong bộ nhớ; tải lại trang phải đăng nhập lại.
-let _token: string | null = null;
+// Session token cục bộ (HTG-01③) — lưu localStorage để F5/tải lại trang không văng
+// ra đăng nhập (server session không có TTL, sống tới khi backend restart).
+const _TOKEN_KEY = "tool_session_token";
+let _token: string | null = (() => {
+  try {
+    return localStorage.getItem(_TOKEN_KEY);
+  } catch {
+    return null; // chế độ riêng tư / storage bị chặn → chỉ giữ trong bộ nhớ
+  }
+})();
 export const datToken = (t: string | null) => {
   _token = t;
+  try {
+    if (t) localStorage.setItem(_TOKEN_KEY, t);
+    else localStorage.removeItem(_TOKEN_KEY);
+  } catch {
+    /* không ghi được storage → vẫn chạy với token trong bộ nhớ */
+  }
 };
+export const coToken = () => _token !== null;
 // Header kèm Bearer cho endpoint /local/* nghiệp vụ (config/auth được miễn — A1).
 function authHeaders(extra?: Record<string, string>): Record<string, string> {
   const h: Record<string, string> = { ...(extra || {}) };
@@ -64,6 +79,12 @@ export const toolDangNhap = (username: string, password: string) =>
 
 export const toolDangXuat = () =>
   fetch(`${BASE}/local/auth/logout`, { method: "POST", headers: authHeaders() });
+
+// Khôi phục phiên từ token đã lưu (F5): trả thông tin người dùng, 401 nếu token hết hạn.
+export const toolMe = () =>
+  fetch(`${BASE}/local/auth/me`, { headers: authHeaders() }).then(
+    json<{ username: string; ho_ten: string | null; vai_tro: string }>,
+  );
 
 export const getConfig = () =>
   fetch(`${BASE}/local/config`).then(json<Partial<ToolConfig>>);
@@ -630,6 +651,7 @@ export interface SyncKhoa {
   ngay_kg: string | null;
   so_hv: number;
   bc1?: boolean;
+  dkkh?: boolean; // khóa đích đã kết xuất đăng ký khóa học lên Sở (lọc ở Bàn đồng bộ)
 }
 export interface SyncHV {
   ho_ten: string | null;

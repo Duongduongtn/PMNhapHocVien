@@ -9,8 +9,10 @@ Mount kèm `require_session` ở main.py (collector không có session cục b�
 
 Mốc khóa (TDD §11B.7, chốt /reviewtdd 04/10):
 - `bc1` khóa (EXISTS BaoCaoI theo MaKH) — chỉ để HIỂN THỊ cờ cảnh báo ở lưới.
-- `dkkh` = KhoaHoc.SoQD_KhaiGiang có giá trị — cờ đã kết xuất DKKH.
-(Mốc CHẶN per-HV `MaBC1`/`SoQD_KhaiGiang` áp ở TCB-03/04, task 65/66.)
+- `dkkh` = khóa đã kết xuất đăng ký khóa học lên Sở (gói DANG_KY_KHOA_HOC trong
+  TRANS_CLI_HangDoiGui chứa MaKH) — xem `sync_helpers.dkkh_exists_sql`. KHÔNG dùng
+  SoQD_KhaiGiang (mọi khóa đều có số QĐ nội bộ nên không phân biệt được).
+(Mốc CHẶN sửa nhân thân = dkkh áp ở TCB-03; xóa/đổi khóa = BC1 áp ở TCB-04, task 65/66.)
 """
 from __future__ import annotations
 
@@ -165,12 +167,14 @@ def _row_hv(r: dict) -> dict:
 
 
 def _khoa_flags_sql(alias: str) -> str:
-    """Hai cờ hiển thị cho khóa đích: bc1 (cấp khóa) + dkkh (đã kết xuất DKKH)."""
+    """Hai cờ hiển thị cho khóa đích: bc1 (cấp khóa) + dkkh (đã kết xuất DKKH).
+
+    dkkh dùng ĐỊNH NGHĨA CHUNG `sync_helpers.dkkh_exists_sql` (gói DANG_KY_KHOA_HOC
+    đã gửi Sở), KHÔNG phải SoQD_KhaiGiang — xem docs/DB-GPLX_CDB_CSDT.md."""
     return (
         f", CASE WHEN EXISTS (SELECT 1 FROM dbo.BaoCaoI b WHERE b.MaKH = {alias}.MaKH) "
         "THEN 1 ELSE 0 END AS bc1"
-        f", CASE WHEN {alias}.SoQD_KhaiGiang IS NOT NULL AND LTRIM(RTRIM({alias}.SoQD_KhaiGiang)) <> '' "
-        "THEN 1 ELSE 0 END AS dkkh"
+        f", {sync_helpers.dkkh_exists_sql(alias)} AS dkkh"
     )
 
 
@@ -305,7 +309,9 @@ def xem_anh_thumb_dich(ma_dk: str = Query(..., min_length=1), target_key: str | 
 
 
 # ── TCB-03: sửa nhân thân HV ở CDB đích (chặn khi đã kết xuất DKKH) ──
-_DKKH_SQL = "CASE WHEN kh.SoQD_KhaiGiang IS NOT NULL AND LTRIM(RTRIM(kh.SoQD_KhaiGiang)) <> '' THEN 1 ELSE 0 END AS dkkh"
+# Mốc chặn = khóa đã kết xuất DKKH (gửi đăng ký khóa học lên Sở), định nghĩa chung
+# ở sync_helpers.dkkh_exists_sql — KHÔNG dùng SoQD_KhaiGiang (sai, mọi khóa đều có).
+_DKKH_SQL = sync_helpers.dkkh_exists_sql("kh") + " AS dkkh"
 
 
 @router.get("/chi-tiet-sua")
@@ -351,7 +357,7 @@ def sua_ho_so_dich(body: HoSoSua, ma_dk: str = Query(..., min_length=1),
                    target_key: str | None = None, phien: Phien = Depends(require_session)):
     """TCB-03 — sửa nhân thân HV ở CDB đích (GHI) qua `usp_NguoiLX_Update`, giữ nguyên cột không sửa.
 
-    CHẶN khi khóa đã kết xuất DKKH (`KhoaHoc.SoQD_KhaiGiang` có giá trị). KHÔNG đụng cột kết
+    CHẶN khi khóa đã kết xuất DKKH (gói DANG_KY_KHOA_HOC đã gửi Sở — `dkkh_exists_sql`). KHÔNG đụng cột kết
     quả/BC1/BC2. Đọc + ghi trong 1 kết nối để bản ghi nền không đổi giữa đọc và ghi. Tái dùng
     nguyên bộ dựng-tham-số của Nạp (QLY-01 lát 2) — chỉ đổi mốc chặn BC1 → DKKH, chạy conn_dich."""
     nguoi = (phien.ho_ten or phien.username or "tool")[:30]
@@ -403,7 +409,11 @@ def sua_ho_so_dich(body: HoSoSua, ma_dk: str = Query(..., min_length=1),
     return {"ok": True, "ma_dk": ma_dk, "canh_bao": canh_bao}
 
 
-# ── TCB-04: xóa HV / đổi khóa ở CDB đích — chặn theo MaBC1 (per-HV, chốt /reviewtdd) ──
+# ── TCB-04: xóa HV / đổi khóa ở CDB đích ──
+# Mốc chặn (CHANGES #36, 05/10/2026 — user chốt): khóa đã kết xuất DKKH (đã gửi
+# danh sách đăng ký lên Sở) → KHÔNG xóa + KHÔNG đổi khóa (cả khóa đi lẫn khóa đến),
+# vì thay đổi danh sách HV sẽ lệch với bản đã nộp Sở. BC1 vẫn giữ làm lưới an toàn
+# (DKKH luôn trước BC1 nên DKKH là mốc chặn sớm hơn, bao trùm BC1) + bắt lỗi FK.
 def _da_bc1(cur, ma_dk: str) -> bool:
     """HV đã BC1 ở đích = NguoiLX_HoSo.MaBC1 có giá trị (đúng cái FK NO_ACTION chặn xóa).
     KHÔNG dùng TT_XuLy, KHÔNG dùng dòng BaoCaoI cấp khóa (chốt /reviewtdd 04/10)."""
@@ -414,10 +424,26 @@ def _da_bc1(cur, ma_dk: str) -> bool:
     return bool((r["MaBC1"] or "") if isinstance(r["MaBC1"], str) else r["MaBC1"])
 
 
+def _da_dkkh(cur, ma_dk: str) -> bool:
+    """Khóa của HV đã kết xuất DKKH (gửi đăng ký khóa học lên Sở) — định nghĩa chung
+    `sync_helpers.dkkh_exists_sql`. Chặn xóa + đổi khóa (TCB-04)."""
+    cur.execute(
+        "SELECT " + sync_helpers.dkkh_exists_sql("kh") + " AS dkkh "
+        "FROM dbo.NguoiLX_HoSo hs JOIN dbo.KhoaHoc kh ON kh.MaKH = hs.MaKhoaHoc "
+        "WHERE hs.MaDK = %s",
+        (ma_dk,),
+    )
+    r = cur.fetchone()
+    if not r:
+        raise HTTPException(status_code=404, detail="Không tìm thấy hồ sơ học viên ở CSDL đích.")
+    return bool(r["dkkh"])
+
+
 @router.get("/khoa-cung-hang")
 def khoa_cung_hang_dich(ma_dk: str = Query(..., min_length=1), target_key: str | None = None) -> list[dict]:
-    """TCB-04 — khóa ĐÍCH để đổi khóa: cùng HangGPLX với khóa hiện tại của HV, **chưa BC1**,
-    khác chính nó, cùng CSĐT đích. Chỉ cùng hạng mới đổi trực tiếp (như QLY-02)."""
+    """TCB-04 — khóa ĐÍCH để đổi khóa: cùng HangGPLX với khóa hiện tại của HV, **chưa BC1
+    và chưa kết xuất DKKH** (gửi Sở), khác chính nó, cùng CSĐT đích. Chỉ cùng hạng mới đổi
+    trực tiếp (như QLY-02). Lọc sẵn khóa đã DKKH để khỏi chọn rồi bị chặn ở bước đổi."""
     db = _db_dich(target_key)
     sql = (
         "SELECT k.MaKH, k.TenKH, k.HangGPLX, k.HangDT FROM dbo.KhoaHoc k "
@@ -426,6 +452,7 @@ def khoa_cung_hang_dich(ma_dk: str = Query(..., min_length=1), target_key: str |
         "WHERE k.MaCSDT = kcur.MaCSDT AND k.TrangThai = 1 AND k.MaKH <> kcur.MaKH "
         "AND k.HangGPLX = kcur.HangGPLX "
         "AND NOT EXISTS (SELECT 1 FROM dbo.BaoCaoI b WHERE b.MaKH = k.MaKH) "
+        "AND NOT " + sync_helpers.dkkh_exists_cond("k") + " "
         "ORDER BY k.NgayTao DESC"
     )
     try:
@@ -448,6 +475,9 @@ def xoa_ho_so_dich(ma_dk: str = Query(..., min_length=1), target_key: str | None
     try:
         with sqlserver_conn_dich(db, autocommit=True) as conn:
             cur = conn.cursor(as_dict=True)
+            if _da_dkkh(cur, ma_dk):
+                raise HTTPException(status_code=409,
+                                    detail="Khóa đã kết xuất DKKH (đã gửi danh sách đăng ký lên Sở) — không xóa học viên (sẽ lệch danh sách với Sở).")
             if _da_bc1(cur, ma_dk):
                 raise HTTPException(status_code=409,
                                     detail="Học viên đã lập Báo cáo 1 — không xóa được (sẽ mất khỏi Báo cáo 1/2).")
@@ -494,10 +524,11 @@ def doi_khoa_dich(body: DoiKhoaCDBIn, ma_dk: str = Query(..., min_length=1),
             ma_kh_cu = hs["MaKhoaHoc"]
             if ma_kh_cu == ma_kh_moi:
                 raise HTTPException(status_code=400, detail="Học viên đã ở khóa này rồi.")
-            # 2) Hai khóa: cùng hạng + khóa đích chưa BC1
+            # 2) Hai khóa: cùng hạng + cả hai chưa DKKH (gửi Sở) + khóa đích chưa BC1
             cur.execute(
                 "SELECT MaKH, HangGPLX, "
-                "CASE WHEN EXISTS (SELECT 1 FROM dbo.BaoCaoI b WHERE b.MaKH = k.MaKH) THEN 1 ELSE 0 END AS bc1 "
+                "CASE WHEN EXISTS (SELECT 1 FROM dbo.BaoCaoI b WHERE b.MaKH = k.MaKH) THEN 1 ELSE 0 END AS bc1, "
+                + sync_helpers.dkkh_exists_sql("k") + " AS dkkh "
                 "FROM dbo.KhoaHoc k WHERE MaKH IN (%s, %s)",
                 (ma_kh_cu, ma_kh_moi),
             )
@@ -509,6 +540,10 @@ def doi_khoa_dich(body: DoiKhoaCDBIn, ma_dk: str = Query(..., min_length=1),
                 raise HTTPException(status_code=400, detail="Không đọc được khóa hiện tại của học viên.")
             if (cu["HangGPLX"] or "") != (moi["HangGPLX"] or ""):
                 raise HTTPException(status_code=400, detail="Khác hạng — không đổi trực tiếp.")
+            if cu["dkkh"]:
+                raise HTTPException(status_code=409, detail="Khóa hiện tại đã kết xuất DKKH (đã gửi danh sách lên Sở) — không chuyển học viên ra khỏi khóa (sẽ lệch danh sách với Sở).")
+            if moi["dkkh"]:
+                raise HTTPException(status_code=409, detail="Khóa đích đã kết xuất DKKH (đã gửi danh sách lên Sở) — không nhận thêm học viên (sẽ lệch danh sách với Sở).")
             if moi["bc1"]:
                 raise HTTPException(status_code=409, detail="Khóa đích đã lập Báo cáo 1 — không nhận thêm được.")
             # 3) applock khóa đích → SoHoSo mới (lấp khe) → UPDATE (giữ DuongDanAnh)

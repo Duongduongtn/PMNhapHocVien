@@ -141,16 +141,49 @@ def load_years_from_khoa(conn) -> list[int]:
     return years
 
 
-def load_khoa_hoc_by_year(conn, year: Optional[int] = None, with_bc1: bool = False) -> list[dict]:
-    """Khóa active, lọc theo năm nếu có. Sort NgayKG DESC.
+# -------------------------------------------------------------------------
+# "Đã kết xuất DKKH" — ĐỊNH NGHĨA DÙNG CHUNG (verify DB 05/10/2026)
+# -------------------------------------------------------------------------
+# Một khóa ĐÃ KẾT XUẤT DKKH (đã gửi đăng ký khóa học lên Sở/TW) ⇔ tồn tại gói
+# trong TRANS_CLI_HangDoiGui, KieuDuLieu='DANG_KY_KHOA_HOC', mà tên file DuongDan
+# chứa MaKH của khóa (neo giữa 2 dấu '_': 'DKKH_75032_75_<MaKH>_yyyyMMdd_HHmmss.zip').
+# KHÔNG dùng KhoaHoc.SoQD_KhaiGiang: mọi khóa đều có số QĐ khai giảng nội bộ nên
+# cờ đó luôn bật, không phân biệt đã/chưa gửi Sở. KhoaHoc.TT_Xuly thì luôn NULL.
+# Dùng CHARINDEX (không wildcard) để tránh vướng %/%% của pymssql. Chi tiết:
+# docs/DB-GPLX_CDB_CSDT.md mục "Đã kết xuất DKKH".
+def dkkh_exists_cond(alias: str = "kh") -> str:
+    """Điều kiện SQL (bool) khóa `alias.MaKH` đã kết xuất DKKH — dùng trong WHERE / NOT EXISTS.
+
+    Bảng TRANS_CLI_HangDoiGui chỉ có ở CSDL ĐÍCH — chỉ dùng cho truy vấn đích."""
+    return (
+        "EXISTS (SELECT 1 FROM dbo.TRANS_CLI_HangDoiGui g "
+        "WHERE g.KieuDuLieu = 'DANG_KY_KHOA_HOC' "
+        f"AND CHARINDEX('_' + {alias}.MaKH + '_', g.DuongDan) > 0)"
+    )
+
+
+def dkkh_exists_sql(alias: str = "kh") -> str:
+    """Biểu thức SQL trả 1/0 (cho cột `dkkh` trong SELECT). Dựng trên `dkkh_exists_cond`."""
+    return f"CASE WHEN {dkkh_exists_cond(alias)} THEN 1 ELSE 0 END"
+
+
+def load_khoa_hoc_by_year(conn, year: Optional[int] = None, with_bc1: bool = False,
+                          with_dkkh: bool = False) -> list[dict]:
+    """Khóa active, lọc theo năm nếu có. Sort NgayKG DESC, MaKH DESC.
 
     Mỗi khóa: MaKH, TenKH, HangGPLX, NgayKG, SoHV. `with_bc1=True` kèm cờ
-    `bc1` (khóa đích đã lập Báo cáo 1 → cảnh báo, phương án B)."""
+    `bc1` (khóa đích đã lập Báo cáo 1 → cảnh báo, phương án B). `with_dkkh=True`
+    kèm cờ `dkkh` (đã kết xuất đăng ký khóa học lên Sở — xem `dkkh_exists_sql`;
+    CHỈ bật cho CSDL ĐÍCH vì bảng TRANS_CLI_HangDoiGui chỉ có ở đích).
+
+    MaKH DESC là khóa sắp xếp phụ để thứ tự ổn định khi nhiều khóa cùng NgayKG
+    (không có nó, SQL Server trả thứ tự bất định → khóa vừa tạo không chắc lên đầu)."""
     bc1_col = (
         ", CASE WHEN EXISTS (SELECT 1 FROM dbo.BaoCaoI b WHERE b.MaKH = KH.MaKH) "
         "THEN 1 ELSE 0 END AS bc1"
         if with_bc1 else ""
     )
+    dkkh_col = f", {dkkh_exists_sql('KH')} AS dkkh" if with_dkkh else ""
     where = "KH.TrangThai = 1"
     params: tuple = ()
     if year is not None:
@@ -159,10 +192,10 @@ def load_khoa_hoc_by_year(conn, year: Optional[int] = None, with_bc1: bool = Fal
     sql = f"""
         SELECT KH.MaKH, KH.TenKH, KH.HangGPLX, KH.NgayKG,
                (SELECT COUNT(*) FROM dbo.NguoiLX_HoSo HS WHERE HS.MaKhoaHoc = KH.MaKH) AS SoHV
-               {bc1_col}
+               {bc1_col}{dkkh_col}
         FROM dbo.KhoaHoc KH
         WHERE {where}
-        ORDER BY KH.NgayKG DESC
+        ORDER BY KH.NgayKG DESC, KH.MaKH DESC
     """
     cur = conn.cursor(as_dict=True)
     cur.execute(sql, params) if params else cur.execute(sql)
@@ -178,6 +211,8 @@ def load_khoa_hoc_by_year(conn, year: Optional[int] = None, with_bc1: bool = Fal
         }
         if with_bc1:
             item["bc1"] = bool(r["bc1"])
+        if with_dkkh:
+            item["dkkh"] = bool(r["dkkh"])
         out.append(item)
     return out
 

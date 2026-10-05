@@ -12,7 +12,9 @@ import type { ReactNode } from "react";
 // Nghiệp vụ ghi DB cần đăng nhập; chưa đăng nhập → màn đăng nhập
 // (Cấu hình vẫn vào được — A1).
 function CoBaoVe({ children }: { children: ReactNode }) {
-  const { user } = useToolAuth();
+  const { user, dangKhoiTao } = useToolAuth();
+  if (dangKhoiTao)
+    return <div className="p-8 text-center text-sm text-muted-foreground">Đang khôi phục phiên…</div>;
   return user ? <>{children}</> : <DangNhap />;
 }
 
