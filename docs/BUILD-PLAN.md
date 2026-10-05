@@ -2,7 +2,7 @@
 
 > File do `/kehoach` sinh. `/tieptheo` đọc file này để biết làm gì tiếp theo.
 > **Thứ tự code** nằm ở đây. **Yêu cầu và trạng thái story** nằm ở `docs/PRD.md`.
-> Cập nhật lần cuối: 04/10/2026 (v13 — bổ sung task 63-66 theo CHANGES #35: Feature Tra cứu CDB đích (TCB-01..04) — xem/sửa/xóa HV trên DB đích; mốc chặn DKKH/BC1 đọc ở đích; đã nhúng kết quả /reviewtdd)
+> Cập nhật lần cuối: 05/10/2026 (v14 — bổ sung Phase 5 "Đóng gói & khởi chạy tool" (DGT-01..04) theo CHANGES #38/#39: task 26→DGT-01 + task 67-70 + Checkpoint 15; DGT-04(1/2) server refresh-token ⚠Deploy VPS)
 
 ## Quyết định về thứ tự
 
@@ -144,7 +144,7 @@
 | 51 | **NAP-01 nháp bền (2/3) — UI + 2 chip + nút** (CHANGES #32, TDD §10.5): NapHoSo chuyển `nhap[uuid]` RAM→API (list dùng cờ nhẹ, full khi mở drawer, `PUT` khi đóng/debounce) · 2 chip Địa chỉ/Ảnh (mặc định ✗) · nút "Xử lý" to + cả dòng bấm · nút "Xóa nháp" trong drawer · preview địa chỉ ghép `[chi_tiet, TenDayDu].join(", ")`. Chạy skill `impeccable` | `NAP-01` | M | 50,47 | 1 | [x] 04/10 — `nhap[uuid]` RAM→API (cờ nhẹ vẽ chip, full khi mở drawer, PUT khi đóng) + 2 chip `ChipCo` Địa chỉ/Ảnh + nút "Xử lý" to + cả dòng bấm + "Xóa nháp" (xác nhận 2 bước) + toast BUG-04 + ghép địa chỉ `join(", ")`. api.ts +nhapCo/Doc/Luu/Xoa. build+tsc+34 vitest. Playwright chờ chạy tool (cổng login+DB) |
 | 52 | **NAP-01 nháp bền (3/3) — nạp chặn/cảnh báo** (CHANGES #32): thiếu địa chỉ → CHẶN dòng (loại khỏi lô, chip ✗) · thiếu ảnh → vẫn nạp + cảnh báo "N học viên nạp thiếu ảnh" trước lô · sau lô lối tắt mở Tra cứu DB lọc "chưa ảnh" (reuse "Xem trong DB") | `NAP-01` | S | 51,47 | 1 | [x] 04/10 — chặn địa chỉ sẵn có (dòng thiếu → boQua); NapLoDialog +cảnh báo "N thiếu ảnh" pha xác nhận + nút "Bổ sung ảnh (N)" pha báo cáo → `xemTrongDB(ma_kh, [], "chua")`; TraCuuDB +prop `locAnhBanDau` (áp bộ lọc chưa-ảnh, reset theo moNonce). build+tsc+34 vitest |
 | 53 | **QLY-05 bổ sung ảnh HV thiếu ảnh — 2 nguồn** (CHANGES #32, TDD §11.5): AnhModal mở với (a) `chonFile` / (b) kéo ảnh thô VPS (`vps.tra_uuid`→`vps.tai_anh`→`AnhModal.napTuUrl`), ẩn (b) khi ảnh thô hết ~30 ngày → cùng luồng QLY-05 (đổi nền→`.jp2`→`nap_anh`, nâng `TT_XuLy '01'→'03'`). Thuần wiring | `QLY-05` | M | 27,35,43 | 1 | [x] 04/10 — nguồn (a) chọn-file sẵn có; +nguồn (b) `GET /local/ho-so/anh-vps?ma_dk=` (resolve uuid staging→VPS tra-uuid → tai_anh, 404 khi hết hạn) + client `taiAnhVps` + nút "Kéo ảnh máy chủ" trong panel (chỉ HV chưa ảnh), seed AnhModal qua `anhBanDau`. tool 181 pytest (+6 /anh-vps) · webui build+34 vitest. Playwright chờ chạy tool |
-| 26 | Đóng gói tool PyInstaller (.exe) + đối chiếu bảo mật OG (không `sa`, không log CCCD, HTTPS) | — | M | tất cả | 1 | [ ] |
+| 26 | **DGT-01** Đóng gói tool PyInstaller (.exe): one-folder + `--add-data` (webui/dist, dvhc_map.sqlite, SQL/mẫu) + **FastAPI mount StaticFiles phục vụ `webui/dist` cùng cổng** (SPA fallback, giữ `/local/*`) + **chuyển gốc dữ liệu → `%APPDATA%` khi `sys.frozen`** (config/key.bin, staging.sqlite, ảnh tạm) + test **máy sạch** (pymssql/FreeTDS); cân nhắc bỏ rembg (exe to). + đối chiếu bảo mật OG (không `sa`, không log CCCD, HTTPS). Thuộc **Phase 5 (DGT)** — xem dưới | `DGT-01` | M | tất cả | 1 | → PRD |
 
 ### ✅ Checkpoint 6 — sau task 33-38 (quản lý ảnh Tra cứu DB + bảo toàn Báo cáo)
 - [ ] `pnpm build` (webui) + tool chạy sạch.
@@ -207,7 +207,7 @@
 | 65 | **Sửa nhân thân HV ở CDB** (TCB): `usp_NguoiLX_Update` của CDB (đọc lại full giữ cột không sửa, KHÔNG đụng kết quả/BC1/BC2) — **CHẶN nếu `KhoaHoc.SoQD_KhaiGiang` có giá trị** (đã kết xuất DKKH) → báo rõ; **kiểm SP tồn tại trong CDB, thiếu → tắt nút + báo**; endpoint ghi buộc token operator | `TCB-03` | M | 63 | 1+2 | → PRD |
 | 66 | **Xóa HV / Đổi khóa HV ở CDB** (TCB): xóa cascade (NguoiLX+NguoiLX_HoSo+GiayTo) / đổi khóa đích cùng hạng chưa BC1 — **CHẶN nếu `NguoiLX_HoSo.MaBC1` có giá trị** (đã BC1; vẫn **bắt lỗi FK NO_ACTION** làm lưới an toàn) · **cảnh báo** nếu DKKH chưa BC1 · xác nhận 2 bước (không hoàn tác) · **kiểm SP đổi khóa/xóa tồn tại, thiếu → tắt nút**; endpoint ghi buộc token operator | `TCB-04` | M | 63,65 | 1+2 | → PRD |
 
-> SYNC-01 cắt 3 task (57/58/59) cùng trỏ 1 story → PRD `SYNC-01` chỉ ✅ khi xong cả 3 **và** task 62 (làm đẹp UI, CHANGES #34). Task **26** (đóng gói .exe) nay phụ thuộc thêm Phase 4 + Feature Tra cứu CDB (TCB 63-66) → chạy **sau task 66**.
+> SYNC-01 cắt 3 task (57/58/59) cùng trỏ 1 story → PRD `SYNC-01` chỉ ✅ khi xong cả 3 **và** task 62 (làm đẹp UI, CHANGES #34). Task **26** (đóng gói .exe) nay là **`DGT-01` thuộc Phase 5**, chạy **sau task 66** + 67-70.
 > **Feature "Tra cứu CDB đích" (TCB-01..04, task 63-66, CHANGES #35):** mở rộng phân hệ Đồng bộ CDB — xem/sửa/xóa HV **trên DB đích** `GPLX_CDB_CSDT` ngay trong tool. Lát dọc: 63 màn+đọc → 64 thay ảnh → 65 sửa nhân thân → 66 xóa/đổi khóa. **Mốc khóa đọc Ở ĐÍCH** (độc lập DB Nạp): sửa nhân thân chặn khi DKKH (`SoQD_KhaiGiang`); xóa/đổi khóa chặn khi BC1 (`MaBC1`). Đã qua /reviewtdd (biên bản `tdd-review-04-10-2026-tcb.md`): mốc BC1=`MaBC1`, thay ảnh backup trước ghi đè, endpoint ghi buộc token operator.
 > **Thứ tự build khuyến nghị (user chốt 04/10):** làm **61 → 62 TRƯỚC task 60** — HTG-07 tái cấu trúc header/sidebar (bỏ route `db-dich`), làm trước thì SYNC-03 (task 60, thêm màn Lịch sử) ráp vào shell đã ổn định, khỏi đụng route hai lượt.
 
@@ -240,6 +240,26 @@
 - [~] Collector gọi endpoint TCB ghi → **403**: theo thiết kế, collector bị chặn ngay ở đăng nhập (`VAI_TRO_DUNG_TOOL`=operator/admin → mọi /local/* 401 vì không có phiên) — đọc code xác nhận; chưa có tài khoản collector để bắn live.
 - [ ] Playwright 1280/1440/1920 màn Tra cứu CDB + modal chi tiết — 0 tràn. (Chưa chạy — thuần đọc, an toàn, chạy khi bật webui.)
 - [x] Màn Bàn đồng bộ: combobox + danh sách HV **đẹp, tên đủ dấu, không tràn/cắt** (avatar + teal); Playwright 1280/1440 (150 HV) 0 tràn + review-giaodien đạt.
+
+## Phase 5 — Đóng gói & khởi chạy tool độc lập (DGT-01..04)
+
+> Feature DGT thêm ở CHANGES #38/#39 (sau /reviewtdd + /capnhat). Thiết kế: TDD §11C (+§11C.5 sơ đồ khởi động/vòng đời phiên) · §12 (refresh-token) · TDD-decisions §16. Mục tiêu: mang tool sang máy CSDT khác **không cần Python/Node**, mở như phần mềm thường, **đăng nhập 1 lần dùng mãi**.
+> **DGT-01 = task 26** (ở bảng Phase 3, giữ số — dep "tất cả" nên luôn chạy cuối). Các task 67-70 thực thi SAU toàn bộ Phase 1-4 + TCB.
+
+| # | Task | Story | Quy mô | Phụ thuộc | Kiểm | Xong |
+|---|---|---|---|---|---|---|
+| 67 | **DGT-02 Khởi chạy**: tự mở trình duyệt (uvicorn **bind `127.0.0.1`**) + khay `pystray` (Mở giao diện/Thoát, ẩn console `--windowed`) + **single-instance named mutex/lock-file** (mở lại → đưa về bản đang chạy, không bật bản 2) + dò cổng trống nếu bận + tùy chọn **tự chạy khi bật máy (mặc định TẮT)** | `DGT-02` | M | 26 | 1 | → PRD |
+| 68 | **DGT-03 Wizard lần đầu**: nhận **3 trạng thái khởi động** ((a) chưa key.bin/config · (b) đủ → vào thẳng · (c) key.bin hỏng → wizard+cảnh báo) → stepper 3 bước (kiểm môi trường thư-mục-ghi-được + ping VPS → cấu hình SQL nguồn/đích + VPS **test-before-next** `/local/config/test` → đăng nhập), **tái dùng `CauHinhDrawer`** xếp thành stepper toàn màn; màn #20 SCREENS | `DGT-03` | M | 61,26 | 1 | → PRD |
+| 69 | **DGT-04 (1/2) ⚠VPS server refresh-token**: `POST /api/auth/refresh` + bảng `refresh_token(user_id, token_hash, created_at, last_used_at, revoked)` **lưu HASH** + **xoay một-lần-dùng** (trả access+refresh mới, vô hiệu cũ, không TTL lịch) + **cửa sổ ân hạn** chống đá nhầm khi mạng chập chờn + `logout` xóa refresh token của phiên + `doi-mat-khau` **thu hồi toàn bộ** + kiểm `is_active`. **Deploy lại VPS** | `DGT-04 (1/2)` | M | 14 | 1+2 | → PRD |
+| 70 | **DGT-04 (2/2) tool phiên vĩnh viễn**: lưu phiên + refresh token ra đĩa **mã hóa DPAPI (CurrentUser)** (ràng máy + tài khoản Windows) + nạp lại khi khởi động **bọc try/except** (hỏng → về màn đăng nhập) + **heartbeat** đổi refresh token định kỳ (khởi động + mỗi N giờ) + Đăng xuất xóa phiên đĩa+client. Vòng đời: TDD §11C.5 | `DGT-04 (2/2)` | M | 69,17 | 1+2 | → PRD |
+
+### ✅ Checkpoint 15 — sau task 26, 67-70 (Feature DGT) — **⚠ Deploy lại VPS (task 69)**
+- [ ] **DGT-01:** đóng gói exe → chạy trên **máy sạch** (không Python/Node) → nối SQL Server + VPS, nạp/tra cứu bình thường; dữ liệu ghi `%APPDATA%` (không `Program Files`).
+- [ ] **DGT-02:** nháy đúp exe → trình duyệt tự mở đúng trang + khay hiện; mở lại exe → **không bật bản 2**; cổng mặc định bận → nhảy cổng trống.
+- [ ] **DGT-03:** máy sạch → vào **wizard** 3 bước (test xanh mới qua); đã có cấu hình → vào thẳng; **key.bin hỏng → vào wizard** + cảnh báo.
+- [ ] **DGT-04:** đăng nhập 1 lần → tắt/mở exe **vào thẳng**; **qua 8h vẫn kéo VPS được** (refresh ngầm); Đăng xuất → lần sau hỏi lại; admin khóa TK → **bị đá** khi refresh.
+- [ ] **Mức 2:** refresh **xoay một-lần-dùng** + lưu **HASH** + `doi-mat-khau` thu hồi toàn bộ + **ân hạn** không đá nhầm khi retry refresh cũ (mạng chập chờn).
+- [ ] **Deploy VPS** (task 69 đổi `/api/auth`) → verify 3 vai trò + đăng nhập web không gãy ngay sau deploy.
 
 ### ✅ Checkpoint 5 — cuối dự án
 - [ ] Mọi tiêu chí MUST + SHOULD trong PRD đạt.
@@ -282,10 +302,10 @@
 
 > `/tieptheo` so mục này với PRD mỗi buổi để biết kế hoạch còn khớp không. Lệch thì báo user chạy lại `/kehoach` chế độ bổ sung. **Không tự sửa kế hoạch.**
 
-- **Số story trong PRD khi cập nhật:** 33 (thêm `TCB-01/02/03/04` từ CHANGES #35; `HTG-07` #34; `SYNC-01/02/03` #33; chưa tính NICE `QLY-04`, `THU-03`)
-- **Mã story đã đưa vào kế hoạch:** `HTG-01`, `HTG-02`, `HTG-03`, `HTG-07`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `SYNC-01`, `SYNC-02`, `SYNC-03`, `TCB-01`, `TCB-02`, `TCB-03`, `TCB-04`
+- **Số story trong PRD khi cập nhật:** 37 (thêm `DGT-01/02/03/04` từ CHANGES #38/#39; trước đó `TCB-01/02/03/04` #35; `HTG-07` #34; `SYNC-01/02/03` #33; chưa tính NICE `QLY-04`, `THU-03`)
+- **Mã story đã đưa vào kế hoạch:** `HTG-01`, `HTG-02`, `HTG-03`, `HTG-07`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `SYNC-01`, `SYNC-02`, `SYNC-03`, `TCB-01`, `TCB-02`, `TCB-03`, `TCB-04`, `DGT-01`, `DGT-02`, `DGT-03`, `DGT-04`
 - **Mã story chưa đưa vào:** `QLY-04`, `THU-03` (NICE, chưa đủ chi tiết) · **`HTG-04/05/06`** (thêm ở CHANGES #18, đã code thẳng — chưa có task trong plan; cần `/kehoach` bổ sung riêng nếu muốn khớp sổ)
-- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 04/10/2026 (#35)
+- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 05/10/2026 (#39)
 
 ## Changelog
 
@@ -302,5 +322,6 @@
 | 03/10/2026 | v9 — bổ sung (CHANGES #28): thêm task **48-49** (cuối Phase 3, trước task 26) — QLY-09 đối soát VPS↔CSDT: backend liệt kê lệch theo khóa + 3 action tái dùng + phòng tuyến 2 chặn phantom (48), webui panel đối soát + nút sửa 1 chạm (49) + Checkpoint 10. Thuần tool, không endpoint/SP nạp mới. +story QLY-09. 49 task. |
 | 04/10/2026 | v10 — bổ sung (CHANGES #32, sau review TDD #32): thêm task **50-53** (cuối Phase 3, trước task 26) — NAP-01 lưu nháp BỀN backend `nhap_chuan_bi`+`nhap_xoa`+3 endpoint+BUG-04 reset trong `keo_ve_upsert` (50), UI nháp bền+2 chip+nút Xử lý/Xóa nháp (51), nạp chặn thiếu địa chỉ/cảnh báo thiếu ảnh+lối tắt (52); QLY-05 bổ sung ảnh 2 nguồn file/ảnh-thô-VPS (53) + Checkpoint 11. Endpoint list nhẹ + luật ghép địa chỉ theo biên bản `tdd-review-04-10-2026.md`. Tái dùng NAP-01/QLY-05, không story mới. 53 task. |
 | 04/10/2026 | v12 — bổ sung (CHANGES #34): thêm task **61** (HTG-07 bảng cấu hình chung ở header, gộp DB nguồn Nạp + nhiều DB đích Sync, bỏ route cau-hinh/db-dich — đóng HTG-07 + SYNC-02) + task **62** (SYNC-01 làm đẹp combobox + danh sách HV) + Checkpoint 13. Thuần UI/IA, backend không đổi; dựng impeccable/ui-ux-pro-max. Khuyến nghị build 61→62 trước task 60. +1 story HTG-07. 62 task. |
+| 05/10/2026 | v14 — bổ sung (CHANGES #38/#39, sau /reviewtdd + /capnhat): thêm **Phase 5 Đóng gói & khởi chạy tool (DGT)** — gán **task 26 → `DGT-01`** (đóng gói exe + serve dist + %APPDATA%, giữ số) + task **67** DGT-02 khởi chạy (tự mở trình duyệt+khay+single-instance mutex+dò cổng+tự-chạy mặc định TẮT) · **68** DGT-03 wizard 3-trạng-thái tái dùng CauHinhDrawer · **69** ⚠VPS DGT-04(1/2) server refresh-token (lưu HASH, xoay 1-lần-dùng, ân hạn, thu hồi khi logout/đổi-mk) · **70** DGT-04(2/2) tool phiên đĩa DPAPI+heartbeat + Checkpoint 15. +4 story DGT-01..04. 70 task. |
 | 04/10/2026 | v13 — bổ sung (CHANGES #35, sau /reviewtdd): thêm Feature **Tra cứu CDB đích** task **63-66** (cuối Phase 4, trước task 26) — màn Tra cứu CDB + đọc qua `sqlserver_conn_dich` + nút Xem chi tiết (63, TCB-01) · thay ảnh backup `_BACKUP.jp2` trước ghi đè (64, TCB-02) · sửa nhân thân chặn DKKH (65, TCB-03) · xóa/đổi khóa chặn BC1=`MaBC1` (66, TCB-04) + Checkpoint 14 + Prerequisite kiểm SP CDB. Mốc chặn đọc Ở ĐÍCH, đã nhúng kết quả review (biên bản `tdd-review-04-10-2026-tcb.md`). Task 26 nay sau task 66. +4 story TCB. 66 task. |
 | 04/10/2026 | v11 — bổ sung (CHANGES #33): thêm **Phase 4 Đồng bộ CDB** task **54-60** — sidebar workspace shell (54), Sync nền backend config/conn_dich/sync_helpers/sync_history (55), SYNC-02 Quản lý CSDL đích (56), SYNC-01 cắt 3: backend tạo HV qua 3 SP + MaCSDT từ QTHT/khóa đích (57) · SSE+chạy (58) · UI Bàn đồng bộ bám mock (59), SYNC-03 Lịch sử & Hủy sync (60) + Checkpoint 12 + prerequisite MaGT identity. Khóa đích BC1: cảnh báo-vẫn-cho (user chốt B). Task 26 đóng gói nay sau task 60. +3 story SYNC. 60 task. |
