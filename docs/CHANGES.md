@@ -4,6 +4,7 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 39 | 05/10/2026 | ✏️ Sửa | `DGT-04` | **Refresh-token VPS cho phiên tool vĩnh viễn** (gỡ Chặn 2.1 từ /reviewtdd #38): phiên local vĩnh viễn nhưng `vps_token` (JWT VPS) hết **8h** → sau 8h mọi thao tác nạp/đối soát từ VPS **401** dù tool vẫn báo đã đăng nhập. Fix (cách A, chốt /reviewtdd): VPS cấp **refresh token** lúc đăng nhập (tool lưu **DPAPI**), heartbeat thu-hồi-từ-xa **kiêm** đổi lấy `access_token` mới qua `POST /api/auth/refresh`; refresh thất bại / TK bị khóa → tự đăng xuất. **Gộp vào DGT-04** (không tạo story mới — user chốt A). DGT-04 đang ⏳ Todo → không đụng trạng thái. | ✅ v3.4 | ✅ §12 + §11C.4 (v4.2) | — | ⬜ (code khi dựng DGT-04) |
 | 38 | 05/10/2026 | ➕ Thêm | `DGT-01`, `DGT-02`, `DGT-03`, `DGT-04`, `HTG-01` | **Nhóm "Đóng gói & khởi chạy tool độc lập"** (prefix mới DGT, user chốt) — mang tool sang máy CSDT khác không cần cài Python/Node, mở như phần mềm thường, lần sau dùng không phải thiết lập lại. **DGT-01** đóng gói exe PyInstaller (gói sẵn mọi thư viện backend) + FastAPI phục vụ `webui/dist` cùng cổng (`BASE=""` sẵn có) + ghi dữ liệu vào `%APPDATA%`. **DGT-02** mỗi lần chạy **tự mở trình duyệt** đúng trang + **khay hệ thống** (Mở giao diện/Thoát) + **chống chạy 2 bản** (đưa tab cũ lên) + tùy chọn **tự chạy khi bật máy**. **DGT-03** **wizard thiết lập lần đầu** (máy sạch): kiểm môi trường → cấu hình SQL nguồn/đích + VPS (tái dùng test-before-save `/config/test`) → đăng nhập, test xanh mới qua bước; lần sau có cấu hình thì bỏ wizard. **DGT-04** **phiên đăng nhập VĨNH VIỄN** (lưu đĩa mã hóa `key.bin`, mở exe vào thẳng, chỉ Đăng xuất mới thoát) + thu hồi từ xa (ngầm hỏi VPS). HTG-01 +dòng trỏ DGT-04 (chỉ tool; web giữ phiên thường, vẫn ✅). | ✅ v3.3 | ✅ §11C (v4.0) + decisions §16 | ⬜ wizard lần đầu (dựng thẳng tool/webui) | ⬜ |
 | 37 | 05/10/2026 | ✏️ Sửa | `TCB-03` | **Mở rộng trường sửa nhân thân ở Tra cứu CDB** (phát hiện khi nghiệm thu Checkpoint 14 tại máy CSDT — form 5 trường quá tối thiểu). Thêm **địa chỉ thường trú 2 cấp** (chọn Tỉnh+Xã chuẩn → `NoiTT_MaDVHC`/`MaDVQL`, không chỉ dòng chữ) + **ngày cấp CCCD** (`NgayCapCMT`) + **nơi cấp CCCD** (`NoiCapCMT`, Sở GTVT). `usp_NguoiLX_Update` đã nhận sẵn các tham số. **Chỉ TCB-03** (user chốt 05/10) — tách model riêng cho CDB, **Nạp QLY-01 giữ nguyên 5 trường**. Danh mục Tỉnh/Xã + Sở phải đọc từ **DB đích** (`target_key`). TCB-03 hạ ✅→⏳ (bản 5 trường đã nghiệm thu ghi-thật PASS tại máy CSDT 05/10). Nơi cư trú 2 cấp để sau; KHÔNG làm số CMND cũ (SP update không nhận). | ✅ v3.2 | ✅ §11B.7 (v3.8) | 🟡 ghi màn #19 (code thẳng tool/webui) | ⬜ |
 | 36 | 05/10/2026 | ✏️ Sửa + ➕ Thêm | `TCB-01`, `TCB-02`, `TCB-03`, `TCB-04`, `SYNC-01`, `HTG-01` | **Sửa định nghĩa "đã kết xuất DKKH"** sang tín hiệu ĐÚNG: khóa có gói `DANG_KY_KHOA_HOC` đã gửi Sở (`TRANS_CLI_HangDoiGui` tên file chứa MaKH) — **KHÔNG** phải `KhoaHoc.SoQD_KhaiGiang` (sai: mọi khóa đều có số QĐ nội bộ → chặn nhầm khóa chưa gửi Sở; verify DB 05/10: 16 khóa đều có SoQD nhưng chỉ 14 đã gửi). Một định nghĩa chung `sync_helpers.dkkh_exists_sql`/`dkkh_exists_cond` (CHARINDEX) dùng cho TCB-01 (chip) + **TCB-03 chặn sửa nhân thân** + **TCB-04 NÂNG ngưỡng chặn: khóa đã DKKH → KHÔNG xóa HV, KHÔNG đổi khóa** (áp cả khóa đi lẫn khóa đến; `khoa-cung-hang` lọc bỏ khóa DKKH; UI vô hiệu nút + ghi lý do) — trước đây DKKH chỉ cảnh báo, chặn cứng ở BC1 (user chốt 05/10: thêm/bớt HV ở khóa đã gửi Sở là lệch danh sách). **+SYNC-01**: (a) filter khóa đích *"Chỉ khóa cùng hạng & chưa kết xuất DKKH"* (checkbox mặc định bật; đích trả thêm cờ `dkkh`) · (b) khóa xếp **mới-nhất-trước** (ORDER BY NgayKG DESC, **MaKH DESC** + hiện ngày KG ở combo nguồn) · (c) **giữ phiên đăng nhập qua F5** (token→localStorage, khôi phục `/local/auth/me`, tự kiểm kết nối đích khi vào màn). Nghiệp vụ sync lõi không đổi → SYNC-01 giữ ✅; TCB giữ ✅ (code đã sửa+verify live 05/10). +docs DB đích §7 (định nghĩa DKKH). | ✅ v3.1 | ✅ §11B.2/§11B.7/§5.5 (v3.6) | ✅ (sửa `BanDongBo.tsx`/`TraCuuCDB.tsx` qua cờ backend) | ✅ 8 file, tsc+34 vitest, verify live+DB. **Chưa commit.** |
@@ -44,6 +45,20 @@
 | 1 | 01/10/2026 | ✏️ Sửa | — | Đổi nơi lưu bảng ánh xạ `DM_DVHC_MAP`: GPLX_CSDT → SQLite cục bộ của tool | — | ✅ | — | ✅ (task 5) |
 
 Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên quan
+
+---
+
+## #39 — Refresh-token VPS cho phiên tool vĩnh viễn (DGT-04) · 05/10/2026
+
+- **Nguồn:** phát hiện Chặn 2.1 của `/reviewtdd` #38 (biên bản `docs/tdd-review-05-10-2026.md`, mục Hoãn lại).
+- **Vấn đề:** DGT-04 cho phiên **local** sống vĩnh viễn, nhưng `vps_token` nhét trong phiên là JWT do VPS phát, **hết hạn 8h** (§12). Sau 8h / mở lại hôm sau, user vẫn "đã đăng nhập" (tra cứu + sửa local chạy), **nhưng mọi call VPS — kéo hồ sơ mới / lock / đã-nạp / tải ảnh / đối soát QLY-08,09 — đều 401**, tool câm lặng hỏng đúng việc nạp.
+- **Chốt (user 05/10 — cách A, `/capnhat` #39):**
+  - VPS cấp **refresh token** khi đăng nhập; tool lưu ra đĩa **mã hóa DPAPI** (như phiên).
+  - Heartbeat thu-hồi-từ-xa **kiêm làm mới token**: định kỳ (khởi động + mỗi N giờ) đổi refresh token lấy `access_token` mới qua **`POST /api/auth/refresh`**. Refresh token hỏng / tài khoản bị khóa → xóa phiên, buộc đăng nhập lại.
+  - Đăng xuất → thu hồi cả refresh token.
+  - **Gộp vào DGT-04** (user chốt A) — refresh-token chỉ phục vụ DGT-04, không tạo story server riêng; phần endpoint ghi ở TDD §12.
+- **Phạm vi chạm:** server VPS (`server/app` — endpoint `/api/auth/refresh` + cấp/xoay refresh token) **và** tool (`session.py` + heartbeat). Đăng nhập app web giữ nguyên.
+- **Đã sửa:** PRD (DGT-04 +Done khi refresh token + sửa "key.bin"→mã hóa ràng máy, Changelog v3.4) · TDD (§12 +refresh token, §11C.4/§16 cập nhật "đã /capnhat", Changelog v4.2) · CHANGES (#39 + Mốc đối chiếu).
 
 ---
 
@@ -549,7 +564,7 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 > `/capnhat` đọc mục này ở Bước 0b để biết có thay đổi nào chưa ghi sổ không.
 > So bằng **danh sách mã**, không so bằng thời gian sửa file.
 
-- **Cập nhật:** 05/10/2026 (#38 +Nhóm "Đóng gói & khởi chạy tool độc lập" — **prefix mới DGT**, 4 story `DGT-01..04` (đóng gói exe · khởi chạy tự mở trình duyệt+khay · wizard lần đầu · phiên vĩnh viễn); HTG-01 +dòng trỏ DGT-04, giữ ✅. Trước đó: #37 mở rộng trường sửa nhân thân TCB-03, hạ TCB-03 ✅→⏳. #36 sửa định nghĩa DKKH + TCB-04 nâng ngưỡng. #35 +Feature "Tra cứu CDB đích" 4 story `TCB-01..04`)
+- **Cập nhật:** 05/10/2026 (#39 ✏️ DGT-04 +refresh-token VPS (gỡ Chặn vps_token 8h từ /reviewtdd #38) — gộp vào DGT-04, **không thêm mã mới**, số story giữ 37. Trước đó cùng ngày: #38 +Nhóm "Đóng gói & khởi chạy tool độc lập" — **prefix mới DGT**, 4 story `DGT-01..04`; HTG-01 +dòng trỏ DGT-04, giữ ✅. #37 mở rộng trường sửa nhân thân TCB-03, hạ TCB-03 ✅→⏳. #36 sửa định nghĩa DKKH + TCB-04 nâng ngưỡng. #35 +Feature "Tra cứu CDB đích" 4 story `TCB-01..04`)
 - **Cập nhật trước:** 04/10/2026 (#34 +story `HTG-07` cấu hình kết nối lên header dùng chung; hạ `SYNC-01`+`SYNC-02` ✅→⏳ làm lại UI (nay đã ✅ lại); sửa bullet `HTG-01`)
 - **Trước nữa:** 04/10/2026 (#33 +Feature "Đồng bộ CDB" 3 story `SYNC-01/02/03` SHOULD, port sync_tool v2.0 + tool chuyển sidebar module)
 - **Trước đó:** 04/10/2026 (#32 bổ sung tiêu chí NAP-01 + QLY-05; ⚠️ #31 có dòng bảng nhưng THIẾU mục chi tiết — cần phiên #31 bổ sung) · 03/10/2026 (gộp 2 phiên song song: #28 QLY-09 + #29 NAP-01/03 + #30 THU-01/05; THU-01 hạ ✅→⏳)

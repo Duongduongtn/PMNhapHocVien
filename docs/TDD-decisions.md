@@ -137,4 +137,7 @@
 - **Phương án đã cân nhắc (độ dài phiên):** (A) trượt 30 ngày theo sử dụng · (B) **vĩnh viễn** ← chọn · (C) hết ca 8-12h. User chốt B.
 - **Đánh đổi:** phiên vĩnh viễn = ai ngồi vào máy cũng vào thẳng (sửa/xóa GPLX + xem căn cước). **Chấp nhận** vì máy nội bộ CSDT 1 người dùng; lưới an toàn = nút Đăng xuất + thu hồi từ xa. Máy thành dùng chung sau này → thêm "hỏi mật khẩu khi xóa/đổi khóa" (để sau). pymssql/FreeTDS phải test trên máy sạch.
 - **Phạm vi:** chỉ **tool**; đăng nhập app web (VPS, đa người) giữ phiên thường, KHÔNG đổi.
-- **Nguồn:** user 05/10/2026; TDD §11C; CHANGES #38; PRD DGT-01..04.
+- **Cập nhật 05/10 (/reviewtdd #38 + /capnhat #39):** hai tinh chỉnh cho phần phiên, **không đảo quyết định "vĩnh viễn"**:
+  - **Mã hóa phiên đĩa: DPAPI (CurrentUser)** thay `key.bin`. *Đã từng chốt `key.bin`* → đổi vì `key.bin` nằm cùng thư mục, copy cả thư mục sang máy/user khác là giải mã được; DPAPI ràng vào máy + tài khoản Windows. (`key.bin` vẫn dùng cho config.)
+  - **Thêm refresh-token VPS:** phiên local vĩnh viễn nhưng `vps_token` (JWT VPS) hết 8h → nạp từ VPS chết lặng sau 8h. Fix: VPS cấp refresh token (`POST /api/auth/refresh`), heartbeat đổi lấy access_token mới. Đụng server VPS nên đã qua `/capnhat` #39 (gộp vào DGT-04).
+- **Nguồn:** user 05/10/2026; TDD §11C + §12; CHANGES #38, #39; PRD DGT-01..04; biên bản tdd-review-05-10-2026.

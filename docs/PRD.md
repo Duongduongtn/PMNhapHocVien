@@ -820,12 +820,13 @@
 **Story:** Là người dùng tool hằng ngày, tôi muốn **đăng nhập một lần rồi dùng mãi** — mở lại tool không phải gõ tài khoản lại — chỉ khi bấm "Đăng xuất" mới thoát.
 
 **Done khi:**
-- ⬜ Sau khi đăng nhập, **phiên lưu ra đĩa** (mã hóa bằng `key.bin` sẵn có), **không hết hạn**.
+- ⬜ Sau khi đăng nhập, **phiên lưu ra đĩa** (mã hóa an toàn, **ràng vào đúng máy + tài khoản Windows** — copy sang máy khác không mở được), **không hết hạn**.
+- ⬜ **Giữ được quyền máy chủ (VPS) lâu dài:** máy chủ cấp một "vé gia hạn" khi đăng nhập, tool giữ an toàn và **định kỳ tự đổi lấy quyền mới ngầm** → thao tác kéo hồ sơ / đối soát với máy chủ **không chết sau vài giờ** dù người dùng không đăng nhập lại. Đổi thất bại / tài khoản bị khóa → tự đăng xuất.
 - ⬜ Mở exe lần sau → **tự nạp phiên → vào thẳng, không hỏi đăng nhập** (token trình duyệt đã sống qua F5/đóng-mở trình duyệt; mảnh đĩa này cho sống qua cả tắt/mở exe).
 - ⬜ Nút **"Đăng xuất" (đã có sẵn)** là lối ra duy nhất → xóa phiên ở đĩa + trình duyệt → lần sau mới hỏi đăng nhập lại.
 - ⬜ **Thu hồi từ xa:** khi có mạng, định kỳ ngầm hỏi VPS tài khoản còn hiệu lực — VPS khóa tài khoản thì tự đá ra (không bắt người dùng bình thường đăng nhập lại).
 
-**Edge cases:** mất `key.bin` (đổi máy, dọn máy) → phiên cũ không giải mã được → đăng nhập lại (chấp nhận) · VPS không có mạng lúc khởi động → vẫn vào bằng phiên đĩa, kiểm hiệu lực khi có mạng lại.
+**Edge cases:** mất khóa máy (đổi máy, dọn máy, đổi tài khoản Windows) → phiên cũ không giải mã được → đăng nhập lại (chấp nhận) · VPS không có mạng lúc khởi động → vẫn vào bằng phiên đĩa, kiểm hiệu lực + gia hạn quyền khi có mạng lại · quyền máy chủ hết hạn giữa ca → **tự gia hạn ngầm, không bắt đăng nhập lại**; vé gia hạn cũng bị thu hồi khi bấm Đăng xuất.
 
 **Rủi ro đã nêu & chấp nhận (user 05/10):** phiên vĩnh viễn = **ai ngồi vào máy cũng vào thẳng** tool sửa/xóa hồ sơ GPLX + xem căn cước, kể cả máy bỏ không lâu ngày. Chấp nhận vì **máy nội bộ CSDT, một người dùng**. Nếu sau này máy dùng chung → cân nhắc "hỏi mật khẩu khi xóa/đổi khóa" (để sau).
 
@@ -961,4 +962,5 @@
 | 04/10/2026 | v3.0 — +Feature **Tra cứu CDB đích** (CHANGES #35, mở rộng phân hệ Đồng bộ CDB): 4 story **TCB-01** (tra khóa+lưới HV+chi tiết+ảnh, +nút Xem chi tiết từ Bàn đồng bộ) · **TCB-02** (thay ảnh — tái dùng AnhModal+đổi nền, ghi đè file dùng chung 2 DB) · **TCB-03** (sửa nhân thân — chặn nếu đã kết xuất DKKH) · **TCB-04** (xóa HV/đổi khóa — chặn nếu đã BC1). Trạng thái khóa đọc Ở ĐÍCH (DKKH=SoQD_KhaiGiang, BC1=TT_XuLy≥05/BaoCaoI). SYNC-01 thêm nút điều hướng (giữ ✅) | PM |
 | 05/10/2026 | v3.1 — **sửa định nghĩa DKKH** (CHANGES #36): "đã kết xuất DKKH" = có gói `DANG_KY_KHOA_HOC` gửi Sở (`TRANS_CLI_HangDoiGui`), **KHÔNG** phải `SoQD_KhaiGiang` (sai — mọi khóa đều có) → áp TCB-01/02/03/04 (chip + chặn sửa nhân thân TCB-03). +SYNC-01: filter khóa đích "cùng hạng & chưa DKKH" (mặc định bật) + khóa xếp mới-nhất-trước (hiện ngày KG combo nguồn + sort phụ MaKH DESC) + giữ phiên đăng nhập qua F5. Giữ ✅ (code đã viết+verify live 05/10) | PM |
 | 05/10/2026 | v3.2 — **mở rộng trường sửa nhân thân TCB-03** (CHANGES #37): thêm địa chỉ thường trú 2 cấp (Tỉnh+Xã) + ngày cấp CCCD + nơi cấp CCCD; danh mục Xã/Sở đọc từ DB đích. Chỉ TCB-03 (user chốt); Nạp QLY-01 giữ 5 trường. TCB-03 hạ ✅→⏳ (bản 5 trường đã nghiệm thu ghi-thật tại máy CSDT 05/10). | PM |
+| 05/10/2026 | v3.4 — **DGT-04 +refresh-token VPS** (CHANGES #39, gỡ Chặn vps_token 8h từ /reviewtdd #38): thêm "Done khi" giữ quyền máy chủ lâu dài (vé gia hạn + tự đổi ngầm); sửa mô tả mã hóa phiên "key.bin" → "ràng vào máy + tài khoản Windows". Gộp vào DGT-04, không thêm story. | PM |
 | 05/10/2026 | v3.3 — **+Nhóm "Đóng gói & khởi chạy tool độc lập"** (CHANGES #38): 4 story mới `DGT-01` (đóng gói exe PyInstaller + FastAPI phục vụ UI cùng cổng) · `DGT-02` (tự mở trình duyệt + khay hệ thống + chống chạy 2 bản + tùy chọn tự chạy khi bật máy) · `DGT-03` (wizard thiết lập lần đầu, tái dùng test-before-save) · `DGT-04` (phiên đăng nhập **vĩnh viễn** lưu đĩa + thu hồi từ xa, chỉ Đăng xuất mới thoát). HTG-01 +dòng trỏ DGT-04 (chỉ tool; web giữ phiên thường, vẫn ✅). | PM |
