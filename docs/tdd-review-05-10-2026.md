@@ -37,3 +37,27 @@
 ## Kết luận
 
 **TDD §11C đã đủ để bắt đầu code — TRỪ DGT-04.** Số phát hiện Chặn chưa đóng: **0 về mặt thiết kế** (đã ghi hướng fix), nhưng **DGT-04 bị chặn quy trình**: phải `/capnhat` thêm refresh-token VPS trước khi code. DGT-01/02/03 code được ngay.
+
+---
+
+# Bổ sung — /reviewtdd (hẹp) refresh-token §12 · 05/10/2026
+
+- **Phạm vi:** chỉ cơ chế refresh-token VPS vừa thêm ở /capnhat #39 (TDD §12 + §11C.4) — phần server chưa soi ở review #38. Soi Điểm 2/3/4; bỏ 1/5/6 (không đụng PRD mapping/hiệu năng/sơ đồ).
+- **Số phát hiện:** 4 (Chặn: 1 · Nên sửa: 3) — đã sửa hết vào §12 (TDD v4.3).
+
+## Đã sửa
+
+| # | Điểm | Mức | Phát hiện | Đã sửa thế nào |
+|---|---|---|---|---|
+| 4.1 | 4 Bảo mật | 🔴 Chặn | Refresh token (bí mật vĩnh viễn) chưa nói lưu thế nào → nguy cơ lưu plaintext, lộ DB = chiếm phiên mọi tài khoản | §12: lưu **HASH** ở DB, bảng `refresh_token(user_id, token_hash, created_at, last_used_at, revoked)` |
+| 2.1 | 2 Logic | 🟡 Nên sửa | Chưa rõ refresh có xoay mỗi lần dùng; logout có xóa refresh token không | §12: **xoay một-lần-dùng** (trả access+refresh mới, vô hiệu cũ), không TTL lịch nhưng revoke được; logout xóa refresh token |
+| 3.1 | 3 Edge | 🟡 Nên sửa | Rotation một-lần-dùng + mạng chập chờn (máy CSDT) → đá nhầm phiên hợp lệ khi retry refresh cũ | §12: **cửa sổ ân hạn** / chỉ replay khi refresh cũ dùng lại sau khi token mới đã dùng |
+| 4.2 | 4 Bảo mật | 🟡 Nên sửa | `doi-mat-khau` không thu hồi phiên → đổi mật khẩu không đá được kẻ đã chiếm phiên vĩnh viễn | §12: đổi mật khẩu **thu hồi toàn bộ** refresh token của user |
+
+## Cố tình bỏ qua / Hoãn lại
+
+(không có — đã nhận sửa hết)
+
+## Kết luận bổ sung
+
+Thiết kế refresh-token §12 đã đủ để code DGT-04 (phần server). **0 Chặn chưa đóng.** DGT-04 hết chặn quy trình; bước tiếp: `/kehoach` bổ sung rồi `/tieptheo`.
