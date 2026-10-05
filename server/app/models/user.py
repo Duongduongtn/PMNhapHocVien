@@ -40,3 +40,20 @@ class TokenBlocklist(Base):
     jti: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
     exp: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     revoked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class RefreshToken(Base):
+    """Refresh token cho phiên tool vĩnh viễn (DGT-04, TDD §12).
+
+    Lưu HASH (sha256 hex), KHÔNG plaintext. Xoay một-lần-dùng: dùng rồi đặt
+    revoked=True + ghi last_used_at; gọi lại trong ân hạn → retry mạng (cấp mới),
+    sau ân hạn → replay → thu hồi cả chuỗi của user.
+    """
+    __tablename__ = "refresh_token"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(Uuid, index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked: Mapped[bool] = mapped_column(Boolean, default=False)

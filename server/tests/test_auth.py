@@ -9,10 +9,17 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.auth.security import create_access_token, decode_token, hash_password, verify_password
+from app.auth import security
+from app.auth.security import (
+    create_access_token,
+    decode_token,
+    hash_password,
+    hash_refresh_token,
+    verify_password,
+)
 from app.db import Base, get_db
 from app.main import app
-from app.models.user import User
+from app.models.user import RefreshToken, User
 
 
 @pytest.fixture
@@ -139,6 +146,96 @@ def test_create_user_invalid_role(client):
     r = client.post("/api/admin/users", headers={"Authorization": f"Bearer {token}"},
                     json={"username": "z", "password": "pw", "vai_tro": "sieu-nhan"})
     assert r.status_code == 422
+
+
+# ── Refresh token — phiên tool vĩnh viễn (DGT-04) ──
+def _login_tool(client: TestClient, username: str, password: str):
+    """Đăng nhập QUA TOOL (cap_refresh=True) → nhận cả refresh token."""
+    return client.post("/api/auth/login",
+                       json={"username": username, "password": password, "cap_refresh": True})
+
+
+def test_login_cap_refresh_tra_refresh_token(client):
+    body = _login_tool(client, "op1", "op-pass").json()
+    assert body["access_token"]
+    assert body["refresh_token"]   # có vì cap_refresh=True
+
+
+def test_login_web_khong_co_refresh_token(client):
+    body = _login(client, "op1", "op-pass").json()   # web, không cap_refresh
+    assert body["refresh_token"] is None
+
+
+def test_refresh_luu_hash_khong_plaintext(client, db_session):
+    db, _ = db_session
+    rt = _login_tool(client, "op1", "op-pass").json()["refresh_token"]
+    row = db.scalar(select(RefreshToken))
+    assert row.token_hash != rt                       # không lưu plaintext
+    assert row.token_hash == hash_refresh_token(rt)   # lưu đúng sha256 hex
+    assert len(row.token_hash) == 64
+
+
+def test_refresh_xoay_cap_token_moi(client):
+    rt = _login_tool(client, "op1", "op-pass").json()["refresh_token"]
+    r = client.post("/api/auth/refresh", json={"refresh_token": rt})
+    assert r.status_code == 200
+    out = r.json()
+    assert out["access_token"]
+    assert out["refresh_token"] and out["refresh_token"] != rt   # xoay → token mới
+    # token mới dùng được tiếp
+    assert client.post("/api/auth/refresh", json={"refresh_token": out["refresh_token"]}).status_code == 200
+
+
+def test_refresh_trong_an_han_retry_mang_ok(client):
+    """Gọi lại token vừa xoay NGAY (trong ân hạn) → coi là retry mạng, vẫn cấp token mới."""
+    rt = _login_tool(client, "op1", "op-pass").json()["refresh_token"]
+    assert client.post("/api/auth/refresh", json={"refresh_token": rt}).status_code == 200
+    # rt đã bị đánh dấu dùng, nhưng gọi lại ngay (grace 60s) → vẫn 200
+    r2 = client.post("/api/auth/refresh", json={"refresh_token": rt})
+    assert r2.status_code == 200
+
+
+def test_refresh_replay_qua_an_han_thu_hoi_chuoi(client, monkeypatch):
+    """Dùng lại token đã xoay SAU ân hạn → replay thật → thu hồi toàn bộ chuỗi."""
+    monkeypatch.setattr(security, "REFRESH_GRACE_SECONDS", 0)   # ép quá ân hạn ngay
+    rt = _login_tool(client, "op1", "op-pass").json()["refresh_token"]
+    moi = client.post("/api/auth/refresh", json={"refresh_token": rt}).json()["refresh_token"]
+    # dùng lại token cũ → replay → 401
+    assert client.post("/api/auth/refresh", json={"refresh_token": rt}).status_code == 401
+    # cả token mới cũng bị thu hồi theo chuỗi
+    assert client.post("/api/auth/refresh", json={"refresh_token": moi}).status_code == 401
+
+
+def test_refresh_token_sai(client):
+    assert client.post("/api/auth/refresh", json={"refresh_token": "khong-ton-tai"}).status_code == 401
+
+
+def test_refresh_tai_khoan_bi_khoa(client, db_session):
+    db, _ = db_session
+    rt = _login_tool(client, "op1", "op-pass").json()["refresh_token"]
+    u = db.scalar(select(User).where(User.username == "op1"))
+    u.is_active = False
+    db.commit()
+    assert client.post("/api/auth/refresh", json={"refresh_token": rt}).status_code == 401
+
+
+def test_logout_thu_hoi_refresh(client):
+    body = _login_tool(client, "op1", "op-pass").json()
+    h = {"Authorization": f"Bearer {body['access_token']}"}
+    assert client.post("/api/auth/logout", headers=h,
+                       json={"refresh_token": body["refresh_token"]}).status_code == 204
+    # refresh token của phiên không còn dùng được
+    assert client.post("/api/auth/refresh", json={"refresh_token": body["refresh_token"]}).status_code == 401
+
+
+def test_doi_mat_khau_thu_hoi_toan_bo_refresh(client):
+    body = _login_tool(client, "op1", "op-pass").json()
+    h = {"Authorization": f"Bearer {body['access_token']}"}
+    r = client.post("/api/auth/doi-mat-khau", headers=h,
+                    json={"mat_khau_hien_tai": "op-pass", "mat_khau_moi": "op-pass-moi"})
+    assert r.status_code == 204
+    # đổi mật khẩu → mọi refresh token bị đá
+    assert client.post("/api/auth/refresh", json={"refresh_token": body["refresh_token"]}).status_code == 401
 
 
 # ── Khóa/đổi vai trò có hiệu lực ngay (đọc từ DB, không tin claim) ──

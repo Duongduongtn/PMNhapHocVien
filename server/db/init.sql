@@ -63,6 +63,21 @@ CREATE TABLE IF NOT EXISTS token_blocklist (
 CREATE INDEX IF NOT EXISTS idx_blocklist_exp ON token_blocklist(exp);
 
 -- ────────────────────────────────────────────
+-- REFRESH TOKEN (phiên tool vĩnh viễn — DGT-04, TDD §12)
+-- Lưu HASH sha256 hex (KHÔNG plaintext). Xoay một-lần-dùng + thu hồi khi
+-- Đăng xuất / đổi mật khẩu / tài khoản bị khóa. Chỉ cấp cho đăng nhập QUA TOOL.
+-- ────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS refresh_token (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash   CHAR(64) UNIQUE NOT NULL,          -- sha256 hex
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_used_at TIMESTAMPTZ,
+  revoked      BOOLEAN NOT NULL DEFAULT FALSE
+);
+CREATE INDEX IF NOT EXISTS idx_refresh_user ON refresh_token(user_id);
+
+-- ────────────────────────────────────────────
 -- AUDIT LOG (ai gửi/ai nạp/ai xóa — PII)
 -- ────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS audit_log (
