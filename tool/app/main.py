@@ -42,9 +42,11 @@ app.add_middleware(
 
 
 # Cửa vào — KHÔNG gác token (A1): config là bước mồi (chưa có URL VPS thì không
-# đăng nhập được), auth chính là chỗ đăng nhập.
+# đăng nhập được), auth chính là chỗ đăng nhập. DGT-03: cấu hình CSDL đích (sync
+# targets) cũng là bước mồi cho wizard lần đầu — mount TRƯỚC khi gác.
 app.include_router(config_router.router)
 app.include_router(auth_router.router)
+app.include_router(sync_router.targets_router)
 
 # Nghiệp vụ nạp/tra — buộc session cục bộ (HTG-01③, TDD §4.6).
 _gac = [Depends(require_session)]

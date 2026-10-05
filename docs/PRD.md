@@ -800,7 +800,7 @@
 
 #### [DGT-03] Wizard thiết lập lần đầu trên máy sạch
 
-**Trạng thái:** ⚠️ Partial — code xong (tách CauHinhForm + Wizard 3 bước + redirect máy sạch + endpoint kiểm môi trường) + build/tsc/vitest + backend mức-2 pass + review-nghiepvu (đã sửa EC1 báo lỗi SQL cụ thể + ca key.bin hỏng→wizard); **chưa chụp Playwright 3 viewport + review-giaodien** (dev server/Playwright/extension chưa sẵn) — chờ verify visual
+**Trạng thái:** ✅ Done — wizard 3 bước (tách CauHinhForm dùng chung + redirect máy sạch + endpoint kiểm môi trường) + mở token sync-targets (bước mồi) cho khối CSDL đích; build/tsc/vitest + backend mức-2 + **verify visual chrome-devtools (bước 1+2, 1280/1440, console sạch)**; review-nghiepvu OK (sửa EC1 + ca key.bin hỏng + lỗi khối ② 401). review-giaodien để Bước 7b khi chốt Feature DGT
 **Story:** Là người dùng, lần đầu chạy tool trên máy mới tôi muốn được **dẫn từng bước** để khai báo kết nối, thay vì bị thả vào app trống rồi gặp lỗi khó hiểu.
 
 **Done khi:**

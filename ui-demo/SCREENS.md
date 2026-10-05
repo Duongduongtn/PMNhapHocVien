@@ -45,7 +45,7 @@ Prototype là tham chiếu **style/layout**, không phải scaffold thật.
 | 17 | Sync · Quản lý DB đích → **dời vào khối ② của panel ⚙ header** (xem màn #4/HTG-07) | SYNC-02, HTG-07 | header ⚙ (bỏ route `/sync/db-dich`) | ⬜ Làm lại (CHANGES #34) | — |
 | 18 | Sync · Lịch sử & Hủy sync khóa (log JSON + rollback dual-mode) | SYNC-03 | `/sync/lich-su` | ⬜ Chưa có route (dựng thẳng `tool/webui`) | — |
 | 19 | Sync · **Tra cứu CDB đích** (tra khóa `GPLX_CDB_CSDT` → lưới HV + chi tiết + ảnh · thay ảnh · sửa nhân thân — form thêm **địa chỉ 2 cấp + ngày/nơi cấp CCCD** từ CHANGES #37 · xóa/đổi khóa · +nút Xem chi tiết từ Bàn đồng bộ) | TCB-01, TCB-02, TCB-03, TCB-04 | `/sync/tra-cuu` (dự kiến) | ⬜ Chưa có route (dựng thẳng `tool/webui`, tái dùng AnhModal/AnhAvatar; KHÔNG đụng Tra cứu DB Nạp) | — |
-| 20 | **Wizard thiết lập lần đầu** (máy sạch): 3 bước — kiểm môi trường (thư mục ghi được + mạng VPS) → cấu hình SQL nguồn/đích + VPS (tái dùng test-before-save) → đăng nhập; có cấu hình rồi thì bỏ qua | DGT-03 | `/tool/thiet-lap` (dự kiến) | ⬜ Chưa có route (dựng thẳng `tool/webui`, tái dùng `CauHinhDrawer` xếp thành stepper) | — |
+| 20 | **Wizard thiết lập lần đầu** (máy sạch): 3 bước — kiểm môi trường (thư mục ghi được; mạng VPS kiểm ở bước cấu hình) → cấu hình SQL nguồn/đích + VPS (test-before-next) → đăng nhập; có cấu hình rồi thì bỏ qua | DGT-03 | `/tool/thiet-lap` | ✅ Dựng thật `tool/webui/src/pages/tool/Wizard.tsx` (task 68) — tái dùng `CauHinhForm` tách từ `CauHinhDrawer`; verify visual 05/10 | — |
 | — | Hàng đợi VPS + xóa PII 30 ngày | HTG-02 | (backend, không có UI) | ⬜ Không dựng | — |
 | — | Kết xuất Excel (NICE) | QLY-04 | (mới có nút, chưa luồng) | ⬜ NICE — sau | — |
 | — | Offline app web (NICE) | THU-03 | — | ⬜ NICE — sau | — |

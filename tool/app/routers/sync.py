@@ -23,6 +23,10 @@ from app.db import sqlserver_conn, sqlserver_cursor_dich, sqlserver_conn_dich, C
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/local/sync", tags=["sync"])
+# DGT-03: endpoint cấu hình CSDL đích KHÔNG gác token — "bước mồi" (như /local/config),
+# để wizard thiết lập lần đầu khai DB đích TRƯỚC khi đăng nhập. Chỉ tên DB (không bí mật),
+# localhost; cùng mức mở với /local/config (vốn giữ cả host/user/mật khẩu SQL).
+targets_router = APIRouter(prefix="/local/sync", tags=["sync-targets"])
 
 # 7 mã TT_XuLy phổ biến gán cho hồ sơ sau sync (port sync_tool v2.0). Hằng cố định.
 TT_XULY_OPTIONS = [
@@ -82,14 +86,14 @@ def _sinh_key(name: str, da_dung: set[str]) -> str:
     return key
 
 
-@router.get("/targets")
+@targets_router.get("/targets")
 def get_targets() -> dict:
     """Danh sách CSDL đích + CSDL đang chọn + tùy chọn + danh mục TT_XuLy."""
     cfg = config_store.get_sync_config()
     return {**cfg, "tt_xuly_options": TT_XULY_OPTIONS}
 
 
-@router.put("/targets")
+@targets_router.put("/targets")
 def save_targets(body: SaveTargetsIn) -> dict:
     """Lưu danh sách CSDL đích + CSDL mặc định + tùy chọn (mã hóa cục bộ).
 
@@ -112,7 +116,7 @@ def save_targets(body: SaveTargetsIn) -> dict:
     return {**cfg, "tt_xuly_options": TT_XULY_OPTIONS}
 
 
-@router.post("/targets/test")
+@targets_router.post("/targets/test")
 def test_target(body: TestIn) -> dict:
     """Thử nối CSDL đích (dùng chung host/user/pass của Nạp) + đếm NguoiLX."""
     try:

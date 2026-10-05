@@ -18,10 +18,12 @@ def _use_tmp(tmp_path, monkeypatch):
     monkeypatch.setattr(config_store, "CONFIG_FILE", tmp_path / "config.enc")
 
 
-def test_can_session(tmp_path, monkeypatch):
+def test_targets_khong_gac_sync_nghiep_vu_van_gac(tmp_path, monkeypatch):
     _use_tmp(tmp_path, monkeypatch)
-    # Không có Bearer → bị gác (401/403)
-    assert client.get("/local/sync/targets").status_code in (401, 403)
+    # DGT-03 (task 68): /targets là BƯỚC MỒI cho wizard lần đầu → KHÔNG gác token.
+    assert client.get("/local/sync/targets").status_code == 200
+    # Phần sync nghiệp vụ khác (không phải targets) VẪN buộc đăng nhập.
+    assert client.get("/local/sync/dich/nam").status_code in (401, 403)
 
 
 def test_targets_rong(auth_headers, tmp_path, monkeypatch):
