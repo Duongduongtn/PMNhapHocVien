@@ -51,6 +51,38 @@ def _goi(method: str, path: str, vps_token: str | None, *, timeout=_TIMEOUT_NGAN
     return r
 
 
+def doi_refresh(refresh_token: str) -> dict:
+    """DGT-04 — đổi refresh token lấy cặp (access_token, refresh_token) MỚI.
+
+    KHÔNG cần Bearer (tự xác thực bằng chính refresh token). VPS 401/403 =
+    refresh bị thu hồi / tài khoản bị khóa → VpsLoi(status) để heartbeat đá phiên."""
+    cfg = config_store.load_config()
+    vps_url = (cfg.get("vps_url") or "").rstrip("/")
+    if not vps_url:
+        raise VpsLoi("Chưa cấu hình URL VPS.")
+    try:
+        r = httpx.post(f"{vps_url}/api/auth/refresh",
+                       json={"refresh_token": refresh_token}, timeout=_TIMEOUT_NGAN)
+    except httpx.HTTPError as e:
+        raise VpsLoi("Không tới được VPS để làm mới phiên.") from e
+    if r.status_code != 200:
+        raise VpsLoi("Làm mới phiên thất bại.", status=r.status_code)
+    return r.json()
+
+
+def logout_refresh(vps_token: str | None, refresh_token: str | None) -> None:
+    """DGT-04 — thu hồi phiên ở VPS khi Đăng xuất (xóa refresh token). Best-effort."""
+    try:
+        base, headers = _base_va_headers(vps_token)
+    except VpsLoi:
+        return
+    try:
+        httpx.post(f"{base}/api/auth/logout", headers=headers,
+                   json={"refresh_token": refresh_token}, timeout=_TIMEOUT_NGAN)
+    except httpx.HTTPError:
+        pass
+
+
 def keo(vps_token: str | None, limit: int = 200, cursor: str | None = None) -> list[dict]:
     """Kéo danh sách bản ghi `pending` chưa bị khóa (FIFO). cursor = created_at bản cuối lượt trước."""
     params: dict[str, object] = {"limit": limit}

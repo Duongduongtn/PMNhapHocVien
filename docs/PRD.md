@@ -816,7 +816,7 @@
 
 #### [DGT-04] Phiên đăng nhập vĩnh viễn (đăng nhập 1 lần, chỉ Đăng xuất mới thoát)
 
-**Trạng thái:** 🔄 In Progress — task 69 (server refresh-token) ✅ code+test; task 70 (tool phiên đĩa DPAPI + heartbeat) chờ. Chờ deploy VPS để chốt
+**Trạng thái:** ⚠️ Partial — code đủ 2/2 task (69 server refresh-token + 70 tool phiên đĩa DPAPI/heartbeat) + unit test (mức 2) pass; **chờ deploy VPS task 69 + verify live "qua 8h tự gia hạn" ở Checkpoint 15** mới chốt ✅
 **Story:** Là người dùng tool hằng ngày, tôi muốn **đăng nhập một lần rồi dùng mãi** — mở lại tool không phải gõ tài khoản lại — chỉ khi bấm "Đăng xuất" mới thoát.
 
 **Done khi:**

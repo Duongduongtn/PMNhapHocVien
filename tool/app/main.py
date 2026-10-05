@@ -75,6 +75,31 @@ def _warmup_rembg() -> None:
     threading.Thread(target=_run, daemon=True).start()
 
 
+@app.on_event("startup")
+def _nap_phien_va_heartbeat() -> None:
+    """DGT-04 — khởi động: nạp phiên từ đĩa (mở lại vào thẳng) + heartbeat làm mới
+    vps_token ngầm (đổi refresh token) để nạp từ VPS không chết sau 8h."""
+    from app import session
+
+    session.nap_phien_tu_dia()
+    if os.environ.get("TOOL_SKIP_HEARTBEAT") == "1":
+        return
+
+    def _loop():
+        import time
+
+        while True:
+            # Làm mới ngay vòng đầu (vps_token trên đĩa có thể đã hết 8h), rồi mỗi N giờ.
+            for tok in list(session._phien_theo_token.keys()):
+                try:
+                    session.lam_moi_phien(tok)
+                except Exception:
+                    pass
+            time.sleep(session.HEARTBEAT_SECONDS)
+
+    threading.Thread(target=_loop, daemon=True).start()
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     """Kiểm tra tiến trình tool còn sống (khung + sau này cho UI/giám sát)."""
