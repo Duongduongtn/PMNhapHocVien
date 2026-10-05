@@ -729,18 +729,20 @@
 
 #### [TCB-03] Sửa nhân thân HV ở CDB đích
 
-**Trạng thái:** ✅ Done — 04/10/2026 (task 65; kiểm mức 1+2: 273 pytest (4 test: chặn DKKH/gọi SP/cảnh báo trùng CCCD), build sạch, Playwright chặn DKKH live; review-nghiepvu đủ). Ghi thật kiểm Checkpoint 14 (dev CDB all-DKKH nên form chưa tới được live).
-**Story:** Là nhân viên nạp DB, tôi muốn sửa thông tin nhân thân của một HV trong CDB đích (họ tên, ngày sinh, giới tính, CCCD, địa chỉ thường trú), để vá sai sót dữ liệu trước khi khóa được báo cáo.
+**Trạng thái:** ⏳ Todo — yêu cầu mở rộng trường sửa 05/10/2026 (CHANGES #37): thêm **địa chỉ thường trú 2 cấp + ngày cấp CCCD + nơi cấp CCCD**. Bản 5 trường (task 65, ✅ 04/10) chạy đúng — đã **nghiệm thu ghi-thật PASS tại máy CSDT 05/10** (sửa chị Hương thành công, verify DB) — nhưng thiếu trường nên quay lại hàng đợi để code lại. Chỉ mở rộng ở TCB-03 (user chốt 05/10); form Nạp QLY-01 giữ nguyên 5 trường.
+**Story:** Là nhân viên nạp DB, tôi muốn sửa thông tin nhân thân của một HV trong CDB đích (họ tên, ngày sinh, giới tính, CCCD, địa chỉ thường trú 2 cấp, ngày cấp CCCD, nơi cấp CCCD), để vá sai sót dữ liệu trước khi khóa được báo cáo.
 
 **Done khi:**
-- ✅ Từ chi tiết HV → sửa **nhân thân**: họ tên, ngày sinh, giới tính, CCCD, địa chỉ thường trú (ghi qua SP update của CDB; đọc lại full bản ghi để giữ cột không sửa).
+- ✅ Từ chi tiết HV → sửa **nhân thân** 5 trường có sẵn: họ tên, ngày sinh, giới tính, CCCD, nơi thường trú (dòng chữ tự do) — ghi qua SP update của CDB; đọc lại full bản ghi để giữ cột không sửa. *(task 65, đã nghiệm thu ghi-thật 05/10)*
+- ⬜ **(CHANGES #37) Thêm trường sửa:** **địa chỉ thường trú 2 cấp** (chọn Tỉnh + Xã chuẩn → ghi `NoiTT_MaDVHC`/`NoiTT_MaDVQL`, không chỉ dòng chữ) · **ngày cấp CCCD** (`NgayCapCMT`) · **nơi cấp CCCD** (`NoiCapCMT`, Sở GTVT). `usp_NguoiLX_Update` đã nhận sẵn các tham số này. (Nơi cư trú 2 cấp để sau; KHÔNG làm số CMND cũ vì SP update không nhận.)
+- ⬜ **Bộ chọn Tỉnh/Xã + danh mục Sở GTVT đọc từ DB ĐÍCH** (`target_key`), không phải DB Nạp — nếu đọc nhầm DB Nạp thì danh mục Xã/Sở hiện sai. Tái dùng `ComboLoc`/`AddressCombo` nhưng cho nhận nguồn danh mục đích.
 - ✅ **CHẶN sửa nếu khóa đích ĐÃ KẾT XUẤT DKKH** → báo rõ "khóa đã đăng ký khai giảng với Sở, không sửa nhân thân qua tool". **Định nghĩa "đã kết xuất DKKH" (sửa CHANGES #36, 05/10/2026):** khóa có gói **`DANG_KY_KHOA_HOC` đã gửi lên Sở/TW** (bản ghi `TRANS_CLI_HangDoiGui` tên file chứa MaKH). **KHÔNG** dùng `KhoaHoc.SoQD_KhaiGiang` — mọi khóa đều có số QĐ khai giảng nội bộ nên không phân biệt được đã/chưa gửi Sở (verify DB 05/10: 16 khóa đều có SoQD nhưng chỉ 14 đã gửi). Chi tiết: `docs/DB-GPLX_CDB_CSDT.md` §7.
 - ✅ Chỉ sửa nhân thân (`usp_NguoiLX_Update`), **KHÔNG đụng** cột kết quả thi / BC1 / BC2 của hồ sơ (như thu hẹp phạm vi QLY-01).
 - ❌ Không sửa ảnh ở đây (ảnh là TCB-02); không đổi khóa/xóa ở đây (TCB-04).
 
-**Edge cases:** SP `usp_NguoiLX_Update` không có trong CDB → báo không hỗ trợ, tắt nút sửa (kiểm khi code) · CCCD trùng người khác trong khóa → cảnh báo.
+**Edge cases:** SP `usp_NguoiLX_Update` không có trong CDB → báo không hỗ trợ, tắt nút sửa (kiểm khi code) · CCCD trùng người khác trong khóa → cảnh báo · ngày cấp CCCD sau hôm nay → báo không hợp lệ · danh mục Xã/Sở theo DB đích (34 tỉnh + xã mới 2025 như bên Nạp).
 
-> Nguồn: user 04/10/2026 (CHANGES #35) · mốc chặn = đã kết xuất DKKH (đọc ở đích = có gói DANG_KY_KHOA_HOC gửi Sở, sửa #36) · tham chiếu QLY-01 lát 2
+> Nguồn: user 04/10/2026 (CHANGES #35) · mở rộng trường 05/10/2026 (CHANGES #37, chỉ TCB-03) · mốc chặn = đã kết xuất DKKH (đọc ở đích = có gói DANG_KY_KHOA_HOC gửi Sở, sửa #36) · tham chiếu QLY-01 lát 2
 
 #### [TCB-04] Xóa HV / Đổi khóa HV ở CDB đích
 
@@ -887,3 +889,4 @@
 | 04/10/2026 | v2.9 — cấu hình kết nối lên header (CHANGES #34): +story **HTG-07** (bảng cấu hình chung mở từ icon ⚙ header, gộp HTG-01 ③ + SYNC-02, tách rõ DB nguồn Nạp / nhiều DB đích Sync); sửa bullet Cấu hình HTG-01 trỏ sang HTG-07 (giữ ✅); hạ **SYNC-02 ✅→⏳** (quản lý đích dời vào bảng header) + **SYNC-01 ✅→⏳** (làm đẹp combobox + danh sách HV bằng impeccable/ui-ux-pro-max) | PM |
 | 04/10/2026 | v3.0 — +Feature **Tra cứu CDB đích** (CHANGES #35, mở rộng phân hệ Đồng bộ CDB): 4 story **TCB-01** (tra khóa+lưới HV+chi tiết+ảnh, +nút Xem chi tiết từ Bàn đồng bộ) · **TCB-02** (thay ảnh — tái dùng AnhModal+đổi nền, ghi đè file dùng chung 2 DB) · **TCB-03** (sửa nhân thân — chặn nếu đã kết xuất DKKH) · **TCB-04** (xóa HV/đổi khóa — chặn nếu đã BC1). Trạng thái khóa đọc Ở ĐÍCH (DKKH=SoQD_KhaiGiang, BC1=TT_XuLy≥05/BaoCaoI). SYNC-01 thêm nút điều hướng (giữ ✅) | PM |
 | 05/10/2026 | v3.1 — **sửa định nghĩa DKKH** (CHANGES #36): "đã kết xuất DKKH" = có gói `DANG_KY_KHOA_HOC` gửi Sở (`TRANS_CLI_HangDoiGui`), **KHÔNG** phải `SoQD_KhaiGiang` (sai — mọi khóa đều có) → áp TCB-01/02/03/04 (chip + chặn sửa nhân thân TCB-03). +SYNC-01: filter khóa đích "cùng hạng & chưa DKKH" (mặc định bật) + khóa xếp mới-nhất-trước (hiện ngày KG combo nguồn + sort phụ MaKH DESC) + giữ phiên đăng nhập qua F5. Giữ ✅ (code đã viết+verify live 05/10) | PM |
+| 05/10/2026 | v3.2 — **mở rộng trường sửa nhân thân TCB-03** (CHANGES #37): thêm địa chỉ thường trú 2 cấp (Tỉnh+Xã) + ngày cấp CCCD + nơi cấp CCCD; danh mục Xã/Sở đọc từ DB đích. Chỉ TCB-03 (user chốt); Nạp QLY-01 giữ 5 trường. TCB-03 hạ ✅→⏳ (bản 5 trường đã nghiệm thu ghi-thật tại máy CSDT 05/10). | PM |

@@ -44,7 +44,7 @@ Prototype là tham chiếu **style/layout**, không phải scaffold thật.
 | 16 | Sync · Bàn đồng bộ (chọn khóa nguồn/đích · ngày nhập HS · bảng HV đối chiếu đích · SYNC + tiến trình SSE) | SYNC-01 | `/sync/ban-dong-bo` | ⬜ Đã dựng (task 57-59) — **làm đẹp lại** combobox + danh sách HV (CHANGES #34, impeccable/ui-ux-pro-max) | — |
 | 17 | Sync · Quản lý DB đích → **dời vào khối ② của panel ⚙ header** (xem màn #4/HTG-07) | SYNC-02, HTG-07 | header ⚙ (bỏ route `/sync/db-dich`) | ⬜ Làm lại (CHANGES #34) | — |
 | 18 | Sync · Lịch sử & Hủy sync khóa (log JSON + rollback dual-mode) | SYNC-03 | `/sync/lich-su` | ⬜ Chưa có route (dựng thẳng `tool/webui`) | — |
-| 19 | Sync · **Tra cứu CDB đích** (tra khóa `GPLX_CDB_CSDT` → lưới HV + chi tiết + ảnh · thay ảnh · sửa nhân thân · xóa/đổi khóa · +nút Xem chi tiết từ Bàn đồng bộ) | TCB-01, TCB-02, TCB-03, TCB-04 | `/sync/tra-cuu` (dự kiến) | ⬜ Chưa có route (dựng thẳng `tool/webui`, tái dùng AnhModal/AnhAvatar; KHÔNG đụng Tra cứu DB Nạp) | — |
+| 19 | Sync · **Tra cứu CDB đích** (tra khóa `GPLX_CDB_CSDT` → lưới HV + chi tiết + ảnh · thay ảnh · sửa nhân thân — form thêm **địa chỉ 2 cấp + ngày/nơi cấp CCCD** từ CHANGES #37 · xóa/đổi khóa · +nút Xem chi tiết từ Bàn đồng bộ) | TCB-01, TCB-02, TCB-03, TCB-04 | `/sync/tra-cuu` (dự kiến) | ⬜ Chưa có route (dựng thẳng `tool/webui`, tái dùng AnhModal/AnhAvatar; KHÔNG đụng Tra cứu DB Nạp) | — |
 | — | Hàng đợi VPS + xóa PII 30 ngày | HTG-02 | (backend, không có UI) | ⬜ Không dựng | — |
 | — | Kết xuất Excel (NICE) | QLY-04 | (mới có nút, chưa luồng) | ⬜ NICE — sau | — |
 | — | Offline app web (NICE) | THU-03 | — | ⬜ NICE — sau | — |
