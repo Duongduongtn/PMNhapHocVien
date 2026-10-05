@@ -3,25 +3,30 @@ import ToolLayout from "./components/ToolLayout";
 import NapHoSo from "./pages/tool/NapHoSo";
 import TaoKhoa from "./pages/tool/TaoKhoa";
 import DangNhap from "./pages/tool/DangNhap";
+import Wizard from "./pages/tool/Wizard";
 import BanDongBo from "./pages/sync/BanDongBo";
 import TraCuuCDB from "./pages/sync/TraCuuCDB";
 import LichSu from "./pages/sync/LichSu";
 import { ToolAuthProvider, useToolAuth } from "./auth/ToolAuth";
 import type { ReactNode } from "react";
 
-// Nghiệp vụ ghi DB cần đăng nhập; chưa đăng nhập → màn đăng nhập
+// Nghiệp vụ ghi DB cần đăng nhập; chưa đăng nhập → màn đăng nhập.
+// Máy sạch (chưa đủ cấu hình, DGT-03) → wizard thiết lập lần đầu thay vì màn đăng nhập.
 // (Cấu hình vẫn vào được — A1).
 function CoBaoVe({ children }: { children: ReactNode }) {
-  const { user, dangKhoiTao } = useToolAuth();
-  if (dangKhoiTao)
+  const { user, dangKhoiTao, daCauHinh } = useToolAuth();
+  if (dangKhoiTao || daCauHinh === null)
     return <div className="p-8 text-center text-sm text-muted-foreground">Đang khôi phục phiên…</div>;
-  return user ? <>{children}</> : <DangNhap />;
+  if (!user) return daCauHinh === false ? <Navigate to="/tool/thiet-lap" replace /> : <DangNhap />;
+  return <>{children}</>;
 }
 
 export default function App() {
   return (
     <ToolAuthProvider>
       <Routes>
+        {/* Wizard thiết lập lần đầu (DGT-03) — toàn màn, ngoài ToolLayout */}
+        <Route path="/tool/thiet-lap" element={<Wizard />} />
         <Route path="/" element={<ToolLayout />}>
           <Route index element={<Navigate to="/tool/nap" replace />} />
           {/* Phân hệ Nạp hồ sơ */}

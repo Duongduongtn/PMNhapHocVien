@@ -103,6 +103,15 @@ export const testConfig = (cfg: ToolConfig) =>
     body: JSON.stringify(cfg),
   }).then(json<TestResult>);
 
+// DGT-03 — kiểm môi trường + trạng thái cấu hình cho wizard lần đầu.
+export interface MoiTruong {
+  thu_muc_ghi_duoc: boolean;
+  duong_dan: string;
+  da_cau_hinh: boolean;
+}
+export const kiemMoiTruong = () =>
+  fetch(`${BASE}/local/config/moi-truong`).then(json<MoiTruong>);
+
 export const getKhoaHoc = (loai: LoaiXe) =>
   fetch(`${BASE}/local/khoa-hoc?loai=${loai}`, { headers: authHeaders() }).then(json<KhoaHoc[]>);
 
