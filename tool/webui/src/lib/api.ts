@@ -746,12 +746,43 @@ export interface HoSoChiTietCDB {
   hktt: string | null;
   ma_kh: string;
   dkkh: boolean;
+  // #37 — mã hiện tại để form preselect (bỏ trống khi lưu = giữ cũ)
+  noi_tt_ma_dvhc: string;
+  noi_tt_ma_dvql: string;
+  ngay_cap_cmt: string; // 'yyyymmdd' | ''
+  noi_cap_cmt: string;  // mã Sở GTVT (MaDVQL)
+  noi_cap_ten: string;
+}
+// #37 — body sửa CDB (RIÊNG với HoSoSuaIn của Nạp): +địa chỉ 2 cấp + ngày/nơi cấp CCCD.
+export interface HoSoSuaCDBIn {
+  ho_ten: string;
+  ngay_sinh: string;
+  gioi_tinh: string;
+  so_cccd: string;
+  noi_tt: string;
+  noi_tt_ma_dvhc: string; // '' = giữ cũ
+  noi_tt_ma_dvql: string;
+  ngay_cap_cmt: string;   // 'yyyymmdd' | '' (giữ cũ)
+  noi_cap_cmt: string;
 }
 export const chiTietSuaCDB = (maDk: string, targetKey?: string) =>
   fetch(`${BASE}/local/sync/tra-cuu/chi-tiet-sua?${qs({ ma_dk: maDk, target_key: targetKey })}`, {
     headers: authHeaders(),
   }).then(json<HoSoChiTietCDB>);
-export const suaHoSoCDB = (maDk: string, body: HoSoSuaIn, targetKey?: string) =>
+// #37 — danh mục Tỉnh/Xã/Sở ĐỌC TỪ DB ĐÍCH (theo target_key), không dùng /local/dvhc/* (DB Nạp).
+export const getTinhCDB = (targetKey?: string) =>
+  fetch(`${BASE}/local/sync/tra-cuu/dvhc/tinh?${qs({ target_key: targetKey })}`, { headers: authHeaders() }).then(
+    json<Tinh[]>,
+  );
+export const getXaCDB = (tinh: string, targetKey?: string) =>
+  fetch(`${BASE}/local/sync/tra-cuu/dvhc/xa?${qs({ tinh, target_key: targetKey })}`, { headers: authHeaders() }).then(
+    json<Xa[]>,
+  );
+export const getSoGtvtCDB = (targetKey?: string) =>
+  fetch(`${BASE}/local/sync/tra-cuu/dvhc/so-gtvt?${qs({ target_key: targetKey })}`, { headers: authHeaders() }).then(
+    json<SoGtvt[]>,
+  );
+export const suaHoSoCDB = (maDk: string, body: HoSoSuaCDBIn, targetKey?: string) =>
   fetch(`${BASE}/local/sync/tra-cuu/sua?${qs({ ma_dk: maDk, target_key: targetKey })}`, {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json" }),

@@ -11,7 +11,13 @@ import sqlite3
 import unicodedata
 from pathlib import Path
 
-from app.db import sqlserver_cursor
+from app.db import sqlserver_cursor, sqlserver_cursor_dich
+
+
+def _cur_dvhc(db: str | None):
+    """Cursor danh mục: DB đích khi có `db` (TCB-03, theo target_key), ngược lại DB Nạp.
+    Cùng host/user/password — chỉ khác database (xem app/db.py)."""
+    return sqlserver_cursor_dich(db) if db else sqlserver_cursor()
 
 # Đường dẫn SQLite builder dựng ra (sau này app dùng staging.sqlite — xem CHANGES #1).
 MAP_SQLITE = Path(__file__).resolve().parent.parent / "db" / "data" / "dvhc_map.sqlite"
@@ -92,12 +98,13 @@ def tra_map(tinh: str, huyen: str, xa: str) -> dict | None:
 
 
 # ---- Danh sách Tỉnh/Xã mới cho chọn tay (query DB thật) ----------------------
-def ds_tinh() -> list[dict]:
+def ds_tinh(db: str | None = None) -> list[dict]:
     """34 tỉnh mới: DISTINCT MaDVQL + tên tách từ TenDayDu (TrangThai=1).
 
     Không dùng usp_DM_DVHC_SelectAll_Tinh (chỉ trả đơn vị cũ TW/TI) — xem CHANGES #2.
+    `db` có giá trị → đọc danh mục ở DB đích (TCB-03), ngược lại DB Nạp.
     """
-    with sqlserver_cursor() as cur:
+    with _cur_dvhc(db) as cur:
         cur.execute("SELECT MaDVQL, MIN(TenDayDu) AS td FROM DM_DVHC WHERE TrangThai=1 GROUP BY MaDVQL")
         rows = cur.fetchall()
     out = []
@@ -109,9 +116,10 @@ def ds_tinh() -> list[dict]:
     return out
 
 
-def ds_xa(ma_dvql: str) -> list[dict]:
-    """Xã/phường MỚI theo tỉnh: qua SP + lọc TrangThai=1 ở app (SP không lọc)."""
-    with sqlserver_cursor() as cur:
+def ds_xa(ma_dvql: str, db: str | None = None) -> list[dict]:
+    """Xã/phường MỚI theo tỉnh: qua SP + lọc TrangThai=1 ở app (SP không lọc).
+    `db` có giá trị → đọc ở DB đích (TCB-03)."""
+    with _cur_dvhc(db) as cur:
         cur.execute("EXEC usp_DM_DVHC_SelectDanhSachXaPhuongTheoTinh %s", (ma_dvql,))
         rows = cur.fetchall()
     return [
@@ -121,12 +129,13 @@ def ds_xa(ma_dvql: str) -> list[dict]:
     ]
 
 
-def ds_so_gtvt() -> list[dict]:
+def ds_so_gtvt(db: str | None = None) -> list[dict]:
     """Danh sách Sở GTVT (DM_DonViGTVT LoaiDV='SO') cho combobox 'Nơi cấp' — NoiCapCMT = MaDVQL.
 
     Nơi cấp căn cước trong DB này mã theo đơn vị GTVT (BUG-10): mã 2 số = MaDVQL, tên = TenDV
-    (vd 70=Bình Phước, 75=Đồng Nai). Suy mặc định từ số CCCD; combobox để operator sửa khi lệch."""
-    with sqlserver_cursor() as cur:
+    (vd 70=Bình Phước, 75=Đồng Nai). Suy mặc định từ số CCCD; combobox để operator sửa khi lệch.
+    `db` có giá trị → đọc ở DB đích (TCB-03)."""
+    with _cur_dvhc(db) as cur:
         cur.execute("SELECT MaDVQL, MIN(TenDV) AS ten FROM DM_DonViGTVT "
                     "WHERE LoaiDV='SO' AND MaDVQL<>'' GROUP BY MaDVQL ORDER BY MIN(TenDV)")
         rows = cur.fetchall()

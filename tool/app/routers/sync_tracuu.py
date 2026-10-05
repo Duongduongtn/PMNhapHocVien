@@ -17,25 +17,29 @@ Mốc khóa (TDD §11B.7, chốt /reviewtdd 04/10):
 from __future__ import annotations
 
 import base64
+import re
 import shutil
 from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from app import sync_helpers
+from app import dvhc  # danh mục Tỉnh/Xã/Sở — TCB-03 đọc từ DB đích (CHANGES #37)
 from app.db import sqlserver_conn_dich, ConfigChuaDay
 from app.image import jp2_sang_png, thumb_jp2, validate_jp2
 from app.nap import tach_ho_ten, validate_do_dai, sinh_so_ho_so
 from app.routers.sync import _db_dich, _loi_db  # dùng chung: chọn DB đích + gói lỗi
-# TCB-03: tái dùng Y HỆT cơ chế sửa nhân thân của Nạp (QLY-01 lát 2) — chỉ đổi mốc chặn
-# (BC1 → DKKH) và chạy trên conn_dich. KHÔNG chép lại SQL 24 tham số để tránh lệch.
+# TCB-03: tái dùng khung sửa nhân thân của Nạp (QLY-01 lát 2) — đổi mốc chặn (BC1 → DKKH),
+# chạy trên conn_dich. **Tái dùng `_EXEC_UPDATE`** (chuỗi SQL 24 tham số) nhưng model +
+# hàm dựng tham số RIÊNG cho CDB (`HoSoSuaCDB`/`dung_tham_so_update_cdb` bên dưới, CHANGES #37):
+# TCB-03 mở rộng thêm địa chỉ 2 cấp + ngày/nơi cấp CCCD, Nạp QLY-01 giữ 5 trường (user chốt).
 from app.routers.hoso import (
-    HoSoSua,
-    dung_tham_so_update,
     ngay_sinh_hien,
+    ngay_sinh_luu,
     gioi_tinh_hien,
+    gioi_tinh_ma,
     _COT_NGUOILX,
     _EXEC_UPDATE,
 )
@@ -314,14 +318,136 @@ def xem_anh_thumb_dich(ma_dk: str = Query(..., min_length=1), target_key: str | 
 _DKKH_SQL = sync_helpers.dkkh_exists_sql("kh") + " AS dkkh"
 
 
+class HoSoSuaCDB(BaseModel):
+    """Trường nhân thân sửa ở CDB đích (TCB-03, CHANGES #37). Model RIÊNG cho CDB — KHÔNG
+    mở rộng `HoSoSua` dùng chung (Nạp QLY-01 giữ 5 trường, user chốt 05/10).
+
+    5 trường bản đầu: ho_ten, ngay_sinh, gioi_tinh, so_cccd, noi_tt (chi tiết chữ tự do).
+    4 trường mở rộng #37 — địa chỉ 2 cấp + ngày/nơi cấp CCCD. **Bỏ trống thì GIỮ giá trị cũ**
+    (dung_tham_so_update_cdb fallback về cur_row) → không ghi đè rỗng, không mất dữ liệu.
+    """
+    ho_ten: str
+    ngay_sinh: str = ""
+    gioi_tinh: str = "U"
+    so_cccd: str
+    noi_tt: str = ""
+    # Mở rộng #37 — rỗng = giữ giá trị cũ
+    noi_tt_ma_dvhc: str = ""   # mã xã/phường (DM_DVHC)
+    noi_tt_ma_dvql: str = ""   # mã tỉnh (MaDVQL)
+    ngay_cap_cmt: str = ""     # ngày cấp CCCD — 'yyyymmdd' từ UI (rỗng = giữ cũ)
+    noi_cap_cmt: str = ""      # nơi cấp CCCD — mã Sở GTVT (MaDVQL)
+
+    @field_validator("ho_ten", "so_cccd")
+    @classmethod
+    def _khong_rong(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("Không được để trống")
+        return v.strip()
+
+    @field_validator("so_cccd")
+    @classmethod
+    def _cccd_so(cls, v: str) -> str:
+        if not v.isdigit() or len(v) > 20:
+            raise ValueError("Số căn cước phải là chữ số, tối đa 20 ký tự")
+        return v
+
+    @field_validator("ngay_cap_cmt")
+    @classmethod
+    def _ngay_cap_hop_le(cls, v: str) -> str:
+        """Chuẩn hóa về 'yyyymmdd' (8 số) hoặc rỗng; chặn ngày cấp > hôm nay (PRD TCB-03)."""
+        so = re.sub(r"\D", "", v or "")
+        if not so:
+            return ""
+        if len(so) != 8:
+            raise ValueError("Ngày cấp CCCD phải đủ ngày/tháng/năm (dd/mm/yyyy)")
+        try:
+            d = datetime.strptime(so, "%Y%m%d").date()
+        except ValueError:
+            raise ValueError("Ngày cấp CCCD không hợp lệ")
+        if d > datetime.now().date():
+            raise ValueError("Ngày cấp CCCD không được sau hôm nay")
+        return so
+
+
+def _hoac_cu(moi: str, cu):
+    """#37 bỏ-trống-giữ-cũ: giá trị UI gửi lên không rỗng thì dùng, rỗng thì giữ cột cũ."""
+    m = (moi or "").strip()
+    return m if m else cu
+
+
+def dung_tham_so_update_cdb(cur_row: dict, body: HoSoSuaCDB, nguoi: str) -> tuple:
+    """Dựng 24 tham số cho `_EXEC_UPDATE` (usp_NguoiLX_Update) ở CDB — chồng các trường
+    user sửa lên bản ghi hiện tại, giữ nguyên cột không sửa. KHÁC bản Nạp `dung_tham_so_update`
+    ở chỗ 4 trường mở rộng #37 do body điều khiển (bỏ trống → giữ cur_row). SP tự getdate() NgaySua."""
+    ten = tach_ho_ten(body.ho_ten)  # IN HOA giữ dấu → HoVaTen/Ho/Ten/HoVaTenIn
+    return (
+        cur_row["MaDK"],
+        cur_row["DonViNhanHSo"],
+        ten["HoDemNLX"],
+        ten["TenNLX"],
+        ten["HoVaTen"],
+        cur_row["MaQuocTich"],
+        ngay_sinh_luu(body.ngay_sinh),
+        body.noi_tt.strip(),                                 # chi tiết thường trú (chữ)
+        _hoac_cu(body.noi_tt_ma_dvhc, cur_row["NoiTT_MaDVHC"]),   # #37 xã (bỏ trống = giữ)
+        _hoac_cu(body.noi_tt_ma_dvql, cur_row["NoiTT_MaDVQL"]),   # #37 tỉnh
+        cur_row["NoiCT"],
+        cur_row["NoiCT_MaDVHC"],
+        cur_row["NoiCT_MaDVQL"],
+        body.so_cccd.strip(),
+        _hoac_cu(body.ngay_cap_cmt, cur_row["NgayCapCMT"]),  # #37 ngày cấp CCCD
+        _hoac_cu(body.noi_cap_cmt, cur_row["NoiCapCMT"]),    # #37 nơi cấp CCCD (Sở)
+        cur_row["GhiChu"],
+        cur_row["TrangThai"],
+        cur_row["NguoiTao"],
+        nguoi,                                               # NguoiSua ← người đăng nhập
+        cur_row["NgayTao"],
+        cur_row["NgaySua"],                                  # SP ghi đè bằng getdate()
+        gioi_tinh_ma(body.gioi_tinh),
+        ten["HoVaTenIn"],
+    )
+
+
+# ── Danh mục Tỉnh/Xã/Sở ĐỌC TỪ DB ĐÍCH (CHANGES #37) ──
+# Bộ chọn địa chỉ 2 cấp + nơi cấp CCCD trong form sửa TCB-03 phải đọc danh mục ở CDB đích
+# (theo target_key), KHÔNG dùng endpoint /local/dvhc/* (trỏ DB Nạp) — nếu không Xã/Sở hiện sai.
+# Dùng chung hàm `app.dvhc.ds_*` với tham số `db` = tên CSDL đích.
+@router.get("/dvhc/tinh")
+def dvhc_tinh_dich(target_key: str | None = None) -> list[dict]:
+    try:
+        return dvhc.ds_tinh(_db_dich(target_key))
+    except Exception as e:  # noqa: BLE001
+        raise _loi_db(e)
+
+
+@router.get("/dvhc/xa")
+def dvhc_xa_dich(tinh: str = Query(..., min_length=1, max_length=10),
+                 target_key: str | None = None) -> list[dict]:
+    try:
+        return dvhc.ds_xa(tinh, _db_dich(target_key))
+    except Exception as e:  # noqa: BLE001
+        raise _loi_db(e)
+
+
+@router.get("/dvhc/so-gtvt")
+def dvhc_so_gtvt_dich(target_key: str | None = None) -> list[dict]:
+    try:
+        return dvhc.ds_so_gtvt(_db_dich(target_key))
+    except Exception as e:  # noqa: BLE001
+        raise _loi_db(e)
+
+
 @router.get("/chi-tiet-sua")
 def chi_tiet_sua_dich(ma_dk: str = Query(..., min_length=1), target_key: str | None = None) -> dict:
     """Nhân thân 1 HV đích để mở form sửa (TCB-03) + cờ `dkkh` (đã kết xuất DKKH → chặn sửa)."""
     db = _db_dich(target_key)
     sql = (
         "SELECT nl.MaDK, nl.HoVaTen, nl.NgaySinh, nl.GioiTinh, nl.SoCMT, nl.NoiTT, "
+        "nl.NoiTT_MaDVHC, nl.NoiTT_MaDVQL, nl.NoiCapCMT, "
+        "CONVERT(varchar(8), nl.NgayCapCMT, 112) AS NgayCapCMT, "  # ngày cấp → 'yyyymmdd'
         # SCALAR SUBQUERY (TOP 1) — KHÔNG LEFT JOIN: MaDvhc không unique → join nhân dòng (BUG-11).
         "(SELECT TOP 1 tt.TenDayDu FROM dbo.DM_DVHC tt WHERE tt.MaDvhc = nl.NoiTT_MaDVHC) AS HKTT, "
+        "(SELECT TOP 1 dv.TenDV FROM dbo.DM_DonViGTVT dv WHERE dv.MaDVQL = nl.NoiCapCMT AND dv.LoaiDV = 'SO') AS NoiCapTen, "
         "hs.MaKhoaHoc, " + _DKKH_SQL + " "
         "FROM dbo.NguoiLX nl "
         "JOIN dbo.NguoiLX_HoSo hs ON hs.MaDK = nl.MaDK "
@@ -349,17 +475,24 @@ def chi_tiet_sua_dich(ma_dk: str = Query(..., min_length=1), target_key: str | N
         "hktt": r["HKTT"],
         "ma_kh": r["MaKhoaHoc"],
         "dkkh": bool(r["dkkh"]),
+        # #37 — mã hiện tại để form preselect (bỏ trống = giữ cũ khi lưu)
+        "noi_tt_ma_dvhc": (r["NoiTT_MaDVHC"] or "").strip(),
+        "noi_tt_ma_dvql": (r["NoiTT_MaDVQL"] or "").strip(),
+        "ngay_cap_cmt": (r["NgayCapCMT"] or "") or "",   # 'yyyymmdd' | ''
+        "noi_cap_cmt": (r["NoiCapCMT"] or "").strip(),
+        "noi_cap_ten": (r["NoiCapTen"] or "").strip(),
     }
 
 
 @router.post("/sua")
-def sua_ho_so_dich(body: HoSoSua, ma_dk: str = Query(..., min_length=1),
+def sua_ho_so_dich(body: HoSoSuaCDB, ma_dk: str = Query(..., min_length=1),
                    target_key: str | None = None, phien: Phien = Depends(require_session)):
     """TCB-03 — sửa nhân thân HV ở CDB đích (GHI) qua `usp_NguoiLX_Update`, giữ nguyên cột không sửa.
 
     CHẶN khi khóa đã kết xuất DKKH (gói DANG_KY_KHOA_HOC đã gửi Sở — `dkkh_exists_sql`). KHÔNG đụng cột kết
-    quả/BC1/BC2. Đọc + ghi trong 1 kết nối để bản ghi nền không đổi giữa đọc và ghi. Tái dùng
-    nguyên bộ dựng-tham-số của Nạp (QLY-01 lát 2) — chỉ đổi mốc chặn BC1 → DKKH, chạy conn_dich."""
+    quả/BC1/BC2. Đọc + ghi trong 1 kết nối để bản ghi nền không đổi giữa đọc và ghi. Dùng model +
+    bộ dựng-tham-số RIÊNG cho CDB (`HoSoSuaCDB`/`dung_tham_so_update_cdb`, CHANGES #37: +địa chỉ 2 cấp
+    + ngày/nơi cấp CCCD, bỏ trống = giữ cũ) nhưng tái dùng `_EXEC_UPDATE`; mốc chặn DKKH, chạy conn_dich."""
     nguoi = (phien.ho_ten or phien.username or "tool")[:30]
     db = _db_dich(target_key)
     canh_bao = ""
@@ -399,7 +532,7 @@ def sua_ho_so_dich(body: HoSoSua, ma_dk: str = Query(..., min_length=1),
             loi = validate_do_dai(ten, body.so_cccd)
             if loi:
                 raise HTTPException(status_code=400, detail="Dữ liệu vượt độ dài cột: " + "; ".join(loi))
-            cur.execute(_EXEC_UPDATE, dung_tham_so_update(row, body, nguoi))
+            cur.execute(_EXEC_UPDATE, dung_tham_so_update_cdb(row, body, nguoi))
     except HTTPException:
         raise
     except ConfigChuaDay as e:

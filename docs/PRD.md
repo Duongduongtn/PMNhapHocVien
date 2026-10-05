@@ -729,7 +729,7 @@
 
 #### [TCB-03] Sửa nhân thân HV ở CDB đích
 
-**Trạng thái:** ⏳ Todo — yêu cầu mở rộng trường sửa 05/10/2026 (CHANGES #37): thêm **địa chỉ thường trú 2 cấp + ngày cấp CCCD + nơi cấp CCCD**. Bản 5 trường (task 65, ✅ 04/10) chạy đúng — đã **nghiệm thu ghi-thật PASS tại máy CSDT 05/10** (sửa chị Hương thành công, verify DB) — nhưng thiếu trường nên quay lại hàng đợi để code lại. Chỉ mở rộng ở TCB-03 (user chốt 05/10); form Nạp QLY-01 giữ nguyên 5 trường.
+**Trạng thái:** 🔄 In Progress — bản mở rộng #37 **đã code xong (API+UI) 05/10/2026**, unit 287 pass + build + TS sạch; **chờ nghiệm thu ghi-thật tại máy CSDT** (user lái UI). Thêm **địa chỉ thường trú 2 cấp + ngày cấp CCCD + nơi cấp CCCD**; danh mục đọc từ DB đích (đã probe `GPLX_CDB_CSDT`: 34 tỉnh + xã mới + 36 Sở — đủ). Bản 5 trường (task 65, ✅ 04/10) đã **nghiệm thu ghi-thật PASS 05/10**. Chỉ mở rộng ở TCB-03 (user chốt 05/10); form Nạp QLY-01 giữ nguyên 5 trường.
 **Story:** Là nhân viên nạp DB, tôi muốn sửa thông tin nhân thân của một HV trong CDB đích (họ tên, ngày sinh, giới tính, CCCD, địa chỉ thường trú 2 cấp, ngày cấp CCCD, nơi cấp CCCD), để vá sai sót dữ liệu trước khi khóa được báo cáo.
 
 **Done khi:**

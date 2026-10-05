@@ -4,6 +4,8 @@ import { Icon } from "../../components/Icon";
 import AnhAvatar from "../../components/AnhAvatar";
 import AnhModal from "../../components/AnhModal";
 import { PhanTrang } from "../../components/PhanTrang";
+import { ComboLoc } from "../../components/ComboLoc";
+import { ODate } from "../../components/ODate";
 import { useConfigDrawer } from "../../lib/configDrawer";
 import { boDau, ymdToVN } from "../../lib/format";
 import {
@@ -16,17 +18,32 @@ import {
   napAnhCDB,
   chiTietSuaCDB,
   suaHoSoCDB,
+  getTinhCDB,
+  getXaCDB,
+  getSoGtvtCDB,
   khoaCungHangCDB,
   xoaHoSoCDB,
   doiKhoaCDB,
   type KhoaCDB,
   type HoSoRowCDB,
   type KetQuaAnh,
-  type HoSoSuaIn,
+  type HoSoSuaCDBIn,
+  type Tinh,
+  type Xa,
+  type SoGtvt,
   type KhoaDich,
 } from "../../lib/api";
 
-const FORM_RONG: HoSoSuaIn = { ho_ten: "", ngay_sinh: "", gioi_tinh: "U", so_cccd: "", noi_tt: "" };
+const FORM_RONG: HoSoSuaCDBIn = {
+  ho_ten: "", ngay_sinh: "", gioi_tinh: "U", so_cccd: "", noi_tt: "",
+  noi_tt_ma_dvhc: "", noi_tt_ma_dvql: "", ngay_cap_cmt: "", noi_cap_cmt: "",
+};
+
+// dd/mm/yyyy → 'yyyymmdd' (rỗng nếu chưa đủ ngày). Ngày cấp CCCD lưu yyyymmdd ở CDB.
+function vnToYmd(v: string): string {
+  const m = (v || "").trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return m ? `${m[3]}${m[2]}${m[1]}` : "";
+}
 
 // TCB-01 — Tra cứu CDB đích. Song song QLY-01 (Tra cứu DB bên Nạp) nhưng mọi truy vấn trỏ CSDL
 // ĐÍCH (GPLX_CDB_CSDT) qua các endpoint /local/sync/tra-cuu/*. CHỈ ĐỌC ở task này — thay ảnh /
@@ -86,8 +103,13 @@ export default function TraCuuCDB() {
 
   // TCB-03 — sửa nhân thân (chặn khi khóa đã kết xuất DKKH).
   const [sua, setSua] = useState(false);
-  const [form, setForm] = useState<HoSoSuaIn>(FORM_RONG);
+  const [form, setForm] = useState<HoSoSuaCDBIn>(FORM_RONG);
   const [hktt, setHktt] = useState<string | null>(null);
+  // #37 — danh mục đọc TỪ DB ĐÍCH + display ngày cấp (dd/mm/yyyy, convert yyyymmdd khi lưu)
+  const [tinhList, setTinhList] = useState<Tinh[]>([]);
+  const [xaList, setXaList] = useState<Xa[]>([]);
+  const [soList, setSoList] = useState<SoGtvt[]>([]);
+  const [ngayCapVN, setNgayCapVN] = useState("");
   const [loadingCt, setLoadingCt] = useState(false);
   const [saving, setSaving] = useState(false);
   const [suaErr, setSuaErr] = useState("");
@@ -293,8 +315,17 @@ export default function TraCuuCDB() {
         setSuaErr("Khóa đã kết xuất DKKH (đã đăng ký khai giảng với Sở) — không sửa nhân thân qua tool.");
         return;
       }
-      setForm({ ho_ten: ct.ho_ten, ngay_sinh: ct.ngay_sinh, gioi_tinh: ct.gioi_tinh, so_cccd: ct.so_cccd, noi_tt: ct.noi_tt ?? "" });
+      setForm({
+        ho_ten: ct.ho_ten, ngay_sinh: ct.ngay_sinh, gioi_tinh: ct.gioi_tinh,
+        so_cccd: ct.so_cccd, noi_tt: ct.noi_tt ?? "",
+        noi_tt_ma_dvhc: ct.noi_tt_ma_dvhc ?? "", noi_tt_ma_dvql: ct.noi_tt_ma_dvql ?? "",
+        ngay_cap_cmt: ct.ngay_cap_cmt ?? "", noi_cap_cmt: ct.noi_cap_cmt ?? "",
+      });
+      setNgayCapVN(ymdToVN(ct.ngay_cap_cmt));
       setHktt(ct.hktt);
+      // Danh mục Tỉnh/Sở + Xã của tỉnh đang chọn — đọc TỪ DB ĐÍCH (#37). Xã cũ (trước sáp nhập)
+      // không có trong danh mục mới → combo hiện trống; không đụng = giữ mã cũ (bỏ-trống-giữ-cũ).
+      void nạpDanhMuc(ct.noi_tt_ma_dvql ?? "");
       setSua(true);
     } catch (e) {
       setSuaErr(e instanceof Error ? e.message : "Không mở được hồ sơ để sửa.");
@@ -303,14 +334,56 @@ export default function TraCuuCDB() {
     }
   }
 
+  // #37 — nạp danh mục Tỉnh + Sở từ DB đích; có mã tỉnh thì nạp luôn Xã của tỉnh đó.
+  async function nạpDanhMuc(maTinh: string) {
+    try {
+      const [ts, ss] = await Promise.all([getTinhCDB(targetKey ?? undefined), getSoGtvtCDB(targetKey ?? undefined)]);
+      setTinhList(ts);
+      setSoList(ss);
+    } catch {
+      setSuaErr("Không tải được danh mục Tỉnh/Sở ở CSDL đích — kiểm danh mục đích hoặc kết nối.");
+    }
+    if (maTinh) void nạpXa(maTinh);
+    else setXaList([]);
+  }
+
+  async function nạpXa(maTinh: string) {
+    try {
+      setXaList(await getXaCDB(maTinh, targetKey ?? undefined));
+    } catch {
+      setXaList([]);
+      setSuaErr("Không tải được danh sách xã ở CSDL đích.");
+    }
+  }
+
+  // Chọn Tỉnh mới → đổi mã tỉnh, xóa xã đang chọn (phải chọn lại xã thuộc tỉnh mới), nạp xã mới.
+  function chonTinh(ma: string) {
+    setForm((f) => ({ ...f, noi_tt_ma_dvql: ma, noi_tt_ma_dvhc: "" }));
+    setXaList([]);
+    if (ma) void nạpXa(ma);
+  }
+
   async function luu() {
     if (!sel) return;
     if (!form.ho_ten.trim()) return setSuaErr("Chưa nhập họ và tên.");
     if (!/^\d{1,20}$/.test(form.so_cccd.trim())) return setSuaErr("Số căn cước phải là chữ số (tối đa 20).");
+    // #37 địa chỉ đi theo cặp: chọn Tỉnh thì phải chọn Xã (và ngược lại). Bỏ trống cả hai = giữ cũ.
+    if (!!form.noi_tt_ma_dvql !== !!form.noi_tt_ma_dvhc)
+      return setSuaErr("Địa chỉ 2 cấp phải chọn đủ cả Tỉnh và Xã (hoặc bỏ trống cả hai để giữ nguyên).");
+    // #37 ngày cấp: nhập dở (không đủ dd/mm/yyyy) → báo; rỗng = giữ cũ.
+    const ngayCapYmd = vnToYmd(ngayCapVN);
+    if (ngayCapVN.trim() && !ngayCapYmd)
+      return setSuaErr("Ngày cấp CCCD phải đủ dd/mm/yyyy.");
     setSuaErr("");
     setSaving(true);
     try {
-      const kq = await suaHoSoCDB(sel.ma_dk, { ...form, ho_ten: form.ho_ten.trim(), so_cccd: form.so_cccd.trim() }, targetKey ?? undefined);
+      const body: HoSoSuaCDBIn = {
+        ...form,
+        ho_ten: form.ho_ten.trim(),
+        so_cccd: form.so_cccd.trim(),
+        ngay_cap_cmt: ngayCapYmd,
+      };
+      const kq = await suaHoSoCDB(sel.ma_dk, body, targetKey ?? undefined);
       if (khoa) setHoSo(await dsHoSoCDB(khoa.ma_kh, targetKey ?? undefined));
       setOkMsg(kq.canh_bao ? "Đã lưu — " + kq.canh_bao : "Đã lưu thay đổi nhân thân.");
       setTimeout(() => setOkMsg(""), kq.canh_bao ? 5000 : 3000);
@@ -726,7 +799,53 @@ export default function TraCuuCDB() {
                   <div>
                     <label className="field-label">Địa chỉ thường trú (chi tiết, tối đa 50 ký tự)</label>
                     <input className="field-input mt-1" value={form.noi_tt} onChange={(e) => setForm({ ...form, noi_tt: e.target.value })} maxLength={50} />
-                    {hktt && <p className="text-[11px] text-muted-foreground mt-1">Xã/phường (HKTT): {hktt} — không sửa ở đây.</p>}
+                    {hktt && <p className="text-[11px] text-muted-foreground mt-1">Xã/phường đang lưu (HKTT): {hktt}</p>}
+                  </div>
+                  {/* #37 — địa chỉ thường trú 2 cấp (Tỉnh + Xã), danh mục đọc TỪ DB ĐÍCH. Bỏ trống cả hai = giữ cũ. */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="field-label">Tỉnh/Thành phố (thường trú)</label>
+                      <div className="mt-1">
+                        <ComboLoc
+                          value={form.noi_tt_ma_dvql}
+                          options={tinhList.map((t) => ({ ma: t.ma_dvql, ten: t.ten_tinh }))}
+                          onChon={chonTinh}
+                          placeholder="Gõ tên tỉnh/TP…"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="field-label">Phường/Xã (thường trú)</label>
+                      <div className="mt-1">
+                        <ComboLoc
+                          value={form.noi_tt_ma_dvhc}
+                          options={xaList.map((x) => ({ ma: x.ma_dvhc, ten: x.ten_xa }))}
+                          onChon={(ma) => setForm((f) => ({ ...f, noi_tt_ma_dvhc: ma }))}
+                          placeholder={form.noi_tt_ma_dvql ? "Gõ tên phường/xã…" : "Chọn tỉnh trước"}
+                          disabled={!form.noi_tt_ma_dvql}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  {/* #37 — ngày cấp + nơi cấp CCCD (nơi cấp = Sở GTVT, danh mục DB đích). Bỏ trống = giữ cũ. */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <ODate
+                      label="Ngày cấp CCCD"
+                      value={ngayCapVN}
+                      onChange={setNgayCapVN}
+                      max={new Date().toISOString().slice(0, 10)}
+                    />
+                    <div>
+                      <label className="field-label">Nơi cấp CCCD (Sở GTVT)</label>
+                      <div className="mt-1">
+                        <ComboLoc
+                          value={form.noi_cap_cmt}
+                          options={soList.map((s) => ({ ma: s.ma, ten: s.ten }))}
+                          onChon={(ma) => setForm((f) => ({ ...f, noi_cap_cmt: ma }))}
+                          placeholder="Gõ tên tỉnh cấp…"
+                        />
+                      </div>
+                    </div>
                   </div>
                   {suaErr && (
                     <div className="flex items-center gap-2 text-[12px] text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2">

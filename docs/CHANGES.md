@@ -57,7 +57,8 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 - **Lưu ý kỹ thuật (ghi vào TDD):** bộ chọn Tỉnh/Xã (`ComboLoc`/`AddressCombo`) + danh mục Sở (`DM_DonViGTVT`) hiện đọc từ **DB Nạp**; cho TCB phải đọc `DM_DVHC`/`DM_DonViGTVT` ở **DB đích** (`sqlserver_conn_dich`, theo `target_key`) — nếu không Xã/Sở hiện sai danh mục.
 - **Nghiệm thu đã có (Checkpoint 14, máy CSDT 05/10):** bản 5 trường **ghi-thật PASS** — sửa chị Hương (khóa test B01-KTEST chưa gửi Sở) đổi họ tên/năm sinh/CCCD/nơi TT, `POST /sua` 200 OK, verify DB khớp. 3 nhánh còn lại (thay ảnh TCB-02, xóa/đổi khóa TCB-04) **chưa nghiệm thu** vì thiếu môi trường (ổ ảnh không khớp DB + chỉ 2 khóa chưa gửi Sở khác hạng). Feature TCB giữ 🔄.
 - **Đã sửa:** PRD TCB-03 (Done khi + story + edge, hạ ⏳, Changelog v3.2) · TDD §11B.7 (Changelog v3.8) · SCREENS màn #19 (ghi chú).
-- **Chưa code** (⬜) — nằm trong story TCB-03 (quay lại hàng đợi), không task BUILD-PLAN mới. Cần `/reviewtdd` phần §11B.7 vừa sửa trước khi code.
+- **Đã `/reviewtdd` §11B.7** (05/10, biên bản `tdd-review-05-10-2026-tcb37.md`, TDD v3.9): 0 Chặn · 3 Nên sửa · 1 Ghi nhận — đều đã vào TDD.
+- **Đã code** (05/10) — nằm trong story TCB-03, không task BUILD-PLAN mới. Backend: `dvhc.ds_*` nhận `db` đích; `sync_tracuu.py` +model `HoSoSuaCDB` + `dung_tham_so_update_cdb` (tái dùng `_EXEC_UPDATE`) + `chi-tiet-sua` trả 4 mã preselect + 3 endpoint danh mục đích; `/sua` dùng model mới (bỏ-trống-giữ-cũ). UI `TraCuuCDB.tsx`: +Tỉnh/Xã (ComboLoc) + ngày cấp (ODate) + nơi cấp (ComboLoc), danh mục đọc DB đích. **Kiểm:** unit 287 pass + TS + build sạch; probe CDB đủ danh mục. **Còn:** nghiệm thu ghi-thật tại máy CSDT (user lái UI) → TCB-03 ✅.
 
 ## #36 — Sửa định nghĩa "đã kết xuất DKKH" + nâng ngưỡng chặn TCB-04 + cải tiến Sync · 05/10/2026
 
