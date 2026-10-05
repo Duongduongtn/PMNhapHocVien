@@ -230,14 +230,15 @@
 - [x] **Regression:** backend `/local/config*`+`/local/sync/targets` không đổi; 265 pytest + nạp/bàn đồng bộ chạy như cũ.
 
 ### ✅ Checkpoint 14 — sau task 63-66 (Feature Tra cứu CDB đích, TCB-01..04)
-- [ ] Tra 1 khóa CDB thật → lưới HV + chi tiết + ảnh **khớp phần mềm CDB**; avatar lazy-load; ảnh thiếu file → cảnh báo, không vỡ lưới.
-- [ ] Nút "Xem chi tiết HV" ở Bàn đồng bộ → mở đúng khóa chứa MaDK đích + tô sáng HV.
-- [ ] Thay ảnh (TCB-02): tạo `_BACKUP.jp2` **cùng thư mục** (chạy lần 2 KHÔNG đè backup) + ghi đè file → ảnh đổi ở **cả DB Nạp lẫn đích**; cho kể cả DKKH/BC1 (cảnh báo).
-- [ ] Sửa nhân thân (TCB-03): khóa **đã kết xuất DKKH** (`SoQD_KhaiGiang`) → **CHẶN** báo rõ; chưa DKKH → sửa được, giữ cột kết quả.
-- [ ] Xóa/đổi khóa (TCB-04): HV **`MaBC1` có giá trị** → **CHẶN** + lỗi FK NO_ACTION bắt được làm lưới; DKKH chưa BC1 → cho + cảnh báo; xác nhận 2 bước.
-- [ ] **Mức 2:** mốc chặn đọc đúng tín hiệu (`MaBC1` cho xóa, `SoQD_KhaiGiang` cho sửa) — KHÔNG đọc `TT_XuLy`; backup ảnh chỉ-nếu-chưa-có.
-- [ ] Collector gọi endpoint TCB ghi (thay ảnh/sửa/xóa/đổi khóa) → **403**.
-- [ ] Playwright 1280/1440/1920 màn Tra cứu CDB + modal chi tiết — 0 tràn.
+> **Kiểm live 04/10/2026 (máy dev, backend sạch 1 worker không --reload):** phần ĐỌC + các mốc CHẶN chạy đúng trên CDB thật qua `sqlserver_conn_dich`. **Luồng GHI happy-path hoãn nghiệm thu sang máy CSDT** (user chọn A): máy dev không truy cập được ổ ảnh `D:\GPLXCSDT\ANHCDUNG` (thay ảnh 404) và CDB thật **toàn khóa đã DKKH + BC1** nên không có target an toàn chạy sửa/xóa/đổi nhánh happy. **Feature GIỮ 🔄 — chưa chốt.** Nhất quán cách QLY-01/02/03/05 "⚠️ chờ verify máy CSDT".
+- [~] Tra 1 khóa CDB thật → lưới HV + chi tiết + ảnh. Live: `/khoa` 15 khóa, `/ho-so` 32 HV (tên đủ dấu, SoHoSo sort đúng), `/chi-tiet-sua` nhân thân+ngày dd/mm/yyyy+HKTT đủ dấu đúng; **ảnh thiếu file → 404 "DB có đường dẫn nhưng file đã mất", không vỡ lưới** ✓. Còn: render ảnh thật + avatar lazy + đối chiếu "khớp phần mềm CDB" → **máy CSDT** (file ảnh không có ở máy dev).
+- [~] Nút "Xem chi tiết HV": API `/khoa-cua-madk` trả **đúng khóa** chứa MaDK ✓. Còn phần tô sáng UI → cần webui/Playwright (ô dưới).
+- [ ] **Thay ảnh (TCB-02)** → **HOÃN máy CSDT**: máy dev không có ổ `D:\GPLXCSDT` nên không ghi đè/`_BACKUP`/đối chiếu 2 DB được. (Code backup atomic chỉ-nếu-chưa-có đã đọc xác nhận.)
+- [~] Sửa nhân thân (TCB-03): **CHẶN khi DKKH — live 409 đã chứng kiến** ("Khóa đã kết xuất DKKH … không sửa nhân thân qua tool", chặn trước UPDATE) ✓. Nhánh **chưa DKKH → sửa được: HOÃN máy CSDT** (CDB không có khóa nào chưa DKKH).
+- [ ] **Xóa/đổi khóa (TCB-04)** → **HOÃN máy CSDT**: guard per-HV `MaBC1` không đọc được qua API nên không bắn thử an toàn ở máy dev; cần user chỉ HV chưa BC1 (hoặc tạo HV test tự dọn) trên máy CSDT.
+- [~] **Mức 2:** đọc code xác nhận chặn đúng tín hiệu (`SoQD_KhaiGiang` cho sửa, `MaBC1` cho xóa/đổi — KHÔNG đọc `TT_XuLy`; backup ảnh chỉ-nếu-chưa-có) ✓; nhánh sửa-DKKH đã thấy live. Nhánh xóa/đổi live → cùng HOÃN.
+- [~] Collector gọi endpoint TCB ghi → **403**: theo thiết kế, collector bị chặn ngay ở đăng nhập (`VAI_TRO_DUNG_TOOL`=operator/admin → mọi /local/* 401 vì không có phiên) — đọc code xác nhận; chưa có tài khoản collector để bắn live.
+- [ ] Playwright 1280/1440/1920 màn Tra cứu CDB + modal chi tiết — 0 tràn. (Chưa chạy — thuần đọc, an toàn, chạy khi bật webui.)
 - [x] Màn Bàn đồng bộ: combobox + danh sách HV **đẹp, tên đủ dấu, không tràn/cắt** (avatar + teal); Playwright 1280/1440 (150 HV) 0 tràn + review-giaodien đạt.
 
 ### ✅ Checkpoint 5 — cuối dự án
