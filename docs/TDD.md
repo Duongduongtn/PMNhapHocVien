@@ -1074,27 +1074,66 @@ Màn **Tra cứu CDB** (tab trong phân hệ Đồng bộ) soi dữ liệu HV **
 ### 11C.1 Đóng gói (DGT-01)
 - **Build frontend tĩnh:** `cd tool/webui && pnpm build` → `tool/webui/dist/`.
 - **FastAPI phục vụ `dist/`:** mount `StaticFiles` ở `app/main.py` cho mọi path không phải `/local/*` (SPA fallback về `index.html`). Giữ `/local/*` như cũ.
-- **PyInstaller** gói `app/main.py` (one-folder khuyến nghị — khởi động nhanh hơn one-file) + **`--add-data`** kèm: `webui/dist/`, `db/data/dvhc_map.sqlite`, mọi file SQL/mẫu. Thư viện Python (fastapi, uvicorn, **pymssql**, Pillow, rembg, cryptography) gói sẵn trong exe → máy đích không cài gì.
+- **PyInstaller** gói `app/main.py` (one-folder khuyến nghị — khởi động nhanh hơn one-file) + **`--add-data`** kèm: `webui/dist/`, `db/data/dvhc_map.sqlite`, mọi file SQL/mẫu. Thư viện Python (fastapi, uvicorn, **pymssql**, Pillow, rembg, cryptography) gói sẵn trong exe → máy đích không cài gì. **Cân nhắc KHÔNG gói `rembg`** cho bản exe máy CSDT nếu máy đó không xóa phông ảnh — `rembg` kéo `onnxruntime` + model (~150–200MB) làm exe rất to + lần chạy đầu chậm.
 - **pymssql** có phần biên dịch C (FreeTDS) — PyInstaller gói `.pyd` nhưng **bắt buộc test trên máy sạch** (gotcha hay gặp nhất).
-- **Thư mục ghi:** config (`config/key.bin`), nháp (`staging.sqlite`), ảnh `_BACKUP`, ảnh tạm → ghi vào **`%APPDATA%\<tool>\`** (hoặc cạnh exe), KHÔNG vào `Program Files` (không ghi được). Hiện `config_store`/`nap` dùng đường dẫn tương đối theo `__file__` → **phải đổi gốc dữ liệu sang thư mục ghi được khi chạy dạng đóng gói** (phát hiện `sys.frozen`).
+- **Thư mục ghi:** config (`config/key.bin`), nháp (`staging.sqlite`), ảnh `_BACKUP`, ảnh tạm → ghi vào **`%APPDATA%\<tool>\`** (hoặc cạnh exe), KHÔNG vào `Program Files` (không ghi được). Hiện `config_store`/`nap` dùng đường dẫn tương đối theo `__file__` → **phải đổi gốc dữ liệu sang thư mục ghi được khi chạy dạng đóng gói** (phát hiện `sys.frozen`). **Chuyển từ bản chạy-dev sang exe KHÔNG di cư dữ liệu tự động** (config/nháp cũ ở chỗ cũ) — máy cài exe coi như thiết lập lại (vào wizard), không phải bug.
 
 ### 11C.2 Khởi chạy (DGT-02)
-- **Tự mở trình duyệt:** khi uvicorn sẵn sàng, `webbrowser.open("http://127.0.0.1:<port>")`. Không mở được → in địa chỉ ra cửa sổ khởi động.
+- **Tự mở trình duyệt:** uvicorn **bind `host=127.0.0.1`** (KHÔNG `0.0.0.0` — tránh máy khác trong LAN gọi được `/local/config|config/test|auth/login` vốn không gác token); khi sẵn sàng `webbrowser.open("http://127.0.0.1:<port>")`. Không mở được → in địa chỉ ra cửa sổ khởi động.
 - **Khay hệ thống (tray):** `pystray` (hoặc tương đương) — menu "Mở giao diện" (mở lại trình duyệt) + "Thoát" (tắt uvicorn gọn). Ẩn console (`--windowed`).
-- **Chống chạy 2 bản (single-instance):** khóa file hoặc thử bind cổng cố định — đã chạy thì **mở lại trình duyệt vào bản đang chạy**, không bật bản hai. Cổng mặc định bận (do app khác) → dò cổng trống, mở đúng cổng đó.
-- **Tự chạy khi bật máy (tùy chọn):** shortcut trong `shell:startup` hoặc registry `Run`, bật/tắt từ trong tool.
+- **Chống chạy 2 bản (single-instance):** dùng **named mutex / lock-file** (KHÔNG dựa vào cổng) — đã chạy thì **mở lại trình duyệt tới đúng URL bản đang chạy** (trình duyệt tự gộp về tab cũ nếu được, hoặc mở tab mới cùng địa chỉ), **không khởi động tiến trình tool thứ hai**.
+- **Chọn cổng phục vụ (độc lập với single-instance):** thử cổng mặc định; bận (app khác chiếm) → dò cổng trống rồi mở trình duyệt đúng cổng đó.
+- **Tự chạy khi bật máy (tùy chọn, mặc định TẮT):** shortcut trong `shell:startup` hoặc registry `Run`, bật/tắt từ trong tool. Bật kèm phiên vĩnh viễn = bật máy là vào thẳng → dựa khóa màn hình Windows làm lớp chặn (§16).
 
 ### 11C.3 Wizard thiết lập lần đầu (DGT-03)
-- **Nhận "máy sạch":** chưa có `key.bin`/chưa đủ cấu hình (`config_store`) → frontend route vào **wizard**, không vào màn đăng nhập. `/local/config` + `/local/config/test` + `/local/auth/login` **không bị gác token** (đã có — "config là bước mồi", `main.py`) nên wizard chạy trước đăng nhập không vướng.
+- **3 trạng thái khởi động** (phân biệt rõ để không kẹt màn trắng): (a) **chưa có `key.bin` / config chưa đủ** → **wizard**; (b) **`key.bin` đọc được + config đủ** → chạy bình thường; (c) **`key.bin` CÓ nhưng giải mã config lỗi** (copy thiếu, hỏng đĩa) → **coi như máy sạch, vào wizard** kèm cảnh báo *"cấu hình cũ không đọc được, khai lại"*. Ca (a)(c) route vào **wizard**, không vào màn đăng nhập. `/local/config` + `/local/config/test` + `/local/auth/login` **không bị gác token** (đã có — "config là bước mồi", `main.py`) nên wizard chạy trước đăng nhập không vướng.
 - **3 bước, test-before-next:** (1) kiểm môi trường — thư mục ghi được + ping VPS; (2) cấu hình SQL nguồn/đích + VPS, nút "Kiểm tra kết nối" (`/local/config/test` + `testSyncTarget` sẵn có) **phải xanh mới cho Tiếp**; (3) đăng nhập (`/local/auth/login` qua VPS), lỗi VPS → quay lại sửa URL. Tái dùng nội dung `CauHinhDrawer.tsx`, chỉ xếp lại thành stepper toàn màn.
 - **Lần sau:** đã có cấu hình → bỏ wizard, vào thẳng (đăng nhập, hoặc vào luôn nếu còn phiên — §11C.4).
 
 ### 11C.4 Phiên đăng nhập vĩnh viễn (DGT-04)
 - **Hiện trạng:** `session.py` giữ `Phien` trong RAM → tắt exe là mất; token client ở `localStorage` sống qua F5/đóng-mở trình duyệt (CHANGES #36).
-- **Thêm:** **lưu phiên ra đĩa** (file trong thư mục ghi được, **mã hóa bằng `key.bin`** sẵn có — tái dùng `config_store._fernet()`), **không gắn hạn**. Khởi động: nạp lại phiên từ đĩa → `require_session` chấp nhận token cũ → vào thẳng.
+- **Thêm:** **lưu phiên ra đĩa** (file trong thư mục ghi được), **không gắn hạn**. **Mã hóa bằng DPAPI Windows (`CryptProtectData`, phạm vi CurrentUser)** — KHÔNG dùng `key.bin` cho phiên: `key.bin` nằm cùng thư mục nên copy cả thư mục sang máy/user khác là giải mã được; DPAPI ràng phiên vào đúng tài khoản Windows + máy đó. Khởi động: **đọc phiên đĩa bọc try/except** — thiếu/ghi-dở/giải-mã-lỗi thì **bỏ qua phiên, về màn đăng nhập**, KHÔNG để exception nổi lên (console đã ẩn `--windowed`). Giải mã OK → `require_session` chấp nhận token cũ → vào thẳng.
+- **⚠️ `vps_token` 8h vs phiên vĩnh viễn (CHẶN — fix cách A, /reviewtdd 05/10):** phiên local sống vĩnh viễn nhưng `vps_token` (JWT VPS hết hạn 8h — §12) nhét trong phiên sẽ chết → sau 8h / mở lại hôm sau, user vẫn "đã đăng nhập" dùng được tra cứu + sửa local **nhưng mọi call VPS (kéo/lock/đã-nạp/tải ảnh/đối soát QLY-08,09) đều 401**, tool câm lặng hỏng đúng việc nạp. **Fix cách A:** heartbeat thu-hồi-từ-xa **kiêm làm mới token** — VPS cấp *refresh token* lúc đăng nhập, tool lưu đĩa (DPAPI), heartbeat đổi lấy `access_token` mới; refresh thất bại / TK bị khóa → xóa phiên. **Đụng VPS `/api/auth` → NGOÀI phạm vi tool, phải chạy `/capnhat` trước khi code DGT-04.** Endpoint heartbeat: `GET /api/auth/me` (VPS đã đọc `is_active`+vai trò mỗi request — §12) hoặc endpoint refresh mới (quyết ở `/capnhat`).
 - **Đăng xuất** (`/local/auth/logout` → `session.dang_xuat`, nút UI đã có): xóa phiên ở **đĩa + client** → lối ra duy nhất.
 - **Thu hồi từ xa:** khi có mạng, định kỳ (vd lúc khởi động + mỗi N giờ) ngầm hỏi VPS tài khoản còn hiệu lực (tái dùng đường xác thực VPS) — VPS khóa → xóa phiên, buộc đăng nhập lại. Không có mạng → vẫn vào bằng phiên đĩa, kiểm khi có mạng lại.
 - **Rủi ro (chấp nhận, user 05/10):** phiên vĩnh viễn = ai ngồi vào máy cũng vào thẳng (sửa/xóa GPLX + xem căn cước). Chấp nhận vì máy nội bộ CSDT 1 người dùng — xem §16. **Chỉ áp cho tool**; đăng nhập app web (VPS, đa người) giữ phiên thường, không đổi.
+
+### 11C.5 Sơ đồ khởi động & vòng đời phiên
+
+```
+Mở exe
+  │
+  ▼
+Đọc key.bin + config + phiên đĩa
+  │
+  ├─ (a) chưa có key.bin / config chưa đủ ─────┐
+  ├─ (c) key.bin có NHƯNG giải mã config lỗi ──┤──▶ WIZARD (DGT-03)
+  │                                             │   môi trường → cấu hình(test xanh)
+  │                                             │   → đăng nhập
+  │                                             └────────────┬───────────────
+  │                                                          │
+  └─ (b) key.bin OK + config đủ                              │
+        │                                                    │
+        ▼                                                    │
+     Có phiên đĩa hợp lệ?                                    │
+        ├─ không / file hỏng / giải mã lỗi ──▶ Màn ĐĂNG NHẬP ┤
+        │                                                    │
+        └─ có ──────────────────▶ VÀO THẲNG                  │
+                                       │                     │
+                                       ▼                     ▼
+                              ┌──────────────────────────────────┐
+                              │      PHIÊN ĐANG HOẠT ĐỘNG         │
+                              └───────────────┬──────────────────┘
+                                              │
+            ┌─────────────────────────────────┼────────────────────────────┐
+            ▼ heartbeat (khi có mạng)          ▼ vps_token sắp hết (cách A)  ▼ Đăng xuất
+     VPS báo TK bị khóa                   đổi refresh-token                (nút duy nhất)
+            │                             lấy access_token mới                   │
+            ▼                                    │                               ▼
+     Xóa phiên đĩa + client ◀────────────────────┘ (thất bại/bị khóa)  Xóa phiên đĩa + client
+            │                                                                    │
+            └──────────────────────────▶ lần sau: Màn ĐĂNG NHẬP ◀────────────────┘
+```
 
 > **Phục vụ:** DGT-01/02/03/04. Không chạm nghiệp vụ Nạp/Sync/TCB — thuần đóng gói + khởi chạy + vòng đời phiên của tool. Quyết định kỹ thuật: TDD-decisions §16.
 
@@ -1187,7 +1226,8 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 | Lộ PII trên VPS | Thấp | Cao | HTTPS + auth + xóa 30 ngày + không log CCCD |
 | Tool dùng `sa` | — | Cao | Tạo SQL login riêng (OG-004) |
 | Đồng hồ máy DB sai giờ | Thấp | Trung bình | So giờ trước go-live (MaDK/tên file theo timestamp) |
-| **Phiên tool vĩnh viễn → ai ngồi vào máy cũng vào thẳng** (DGT-04) | Trung bình | Cao | **Chấp nhận** (user 05/10): máy nội bộ CSDT 1 người dùng. Giảm nhẹ: nút Đăng xuất + thu hồi từ xa (VPS khóa tài khoản → đá ra). Nếu máy thành dùng chung → thêm "hỏi mật khẩu khi xóa/đổi khóa" (để sau) |
+| **Phiên tool vĩnh viễn → ai ngồi vào máy cũng vào thẳng** (DGT-04) | Trung bình | Cao | **Chấp nhận** (user 05/10): máy nội bộ CSDT 1 người dùng. Giảm nhẹ: nút Đăng xuất + thu hồi từ xa (VPS khóa tài khoản → đá ra); **tự-chạy-khi-bật-máy mặc định TẮT** (bật = bật máy vào thẳng, dựa khóa màn hình Windows); **phiên đĩa mã hóa DPAPI** (copy sang máy/user khác không giải mã). Nếu máy thành dùng chung → thêm "hỏi mật khẩu khi xóa/đổi khóa" (để sau) |
+| **DGT-04 `vps_token` 8h vs phiên vĩnh viễn** → nạp từ VPS chết lặng sau 8h | Cao | Cao | Fix cách A: heartbeat kiêm refresh-token — **cần `/capnhat` (đụng VPS `/api/auth`) TRƯỚC khi code DGT-04** |
 | **exe đóng gói chạy sai trên máy sạch** (pymssql/FreeTDS, đường dẫn ghi) | Trung bình | Cao | Test trên máy sạch trước go-live; ghi dữ liệu vào `%APPDATA%`; kèm hướng dẫn SmartScreen / ký số |
 
 ### 16.2 Trade-offs đã quyết
@@ -1268,6 +1308,7 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 | 03/10/2026 | 3.1 | Redesign giao diện DESKTOP (CHANGES #30; đổi từ v3.0 vì QLY-09 đã dùng 3.0 khi gộp 2 phiên): §6.5 desktop vào thẳng form nhập tay + Quét QR/Tải ảnh thu nhỏ góc phải + popover camera prefill (THU-01, mobile giữ camera-first); §6.6 desktop chọn-nhiều-để-xóa ở "Hồ sơ đã gửi" (THU-05, lặp DELETE client như QuanTriHoSo, mobile giữ xóa lẻ). Thuần client, KHÔNG đổi Data Model/API/endpoint. |
 | 04/10/2026 | 3.2 | +§11B **Đồng bộ CDB** (CHANGES #33, SYNC-01/02/03): kiến trúc module + sidebar trái (mở rộng N, dự kiến module #3), `sqlserver_conn_dich()` nhiều DB đích, luồng sync 1 HV + MaDK batch + guard race, SSE tiến trình, rollback dual-mode, 3 nợ kỹ thuật port từ sync_tool. +§2.4 module sync. **Tool chỉ desktop**: sidebar thu gọn + nội dung ≥1280px + bảng sync cuộn ngang. |
 | 04/10/2026 | 3.3 | Cấu hình lên header (CHANGES #34, HTG-07): §5.0 + §11B.0 — bỏ route `/tool/cau-hinh` + `/sync/db-dich` khỏi sub-nav, gộp thành **panel ⚙ trên header dùng chung** (khối ① kết nối + DB nguồn Nạp · khối ② nhiều DB đích Sync, tách bạch). Thuần UI/IA — backend `/local/config*` + `/local/sync/targets` + config-store không đổi; không chạm quyết định §12/§13/§14. |
+| 05/10/2026 | 4.1 | **sửa sau /reviewtdd #38 (DGT)**: §11C.4 phiên đĩa mã hóa **DPAPI** + bọc try/except + **fix Chặn `vps_token` 8h bằng refresh-token (cần /capnhat)**; §11C.3 phân biệt 3 trạng thái khởi động (key.bin hỏng→wizard); §11C.2 tách single-instance (mutex) khỏi chọn cổng + bind `127.0.0.1` + sửa câu "đưa tab cũ lên"; §11C.1 ghi chú không di cư dev→exe + cân nhắc bỏ rembg; **+§11C.5 sơ đồ khởi động/vòng đời phiên**; +2 dòng Risks §16. Biên bản: docs/tdd-review-05-10-2026.md. |
 | 05/10/2026 | 4.0 | **+§11C Đóng gói & khởi chạy tool** (CHANGES #38, DGT-01..04): đóng gói exe PyInstaller + FastAPI phục vụ `webui/dist` cùng cổng (BASE="" sẵn có) + ghi dữ liệu vào `%APPDATA%` khi `sys.frozen`; tự mở trình duyệt + khay hệ thống + chống chạy 2 bản + tự chạy khi bật máy; wizard thiết lập lần đầu (tái dùng `/config/test` + `CauHinhDrawer`); **phiên vĩnh viễn** (lưu đĩa mã hóa `key.bin` + thu hồi từ xa, chỉ áp tool). +2 rủi ro §16 (phiên vĩnh viễn, exe máy sạch). Quyết định: TDD-decisions §16. |
 | 05/10/2026 | 3.9 | Sửa sau /reviewtdd §11B.7 (biên bản `tdd-review-05-10-2026-tcb37.md`, phạm vi #37): +`chi-tiet-sua` (CDB) trả thêm `NoiTT_MaDVHC/MaDVQL/NgayCapCMT/NoiCapCMT` để preselect form; **luật bỏ-trống-giữ-cũ** cho 3 trường mới (fallback `cur_row`, không ghi đè rỗng) + tách `dung_tham_so_update_cdb` nhưng vẫn tái dùng `_EXEC_UPDATE`; +edge xã cũ trước sáp nhập (preselect trống là bình thường); +kiểm CDB có đủ `DM_DVHC` mới/SP xã/`DM_DonViGTVT`. 0 Chặn · 3 Nên sửa · 1 Ghi nhận. |
 | 05/10/2026 | 3.8 | **Mở rộng trường sửa nhân thân TCB-03** (CHANGES #37): §11B.7 — thêm địa chỉ thường trú 2 cấp (`NoiTT_MaDVHC`/`MaDVQL`) + ngày cấp CCCD (`NgayCapCMT`) + nơi cấp CCCD (`NoiCapCMT`); **tách model riêng cho CDB** (không mở rộng `HoSoSua` dùng chung — Nạp QLY-01 giữ 5 trường, user chốt); danh mục Tỉnh/Xã + Sở phải đọc từ **DB đích** (`target_key`). `usp_NguoiLX_Update` đã nhận sẵn các tham số. |

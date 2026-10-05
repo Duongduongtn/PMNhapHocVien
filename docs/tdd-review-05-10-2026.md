@@ -1,32 +1,39 @@
 # Biên bản review TDD — PMCSĐTLX
 
-- **File review:** docs/TDD.md
+- **File review:** docs/TDD.md §11C (+ docs/TDD-decisions.md §16)
+- **Phạm vi:** Feature DGT (#38) — đóng gói tool độc lập + khởi chạy + wizard lần đầu + phiên vĩnh viễn (DGT-01..04)
 - **Ngày:** 05/10/2026
-- **Phạm vi:** chỉ phần SỬA HÔM NAY (CHANGES #36) — §11B.7 (định nghĩa DKKH + ma trận TCB-03/04), §11B.2 (filter khóa đích + sort + cờ dkkh), §5.5 (giữ token qua F5). Các phần khác đã review ở `tdd-review-03-10-2026.md` + `tdd-review-04-10-2026-tcb.md`.
-- **Số phát hiện:** 7 (Chặn: 0 · Nên sửa: 4 · Ghi nhận: 3)
-- **Lưu ý:** review cùng phiên viết (#36) → có thiên vị, nhẹ tay hơn người lạ đọc; nên chạy lại `/reviewtdd` phiên mới nếu muốn soát sâu toàn TDD.
+- **Số phát hiện:** 11 (Chặn: 1 · Nên sửa: 5 · Ghi nhận: 5) — tất cả đã xử lý
 
 ## Đã sửa
 
 | # | Điểm | Mức | Phát hiện | Đã sửa thế nào |
 |---|---|---|---|---|
-| 2a | Logic mơ hồ | Nên sửa | §11B.2 filter không nói rõ khi CHƯA chọn khóa nguồn (hạng chưa xác định) | Thêm: chưa chọn nguồn → bỏ điều kiện hạng, chỉ lọc `!dkkh` |
-| 2b | Logic mơ hồ | Nên sửa | TDD chưa ghi hành vi "tự kiểm kết nối đích khi vào màn" (thay cổng bấm-tay) | Thêm bullet §11B.2 mô tả auto-test + giữ nút thử lại tay |
-| 3a | Edge | Nên sửa | §5.5 chưa nêu edge `localStorage` bị chặn | Thêm: try/catch → fallback bộ nhớ, không vỡ app |
-| 6a | Sơ đồ | Nên sửa | §5.5 có sơ đồ đăng nhập nhưng thiếu luồng khôi phục phiên F5 | Thêm sơ đồ ASCII F5 (token→/me→200/401) |
+| 2.1 | 2 Logic | 🔴 Chặn | Phiên local vĩnh viễn nhưng `vps_token` (JWT VPS) hết 8h → sau 8h mọi call VPS (kéo/lock/đã-nạp/đối soát) 401, tool câm lặng hỏng việc nạp | §11C.4 +mục ⚠️: fix **cách A** — heartbeat kiêm refresh-token; ghi rõ **cần `/capnhat`** (đụng VPS `/api/auth`) trước khi code DGT-04. +1 dòng Risks §16 |
+| 2.2 | 2 Logic | 🟡 Nên sửa | "Đưa tab cũ lên trước" không làm chính xác bằng `webbrowser.open` | §11C.2 sửa câu: "mở lại trình duyệt tới đúng URL bản đang chạy; không bật tiến trình thứ hai" |
+| 2.3 | 2 Logic | 🟡 Nên sửa | Trộn "chống 2 bản" (bind cổng cố định) với "dò cổng trống" → app khác chiếm cổng thì single-instance mất tác dụng | §11C.2 tách: single-instance = **named mutex/lock-file**; chọn cổng phục vụ độc lập |
+| 3.1 | 3 Edge | 🟡 Nên sửa | File phiên đĩa ghi-dở/giải-mã-lỗi khi khởi động → exe màn trắng (console ẩn) | §11C.4: đọc phiên đĩa **bọc try/except** → hỏng thì về màn đăng nhập |
+| 3.2 | 3 Edge | 🟡 Nên sửa | `key.bin` CÓ nhưng hỏng ≠ "chưa có key.bin" → kẹt (không wizard, không đọc được config) | §11C.3: phân biệt **3 trạng thái khởi động** (a/b/c), ca (c) key.bin hỏng → wizard + cảnh báo |
+| 4.1 | 4 Bảo mật | 🟡 Nên sửa | Phiên đĩa + `key.bin` cùng chỗ → copy cả thư mục là chiếm phiên ở máy khác, không cần mật khẩu | §11C.4: mã hóa phiên bằng **DPAPI (CurrentUser)** thay `key.bin` |
+| 2.4 | 2 Logic | 🟢 Ghi nhận | "Thu hồi từ xa" chưa nêu endpoint | §11C.4: nêu `GET /api/auth/me` (gộp vào cách A) |
+| 3.3 | 3 Edge | 🟢 Ghi nhận | Dev→exe không di cư dữ liệu | §11C.1: +1 câu ghi chú (không phải bug) |
+| 4.2 | 4 Bảo mật | 🟢 Ghi nhận | Tự-chạy-khi-bật-máy + phiên vĩnh viễn cộng hưởng rủi ro | §11C.2 + Risks §16: tự-chạy **mặc định TẮT**, dựa khóa màn hình Windows |
+| 4.3 | 4 Bảo mật | 🟢 Ghi nhận | FastAPI phải bind 127.0.0.1 (endpoint config/test/login không gác token) | §11C.2: uvicorn **bind `host=127.0.0.1`** |
+| 5.1 | 5 Hiệu năng | 🟢 Ghi nhận | `rembg`+`onnxruntime` làm exe to ~150–200MB | §11C.1: cân nhắc không gói rembg nếu máy CSDT không xóa phông |
+| 6.1 | 6 Sơ đồ | — | Thiếu sơ đồ vòng đời phiên | +**§11C.5** sơ đồ khởi động & vòng đời phiên (ASCII) |
 
-## Cố tình bỏ qua (Ghi nhận — chấp nhận, không sửa)
+## Cố tình bỏ qua
 
 | # | Phát hiện | Mức | Vì sao chấp nhận |
 |---|---|---|---|
-| 3b | `/me` lỗi MẠNG (≠401) khi F5 → xóa token về đăng nhập (dù token có thể còn hợp lệ) | Ghi nhận | Tool localhost; backend chết thì không thao tác được gì → đăng xuất vô hại |
-| 4a | Token lưu `localStorage` → tăng bề mặt lộ (XSS) so với bộ nhớ | Ghi nhận | Tool localhost 1 người, chỉ phục vụ webui của chính nó → gần như không có đường XSS; đã ghi §5.5 |
-| 5a | `CHARINDEX` trên `DuongDan` không dùng index → quét TRANS_CLI per khóa | Ghi nhận | Quy mô hiện tại ~68 gói × ~20 khóa/năm = không đáng kể; theo dõi nếu TRANS_CLI lên hàng chục nghìn |
+| — | (không có) | — | User nhận xử lý toàn bộ. Riêng 2.1 được **sửa** (hướng A + cờ /capnhat), không bỏ qua. |
 
 ## Hoãn lại
 
-(không có)
+| # | Phát hiện | Chờ gì |
+|---|---|---|
+| 2.1 | Refresh-token VPS cho DGT-04 | **Chạy `/capnhat`** để đưa thay đổi VPS `/api/auth` vào phạm vi, TRƯỚC khi code DGT-04 |
 
----
+## Kết luận
 
-**Kết luận:** TDD ĐỦ để code — thực tế code đã viết + verify trước review này. **0 phát hiện Chặn.** 4 `Nên sửa` đều là bổ sung/làm rõ tài liệu (code đã đúng), đã sửa xong. 3 `Ghi nhận` chấp nhận được, ghi lại ở trên.
+**TDD §11C đã đủ để bắt đầu code — TRỪ DGT-04.** Số phát hiện Chặn chưa đóng: **0 về mặt thiết kế** (đã ghi hướng fix), nhưng **DGT-04 bị chặn quy trình**: phải `/capnhat` thêm refresh-token VPS trước khi code. DGT-01/02/03 code được ngay.
