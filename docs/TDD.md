@@ -426,7 +426,18 @@ Admin đầu tiên tạo bằng script seed (CLI trên VPS), không mở API sel
 
 - **Gác quyền:** mọi `/local/*` nghiệp vụ (khóa học, DVHC, ảnh, nạp, tra cứu) qua `require_session`. **Miễn** `/local/config*` (bước mồi đặt URL VPS — A1) và `/local/auth/*` (cửa đăng nhập).
 - **Session store (server):** in-memory trong tiến trình tool (1 máy, 1 người, không TTL). Tool khởi động lại → mất phiên, đăng nhập lại. `logout` xóa token khỏi store.
-- **Giữ token phía client qua F5 (CHANGES #36, 05/10/2026):** UI lưu `session_token` vào `localStorage` (không chỉ bộ nhớ); tải lại trang → khôi phục phiên bằng `GET /local/auth/me` (token còn hiệu lực → vào thẳng; 401 → xóa token, về đăng nhập). Trước đây token chỉ ở bộ nhớ → F5 là văng ra đăng nhập. *(Tool là app localhost 1 người dùng tại máy CSDT → lưu token localStorage chấp nhận được.)*
+- **Giữ token phía client qua F5 (CHANGES #36, 05/10/2026):** UI lưu `session_token` vào `localStorage` (không chỉ bộ nhớ); tải lại trang → khôi phục phiên bằng `GET /local/auth/me`. Trước đây token chỉ ở bộ nhớ → F5 là văng ra đăng nhập. *(Tool là app localhost 1 người dùng tại máy CSDT → lưu token localStorage chấp nhận được.)*
+  ```
+  Tải lại trang (F5):
+    UI đọc token từ localStorage
+      ├─ không có token              → màn đăng nhập
+      └─ có token → GET /local/auth/me
+           ├─ 200 (token còn hiệu lực) → khôi phục user, vào thẳng app
+           └─ 401 (token hết/sai)      → xóa token → màn đăng nhập
+    (chờ /me: hiện "Đang khôi phục phiên…", không chớp màn đăng nhập)
+  ```
+  - **Edge `localStorage` bị chặn** (chế độ riêng tư / trình duyệt chặn storage): đọc/ghi token bọc `try/catch` → fallback giữ token **trong bộ nhớ** như trước (F5 vẫn phải đăng nhập lại), **không vỡ app**.
+  - *(Edge: `/me` lỗi MẠNG — không phải 401 — khi F5 cũng xóa token về đăng nhập; chấp nhận vì backend localhost chết thì cũng không thao tác được.)*
 - **Còn mở:** 1 hay nhiều phiên đồng thời — hiện cho n phiên; chốt sau khi có yêu cầu (xem `TDD-decisions.md §4a`).
 
 ---
@@ -986,7 +997,8 @@ Sau lô: cập nhật KhoaHoc.TongSoHV (nếu bật)
 - **Validate:** hạng khóa nguồn = hạng khóa đích; `NgayNhanHSo ≤ NgayKG` khóa đích; backdate > 90 ngày → hỏi.
 - **Chọn khóa (CHANGES #36, 05/10/2026):**
   - `load_khoa_hoc_by_year` **ORDER BY NgayKG DESC, MaKH DESC** (mới-nhất-trước + sort phụ ổn định khi trùng ngày); combo nguồn hiện thêm ngày KG. Endpoint `dich/khoa` trả thêm cờ **`dkkh`** (`with_dkkh=True` → `sync_helpers.dkkh_exists_sql`), chỉ bật cho đích (bảng `TRANS_CLI_HangDoiGui` chỉ có ở đích).
-  - **Filter khóa đích** (client, mặc định bật): combo đích chỉ hiện khóa **`hang_gplx == hang khóa nguồn` AND `!dkkh`** (chưa gửi đăng ký lên Sở); bỏ tích → hiện tất cả. Giữ người dùng khỏi chọn khóa khác hạng (sync sẽ chặn) hoặc khóa đã gửi Sở (thêm HV lệch danh sách đã đăng ký).
+  - **Filter khóa đích** (client, mặc định bật): combo đích chỉ hiện khóa **`!dkkh`** (chưa gửi đăng ký lên Sở) **AND cùng hạng** — nếu **đã chọn khóa nguồn** thì thêm điều kiện `hang_gplx == hang khóa nguồn`; **chưa chọn khóa nguồn** thì **bỏ điều kiện hạng** (chỉ lọc `!dkkh`). Bỏ tích → hiện tất cả. Giữ người dùng khỏi chọn khóa khác hạng (sync sẽ chặn) hoặc khóa đã gửi Sở (thêm HV lệch danh sách đã đăng ký).
+  - **Tự kiểm kết nối đích** chạy 1 lần khi **vào màn / đổi CSDL đích** (mở cổng "Tải danh sách" nếu OK) — thay cho việc bắt bấm tay mỗi lần; nút "Kiểm tra kết nối đích" vẫn giữ để thử lại thủ công khi mạng chập chờn.
 
 ### 11B.3 Tiến trình trực tiếp (SSE)
 
@@ -1212,6 +1224,7 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 | 03/10/2026 | 3.1 | Redesign giao diện DESKTOP (CHANGES #30; đổi từ v3.0 vì QLY-09 đã dùng 3.0 khi gộp 2 phiên): §6.5 desktop vào thẳng form nhập tay + Quét QR/Tải ảnh thu nhỏ góc phải + popover camera prefill (THU-01, mobile giữ camera-first); §6.6 desktop chọn-nhiều-để-xóa ở "Hồ sơ đã gửi" (THU-05, lặp DELETE client như QuanTriHoSo, mobile giữ xóa lẻ). Thuần client, KHÔNG đổi Data Model/API/endpoint. |
 | 04/10/2026 | 3.2 | +§11B **Đồng bộ CDB** (CHANGES #33, SYNC-01/02/03): kiến trúc module + sidebar trái (mở rộng N, dự kiến module #3), `sqlserver_conn_dich()` nhiều DB đích, luồng sync 1 HV + MaDK batch + guard race, SSE tiến trình, rollback dual-mode, 3 nợ kỹ thuật port từ sync_tool. +§2.4 module sync. **Tool chỉ desktop**: sidebar thu gọn + nội dung ≥1280px + bảng sync cuộn ngang. |
 | 04/10/2026 | 3.3 | Cấu hình lên header (CHANGES #34, HTG-07): §5.0 + §11B.0 — bỏ route `/tool/cau-hinh` + `/sync/db-dich` khỏi sub-nav, gộp thành **panel ⚙ trên header dùng chung** (khối ① kết nối + DB nguồn Nạp · khối ② nhiều DB đích Sync, tách bạch). Thuần UI/IA — backend `/local/config*` + `/local/sync/targets` + config-store không đổi; không chạm quyết định §12/§13/§14. |
+| 05/10/2026 | 3.7 | Sửa sau review (biên bản `tdd-review-05-10-2026.md`, phạm vi vùng sửa #36): §11B.2 làm rõ filter khi **chưa chọn khóa nguồn** (bỏ lọc hạng) + ghi hành vi **tự kiểm kết nối khi vào màn**; §5.5 thêm **sơ đồ khôi phục phiên F5** + edge **localStorage bị chặn → fallback bộ nhớ**. 0 phát hiện Chặn; đều là bổ sung/làm rõ tài liệu (code đã đúng). |
 | 05/10/2026 | 3.6 | **Sửa định nghĩa DKKH** (CHANGES #36): §11B.7 "đã kết xuất DKKH" = có gói `DANG_KY_KHOA_HOC` gửi Sở (`TRANS_CLI_HangDoiGui`, helper `sync_helpers.dkkh_exists_sql`), **KHÔNG** phải `SoQD_KhaiGiang` (sai — mọi khóa đều có) → sửa ma trận quyết định + ghi chú TCB-03; §11B.2 +filter khóa đích "cùng hạng & chưa DKKH" (mặc định bật) + khóa xếp mới-nhất-trước (ORDER BY NgayKG DESC, MaKH DESC + cờ `dkkh`); §5.5 +giữ token client qua F5 (localStorage + `/local/auth/me`). Chi tiết DB: `docs/DB-GPLX_CDB_CSDT.md` §7. |
 | 04/10/2026 | 3.5 | Sửa §11B.7 sau /reviewtdd (biên bản `tdd-review-04-10-2026-tcb.md`): mốc "đã BC1" = **`NguoiLX_HoSo.MaBC1` có giá trị** (đúng cái FK NO_ACTION chặn — bỏ `TT_XuLy≥'05'` & dòng BaoCaoI cấp khóa, Điểm 2) + vẫn bắt lỗi FK làm lưới; thay ảnh TCB-02 **sao lưu `_BACKUP.jp2` cùng thư mục trước khi ghi đè** (Điểm 3); endpoint TCB ghi **buộc token operator** (Điểm 4); nới câu chữ §12 "DB đích" (UPDATE cột ảnh trực tiếp parameterized, không còn "chỉ gọi SP"); +**bảng ma trận quyết định** 3 thao tác × 3 mốc (Điểm 6). |
 | 04/10/2026 | 3.4 | +§11B.7 **Tra cứu CDB đích** (CHANGES #35, TCB-01..04): màn tra cứu/sửa/xóa HV trên DB đích `GPLX_CDB_CSDT` (song song QLY-01 nhưng trỏ đích); luật khóa đọc ở đích — BC1 (cứng, chặn xóa/đổi khóa) + đã kết xuất DKKH `SoQD_KhaiGiang` (mềm, chặn sửa nhân thân); thay ảnh ghi đè file `.jp2` dùng chung 2 DB; danh mục `DM_TrangThai`; nút Xem chi tiết từ Bàn đồng bộ. Không chạm quyết định §12/13/14. |
