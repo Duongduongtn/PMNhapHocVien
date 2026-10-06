@@ -81,6 +81,9 @@ class SyncBatch:
     ma_dk_moi: list[str] = field(default_factory=list)
     ma_dk_doi: dict[str, dict] = field(default_factory=dict)
     ma_dk_giu: list[str] = field(default_factory=list)
+    # Tên khóa lưu lúc sync (CHANGES #41) — bản ghi cũ rỗng, /lich-su tra DB bù.
+    ten_khoa_moi: str = ""   # tên khóa ĐÍCH (CDB)
+    ten_khoa_cu: str = ""    # tên khóa NGUỒN (CSDT)
 
     def all_ma_dk_new(self) -> set[str]:
         result: set[str] = set(self.ma_dk_moi)
@@ -102,6 +105,8 @@ class SyncBatch:
             "ma_dk_moi": self.ma_dk_moi,
             "ma_dk_doi": self.ma_dk_doi,
             "ma_dk_giu": self.ma_dk_giu,
+            "ten_khoa_moi": self.ten_khoa_moi,
+            "ten_khoa_cu": self.ten_khoa_cu,
         }
 
     @classmethod
@@ -120,6 +125,8 @@ class SyncBatch:
             ma_dk_moi=list(data.get("ma_dk_moi", []) or []),
             ma_dk_doi=dict(data.get("ma_dk_doi", {}) or {}),
             ma_dk_giu=list(data.get("ma_dk_giu", []) or []),
+            ten_khoa_moi=data.get("ten_khoa_moi", "") or "",
+            ten_khoa_cu=data.get("ten_khoa_cu", "") or "",
         )
 
 

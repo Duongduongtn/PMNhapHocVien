@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Icon } from "../../components/Icon";
+import HuyncSyncDialog from "../../components/HuyncSyncDialog";
 import {
-  getSyncLichSu, getSyncRollbackPreview, postSyncRollback, getSyncTargets,
-  type SyncLichSuRow, type SyncRollbackPreview, type SyncTarget,
+  getSyncLichSu, getSyncTargets,
+  type SyncLichSuRow, type SyncTarget,
 } from "../../lib/api";
 
 // ISO (yyyy-mm-ddTHH:MM:SS) → dd/mm/yyyy HH:mm
@@ -11,62 +12,30 @@ const fmtLuc = (s: string) => {
   return m ? `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}` : s;
 };
 
-interface HuyState {
-  row: SyncLichSuRow;
-  preview: SyncRollbackPreview | null;
-  dangXem: boolean;   // đang tải preview
-  dangXoa: boolean;   // đang thực hiện hủy
-  loi: string;
-}
-
 export default function LichSu() {
   const [rows, setRows] = useState<SyncLichSuRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [targets, setTargets] = useState<SyncTarget[]>([]);
   const [targetKey, setTargetKey] = useState("");
-  const [huy, setHuy] = useState<HuyState | null>(null);
+  const [huyRow, setHuyRow] = useState<SyncLichSuRow | null>(null);
   const [toast, setToast] = useState("");
 
   const dichTarget = targets.find((t) => t.key === targetKey);
 
-  const taiDS = () => {
+  const taiDS = (tk?: string) => {
     setLoading(true);
-    getSyncLichSu()
+    getSyncLichSu(tk)
       .then(setRows)
       .catch(() => setErr("Không đọc được nhật ký sync (tool backend chưa chạy?)"))
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
-    taiDS();
     getSyncTargets()
-      .then((d) => { setTargets(d.targets); setTargetKey(d.selected); })
-      .catch(() => {});
+      .then((d) => { setTargets(d.targets); setTargetKey(d.selected); taiDS(d.selected); })
+      .catch(() => taiDS());
   }, []);
-
-  const moHuy = (row: SyncLichSuRow) => {
-    setHuy({ row, preview: null, dangXem: true, dangXoa: false, loi: "" });
-    getSyncRollbackPreview(row.khoa_moi, targetKey)
-      .then((p) => setHuy((h) => (h && h.row === row ? { ...h, preview: p, dangXem: false } : h)))
-      .catch((e) => setHuy((h) => (h && h.row === row
-        ? { ...h, dangXem: false, loi: e instanceof Error ? e.message : "Không đếm được số bản ghi." }
-        : h)));
-  };
-
-  const xacNhanHuy = async () => {
-    if (!huy) return;
-    setHuy({ ...huy, dangXoa: true, loi: "" });
-    try {
-      const kq = await postSyncRollback(huy.row.khoa_moi, targetKey);
-      setHuy(null);
-      setToast(`Đã hủy sync khóa ${huy.row.khoa_moi}: xóa ${kq.hs_del} hồ sơ · ${kq.nlx_del} người lái`
-        + (kq.tong_so_hv != null ? ` · TổngSoHV còn ${kq.tong_so_hv}` : ""));
-      taiDS();
-    } catch (e) {
-      setHuy((h) => (h ? { ...h, dangXoa: false, loi: e instanceof Error ? e.message : "Hủy sync thất bại." } : h));
-    }
-  };
 
   return (
     <div className="h-full overflow-auto p-4">
@@ -109,25 +78,31 @@ export default function LichSu() {
             <table className="w-full text-[13px]">
               <thead>
                 <tr className="bg-sync text-white text-left">
-                  <th className="font-semibold px-3 py-2">Khóa đích</th>
+                  <th className="font-semibold px-3 py-2">Khóa nguồn (CSDT)</th>
+                  <th className="font-semibold px-3 py-2">Khóa đích (CDB)</th>
                   <th className="font-semibold px-3 py-2 w-40">Lúc sync</th>
                   <th className="font-semibold px-3 py-2 w-28">Cán bộ</th>
                   <th className="font-semibold px-3 py-2 w-20 text-center">Tạo</th>
-                  <th className="font-semibold px-3 py-2">Khóa nguồn</th>
                   <th className="font-semibold px-3 py-2 w-28"></th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((r, i) => (
                   <tr key={`${r.khoa_moi}-${r.sync_at}-${i}`} className="border-t border-border hover:bg-muted/40">
-                    <td className="px-3 py-2 font-semibold" style={{ fontFamily: "ui-monospace,Consolas,monospace", fontSize: "12.5px" }}>{r.khoa_moi}</td>
+                    <td className="px-3 py-2">
+                      {r.ten_khoa_cu && <div className="font-semibold">{r.ten_khoa_cu}</div>}
+                      <div className={r.ten_khoa_cu ? "text-muted-foreground" : "font-semibold"} style={{ fontFamily: "ui-monospace,Consolas,monospace", fontSize: "12px" }}>{r.khoa_cu ?? "–"}</div>
+                    </td>
+                    <td className="px-3 py-2">
+                      {r.ten_khoa_moi && <div className="font-semibold">{r.ten_khoa_moi}</div>}
+                      <div className={r.ten_khoa_moi ? "text-muted-foreground" : "font-semibold"} style={{ fontFamily: "ui-monospace,Consolas,monospace", fontSize: "12px" }}>{r.khoa_moi}</div>
+                    </td>
                     <td className="px-3 py-2 tabular-nums text-muted-foreground">{fmtLuc(r.sync_at)}</td>
                     <td className="px-3 py-2">{r.can_bo}</td>
                     <td className="px-3 py-2 text-center tabular-nums font-semibold">{r.so_tao}</td>
-                    <td className="px-3 py-2 text-muted-foreground" style={{ fontFamily: "ui-monospace,Consolas,monospace", fontSize: "12.5px" }}>{r.khoa_cu ?? "–"}</td>
                     <td className="px-3 py-2 text-right">
                       <button
-                        onClick={() => moHuy(r)}
+                        onClick={() => setHuyRow(r)}
                         className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md border border-destructive/40 text-destructive text-[12px] font-medium hover:bg-destructive/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive"
                       >
                         <Icon name="warn" className="w-3.5 h-3.5" /> Hủy sync
@@ -141,59 +116,22 @@ export default function LichSu() {
         )}
       </div>
 
-      {/* Modal xác nhận hủy */}
-      {huy && (
-        <div className="fixed inset-0 z-50 grid place-items-center">
-          <div className="absolute inset-0 bg-foreground/30" onClick={() => !huy.dangXoa && setHuy(null)} />
-          <div role="dialog" aria-modal="true" className="relative bg-card rounded-xl border border-border shadow-xl w-[480px] max-w-[94vw] p-5">
-            <h3 className="font-bold text-[15px] mb-2 flex items-center gap-2 text-destructive">
-              <Icon name="warn" className="w-5 h-5 shrink-0" />
-              Hủy sync khóa {huy.row.khoa_moi}?
-            </h3>
-
-            {huy.dangXem ? (
-              <div className="flex items-center gap-2 text-[13px] text-muted-foreground py-3">
-                <Icon name="refresh" className="w-4 h-4 animate-spin" /> Đang đếm số bản ghi sẽ xóa…
-              </div>
-            ) : huy.preview ? (
-              <>
-                <ul className="text-[13px] text-foreground space-y-1 mb-3 list-disc pl-5">
-                  <li>Nhóm nhật ký máy tool còn ở đích: <b className="tabular-nums">{huy.preview.log_con_dich}</b> học viên{huy.preview.log_count > huy.preview.log_con_dich && <span className="text-muted-foreground"> (nhật ký {huy.preview.log_count}, số còn lại đã bị xóa trước đó)</span>}</li>
-                  <li>Nhóm công cụ cũ (NguoiTao=SYNC): <b className="tabular-nums">{huy.preview.sync_group}</b> học viên</li>
-                </ul>
-                <p className="text-[12.5px] text-muted-foreground mb-4">
-                  Xóa Người lái + Hồ sơ + Giấy tờ của <b className="text-destructive tabular-nums">{huy.preview.tong}</b> học viên khỏi
-                  CSDL đích <b>{dichTarget?.database}</b>. Nhật ký máy tool vẫn giữ lại. <b>Không hoàn tác được.</b>
-                </p>
-              </>
-            ) : null}
-
-            {huy.loi && (
-              <div className="mb-3 flex items-start gap-2 text-[12.5px] text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2">
-                <Icon name="warn" className="w-4 h-4 shrink-0 mt-0.5" /> {huy.loi}
-              </div>
-            )}
-
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setHuy(null)}
-                disabled={huy.dangXoa}
-                className="h-9 px-4 rounded-lg border border-border text-[13px] hover:bg-muted disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                Đóng
-              </button>
-              <button
-                onClick={xacNhanHuy}
-                disabled={huy.dangXem || huy.dangXoa || !huy.preview || huy.preview.tong === 0}
-                title={huy.preview && huy.preview.tong === 0 ? "Khóa này không còn học viên nào do tool tạo" : undefined}
-                className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-destructive text-white font-semibold text-[13px] hover:brightness-110 transition-all disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive"
-              >
-                <Icon name={huy.dangXoa ? "refresh" : "warn"} className={"w-4 h-4 " + (huy.dangXoa ? "animate-spin" : "")} />
-                {huy.dangXoa ? "Đang hủy…" : huy.preview ? `Xóa ${huy.preview.tong} hồ sơ` : "Xóa"}
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Hộp thoại xác nhận hủy (dùng chung với Bàn đồng bộ) */}
+      {huyRow && (
+        <HuyncSyncDialog
+          maKhoaMoi={huyRow.khoa_moi}
+          nhan={huyRow.ten_khoa_moi || huyRow.khoa_moi}
+          targetKey={targetKey}
+          dichDbName={dichTarget?.database}
+          onClose={() => setHuyRow(null)}
+          onDone={(kq) => {
+            const nhan = huyRow.ten_khoa_moi || huyRow.khoa_moi;
+            setHuyRow(null);
+            setToast(`Đã hủy sync khóa ${nhan}: xóa ${kq.hs_del} hồ sơ · ${kq.nlx_del} người lái`
+              + (kq.tong_so_hv != null ? ` · TổngSoHV còn ${kq.tong_so_hv}` : ""));
+            taiDS(targetKey);
+          }}
+        />
       )}
     </div>
   );

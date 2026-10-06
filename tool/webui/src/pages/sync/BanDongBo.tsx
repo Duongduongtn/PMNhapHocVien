@@ -4,9 +4,11 @@ import { Icon } from "../../components/Icon";
 import { PhanTrang } from "../../components/PhanTrang";
 import { ComboLoc } from "../../components/ComboLoc";
 import { ODate } from "../../components/ODate";
+import HuyncSyncDialog from "../../components/HuyncSyncDialog";
 import { boDau } from "../../lib/format";
 import {
   getSyncTargets, getSyncNam, getSyncKhoa, postSyncHocVien, postSyncRun, openSyncStream, testSyncTarget,
+  getSyncRollbackPreview,
   type SyncTarget, type SyncKhoa, type SyncHV, type SyncHocVienData, type SyncTestKetQua,
 } from "../../lib/api";
 
@@ -62,6 +64,8 @@ export default function BanDongBo() {
   const [daTest, setDaTest] = useState(false); // 2b: bắt test kết nối đích trước khi Tải
   const [testKq, setTestKq] = useState<(SyncTestKetQua & { dang?: boolean }) | null>(null);
   const [locKhoaHopLe, setLocKhoaHopLe] = useState(true); // mặc định: chỉ khóa đích cùng hạng + CHƯA kết xuất DKKH
+  const [daSyncDich, setDaSyncDich] = useState(0);   // số HV khóa đích đã có do tool tạo (CHANGES #41 — hiện nút Hủy)
+  const [moHuyDich, setMoHuyDich] = useState(false);
   const streamRef = useRef<AbortController | null>(null);
 
   const dichTarget = targets.find((t) => t.key === targetKey);
@@ -74,6 +78,16 @@ export default function BanDongBo() {
     return khoaDich.filter((k) => !k.dkkh && (!hang || k.hang_gplx === hang));
   }, [khoaDich, locKhoaHopLe, khoaNguonSel]);
   const khoaDichSel = khoaDich.find((k) => k.ma_kh === maKhDich);
+
+  // Khóa đích đã có HV do tool tạo? → hiện nút Hủy sync (CHANGES #41). Tải khi đổi khóa đích.
+  useEffect(() => {
+    if (!maKhDich) { setDaSyncDich(0); return; }
+    let huy = false;
+    getSyncRollbackPreview(maKhDich, targetKey)
+      .then((p) => { if (!huy) setDaSyncDich(p.tong); })
+      .catch(() => { if (!huy) setDaSyncDich(0); });
+    return () => { huy = true; };
+  }, [maKhDich, targetKey]);
   // Lịch chọn ngày giới hạn tối đa = min(hôm nay, NgàyKG khóa đích)
   const maxNgayISO = (() => {
     const t0 = new Date(); t0.setHours(0, 0, 0, 0);
@@ -202,6 +216,7 @@ export default function BanDongBo() {
       const { job_id } = await postSyncRun({
         ma_kh_nguon: maKhNguon, ma_kh_dich: maKhDich, ngay_nhap_hs: toISO(d),
         target_key: targetKey, so_cmt_chon: [...chon],
+        ten_kh_nguon: khoaNguonSel?.ten_kh ?? "", ten_kh_dich: khoaDichSel?.ten_kh ?? "",
       });
       const total = soChon;
       let xong = 0;
@@ -393,6 +408,15 @@ export default function BanDongBo() {
           <Icon name="refresh" className={"w-4 h-4 " + (running ? "animate-spin" : "")} /> SYNC {soChon} học viên
         </button>
         <span className="text-[12px] text-muted-foreground tabular-nums">đã chọn {soChon}</span>
+        {daSyncDich > 0 && !running && (
+          <button
+            onClick={() => setMoHuyDich(true)}
+            title="Khóa đích này đã có học viên do tool tạo — hủy để về ban đầu"
+            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg border border-destructive/40 text-destructive font-medium text-[13px] hover:bg-destructive/10 transition-colors"
+          >
+            <Icon name="warn" className="w-4 h-4" /> Hủy sync khóa đích ({daSyncDich})
+          </button>
+        )}
         {chayPct !== null && (
           <div className="flex items-center gap-2 min-w-[240px]">
             <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden"><div className="h-full bg-sync transition-all" style={{ width: `${chayPct}%` }} /></div>
@@ -411,6 +435,23 @@ export default function BanDongBo() {
           {err && <div className="flex items-center gap-2 text-[13px] text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2"><Icon name="warn" className="w-4 h-4" /> {err}</div>}
           {tongKet && !err && <div className="flex items-center gap-2 text-[13px] text-success bg-success/10 border border-success/30 rounded-lg px-3 py-2"><Icon name="check" className="w-4 h-4" sw={3} /> {tongKet}</div>}
         </div>
+      )}
+
+      {moHuyDich && maKhDich && (
+        <HuyncSyncDialog
+          maKhoaMoi={maKhDich}
+          nhan={khoaDichSel?.ten_kh || maKhDich}
+          targetKey={targetKey}
+          dichDbName={dichTarget?.database}
+          onClose={() => setMoHuyDich(false)}
+          onDone={(kq) => {
+            setMoHuyDich(false);
+            setDaSyncDich(0);
+            setErr("");
+            setTongKet(`Đã hủy sync khóa đích: xóa ${kq.hs_del} hồ sơ · ${kq.nlx_del} người lái`
+              + (kq.tong_so_hv != null ? ` · TổngSoHV còn ${kq.tong_so_hv}` : "") + ". Bấm Tải lại để làm tươi danh sách.");
+          }}
+        />
       )}
     </section>
   );

@@ -832,6 +832,8 @@ export interface SyncRunIn {
   ngay_nhap_hs: string; // ISO yyyy-mm-dd
   target_key?: string;
   so_cmt_chon: string[];
+  ten_kh_nguon?: string; // tên khóa để ghi nhật ký Lịch sử (CHANGES #41)
+  ten_kh_dich?: string;
 }
 export const postSyncRun = (body: SyncRunIn) =>
   fetch(`${BASE}/local/sync/run`, {
@@ -879,14 +881,18 @@ export function openSyncStream(jobId: string, onEvent: (ev: Record<string, unkno
 
 // ── Phân hệ Đồng bộ CDB — Lịch sử & Hủy sync (SYNC-03) ──
 export interface SyncLichSuRow {
-  khoa_moi: string;
-  khoa_cu: string | null;
+  khoa_moi: string;          // mã khóa ĐÍCH (CDB)
+  khoa_cu: string | null;    // mã khóa NGUỒN (CSDT)
+  ten_khoa_moi: string;      // tên khóa đích (rỗng nếu bản cũ + DB không tra được)
+  ten_khoa_cu: string;       // tên khóa nguồn
   sync_at: string; // ISO
   can_bo: string;
   so_tao: number;
 }
-export const getSyncLichSu = () =>
-  fetch(`${BASE}/local/sync/lich-su`, { headers: authHeaders() }).then(json<SyncLichSuRow[]>);
+export const getSyncLichSu = (targetKey?: string) =>
+  fetch(`${BASE}/local/sync/lich-su?${qs({ target_key: targetKey })}`, { headers: authHeaders() }).then(
+    json<SyncLichSuRow[]>,
+  );
 
 export interface SyncRollbackPreview {
   log_count: number;

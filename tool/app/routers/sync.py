@@ -264,6 +264,8 @@ class RunIn(BaseModel):
     ngay_nhap_hs: date
     target_key: str | None = None
     so_cmt_chon: list[str] = Field(default_factory=list)  # CCCD các HV được tick
+    ten_kh_nguon: str = ""   # tên khóa nguồn (FE gửi để ghi nhật ký — CHANGES #41)
+    ten_kh_dich: str = ""    # tên khóa đích
 
 
 def _khoa_hang_nguon(conn, ma_kh: str) -> str | None:
@@ -367,6 +369,8 @@ def _chay_job(job_id: str, db: str, body: RunIn, khoa_info: dict, tt: dict) -> N
                 khoa_moi=body.ma_kh_dich, khoa_cu=body.ma_kh_nguon,
                 ngay_nhap_hs_chon=body.ngay_nhap_hs, can_bo=sync_service.NGUOI_TAO_MAC_DINH,
                 sync_at_start=datetime.now(),
+                ten_khoa_moi=(body.ten_kh_dich or khoa_info.get("ten_kh", "")).strip(),
+                ten_khoa_cu=(body.ten_kh_nguon or "").strip(),
             )
             store = sync_history.HistoryStore()
 
@@ -475,24 +479,46 @@ class RollbackIn(BaseModel):
         return v.strip()
 
 
+def _tra_ten_khoa(conn_factory, ma_khs: set[str]) -> dict[str, str]:
+    """Tra TenKH theo tập MaKH trong 1 truy vấn; lỗi DB → {} (để UI hiện mã)."""
+    if not ma_khs:
+        return {}
+    try:
+        with conn_factory() as cn:
+            cur = cn.cursor(as_dict=True)
+            marks = ",".join(["%s"] * len(ma_khs))
+            cur.execute(f"SELECT MaKH, TenKH FROM dbo.KhoaHoc WHERE MaKH IN ({marks})", tuple(ma_khs))
+            return {r["MaKH"]: (r["TenKH"] or "").strip() for r in cur.fetchall()}
+    except Exception:  # noqa: BLE001 — mất DB thì bỏ qua, không làm hỏng Lịch sử
+        return {}
+
+
 @router.get("/lich-su")
-def lich_su() -> list[dict]:
-    """Các lần sync đã ghi nhật ký trên máy tool (mọi khóa). Thuần đọc JSON cục bộ
-    — không cần DB, file hỏng tự bỏ qua. Mới nhất lên đầu."""
+def lich_su(target_key: str | None = None) -> list[dict]:
+    """Các lần sync đã ghi nhật ký (mọi khóa), kèm TÊN khóa nguồn/đích (CHANGES #41).
+    Đọc JSON cục bộ; bản ghi mới lưu sẵn tên, bản CŨ rỗng → tra DB bù (đích ở CDB theo
+    target_key, nguồn ở CSDT) 1 lượt, bọc try/except nên mất DB vẫn hiện (thiếu tên → mã)."""
     try:
         store = sync_history.HistoryStore()
     except OSError:
         return []
-    out = []
-    for b in store.list_all_batches():
-        out.append({
-            "khoa_moi": b.khoa_moi,
-            "khoa_cu": b.khoa_cu,
-            "sync_at": b.sync_at_start.isoformat(),
-            "can_bo": b.can_bo,
-            "so_tao": len(b.all_ma_dk_new()),
-        })
-    return out
+    rows = [{
+        "khoa_cu": b.khoa_cu, "khoa_moi": b.khoa_moi,
+        "ten_khoa_cu": b.ten_khoa_cu, "ten_khoa_moi": b.ten_khoa_moi,
+        "sync_at": b.sync_at_start.isoformat(), "can_bo": b.can_bo,
+        "so_tao": len(b.all_ma_dk_new()),
+    } for b in store.list_all_batches()]
+
+    thieu_dich = {r["khoa_moi"] for r in rows if not r["ten_khoa_moi"] and r["khoa_moi"]}
+    thieu_nguon = {r["khoa_cu"] for r in rows if not r["ten_khoa_cu"] and r["khoa_cu"]}
+    ten_dich = _tra_ten_khoa(lambda: sqlserver_conn_dich(_db_dich(target_key)), thieu_dich)
+    ten_nguon = _tra_ten_khoa(sqlserver_conn, thieu_nguon)
+    for r in rows:
+        if not r["ten_khoa_moi"]:
+            r["ten_khoa_moi"] = ten_dich.get(r["khoa_moi"], "")
+        if not r["ten_khoa_cu"] and r["khoa_cu"]:
+            r["ten_khoa_cu"] = ten_nguon.get(r["khoa_cu"], "")
+    return rows
 
 
 @router.get("/rollback/preview")
