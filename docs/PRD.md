@@ -816,7 +816,7 @@
 
 #### [DGT-04] Phiên đăng nhập vĩnh viễn (đăng nhập 1 lần, chỉ Đăng xuất mới thoát)
 
-**Trạng thái:** ⚠️ Partial — code đủ 2/2 task (69 server refresh-token + 70 tool phiên đĩa DPAPI/heartbeat) + unit test (mức 2) pass; **chờ deploy VPS task 69 + verify live "qua 8h tự gia hạn" ở Checkpoint 15** mới chốt ✅
+**Trạng thái:** ⚠️ Partial — code đủ 2/2 task (69 server refresh-token + 70 tool phiên đĩa DPAPI/heartbeat) + unit test (mức 2) pass. **Task 69 đã deploy VPS + verify live 06/10/2026** (bảng `refresh_token` tạo tay trên Postgres prod; login 3 đường 200/200/401, cap_refresh cấp token, /refresh xoay cặp mới, khóa TK → refresh 401, web không gãy — Checkpoint 15 phần "Deploy VPS" ✅). **Còn chờ verify tool-side ở máy CSDT** (phiên DPAPI sống qua tắt/mở exe + heartbeat đổi refresh sau 8h) mới chốt ✅
 **Story:** Là người dùng tool hằng ngày, tôi muốn **đăng nhập một lần rồi dùng mãi** — mở lại tool không phải gõ tài khoản lại — chỉ khi bấm "Đăng xuất" mới thoát.
 
 **Done khi:**

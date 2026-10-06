@@ -259,7 +259,7 @@
 - [ ] **DGT-03:** máy sạch → vào **wizard** 3 bước (test xanh mới qua); đã có cấu hình → vào thẳng; **key.bin hỏng → vào wizard** + cảnh báo.
 - [ ] **DGT-04:** đăng nhập 1 lần → tắt/mở exe **vào thẳng**; **qua 8h vẫn kéo VPS được** (refresh ngầm); Đăng xuất → lần sau hỏi lại; admin khóa TK → **bị đá** khi refresh.
 - [ ] **Mức 2:** refresh **xoay một-lần-dùng** + lưu **HASH** + `doi-mat-khau` thu hồi toàn bộ + **ân hạn** không đá nhầm khi retry refresh cũ (mạng chập chờn).
-- [ ] **Deploy VPS** (task 69 đổi `/api/auth`) → verify 3 vai trò + đăng nhập web không gãy ngay sau deploy.
+- [x] **Deploy VPS** (task 69 đổi `/api/auth`) → verify 3 vai trò + đăng nhập web không gãy ngay sau deploy. *(06/10/2026: CD đã đẩy sha HEAD; tạo tay bảng `refresh_token` trên Postgres prod (init.sql không chạy lại); login admin/thu1=200, sai MK=401, cap_refresh cấp token, /refresh xoay cặp mới, refresh bịa=401, khóa TK→refresh 401+thu hồi chuỗi, web /=200; prod dọn sạch token test. Chỉ có 2 vai trò trên prod (admin+collector) — login không rẽ theo vai trò nên đủ.)*
 
 ### ✅ Checkpoint 5 — cuối dự án
 - [ ] Mọi tiêu chí MUST + SHOULD trong PRD đạt.
