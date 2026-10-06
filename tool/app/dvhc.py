@@ -130,13 +130,16 @@ def ds_xa(ma_dvql: str, db: str | None = None) -> list[dict]:
 
 
 def ds_so_gtvt(db: str | None = None) -> list[dict]:
-    """Danh sách Sở GTVT (DM_DonViGTVT LoaiDV='SO') cho combobox 'Nơi cấp' — NoiCapCMT = MaDVQL.
+    """Danh sách 'Nơi cấp' căn cước cho combobox — đọc DM_DVHC (mã 2 ký tự = MaDvhc).
 
-    Nơi cấp căn cước trong DB này mã theo đơn vị GTVT (BUG-10): mã 2 số = MaDVQL, tên = TenDV
-    (vd 70=Bình Phước, 75=Đồng Nai). Suy mặc định từ số CCCD; combobox để operator sửa khi lệch.
-    `db` có giá trị → đọc ở DB đích (TCB-03)."""
+    NoiCapCMT lưu theo MaDvhc của DM_DVHC: mã tỉnh (LoaiDvhc 'TW'/'TI', chỉ tỉnh đang hiệu
+    lực TrangThai=1) + nhóm Cục (LoaiDvhc 'C', gồm '00'='Cục QLHC' cho căn cước — hiện bất kể
+    TrangThai để operator chọn được). Trước 06/10 lấy từ DM_DonViGTVT (Sở GTVT) — đổi để có
+    'Cục QLHC' và khớp danh mục NoiCapCMT thật sự tham chiếu. `db` có giá trị → đọc DB đích (TCB-03).
+    Tên hàm giữ `ds_so_gtvt` để không phá caller; nội dung đã là DM_DVHC."""
     with _cur_dvhc(db) as cur:
-        cur.execute("SELECT MaDVQL, MIN(TenDV) AS ten FROM DM_DonViGTVT "
-                    "WHERE LoaiDV='SO' AND MaDVQL<>'' GROUP BY MaDVQL ORDER BY MIN(TenDV)")
+        cur.execute("SELECT MaDvhc, TenNganGon FROM DM_DVHC "
+                    "WHERE LEN(MaDvhc)=2 AND (LoaiDvhc='C' OR (LoaiDvhc IN ('TW','TI') AND TrangThai=1)) "
+                    "ORDER BY LoaiDvhc, TenNganGon")
         rows = cur.fetchall()
-    return [{"ma": r["MaDVQL"], "ten": (r["ten"] or "").strip()} for r in rows]
+    return [{"ma": r["MaDvhc"], "ten": (r["TenNganGon"] or "").strip()} for r in rows]

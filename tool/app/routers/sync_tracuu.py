@@ -136,7 +136,7 @@ _SQL_HV_THEO_KHOA = (
     "SELECT A.MaDK, A.HoVaTen, A.NgaySinh, A.GioiTinh, A.SoCMT, A.SO_CMND_CU, "
     "B.SoHoSo, A.NoiTT, A.NoiCT, A.NoiCapCMT, "
     "CONVERT(varchar(8), A.NgayCapCMT, 112) AS NgayCapCMT, "
-    "(SELECT TOP 1 dv.TenDV FROM dbo.DM_DonViGTVT dv WHERE dv.MaDVQL = A.NoiCapCMT AND dv.LoaiDV = 'SO') AS NoiCapTen, "
+    "(SELECT TOP 1 dv.TenNganGon FROM dbo.DM_DVHC dv WHERE dv.MaDvhc = A.NoiCapCMT AND LEN(dv.MaDvhc) = 2) AS NoiCapTen, "
     "(SELECT TOP 1 tt.TenDayDu FROM dbo.DM_DVHC tt WHERE tt.MaDvhc = A.NoiTT_MaDVHC) AS HKTT, "
     "(SELECT TOP 1 ct.TenDayDu FROM dbo.DM_DVHC ct WHERE ct.MaDvhc = A.NoiCT_MaDVHC) AS HKCT, "
     "B.DuongDanAnh, B.MaLoaiHs, B.TT_XuLy "
@@ -447,7 +447,7 @@ def chi_tiet_sua_dich(ma_dk: str = Query(..., min_length=1), target_key: str | N
         "CONVERT(varchar(8), nl.NgayCapCMT, 112) AS NgayCapCMT, "  # ngày cấp → 'yyyymmdd'
         # SCALAR SUBQUERY (TOP 1) — KHÔNG LEFT JOIN: MaDvhc không unique → join nhân dòng (BUG-11).
         "(SELECT TOP 1 tt.TenDayDu FROM dbo.DM_DVHC tt WHERE tt.MaDvhc = nl.NoiTT_MaDVHC) AS HKTT, "
-        "(SELECT TOP 1 dv.TenDV FROM dbo.DM_DonViGTVT dv WHERE dv.MaDVQL = nl.NoiCapCMT AND dv.LoaiDV = 'SO') AS NoiCapTen, "
+        "(SELECT TOP 1 dv.TenNganGon FROM dbo.DM_DVHC dv WHERE dv.MaDvhc = nl.NoiCapCMT AND LEN(dv.MaDvhc) = 2) AS NoiCapTen, "
         "hs.MaKhoaHoc, " + _DKKH_SQL + " "
         "FROM dbo.NguoiLX nl "
         "JOIN dbo.NguoiLX_HoSo hs ON hs.MaDK = nl.MaDK "

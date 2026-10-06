@@ -180,7 +180,7 @@ def ds_ho_so(makh: str = Query(..., min_length=1)):
         "SELECT A.MaDK, A.HoVaTen, A.NgaySinh, A.GioiTinh, A.SoCMT, A.SO_CMND_CU, "
         "B.SoHoSo, A.NoiTT, A.NoiCT, A.NoiCapCMT, "
         "CONVERT(varchar(8), A.NgayCapCMT, 112) AS NgayCapCMT, "
-        "(SELECT TOP 1 dv.TenDV FROM dbo.DM_DonViGTVT dv WHERE dv.MaDVQL = A.NoiCapCMT AND dv.LoaiDV = 'SO') AS NoiCapTen, "
+        "(SELECT TOP 1 dv.TenNganGon FROM dbo.DM_DVHC dv WHERE dv.MaDvhc = A.NoiCapCMT AND LEN(dv.MaDvhc) = 2) AS NoiCapTen, "
         "(SELECT TOP 1 tt.TenDayDu FROM dbo.DM_DVHC tt WHERE tt.MaDvhc = A.NoiTT_MaDVHC) AS HKTT, "
         "(SELECT TOP 1 ct.TenDayDu FROM dbo.DM_DVHC ct WHERE ct.MaDvhc = A.NoiCT_MaDVHC) AS HKCT, "
         "B.DuongDanAnh, B.MaLoaiHs "
@@ -211,8 +211,8 @@ def ds_ho_so(makh: str = Query(..., min_length=1)):
             "noi_ct": r["NoiCT"],          # chi tiết cư trú
             "hkct": r["HKCT"],              # cư trú đầy đủ
             "ngay_cap": r["NgayCapCMT"],   # ngày cấp CCCD (yyyymmdd | None)
-            "noi_cap_ma": r["NoiCapCMT"],  # mã Sở GTVT (nơi cấp)
-            "noi_cap_ten": r["NoiCapTen"], # tên Sở GTVT (tỉnh cấp CCCD)
+            "noi_cap_ma": r["NoiCapCMT"],  # mã DM_DVHC (nơi cấp căn cước: tỉnh hoặc '00' Cục QLHC)
+            "noi_cap_ten": r["NoiCapTen"], # tên từ DM_DVHC.TenNganGon
             "co_anh": bool((r["DuongDanAnh"] or "").strip()),
             "duong_dan_anh": (r["DuongDanAnh"] or "").strip() or None,  # QLY-01 task 35: hiện ở modal chi tiết
             "ma_loai_hs": r["MaLoaiHs"],
