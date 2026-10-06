@@ -18,11 +18,11 @@ def test_sinh_so_ho_so():
     assert nap.sinh_so_ho_so(set(range(1, 100))) == "100"
 
 
-def test_suy_noi_cap_bug10():
-    # Nơi cấp = mã Sở GTVT = 2 số (vị trí 2-3) của CCCD 12 số.
-    assert nap.suy_noi_cap("070195000775") == "70"   # Lê Thị Hồng → 70 (Bình Phước)
-    assert nap.suy_noi_cap("075123456789") == "75"   # Đồng Nai
-    assert nap.suy_noi_cap("001188000778") == "01"   # Hà Nội
+def test_suy_noi_cap():
+    # CCCD 12 số → '00' (Cục QLHC, DM_DVHC) — căn cước do Cục QLHC cấp tập trung (đổi 06/10).
+    assert nap.suy_noi_cap("070195000775") == "00"
+    assert nap.suy_noi_cap("075123456789") == "00"
+    assert nap.suy_noi_cap("001188000778") == "00"
     # Không phải CCCD 12 số → '' (để operator chọn tay)
     assert nap.suy_noi_cap("123456789") == ""        # CMND 9 số
     assert nap.suy_noi_cap("17A021052863") == ""     # có chữ

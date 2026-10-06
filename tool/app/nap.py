@@ -54,14 +54,14 @@ def sinh_so_ho_so(da_co) -> str:
 
 
 def suy_noi_cap(so_cmt: str) -> str:
-    """Nơi cấp = MÃ TỈNH 2 số, suy từ số căn cước (BUG-10, thống nhất 03/10).
+    """Nơi cấp căn cước mặc định (mã DM_DVHC.MaDvhc).
 
-    CCCD 12 số: 3 số đầu = mã tỉnh nơi ĐKKS dạng '0XY' → NoiCapCMT = 'XY' (vd 070…→'70' Đồng Nai,
-    001…→'01', 038…→'38'). Khớp 7.941/14.437 bản ghi CCCD đang có trong GPLX_CSDT.
-    QR không mang nơi cấp nhưng suy được từ chính số CCCD, nên khỏi cần nhập.
-    Số không phải CCCD 12 số (CMND 9 số, số lạ) → trả '' để operator chọn tay (combobox tỉnh)."""
+    CCCD 12 số do **Cục Cảnh sát QLHC** cấp tập trung → '00' ('Cục QLHC' trong DM_DVHC).
+    CMND 9 số / số lạ → '' để operator chọn tay (combobox tỉnh trong DM_DVHC).
+    (Đổi 06/10: trước suy MÃ TỈNH từ 3 số đầu CCCD — BUG-10; nay căn cước mặc định Cục QLHC,
+    khớp danh mục NoiCapCMT thật sự tham chiếu + app CSDT hiển thị '00'→Cục QLHC.)"""
     s = (so_cmt or "").strip()
-    return s[1:3] if len(s) == 12 and s.isdigit() else ""
+    return "00" if len(s) == 12 and s.isdigit() else ""
 
 
 def tach_ho_ten(ho_ten: str) -> dict:

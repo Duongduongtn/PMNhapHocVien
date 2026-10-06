@@ -39,10 +39,11 @@ interface NapDong {
 }
 
 // Bản nháp chuẩn bị 1 HV trước khi nạp (địa chỉ + giấy tờ + ảnh do operator bổ sung).
-// Suy mã Sở GTVT (nơi cấp) từ số CCCD: 12 số → vị trí 2-3 (BUG-10). Khác thì '' (chọn tay).
+// Nơi cấp căn cước mặc định (mã DM_DVHC): CCCD 12 số do Cục QLHC cấp → '00' (Cục QLHC).
+// CMND 9 số / khác → '' (operator chọn tay). Đổi 06/10 (trước suy mã tỉnh — BUG-10).
 function suyNoiCap(cccd: string | null | undefined): string {
   const s = (cccd || "").trim();
-  return /^\d{12}$/.test(s) ? s.slice(1, 3) : "";
+  return /^\d{12}$/.test(s) ? "00" : "";
 }
 
 interface Nhap {
@@ -580,8 +581,9 @@ export default function NapHoSo() {
       gioi_tinh: r.gioi_tinh || "M",
       so_cmt: (r.so_cccd || r.so_cmnd_cu || "").trim(),
       ngay_cap_cmt: r.ngay_cap || undefined,
-      // nơi cấp: operator chọn tay > giá trị VPS > suy từ CCCD (BUG-10); rỗng thì backend tự suy
-      noi_cap_cmt: n.noiCap || r.noi_cap_cccd || suyNoiCap(r.so_cccd) || undefined,
+      // nơi cấp: operator chọn tay > suy từ CCCD ('00' Cục QLHC); rỗng thì backend tự suy.
+      // (Bỏ r.noi_cap_cccd: là TEXT "Cục QLHC…" không phải mã → nhét vào cột mã sẽ sai.)
+      noi_cap_cmt: n.noiCap || suyNoiCap(r.so_cccd) || undefined,
       chi_tiet_tt: n.chiTiet.trim() || undefined,
       noi_tt_ma_dvhc: n.diaChi.ma_dvhc,
       noi_tt_ma_dvql: n.diaChi.ma_dvql,
