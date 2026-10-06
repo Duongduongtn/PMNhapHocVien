@@ -42,11 +42,17 @@ Gói sẵn: Python + FastAPI/uvicorn + **pymssql (FreeTDS)** + **rembg/onnxrunti
 `webui/dist` (FastAPI phục vụ UI cùng cổng 8000) + `dvhc_map.sqlite`. Chạy bản gói ghi
 config/nháp/ảnh tạm vào `%APPDATA%\pmcsdtlx-tool` (không vào `Program Files`).
 
+**Khởi chạy (DGT-02):** nháy đúp exe → chạy **không cửa sổ console** (windowed), hiện **biểu
+tượng khay hệ thống** (menu: Mở giao diện · Tự chạy khi bật máy · Thoát) + **tự mở trình duyệt**
+vào đúng trang. Mở lại exe khi đang chạy → chỉ mở thêm tab, **không bật bản thứ hai** (lock-file
+`%APPDATA%\pmcsdtlx-tool\pmcsdtlx-tool.lock`). Cổng mặc định 8000 bận → **tự nhảy cổng trống**.
+Log chạy ghi ở `%APPDATA%\pmcsdtlx-tool\pmcsdtlx-tool.log`.
+
 **Tự kiểm bản gói trên máy đích** (không cần SQL Server/mạng — chỉ kiểm thư viện C nạp được):
 ```bash
-dist\pmcsdtlx-tool\pmcsdtlx-tool.exe --selftest    # in [OK] pymssql + rembg → KET QUA: DAT
+dist\pmcsdtlx-tool\pmcsdtlx-tool.exe --selftest    # bản windowed: báo kết quả bằng HỘP THOẠI
 ```
-Cổng mặc định 8000; đổi bằng biến môi trường `TOOL_PORT` / `TOOL_HOST`.
+Đổi cổng/host bằng biến môi trường `TOOL_PORT` / `TOOL_HOST`.
 Lần đầu máy sạch: Windows SmartScreen cảnh báo exe chưa ký số → bấm "Vẫn chạy".
 
 > Cấu trúc 3 app toàn dự án: xem `docs/TDD.md` §2.4. Thứ tự build: `docs/BUILD-PLAN.md`.

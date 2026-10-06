@@ -47,6 +47,10 @@ hiddenimports += ["pymssql", "_mssql", "uvicorn", "uvicorn.loops.auto",
                   "uvicorn.protocols.http.auto", "uvicorn.protocols.websockets.auto",
                   "uvicorn.lifespan.on"]
 
+# pystray chọn backend theo nền tảng lúc chạy → PyInstaller dễ sót backend win32 (DGT-02).
+hiddenimports += collect_submodules("pystray")
+hiddenimports += ["pystray._win32", "PIL.ImageDraw"]
+
 a = Analysis(
     ["run_tool.py"],
     pathex=[],
@@ -72,7 +76,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=False,                   # không UPX: tránh antivirus báo nhầm
-    console=True,                # DGT-01 còn console; DGT-02 sẽ chuyển sang khay hệ thống
+    console=False,               # DGT-02: windowed (không cửa sổ console đen) — dùng khay hệ thống
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

@@ -784,7 +784,7 @@
 
 #### [DGT-02] Khởi chạy thuận tiện — tự mở trình duyệt, khay hệ thống, chống chạy 2 bản
 
-**Trạng thái:** ⏳ Todo
+**Trạng thái:** ⚠️ Partial — code xong (`app/launcher.py` + `run_tool.py` orchestration + `tool.spec` windowed/pystray). **Verify trên exe thật PASS**: windowed không console; tự mở trình duyệt nạp UI; chống chạy 2 bản (mở lần 2 → vẫn 1 tiến trình, chỉ thêm tab); dò cổng (8000 bận → nhảy 8001); khay hệ thống chạy; 5 unit test launcher + 304 test toàn bộ pass. **Còn chờ nghiệm thu thao tác khay tận tay ở máy CSDT** (bấm "Mở giao diện"/"Thoát"/"Tự chạy khi bật máy") mới chốt ✅
 **Story:** Là người dùng tool, tôi muốn **nháy đúp exe là trình duyệt tự mở đúng trang**, không phải gõ địa chỉ, và lần sau dùng cũng nhanh như mở một phần mềm.
 
 **Done khi:**

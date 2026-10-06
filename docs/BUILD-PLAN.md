@@ -255,7 +255,7 @@
 
 ### ✅ Checkpoint 15 — sau task 26, 67-70 (Feature DGT) — **⚠ Deploy lại VPS (task 69)**
 - [~] **DGT-01:** đóng gói exe → chạy trên **máy sạch** (không Python/Node) → nối SQL Server + VPS, nạp/tra cứu bình thường; dữ liệu ghi `%APPDATA%` (không `Program Files`). *(06/10/2026: ĐÃ build PyInstaller one-folder (`tool/tool.spec`) + tự kiểm trên máy dev PASS — `--selftest` OK pymssql/FreeTDS + rembg; server ~1,2s; data vào `%APPDATA%\pmcsdtlx-tool`; 299 test pass. CÒN chờ chạy trên máy sạch thật ở CSDT để tick xong.)*
-- [ ] **DGT-02:** nháy đúp exe → trình duyệt tự mở đúng trang + khay hiện; mở lại exe → **không bật bản 2**; cổng mặc định bận → nhảy cổng trống.
+- [~] **DGT-02:** nháy đúp exe → trình duyệt tự mở đúng trang + khay hiện; mở lại exe → **không bật bản 2**; cổng mặc định bận → nhảy cổng trống. *(06/10/2026: verify trên exe thật — windowed không console; trình duyệt tự mở nạp UI; mở lần 2 vẫn 1 tiến trình; 8000 bận→8001; 5 unit test launcher pass. CÒN chờ bấm khay tận tay ở máy CSDT.)*
 - [ ] **DGT-03:** máy sạch → vào **wizard** 3 bước (test xanh mới qua); đã có cấu hình → vào thẳng; **key.bin hỏng → vào wizard** + cảnh báo.
 - [ ] **DGT-04:** đăng nhập 1 lần → tắt/mở exe **vào thẳng**; **qua 8h vẫn kéo VPS được** (refresh ngầm); Đăng xuất → lần sau hỏi lại; admin khóa TK → **bị đá** khi refresh.
 - [ ] **Mức 2:** refresh **xoay một-lần-dùng** + lưu **HASH** + `doi-mat-khau` thu hồi toàn bộ + **ân hạn** không đá nhầm khi retry refresh cũ (mạng chập chờn).
