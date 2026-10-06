@@ -836,13 +836,13 @@ export default function TraCuuCDB() {
                       max={new Date().toISOString().slice(0, 10)}
                     />
                     <div>
-                      <label className="field-label">Nơi cấp CCCD (Sở GTVT)</label>
+                      <label className="field-label">Nơi cấp căn cước</label>
                       <div className="mt-1">
                         <ComboLoc
                           value={form.noi_cap_cmt}
                           options={soList.map((s) => ({ ma: s.ma, ten: s.ten }))}
                           onChon={(ma) => setForm((f) => ({ ...f, noi_cap_cmt: ma }))}
-                          placeholder="Gõ tên tỉnh cấp…"
+                          placeholder="Gõ Cục QLHC hoặc tên tỉnh…"
                         />
                       </div>
                     </div>

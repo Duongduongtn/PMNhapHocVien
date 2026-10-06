@@ -229,7 +229,13 @@ export interface HoSoChiTiet {
   gioi_tinh_ten: string;
   so_cccd: string;
   noi_tt: string;
-  hktt: string | null; // tên xã HKTT (chỉ để tham chiếu, không sửa ở đây)
+  hktt: string | null; // tên xã HKTT (chỉ để tham chiếu)
+  // Mở rộng 06/10 — preselect combo địa chỉ 2 cấp + ngày/nơi cấp CCCD
+  noi_tt_ma_dvhc: string;
+  noi_tt_ma_dvql: string;
+  ngay_cap_cmt: string; // 'yyyymmdd' hoặc ''
+  noi_cap_ma: string;   // mã DM_DVHC ('00' Cục QLHC / mã tỉnh)
+  noi_cap_ten: string | null;
   ma_kh: string;
   bc1: boolean;
 }
@@ -244,6 +250,11 @@ export interface HoSoSuaIn {
   gioi_tinh: string; // M/F/U
   so_cccd: string;
   noi_tt: string;
+  // Mở rộng 06/10 — rỗng = giữ giá trị cũ ở DB
+  noi_tt_ma_dvhc?: string; // mã xã (DM_DVHC)
+  noi_tt_ma_dvql?: string; // mã tỉnh (MaDVQL)
+  ngay_cap_cmt?: string;   // 'yyyymmdd'
+  noi_cap_cmt?: string;    // nơi cấp căn cước (mã DM_DVHC)
 }
 export const suaHoSo = (maDk: string, body: HoSoSuaIn) =>
   fetch(`${BASE}/local/ho-so/sua?ma_dk=${encodeURIComponent(maDk)}`, {
@@ -355,7 +366,7 @@ export const getTinh = () =>
 export const getXa = (tinh: string) =>
   fetch(`${BASE}/local/dvhc/xa?tinh=${encodeURIComponent(tinh)}`, { headers: authHeaders() }).then(json<Xa[]>);
 
-export interface SoGtvt { ma: string; ten: string } // nơi cấp: mã Sở GTVT (MaDVQL) + tên tỉnh
+export interface SoGtvt { ma: string; ten: string } // nơi cấp căn cước: mã DM_DVHC ('00' Cục QLHC / tỉnh) + tên
 export const getSoGtvt = () =>
   fetch(`${BASE}/local/dvhc/so-gtvt`, { headers: authHeaders() }).then(json<SoGtvt[]>);
 

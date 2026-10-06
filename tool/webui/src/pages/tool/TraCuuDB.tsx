@@ -5,6 +5,8 @@ import AnhAvatar from "../../components/AnhAvatar";
 import MoKhoaKhacDialog from "../../components/MoKhoaKhacDialog";
 import DoiSoatDialog from "../../components/DoiSoatDialog";
 import { PhanTrang } from "../../components/PhanTrang";
+import { ComboLoc } from "../../components/ComboLoc";
+import { ODate } from "../../components/ODate";
 import { boDau, ymdToVN, maskNgay, nghiSaiChinhTa } from "../../lib/format";
 import {
   traCuuKhoa,
@@ -28,12 +30,24 @@ import {
   type KhoaDich,
   type HoSoRow,
   type HoSoSuaIn,
+  getTinh,
+  getXa,
+  getSoGtvt,
+  type Tinh,
+  type Xa,
+  type SoGtvt,
 } from "../../lib/api";
 
 // QLY-01 — Tra cứu DB. Tìm khóa (mọi khóa, kể cả BC1) → lưới HV theo khóa (tìm phía client:
 // tên bỏ dấu / CCCD) → xem chi tiết → SỬA nhân thân (lát 2, chỉ khóa chưa BC1 — BR-012).
 function gioiTinhVN(g: string | null): string {
   return g === "M" ? "Nam" : g === "F" ? "Nữ" : "—";
+}
+
+// dd/mm/yyyy → 'yyyymmdd' (rỗng nếu chưa đủ) — cho ngày cấp CCCD (mở rộng 06/10).
+function vnToYmd(v: string): string {
+  const m = (v || "").trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return m ? `${m[3]}${m[2]}${m[1]}` : "";
 }
 
 function Bc1Chip() {
@@ -44,7 +58,10 @@ function Bc1Chip() {
   );
 }
 
-const FORM_RONG: HoSoSuaIn = { ho_ten: "", ngay_sinh: "", gioi_tinh: "U", so_cccd: "", noi_tt: "" };
+const FORM_RONG: HoSoSuaIn = {
+  ho_ten: "", ngay_sinh: "", gioi_tinh: "U", so_cccd: "", noi_tt: "",
+  noi_tt_ma_dvhc: "", noi_tt_ma_dvql: "", ngay_cap_cmt: "", noi_cap_cmt: "",
+};
 
 // QLY-07 task 40 — dialog đổi nền trắng cả khóa: chọn phạm vi + sao lưu → chạy nền → polling tiến độ.
 function DoiNenDialog({ maKh, tenKh, onDong, onXong }: {
@@ -193,6 +210,11 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce, locAnhBanDau }: {
   const [sua, setSua] = useState(false);
   const [form, setForm] = useState<HoSoSuaIn>(FORM_RONG);
   const [hktt, setHktt] = useState<string | null>(null);
+  // Mở rộng 06/10 — danh mục địa chỉ 2 cấp + nơi cấp (DB Nạp) + display ngày cấp dd/mm/yyyy
+  const [tinhList, setTinhList] = useState<Tinh[]>([]);
+  const [xaList, setXaList] = useState<Xa[]>([]);
+  const [soList, setSoList] = useState<SoGtvt[]>([]);
+  const [ngayCapVN, setNgayCapVN] = useState("");
   const [loadingCt, setLoadingCt] = useState(false);
   const [saving, setSaving] = useState(false);
   const [suaErr, setSuaErr] = useState("");
@@ -518,8 +540,16 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce, locAnhBanDau }: {
         gioi_tinh: ct.gioi_tinh,
         so_cccd: ct.so_cccd,
         noi_tt: ct.noi_tt ?? "",
+        noi_tt_ma_dvhc: ct.noi_tt_ma_dvhc ?? "",
+        noi_tt_ma_dvql: ct.noi_tt_ma_dvql ?? "",
+        ngay_cap_cmt: ct.ngay_cap_cmt ?? "",
+        noi_cap_cmt: ct.noi_cap_ma ?? "",
       });
+      setNgayCapVN(ymdToVN(ct.ngay_cap_cmt));
       setHktt(ct.hktt);
+      // Nạp danh mục Tỉnh/Nơi cấp (DB Nạp) + Xã của tỉnh đang lưu. Xã cũ (trước sáp nhập) không có
+      // trong danh mục mới → combo trống; không đụng = giữ mã cũ (bỏ-trống-giữ-cũ).
+      void napDanhMuc(ct.noi_tt_ma_dvql ?? "");
       setSua(true);
     } catch (e) {
       setSuaErr(e instanceof Error ? e.message : "Không mở được hồ sơ để sửa.");
@@ -528,14 +558,50 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce, locAnhBanDau }: {
     }
   }
 
+  // Nạp danh mục Tỉnh + Nơi cấp (DB Nạp); có mã tỉnh thì nạp luôn Xã của tỉnh đó.
+  async function napDanhMuc(maTinh: string) {
+    try {
+      const [ts, ss] = await Promise.all([getTinh(), getSoGtvt()]);
+      setTinhList(ts);
+      setSoList(ss);
+    } catch {
+      setSuaErr("Không tải được danh mục Tỉnh/Nơi cấp — kiểm danh mục hoặc kết nối.");
+    }
+    if (maTinh) void napXa(maTinh);
+    else setXaList([]);
+  }
+
+  async function napXa(maTinh: string) {
+    try {
+      setXaList(await getXa(maTinh));
+    } catch {
+      setXaList([]);
+      setSuaErr("Không tải được danh sách xã.");
+    }
+  }
+
+  // Chọn Tỉnh mới → đổi mã tỉnh, xóa xã đang chọn (phải chọn lại xã thuộc tỉnh mới), nạp xã mới.
+  function chonTinh(ma: string) {
+    setForm((f) => ({ ...f, noi_tt_ma_dvql: ma, noi_tt_ma_dvhc: "" }));
+    setXaList([]);
+    if (ma) void napXa(ma);
+  }
+
   async function luu() {
     if (!sel) return;
     if (!form.ho_ten.trim()) return setSuaErr("Chưa nhập họ và tên.");
     if (!/^\d{1,20}$/.test(form.so_cccd.trim())) return setSuaErr("Số căn cước phải là chữ số (tối đa 20).");
+    // Địa chỉ 2 cấp đi theo cặp: chọn Tỉnh thì phải chọn Xã (và ngược lại). Bỏ trống cả hai = giữ cũ.
+    if (!!form.noi_tt_ma_dvql !== !!form.noi_tt_ma_dvhc)
+      return setSuaErr("Địa chỉ 2 cấp phải chọn đủ cả Tỉnh và Xã (hoặc bỏ trống cả hai để giữ nguyên).");
+    const ngayCapYmd = vnToYmd(ngayCapVN);
+    if (ngayCapVN.trim() && !ngayCapYmd) return setSuaErr("Ngày cấp CCCD phải đủ dd/mm/yyyy.");
     setSuaErr("");
     setSaving(true);
     try {
-      await suaHoSo(sel.ma_dk, { ...form, ho_ten: form.ho_ten.trim(), so_cccd: form.so_cccd.trim() });
+      await suaHoSo(sel.ma_dk, {
+        ...form, ho_ten: form.ho_ten.trim(), so_cccd: form.so_cccd.trim(), ngay_cap_cmt: ngayCapYmd,
+      });
       if (khoa) setHoSo(await dsHoSoTheoKhoa(khoa.ma_kh)); // làm tươi lưới đúng dữ liệu DB
       setOkMsg("Đã lưu thay đổi.");
       setTimeout(() => setOkMsg(""), 2500);
@@ -1124,6 +1190,52 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce, locAnhBanDau }: {
                       onChange={(e) => setForm({ ...form, noi_tt: e.target.value })}
                     />
                     {hktt && <p className="text-[11px] text-muted-foreground mt-1">Thuộc: {hktt}</p>}
+                  </div>
+                  {/* Địa chỉ thường trú 2 cấp (Tỉnh + Xã), danh mục DB Nạp. Bỏ trống cả hai = giữ cũ. */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="field-label">Tỉnh/Thành phố (thường trú)</label>
+                      <div className="mt-1">
+                        <ComboLoc
+                          value={form.noi_tt_ma_dvql ?? ""}
+                          options={tinhList.map((t) => ({ ma: t.ma_dvql, ten: t.ten_tinh }))}
+                          onChon={chonTinh}
+                          placeholder="Gõ tên tỉnh/TP…"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="field-label">Phường/Xã (thường trú)</label>
+                      <div className="mt-1">
+                        <ComboLoc
+                          value={form.noi_tt_ma_dvhc ?? ""}
+                          options={xaList.map((x) => ({ ma: x.ma_dvhc, ten: x.ten_xa }))}
+                          onChon={(ma) => setForm((f) => ({ ...f, noi_tt_ma_dvhc: ma }))}
+                          placeholder={form.noi_tt_ma_dvql ? "Gõ tên phường/xã…" : "Chọn tỉnh trước"}
+                          disabled={!form.noi_tt_ma_dvql}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  {/* Ngày cấp + nơi cấp căn cước (danh mục DB Nạp, có '00' Cục QLHC). Bỏ trống = giữ cũ. */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <ODate
+                      label="Ngày cấp CCCD"
+                      value={ngayCapVN}
+                      onChange={setNgayCapVN}
+                      max={new Date().toISOString().slice(0, 10)}
+                    />
+                    <div>
+                      <label className="field-label">Nơi cấp căn cước</label>
+                      <div className="mt-1">
+                        <ComboLoc
+                          value={form.noi_cap_cmt ?? ""}
+                          options={soList.map((s) => ({ ma: s.ma, ten: s.ten }))}
+                          onChon={(ma) => setForm((f) => ({ ...f, noi_cap_cmt: ma }))}
+                          placeholder="Gõ Cục QLHC hoặc tên tỉnh…"
+                        />
+                      </div>
+                    </div>
                   </div>
                   <p className="text-[11px] text-muted-foreground">Chỉ sửa thông tin nhân thân. Ảnh, khóa học không đổi ở đây.</p>
                   {suaErr && (

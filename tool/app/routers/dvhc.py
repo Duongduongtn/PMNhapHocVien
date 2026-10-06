@@ -40,7 +40,8 @@ def list_xa(tinh: str = Query(..., min_length=1, max_length=10)):
 
 @router.get("/so-gtvt")
 def list_so_gtvt():
-    """Danh sách Sở GTVT cho combobox 'Nơi cấp' (mã=MaDVQL, tên=TenDV) — BUG-10."""
+    """Danh sách 'Nơi cấp' căn cước cho combobox (DM_DVHC: tỉnh + '00' Cục QLHC; mã=MaDvhc).
+    Giữ path /so-gtvt + tên hàm để không phá caller; nội dung đã đổi sang DM_DVHC (06/10)."""
     return _guard(dvhc.ds_so_gtvt)
 
 

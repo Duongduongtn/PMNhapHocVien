@@ -94,12 +94,21 @@ _EXEC_UPDATE = (
 
 
 class HoSoSua(BaseModel):
-    """Trường nhân thân cho sửa (QLY-01 lát 2). Chỉ 5 trường — còn lại giữ nguyên từ DB."""
+    """Trường nhân thân cho sửa (QLY-01 lát 2).
+
+    5 trường gốc: ho_ten, ngay_sinh, gioi_tinh, so_cccd, noi_tt (chi tiết chữ tự do).
+    4 trường mở rộng 06/10 (ngang TCB-03/#37): địa chỉ thường trú 2 cấp + ngày/nơi cấp CCCD.
+    **Bỏ trống thì GIỮ giá trị cũ** (dung_tham_so_update fallback cur_row) — không ghi đè rỗng."""
     ho_ten: str
     ngay_sinh: str = ""
     gioi_tinh: str = "U"
     so_cccd: str
     noi_tt: str = ""
+    # Mở rộng 06/10 — rỗng = giữ giá trị cũ
+    noi_tt_ma_dvhc: str = ""   # mã xã/phường (DM_DVHC)
+    noi_tt_ma_dvql: str = ""   # mã tỉnh (MaDVQL)
+    ngay_cap_cmt: str = ""     # ngày cấp CCCD — 'yyyymmdd' từ UI (rỗng = giữ cũ)
+    noi_cap_cmt: str = ""      # nơi cấp căn cước — mã DM_DVHC ('00' Cục QLHC / mã tỉnh)
 
     @field_validator("ho_ten", "so_cccd")
     @classmethod
@@ -107,6 +116,23 @@ class HoSoSua(BaseModel):
         if not v or not v.strip():
             raise ValueError("Không được để trống")
         return v.strip()
+
+    @field_validator("ngay_cap_cmt")
+    @classmethod
+    def _ngay_cap_hop_le(cls, v: str) -> str:
+        """Chuẩn hóa về 'yyyymmdd' (8 số) hoặc rỗng; chặn ngày cấp > hôm nay."""
+        so = re.sub(r"\D", "", v or "")
+        if not so:
+            return ""
+        if len(so) != 8:
+            raise ValueError("Ngày cấp CCCD phải đủ ngày/tháng/năm (dd/mm/yyyy)")
+        try:
+            d = datetime.strptime(so, "%Y%m%d").date()
+        except ValueError:
+            raise ValueError("Ngày cấp CCCD không hợp lệ")
+        if d > datetime.now().date():
+            raise ValueError("Ngày cấp CCCD không được sau hôm nay")
+        return so
 
     @field_validator("so_cccd")
     @classmethod
@@ -132,9 +158,16 @@ class HoSoSua(BaseModel):
         return v
 
 
+def _giu_cu(moi: str, cu):
+    """Bỏ-trống-giữ-cũ: UI gửi giá trị không rỗng thì dùng, rỗng thì giữ cột cũ (mở rộng 06/10)."""
+    m = (moi or "").strip()
+    return m if m else cu
+
+
 def dung_tham_so_update(cur_row: dict, body: HoSoSua, nguoi: str) -> tuple:
-    """Dựng 24 tham số usp_NguoiLX_Update: chồng 5 trường user sửa lên bản ghi hiện tại,
-    giữ nguyên mọi cột khác. SP tự getdate() cho NgaySua (giá trị truyền bị bỏ qua)."""
+    """Dựng 24 tham số usp_NguoiLX_Update: chồng trường user sửa lên bản ghi hiện tại,
+    giữ nguyên mọi cột khác. 4 trường mở rộng 06/10 (địa chỉ 2 cấp + ngày/nơi cấp CCCD) bỏ
+    trống = giữ cur_row. SP tự getdate() cho NgaySua (giá trị truyền bị bỏ qua)."""
     ten = tach_ho_ten(body.ho_ten)  # IN HOA giữ dấu → HoVaTen/Ho/Ten/HoVaTenIn
     return (
         cur_row["MaDK"],
@@ -145,14 +178,14 @@ def dung_tham_so_update(cur_row: dict, body: HoSoSua, nguoi: str) -> tuple:
         cur_row["MaQuocTich"],
         ngay_sinh_luu(body.ngay_sinh),
         body.noi_tt.strip(),
-        cur_row["NoiTT_MaDVHC"],
-        cur_row["NoiTT_MaDVQL"],
+        _giu_cu(body.noi_tt_ma_dvhc, cur_row["NoiTT_MaDVHC"]),   # xã (bỏ trống = giữ)
+        _giu_cu(body.noi_tt_ma_dvql, cur_row["NoiTT_MaDVQL"]),   # tỉnh
         cur_row["NoiCT"],
         cur_row["NoiCT_MaDVHC"],
         cur_row["NoiCT_MaDVQL"],
         body.so_cccd.strip(),
-        cur_row["NgayCapCMT"],
-        cur_row["NoiCapCMT"],
+        _giu_cu(body.ngay_cap_cmt, cur_row["NgayCapCMT"]),       # ngày cấp CCCD
+        _giu_cu(body.noi_cap_cmt, cur_row["NoiCapCMT"]),         # nơi cấp căn cước (DM_DVHC)
         cur_row["GhiChu"],
         cur_row["TrangThai"],
         cur_row["NguoiTao"],
@@ -226,13 +259,17 @@ def chi_tiet(ma_dk: str = Query(..., min_length=1)):
     """Nhân thân 1 HV để mở form sửa (đọc thẳng NguoiLX) + tên xã HKTT + cờ khóa đã BC1.
 
     bc1=True → UI chỉ cho xem (BR-012). ngay_sinh/giới tính trả về dạng để hiển thị trên ô."""
+    # SCALAR SUBQUERY (TOP 1) cho HKTT/NoiCapTen — KHÔNG LEFT JOIN: MaDvhc không unique → nhân dòng (BUG-11).
     sql = (
         "SELECT nl.MaDK, nl.HoVaTen, nl.NgaySinh, nl.GioiTinh, nl.SoCMT, nl.NoiTT, "
-        "tt.TenDayDu AS HKTT, hs.MaKhoaHoc, "
+        "nl.NoiTT_MaDVHC, nl.NoiTT_MaDVQL, nl.NoiCapCMT, "
+        "CONVERT(varchar(8), nl.NgayCapCMT, 112) AS NgayCapCMT, "
+        "(SELECT TOP 1 tt.TenDayDu FROM dbo.DM_DVHC tt WHERE tt.MaDvhc = nl.NoiTT_MaDVHC) AS HKTT, "
+        "(SELECT TOP 1 dv.TenNganGon FROM dbo.DM_DVHC dv WHERE dv.MaDvhc = nl.NoiCapCMT AND LEN(dv.MaDvhc) = 2) AS NoiCapTen, "
+        "hs.MaKhoaHoc, "
         "CASE WHEN EXISTS (SELECT 1 FROM BaoCaoI b WHERE b.MaKH = hs.MaKhoaHoc) THEN 1 ELSE 0 END AS bc1 "
         "FROM NguoiLX nl "
         "JOIN NguoiLX_HoSo hs ON hs.MaDK = nl.MaDK "
-        "LEFT JOIN DM_DVHC tt ON tt.MaDvhc = nl.NoiTT_MaDVHC "
         "WHERE nl.MaDK = %s"
     )
     try:
@@ -256,6 +293,12 @@ def chi_tiet(ma_dk: str = Query(..., min_length=1)):
         "so_cccd": r["SoCMT"],
         "noi_tt": r["NoiTT"],
         "hktt": r["HKTT"],
+        # Mở rộng 06/10 — để preselect combo địa chỉ 2 cấp + ngày/nơi cấp CCCD trong form sửa
+        "noi_tt_ma_dvhc": (r["NoiTT_MaDVHC"] or "").strip(),
+        "noi_tt_ma_dvql": (r["NoiTT_MaDVQL"] or "").strip(),
+        "ngay_cap_cmt": r["NgayCapCMT"] or "",
+        "noi_cap_ma": (r["NoiCapCMT"] or "").strip(),
+        "noi_cap_ten": r["NoiCapTen"],
         "ma_kh": r["MaKhoaHoc"],
         "bc1": bool(r["bc1"]),
     }
