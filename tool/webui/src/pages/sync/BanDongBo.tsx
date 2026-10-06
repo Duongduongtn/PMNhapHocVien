@@ -386,7 +386,7 @@ export default function BanDongBo() {
               <th className="font-semibold px-2 py-1.5 w-[86px]">NgàyHS nguồn</th>
               <th className="font-semibold px-2 py-1.5">MaDK đích</th>
               <th className="font-semibold px-2 py-1.5 w-[86px]">NgàyHS đích</th>
-              <th className="font-semibold px-2 py-1.5 w-12 text-center">Số HS</th>
+              <th className="font-semibold px-2 py-1.5 w-12 text-center" title="Số lượng hồ sơ của người này ở DB đích (1 người = 1 hồ sơ; khác 1 là bất thường)">SL hồ sơ</th>
               <th className="font-semibold px-2 py-1.5 w-44">Trạng thái</th>
             </tr>
           </thead>
