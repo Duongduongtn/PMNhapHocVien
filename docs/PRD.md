@@ -769,7 +769,7 @@
 
 #### [DGT-01] Đóng gói tool thành file .exe chạy độc lập
 
-**Trạng thái:** ⏳ Todo
+**Trạng thái:** ⚠️ Partial — đã đóng gói (PyInstaller one-folder, `tool/tool.spec`): gói sẵn Python + pymssql/rembg/onnxruntime + model u2net + webui/dist (FastAPI phục vụ cùng cổng) + dvhc_map.sqlite; ghi dữ liệu vào `%APPDATA%\pmcsdtlx-tool` khi `sys.frozen`. **Tự kiểm trên máy dev PASS** (`pmcsdtlx-tool.exe --selftest`: pymssql/FreeTDS nạp được + rembg xóa phông ra .jp2; server sẵn sàng ~1,2s; 299 unit test pass). **Còn chờ nghiệm thu "máy sạch thật" ở CSDT** (không Python/Node → nối SQL Server + nạp/tra cứu) mới chốt ✅
 **Story:** Là người triển khai, tôi muốn đóng gói tool thành **một file `.exe`** mang sang máy CSDT khác chạy được ngay, để không phải cài Python, Node hay thư viện gì trên máy đó.
 
 **Done khi:**

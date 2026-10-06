@@ -254,7 +254,7 @@
 | 70 | **DGT-04 (2/2) tool phiên vĩnh viễn**: lưu phiên + refresh token ra đĩa **mã hóa DPAPI (CurrentUser)** (ràng máy + tài khoản Windows) + nạp lại khi khởi động **bọc try/except** (hỏng → về màn đăng nhập) + **heartbeat** đổi refresh token định kỳ (khởi động + mỗi N giờ) + Đăng xuất xóa phiên đĩa+client. Vòng đời: TDD §11C.5 | `DGT-04 (2/2)` | M | 69,17 | 1+2 | [x] 05/10 — phiên đĩa DPAPI + nạp-lại-khi-khởi-động + heartbeat đổi refresh (3h) + đăng xuất xóa đĩa/thu hồi VPS; 296 pytest tool (+10); review-nghiepvu 9/9. **Verify live heartbeat chờ deploy VPS (CP15)** |
 
 ### ✅ Checkpoint 15 — sau task 26, 67-70 (Feature DGT) — **⚠ Deploy lại VPS (task 69)**
-- [ ] **DGT-01:** đóng gói exe → chạy trên **máy sạch** (không Python/Node) → nối SQL Server + VPS, nạp/tra cứu bình thường; dữ liệu ghi `%APPDATA%` (không `Program Files`).
+- [~] **DGT-01:** đóng gói exe → chạy trên **máy sạch** (không Python/Node) → nối SQL Server + VPS, nạp/tra cứu bình thường; dữ liệu ghi `%APPDATA%` (không `Program Files`). *(06/10/2026: ĐÃ build PyInstaller one-folder (`tool/tool.spec`) + tự kiểm trên máy dev PASS — `--selftest` OK pymssql/FreeTDS + rembg; server ~1,2s; data vào `%APPDATA%\pmcsdtlx-tool`; 299 test pass. CÒN chờ chạy trên máy sạch thật ở CSDT để tick xong.)*
 - [ ] **DGT-02:** nháy đúp exe → trình duyệt tự mở đúng trang + khay hiện; mở lại exe → **không bật bản 2**; cổng mặc định bận → nhảy cổng trống.
 - [ ] **DGT-03:** máy sạch → vào **wizard** 3 bước (test xanh mới qua); đã có cấu hình → vào thẳng; **key.bin hỏng → vào wizard** + cảnh báo.
 - [ ] **DGT-04:** đăng nhập 1 lần → tắt/mở exe **vào thẳng**; **qua 8h vẫn kéo VPS được** (refresh ngầm); Đăng xuất → lần sau hỏi lại; admin khóa TK → **bị đá** khi refresh.

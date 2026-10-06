@@ -26,4 +26,27 @@ Test backend:
 cd tool && pytest
 ```
 
+## Đóng gói .exe (DGT-01)
+
+Gói tool thành **một thư mục chạy độc lập** (one-folder) cho máy CSDT không cài Python/Node.
+
+```bash
+cd tool
+pnpm --dir webui build                      # 1. build giao diện tĩnh (webui/dist)
+.venv/Scripts/python.exe -m pip install pyinstaller
+.venv/Scripts/python.exe -m PyInstaller tool.spec --noconfirm
+# → dist/pmcsdtlx-tool/pmcsdtlx-tool.exe  (+ _internal/ kèm Python, thư viện, model, dữ liệu)
+```
+
+Gói sẵn: Python + FastAPI/uvicorn + **pymssql (FreeTDS)** + **rembg/onnxruntime + model u2net** +
+`webui/dist` (FastAPI phục vụ UI cùng cổng 8000) + `dvhc_map.sqlite`. Chạy bản gói ghi
+config/nháp/ảnh tạm vào `%APPDATA%\pmcsdtlx-tool` (không vào `Program Files`).
+
+**Tự kiểm bản gói trên máy đích** (không cần SQL Server/mạng — chỉ kiểm thư viện C nạp được):
+```bash
+dist\pmcsdtlx-tool\pmcsdtlx-tool.exe --selftest    # in [OK] pymssql + rembg → KET QUA: DAT
+```
+Cổng mặc định 8000; đổi bằng biến môi trường `TOOL_PORT` / `TOOL_HOST`.
+Lần đầu máy sạch: Windows SmartScreen cảnh báo exe chưa ký số → bấm "Vẫn chạy".
+
 > Cấu trúc 3 app toàn dự án: xem `docs/TDD.md` §2.4. Thứ tự build: `docs/BUILD-PLAN.md`.

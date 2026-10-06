@@ -19,6 +19,8 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
+from app import paths
+
 # ===== Hằng (TDD §10.2) =====
 MAX_LEN = {"HoVaTen": 50, "HoDemNLX": 30, "TenNLX": 20, "HoVaTenIn": 25, "SoCMT": 20}
 
@@ -30,7 +32,8 @@ OUT_LOI = {
     -4: "Số km lái xe an toàn không đủ theo hạng",
 }
 
-ORPHAN_DB = Path(__file__).resolve().parent.parent / "db" / "data" / "staging.sqlite"
+# Nháp/staging là dữ liệu GHI ĐƯỢC (dev: tool/db/data; bản .exe: %APPDATA%\pmcsdtlx-tool\db\data — DGT-01).
+ORPHAN_DB = paths.DATA_DIR / "db" / "data" / "staging.sqlite"
 
 
 # ---- Hàm thuần --------------------------------------------------------------

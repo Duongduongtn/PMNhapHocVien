@@ -9,8 +9,8 @@ from __future__ import annotations
 import re
 import sqlite3
 import unicodedata
-from pathlib import Path
 
+from app import paths
 from app.db import sqlserver_cursor, sqlserver_cursor_dich
 
 
@@ -19,8 +19,8 @@ def _cur_dvhc(db: str | None):
     Cùng host/user/password — chỉ khác database (xem app/db.py)."""
     return sqlserver_cursor_dich(db) if db else sqlserver_cursor()
 
-# Đường dẫn SQLite builder dựng ra (sau này app dùng staging.sqlite — xem CHANGES #1).
-MAP_SQLITE = Path(__file__).resolve().parent.parent / "db" / "data" / "dvhc_map.sqlite"
+# Map DVHC là dữ liệu CHỈ ĐỌC gói kèm (dev: tool/db/data; bản .exe: _MEIPASS\db\data — DGT-01).
+MAP_SQLITE = paths.BUNDLE_DIR / "db" / "data" / "dvhc_map.sqlite"
 
 # ---- Chuẩn hóa tên (đặc tả verify 30/09/2026) -------------------------------
 _PROV_PREFIX = re.compile(r"^(thành phố|tỉnh|tp\.?)\s+")

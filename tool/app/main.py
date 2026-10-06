@@ -6,10 +6,13 @@ xử lý ảnh, nạp) được thêm ở các task sau theo docs/BUILD-PLAN.md.
 """
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 import os
 import threading
 
+from app import paths
 from app.session import require_session
 from app.routers import auth as auth_router
 from app.routers import config as config_router
@@ -106,3 +109,29 @@ def _nap_phien_va_heartbeat() -> None:
 def health() -> dict[str, str]:
     """Kiểm tra tiến trình tool còn sống (khung + sau này cho UI/giám sát)."""
     return {"status": "ok"}
+
+
+# ── DGT-01: FastAPI phục vụ giao diện tĩnh (webui/dist) cùng cổng với API ──
+# Chỉ bật khi có bản build (bản .exe luôn có; chạy dev dùng cổng vite 3011 riêng nên
+# thường KHÔNG có dist → bỏ qua, không ảnh hưởng dev). Đăng ký SAU mọi router + /health
+# để các route API (/local/*, /health) khớp trước; catch-all chỉ nhận phần còn lại.
+_DIST = paths.BUNDLE_DIR / "webui" / "dist"
+if _DIST.is_dir():
+    _ASSETS = _DIST / "assets"
+    if _ASSETS.is_dir():
+        # StaticFiles tự đặt đúng Content-Type cho .js/.css (quan trọng cho ES module).
+        app.mount("/assets", StaticFiles(directory=_ASSETS), name="assets")
+
+    @app.get("/")
+    def _spa_index() -> FileResponse:
+        return FileResponse(_DIST / "index.html")
+
+    @app.get("/{full_path:path}")
+    def _spa_fallback(full_path: str) -> FileResponse:
+        """SPA (BrowserRouter): path là file tĩnh thật → trả file; còn lại → index.html
+        để React Router tự định tuyến (vd /tool/thiet-lap khi F5 / mở link sâu)."""
+        f = (_DIST / full_path).resolve()
+        # Chặn đi ra ngoài thư mục dist (path traversal); phải là file thật mới trả.
+        if f.is_file() and str(f).startswith(str(_DIST.resolve())):
+            return FileResponse(f)
+        return FileResponse(_DIST / "index.html")

@@ -42,8 +42,11 @@ staging.sqlite
 tool/db/data/
 
 # ── Đóng gói ──
+# *.spec bị bỏ qua, nhưng GIỮ tool/tool.spec (công thức build DGT-01).
 *.spec
+!tool/tool.spec
 tool/dist/
+tool/build/
 
 # ── OS / Editor ──
 Thumbs.db

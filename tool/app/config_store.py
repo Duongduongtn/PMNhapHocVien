@@ -15,8 +15,10 @@ from typing import Any
 
 from cryptography.fernet import Fernet
 
-# tool/config/ nằm cạnh gói app/ (tool/app/config_store.py -> tool/config/)
-CONFIG_DIR = Path(__file__).resolve().parent.parent / "config"
+from app import paths
+
+# config/ nằm trong thư mục GHI ĐƯỢC: dev là tool/config, bản .exe là %APPDATA%\pmcsdtlx-tool\config (DGT-01).
+CONFIG_DIR = paths.DATA_DIR / "config"
 KEY_FILE = CONFIG_DIR / "key.bin"
 CONFIG_FILE = CONFIG_DIR / "config.enc"
 
