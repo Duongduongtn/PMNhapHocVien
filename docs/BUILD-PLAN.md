@@ -2,7 +2,7 @@
 
 > File do `/kehoach` sinh. `/tieptheo` đọc file này để biết làm gì tiếp theo.
 > **Thứ tự code** nằm ở đây. **Yêu cầu và trạng thái story** nằm ở `docs/PRD.md`.
-> Cập nhật lần cuối: 07/10/2026 (v18 — bổ sung Phase 7 "Lối nhập OCR dự phòng" (THU-06, CHANGES #49): task 79-80 + Checkpoint 17, engine Tesseract.js client-side. Trước đó v17 — KQD-06 task 78; v16 — KQD-05 task 76/77)
+> Cập nhật lần cuối: 07/10/2026 (v19 — sửa THU-06 chỉ OCR 5 trường mặt trước, bỏ ngày cấp (CHANGES #50). Trước đó v18 — Phase 7 THU-06 task 79-80; v17 — KQD-06 task 78)
 
 ## Quyết định về thứ tự
 
@@ -300,14 +300,14 @@
 
 | # | Task | Story | Quy mô | Phụ thuộc | Kiểm | Xong |
 |---|---|---|---|---|---|---|
-| 79 | **Nền OCR (lib)**: tích hợp Tesseract.js + dữ liệu `vie` vào webapp; `lib/ocr.ts` — downscale ảnh ≤~1600px → chạy Tesseract (client/worker) → trả text; **tách 6 trường bằng regex theo nhãn** in trên thẻ ("Số/No.", "Họ và tên", "Ngày sinh", "Giới tính", "Nơi thường trú", "Ngày cấp"); chuẩn hóa hạ nguồn qua helper `lib/qr.ts` (ddMMyyyy→yyyymmdd, độ dài tên, parse địa chỉ 2 cấp); **mốc fail = CCCD 12 số hợp lệ** (không có → fail không điền gì); **hủy ảnh thẻ khỏi bộ nhớ sau khi đọc** (trừ khi tái dùng cắt chân dung). +unit test tách trường | `THU-06 (1/2)` | M | 13,18 | 1+2 | [x] 07/10 — `lib/ocr.ts` (Tesseract.js client + downscale ≤1600 + regex theo nhãn + mốc fail CCCD 12 số + ngày cấp rỗng theo chốt A) + 6 unit test (34 vitest) + build sạch. OCR thẻ thật = mức 1, chờ Checkpoint 17 |
+| 79 | **Nền OCR (lib)**: tích hợp Tesseract.js + dữ liệu `vie` vào webapp; `lib/ocr.ts` — downscale ảnh ≤~1600px → chạy Tesseract (client/worker) → trả text; **tách 5 trường mặt trước bằng regex theo nhãn** in trên thẻ ("Số/No.", "Họ và tên", "Ngày sinh", "Giới tính", "Nơi thường trú"; **ngày cấp ở mặt sau → không đọc, nhân viên nhập tay** — chốt A); chuẩn hóa hạ nguồn qua helper `lib/qr.ts` (ddMMyyyy→yyyymmdd, độ dài tên, parse địa chỉ 2 cấp); **mốc fail = CCCD 12 số hợp lệ** (không có → fail không điền gì); **hủy ảnh thẻ khỏi bộ nhớ sau khi đọc** (trừ khi tái dùng cắt chân dung). +unit test tách trường | `THU-06 (1/2)` | M | 13,18 | 1+2 | [x] 07/10 — `lib/ocr.ts` (Tesseract.js client + downscale ≤1600 + regex theo nhãn + mốc fail CCCD 12 số + ngày cấp rỗng theo chốt A) + 6 unit test (34 vitest) + build sạch. OCR thẻ thật = mức 1, chờ Checkpoint 17 |
 | 80 | **Lối vào "Chụp ảnh thẻ (tự đọc)" + luồng UI**: thêm lựa chọn thứ 3 ở màn vào `/app/quet` (mọi thiết bị, không khóa theo máy) → chụp/tải ảnh mặt trước CCCD → gọi `ocr.ts` (spinner tiến trình + **hủy → Nhập tay**) → điền **màn xác nhận dùng chung** (THU-01/02), trường thiếu/không-chắc **đánh dấu để soát**, **không auto-submit** → lưu qua luồng gửi sẵn có; ảnh fail → báo rõ, không điền bừa, về Nhập tay/Quét QR. Chạy `impeccable` | `THU-06 (2/2)` | M | 79,17,19 | 1 | [ ] |
 
 > THU-06 cắt 2 task (79/80) cùng trỏ 1 story → PRD `THU-06` chỉ ✅ khi xong cả 2 **và** kiểm tay trên thẻ+điện thoại thật (Checkpoint 17). Engine OCR + tách trường đã chốt ở `/tdd` (TDD §6.7 v5.8). **Mở kiểm:** độ chính xác tiếng Việt có dấu của Tesseract.js trên thẻ thật — quá thấp thì tăng sửa tay hoặc xin phê duyệt pháp lý cho eKYC ngoài (qua `/capnhat`).
 
 ### ✅ Checkpoint 17 — sau task 79-80 (THU-06 OCR)
 - [ ] Màn vào có lối **"Chụp ảnh thẻ (tự đọc)"** trên **mọi thiết bị** (iPhone/Android/desktop), không khóa theo máy.
-- [ ] **Mức 2** (unit tách trường regex): ảnh đủ nhãn → 6 trường đúng (ngày ddMMyyyy→yyyymmdd); không đọc được CCCD 12 số → **fail, không điền trường nào**; nơi thường trú 2 cấp / xuống dòng → ghép dòng, giữ dấu tiếng Việt.
+- [ ] **Mức 2** (unit tách trường regex): ảnh đủ nhãn → **5 trường mặt trước** đúng (ngày sinh ddMMyyyy→dd/mm/yyyy); không đọc được CCCD 12 số → **fail, không điền trường nào**; nơi thường trú 2 cấp / xuống dòng → ghép dòng, giữ dấu tiếng Việt; **ngày cấp luôn trống + đánh dấu** (nhập tay). ✅ đã có 6 unit test task 79.
 - [ ] **Mức 1 (BẮT BUỘC thẻ thật + điện thoại thật — như AS-001/BUG-14):** chụp CCCD rõ → điền sẵn đúng trường; ảnh mờ/OCR fail → báo rõ, không điền bừa; CCCD sai chữ số → ô đỏ validate 12 số; nhân viên **sửa được từng trường** trước khi lưu (màn xác nhận không auto-submit).
 - [ ] Ảnh CCCD **không rời máy** (OCR client-side); ảnh **hủy khỏi bộ nhớ sau khi đọc** (trừ khi tái dùng cắt chân dung); không log đầu ra OCR.
 - [ ] Playwright webapp 375/800/1440 màn vào + luồng OCR (dùng ảnh mẫu) — 0 tràn.
@@ -362,6 +362,7 @@
 
 | Ngày | Thay đổi |
 |---|---|
+| 07/10/2026 | v19 — sửa (CHANGES #50, /capnhat — phát hiện khi build task 79): THU-06 OCR **chỉ đọc 5 trường mặt trước** (bỏ *ngày cấp* — in ở mặt sau, không chụp; nhân viên nhập tay, user chốt A). Sửa mô tả task 79 + Checkpoint 17 (mức 2: 5 trường + ngày cấp luôn trống). Task 79 đã code đúng (5 trường). Không đổi số task. 80 task. |
 | 07/10/2026 | v18 — bổ sung (CHANGES #49, sau /reviewtdd §6.7 + /tdd): thêm **Phase 7 Lối nhập OCR dự phòng (THU-06)** — task **79** nền OCR `lib/ocr.ts` (Tesseract.js client + dữ liệu `vie`, downscale ≤~1600px, tách 6 trường regex theo nhãn, mốc fail CCCD 12 số, hủy ảnh sau đọc, +unit test) + task **80** lối vào "Chụp ảnh thẻ (tự đọc)" + luồng UI (spinner/hủy, màn xác nhận dùng chung không auto-submit, lưu qua luồng gửi sẵn có) + Checkpoint 17. **Thuần webapp**, không đụng tool/VPS; engine chốt Tesseract.js client-side (rào PII, TDD §6.7 v5.8). +1 story THU-06. 80 task. |
 | 07/10/2026 | v17 — bổ sung (CHANGES #48, **đã code trước khi ghi sổ**): thêm **KQD-06 "Sửa lẻ / xóa điểm đã lưu"** vào cuối Phase 6 — task **78** (backend `ket_qua_hon_hop` giữ quy-đổi môn cũ + `POST /local/ketqua/xoa-diem` reset `03` bằng UPDATE trực tiếp, chỉ 09/10, 409 khác + UI nút Xóa điểm có xác nhận; +4 unit test, 340 pytest). Checkpoint 16 mở rộng 71→78 + 2 mục kiểm KQD-06 (sửa lẻ giữ môn cũ · xóa về 03). User chốt phương án A gộp 1 story; TDD §11D.8. +1 story. 78 task. |
 | 07/10/2026 | v16 — bổ sung (CHANGES #45, sau /reviewtdd KQD-05): thêm **KQD-05 "Mở khóa để sửa điểm sau kết xuất"** vào cuối Phase 6 — task **76** backend (`POST /local/ketqua/mo-khoa`: cổng B-1 `EXISTS NoiGui=@MaCSDT TrangThai='0'` + xóa gói chưa gửi + `UPDATE` lùi **mọi HV 12 của CƠ SỞ** guard `KetLuanCSDT IS NOT NULL` + 409/M1) + task **77** UI (nút 2 tab + modal 2 ca bám mock). Checkpoint 16 mở rộng 71→77 + 2 mục kiểm KQD-05. Thao tác **mức cơ sở** (phương án A — DB không nối HV↔gói; biên bản tdd-review-07-10-2026-kqd05). +1 story. 77 task. |

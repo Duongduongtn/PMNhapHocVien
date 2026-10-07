@@ -4,6 +4,7 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 50 | 07/10/2026 | ✏️ Sửa | `THU-06` | **OCR chỉ đọc 5 trường MẶT TRƯỚC — bỏ ngày cấp** (phát hiện khi build task 79, user chốt A). Ngày cấp in ở **mặt sau** thẻ, THU-06 chỉ chụp mặt trước (❌ không đọc mặt sau) → OCR không đọc được ngày cấp. Sửa #49 (vốn ghi "OCR điền 6 trường … ngày cấp"): OCR điền 5 trường (CCCD/họ tên/ngày sinh/giới tính/nơi TT); **ô ngày cấp để trống + đánh dấu, nhân viên nhập tay** (hoặc lấy từ QR nếu quét được). Số story giữ 44, không nghỉ hưu mã. | ✅ Steps b3 + Done-khi (v4.1) | ✅ §6.7 dòng "Trường OCR đọc" (v5.9) | — (màn #23 chưa dựng; task 80 làm ô ngày cấp nhập tay) | ✅ task 79 `ocr.ts` đã đọc 5 trường, ngày cấp rỗng |
 | 49 | 07/10/2026 | ➕ Thêm (lật quyết định) | `THU-06` | **OCR đọc chữ trên thẻ CCCD làm lối nhập dự phòng** (user 07/10, sau BUG-14). Lối nhập **thứ 3** "Chụp ảnh thẻ → tự đọc chữ" ở màn vào `/app/quet`, **mọi thiết bị**: chụp/tải ảnh mặt trước CCCD → OCR điền sẵn 6 trường (CCCD/họ tên/ngày sinh/giới tính/nơi TT/ngày cấp) → **nhân viên xác nhận/sửa** trước khi lưu (OCR có thể sai ký tự) → luồng gửi dùng chung (idempotent UUID, nháp offline). **Lật quyết định "không OCR"** của THU-01 (dòng ❌ nay trỏ THU-06; THU-01 giữ ⚠️ Partial, hành vi QR không đổi). Vì sao: iPhone/iOS quét QR CCCD yếu hơn Android hẳn — engine QR web (ZXing/zbar/OpenCV) đọc không nổi QR nhỏ/mờ/lóa (verify BUG-14 trên ảnh thật), chữ in to/rõ nên OCR chắc hơn. **Engine OCR + nơi chạy + PII CHƯA chốt — để `/tdd`.** **Số story 43→44.** | ✅ +[THU-06] + sửa ❌ THU-01 (v4.0) | ✅ §6.7 + decisions §20 (v5.5) | ⬜ màn #23 → `/prototype-next` | ⬜ (chờ /tdd chốt engine) |
 | 48 | 07/10/2026 | ➕ Thêm | `KQD-06` | **Sửa lẻ / xóa điểm đã lưu** (user 07/10, sau khi dùng thử KQD-02). HV đã cập nhật chưa kết xuất (09/10): **sửa lẻ 1 môn** (giữ điểm quy-đổi 4 môn cũ, KHÔNG tính ngược gốc; Lưu không bắt đủ 5) + **xóa điểm** (nút Xóa + xác nhận → UPDATE trực tiếp NULL 5 điểm/3 cờ/`SoGiayCNTN` + `TT_XuLy='03'`; SP `_CapNhat` không reset được — verify DB 07/10). Chỉ 09/10 (12 phải mở khóa KQD-05, 13 khóa tuyệt đối, 14/90 qua KQD-04). **Số story 42→43.** | ✅ +[KQD-06] | ✅ §11D.8 + §11D.6 (v5.4) | ⬜ (dựng thẳng tool/webui) | ⬜ |
 | 47 | 07/10/2026 | ✏️ Sửa | `KQD-01` · `KQD-02` | **4 cải tiến UX lưới Cập nhật KQĐT** (user 07/10, thuần giao diện, không đổi nghiệp vụ/data/API): ① **ghim tiêu đề lưới** (sticky thead) khi cuộn danh sách HV · ② **thu gọn khung chọn khóa** (nút Thu gọn/Mở rộng) để xem nhiều HV hơn · ③ **phím mũi tên ↑↓←→** di chuyển giữa ô nhập điểm (←→ khi con trỏ ở đầu/cuối ô) · ④ nút **Lưu + Chi tiết ngang hàng** (Lưu trước) thay xếp dọc, dòng thấp hơn. **Không thêm mã**, số story giữ. (Bug hiện điểm/kết luận đã lưu = BUGS #13, không trùng.) | — (chỉ hiển thị) | — | ✅ `CapNhatKQDT.tsx` (verify live) | ✅ |
@@ -57,6 +58,14 @@
 Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên quan
 
 ---
+
+## #50 — OCR chỉ đọc 5 trường mặt trước, bỏ ngày cấp (THU-06) · 07/10/2026
+
+- **Mã:** `THU-06` (sửa, không nghỉ hưu mã). **Số story giữ 44.**
+- **Vì sao:** phát hiện khi build task 79 — **ngày cấp CCCD in ở MẶT SAU thẻ**, không có ở mặt trước. THU-06 chỉ chụp mặt trước (PRD ❌ không đọc mặt sau) → OCR không thể đọc ngày cấp. #49 (và Done-khi THU-06) vốn liệt kê ngày cấp trong 6 trường OCR → tiêu chí không bao giờ đạt. User chốt **phương án A** (07/10): OCR 5 trường mặt trước, ngày cấp nhân viên nhập tay.
+- **Đã sửa:** PRD `[THU-06]` Steps bước 3 + Done-khi (6→5 trường + 1 dòng "ngày cấp nhập tay") · TDD §6.7 dòng "Trường OCR đọc" (v5.9) · BUILD-PLAN task 79 + Checkpoint 17 (v19).
+- **Code:** task 79 (`webapp/src/lib/ocr.ts`) đã viết đúng — đọc 5 trường, ngày cấp luôn rỗng + đánh dấu. Không cần sửa code.
+- **Còn nợ:** task 80 (UI) phải cho ô ngày cấp **nhập tay** (không chờ OCR); màn #23 chưa dựng.
 
 ## #49 — OCR đọc chữ trên thẻ CCCD làm lối nhập dự phòng (THU-06) · 07/10/2026
 
@@ -708,7 +717,7 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 > `/capnhat` đọc mục này ở Bước 0b để biết có thay đổi nào chưa ghi sổ không.
 > So bằng **danh sách mã**, không so bằng thời gian sửa file.
 
-- **Cập nhật:** 07/10/2026 (#49 ➕ `THU-06` "Chụp ảnh thẻ → tự đọc chữ (OCR)" — lối nhập dự phòng mọi thiết bị khi QR không quét được (iPhone yếu hơn Android, BUG-14); lật quyết định "không OCR" của THU-01; engine để /tdd — **số story 43→44**.)
+- **Cập nhật:** 07/10/2026 (#50 ✏️ `THU-06` OCR chỉ đọc 5 trường mặt trước — bỏ ngày cấp (mặt sau, nhập tay; phát hiện khi build task 79, user chốt A). Số story giữ 44. Trước đó #49 ➕ `THU-06` — lối nhập OCR dự phòng, lật "không OCR" THU-01.)
 - **Cập nhật trước:** 07/10/2026 (#48 ➕ `KQD-06` "Sửa lẻ / xóa điểm đã lưu" (chỉ HV 09/10; UPDATE trực tiếp reset về 03) — **số story 42→43**. #47 ✏️ 4 cải tiến UX lưới KQĐT (ghim tiêu đề · thu gọn khung khóa · phím mũi tên · 2 nút ngang hàng) — thuần UI, không thêm mã, KQD-01/02 giữ nguyên trạng thái.)
 - **Cập nhật trước:** 07/10/2026 (#46 ✏️ Đồng bộ tài liệu TDD sau code KQD-05/03 — tài liệu lag code, KHÔNG đổi yêu cầu: §11D.6 +`GET /mo-khoa` + ghi rõ KQD-03 không có endpoint `ket-xuat` riêng; §11D.7 đảo thứ tự lùi-HV-trước/xóa-gói-sau. Số story giữ 42.)
 - **Cập nhật trước:** 07/10/2026 (#45 ➕ Thêm `KQD-05` "Mở khóa để sửa điểm sau kết xuất" (cổng B-1 còn-gói-chưa-gửi · B-1a lùi cả lô → **sau /reviewtdd đổi mức CƠ SỞ** · M1 khóa cứng) + viết lại `KQD-03` khóa-first. KQD-02/04 giữ ⚠️ (1A+2A). **Số story 41→42.** +TDD §11D.7 + decisions §19. DB không nối HV↔gói → thao tác mức cơ sở.)
