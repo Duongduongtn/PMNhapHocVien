@@ -4,6 +4,7 @@
 
 | # | Ngày | Mức | Story | Bug | Trạng thái | Deploy |
 |---|---|---|---|---|---|---|
+| 14 | 07/10/2026 | 🟠 Nặng | `THU-01` | **iPhone (iOS Safari) không quét được QR CCCD — Android quét được.** Camera mở, thấy hình, nhưng rê mã QR ở góc trên phải thẻ mãi không nhận (treo màn quét). Gốc: `decodeTuCanvas` ưu tiên `BarcodeDetector` của máy (Android có → bắt mã nhỏ ở góc khỏe) rồi fallback `qr-scanner.scanImage` 1-lần-1-khung; **iOS Safari KHÔNG có BarcodeDetector** → luôn rơi xuống fallback yếu, quét nguyên khung 1080p nên bỏ sót mã QR nhỏ lệch góc. Sửa (phương án A): tách nhánh — máy có BarcodeDetector giữ vòng quét gốc (khung bám); **iPhone dùng lớp `QrScanner` của thư viện qr-scanner** (worker + dò lặp) **ÉP quét TOÀN khung** (`tinhVungQuet`, downscale ≤1024 giữ độ nét) thay vì vùng giữa mặc định. +4 unit test (28 vitest) + build/tsc sạch. **CHƯA verify iPhone thật** — lỗi chỉ hiện trên iOS. | 🔄 Đang sửa (chờ kiểm iPhone) | ⬜ (chờ deploy + kiểm iPhone thật) |
 | 13 | 07/10/2026 | 🟠 Nặng | `KQD-01` · `KQD-02` | **Lưới Cập nhật KQĐT không hiện điểm + kết luận ĐÃ LƯU cho HV đã cập nhật (09/10/14/90).** Dòng các trạng thái này là dòng NHẬP: ô input lấy `value={nr[m]}` (state nhập RAM, trống) + cột Kết luận tính từ `nhap` (`!t.full`→"đang nhập…"), KHÔNG đọc `h.diem`/`h.ket_luan` đã lưu. Chỉ dòng khóa cứng 12/13 mới render điểm lưu. Hậu quả: nhân viên tưởng điểm chưa lưu (ca TRẦN THỊ VÂN ANH, điểm thực đã ghi TT=09 Đạt). Vi phạm PRD KQD-01 "lưới hiện điểm (nếu có)". Sửa: `diemHint.ts` (`hintDiem` hiện "đã lưu X,X" dưới ô khi chưa gõ + có điểm) + cột Kết luận hiện "Đạt/Không đạt · đã lưu". **Verify live CDB thật** (Vân Anh hiện đủ điểm + "Đạt · đã lưu"). | ✅ Đã sửa | ⬜ (chờ chạy lại tool) |
 | 12 | 03/10/2026 | 🟡 Nên sửa | `QLY-03` | **Xóa hẳn HV ở DB nhưng tab "Đã nạp" vẫn hiện.** `/xoa` (QLY-03) gỡ khỏi CSDT nhưng KHÔNG dọn dòng staging `'xong'` → "Đã nạp" (lọc keo_ve 'xong') còn hiện HV đã xóa. Sửa: sau `_xoa_hv_csdt` → `keo_ve_xoa(lay_uuid_theo_ma_dk(ma_dk))` (bỏ hẳn dòng staging, chỉ SQLite local; xóa hẳn ≠ gỡ nên KHÔNG về 'cho'). Frontend đã tự tải lại keoVe khi về tab Nạp (effect BUG-03). | ✅ Đã sửa | ⬜ (chờ chạy lại tool) |
 | 11 | 03/10/2026 | 🔴 Chặn | `QLY-01` | **Lưới học viên lặp dòng nhiều lần** (regression từ BUG-10): query chi tiết lưới thêm 3 `LEFT JOIN` (DM_DonViGTVT + DM_DVHC cho TT/CT) để lấy tên; nhưng `DM_DVHC.MaDvhc` KHÔNG duy nhất → join **nhân dòng** HV (khóa 6 HV hiện 12+). Sửa: đổi 3 JOIN → **scalar subquery `TOP 1`** (lấy đúng 1 tên, không nhân dòng). Verify khóa 6 HV: 12→6. | ✅ Đã sửa | ⬜ (chờ chạy lại tool) |
@@ -19,6 +20,26 @@
 | 1 | 03/10/2026 | 🔴 Chặn | `QLY-08` | Gỡ về chờ nạp rồi nạp lại cùng uuid → HV KHÔNG vào DB nhưng tool báo thành công | ✅ Đã sửa | ⬜ (tool chưa lên VPS — có hiệu lực khi chạy lại tool) |
 
 Chú thích trạng thái: ✅ Đã sửa · 🔄 Đang sửa · ⏳ Đã xếp task · ⬜ Chưa xử
+
+---
+
+## BUG-14 — iPhone (iOS Safari) không quét được QR CCCD · 07/10/2026
+
+- **Mức:** 🟠 Nặng · **Story:** `THU-01` (đang ⚠️ Partial) · **File:** `webapp/src/pages/Quet.tsx` + `webapp/src/lib/qr.ts` (`tinhVungQuet` mới)
+- **Ai báo:** user 07/10/2026 (đã ghi nhận ở CHANGES #43 dòng 124 "xử lý riêng", nay mới xử). Triệu chứng user chốt phương án A.
+- **Tái hiện:** mở app web trên **iPhone (Safari)** → bấm "Quét QR CCCD" → camera mở, thấy hình → rê mặt trước CCCD (mã QR ở **góc trên phải**) vào khung → **mãi không nhận, treo màn quét**. Cùng thao tác trên **Android quét ra ngay**. *(Lỗi chỉ hiện trên iOS thật — máy dev không chạy được iOS Safari nên root-cause bằng đọc code; bản sửa chờ kiểm iPhone.)*
+- **Nguyên nhân gốc:** `decodeTuCanvas` giải mã theo thứ tự ①`BarcodeDetector` native → ②`qr-scanner.scanImage` (fallback). **iOS Safari tới 2026 vẫn KHÔNG hỗ trợ `BarcodeDetector`** → mọi khung hình rơi xuống nhánh ②; code chụp nguyên khung ~1080p rồi quét 1-lần-1-khung, mã QR CCCD nhỏ lại nằm lệch góc nên nhánh ② (yếu hơn hẳn detector native) không khóa được mã. Android có BarcodeDetector native → bắt mã nhỏ/góc khỏe nên quét ra. Tức: nhánh dự phòng đủ cho ảnh tĩnh nhưng quá yếu cho camera trực tiếp iPhone.
+- **Đã sửa (phương án A — user chốt 07/10):** tách 2 nhánh trong `KhungQuet`:
+  - Máy **có** `BarcodeDetector` (Android/Chrome) → giữ nguyên vòng quét cũ (`getUserMedia` + `setInterval` tick + khung bám QR). **Không đụng** → không regression.
+  - Máy **không có** (iPhone/iOS) → dùng lớp `QrScanner` của thư viện `qr-scanner` (worker + dò lặp, viết riêng cho camera trực tiếp iOS), **ép quét TOÀN khung** qua `tinhVungQuet(w,h)` (vùng `0,0→w,h`, downscale ≤1024 giữ độ nét) thay cho vùng-giữa-2/3 mặc định của thư viện — chính chỗ bỏ sót mã ở góc. Đèn flash chuyển sang `QrScanner.turnFlashOn/Off`; `dungCamera` dừng+`destroy` QrScanner. Đánh đổi (PRD cho phép ở edge case): iPhone mất "khung bám theo mã" (cornerPoints), dùng khung ngắm tĩnh.
+- **Test hồi quy:** `webapp/src/lib/qr.test.ts` — nhóm `tinhVungQuet — BUG-14` (4 ca: quét từ gốc phủ toàn khung · downscale ≤1024 · khung nhỏ giữ nguyên · video chưa sẵn mặc định 1280×720). Guard chống việc lỡ quay lại quét vùng giữa (bỏ sót mã góc). **28 vitest pass · `tsc -b` + `vite build` sạch.**
+- **Kiểm tay còn lại (BẮT BUỘC trên iPhone thật, chưa làm được ở máy dev):**
+  1. iPhone Safari → Quét QR CCCD → đưa mặt trước CCCD (mã góc phải) vào khung → **nhận trong ~1-2 giây**, tự điền đủ trường.
+  2. Android → quét vẫn ra như cũ (không regression).
+  3. Nút đèn flash trên iPhone (nếu máy có) bật/tắt được.
+  4. Đóng màn quét → camera tắt hẳn (không còn chấm xanh camera trên iPhone).
+- **Trạng thái:** 🔄 Đang sửa — code + test + build xong, **chờ kiểm iPhone thật rồi mới đóng ✅**. `THU-01` giữ ⚠️ Partial (không nâng ✅ khi bug 🟠 chưa kiểm xong).
+- **Deploy:** ⬜ chờ — fix ở `webapp/` → phải `/deploy` (CD) mới có hiệu lực trên iPhone; nên deploy rồi kiểm luôn trên máy thật.
 
 ---
 

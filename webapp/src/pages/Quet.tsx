@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Icon } from "../components/Icon";
 import { ODate } from "../components/ODate";
 import { ApiError, kiemTrungCccd, type KiemTrungKq } from "../lib/api";
-import { kiemDoDaiTen, parseCccdQr, type CccdFields, type GioiTinh } from "../lib/qr";
+import { kiemDoDaiTen, parseCccdQr, tinhVungQuet, type CccdFields, type GioiTinh } from "../lib/qr";
 import { capNhatNhap, dsNhap, luuNhap, taoUuid, tuCccd } from "../lib/draft";
 import { dangKyGuiLai, guiMot } from "../lib/gui";
 
@@ -336,6 +336,7 @@ function KhungQuet({
   const streamRef = useRef<MediaStream | null>(null);
   const loopRef = useRef<number | null>(null);
   const detectorRef = useRef<{ cur: BarcodeDetectorLike | null }>({ cur: null });
+  const qrScannerRef = useRef<import("qr-scanner").default | null>(null); // nhánh iPhone (BUG-14)
   const daBatRef = useRef(false); // đã bắt được QR hợp lệ → dừng hẳn, không bắt lần 2
   const dangTickRef = useRef(false); // đang xử lý 1 frame → chặn tick chồng
   const stableRef = useRef<{ raw: string | null; dem: number }>({ raw: null, dem: 0 });
@@ -353,6 +354,11 @@ function KhungQuet({
     }
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
+    const qs = qrScannerRef.current;
+    if (qs) {
+      try { qs.stop(); qs.destroy(); } catch { /* đã dừng */ }
+      qrScannerRef.current = null;
+    }
   }, []);
 
   const batDuoc = useCallback(
@@ -368,6 +374,28 @@ function KhungQuet({
 
   useEffect(() => {
     let huy = false;
+    // iOS Safari KHÔNG có BarcodeDetector → nhánh QrScanner; máy có thì giữ vòng quét gốc (khung bám). BUG-14
+    const coBarcodeDetector =
+      typeof (globalThis as { BarcodeDetector?: BarcodeDetectorCtor }).BarcodeDetector === "function";
+
+    // raw QR → đếm ổn định ~2 frame → parse → nhận. Dùng chung cả 2 nhánh.
+    function nhanRaw(raw: string) {
+      const st = stableRef.current;
+      if (raw === st.raw) st.dem += 1;
+      else {
+        st.raw = raw;
+        st.dem = 1;
+      }
+      if (st.dem < 2) return; // chờ ổn định ~2 frame mới nhận
+      const r = parseCccdQr(raw);
+      if (!r.ok) {
+        // QR đọc được nhưng không đúng chuẩn CCCD → báo, tiếp tục quét.
+        stableRef.current = { raw: null, dem: 0 };
+        setLoi(r.message);
+        return;
+      }
+      batDuoc(r.data);
+    }
 
     async function tick() {
       if (daBatRef.current || dangTickRef.current) return;
@@ -387,7 +415,6 @@ function KhungQuet({
           setBox(null);
           return;
         }
-        const raw = d.raw;
         // Khung bám: quy đổi vị trí QR (px canvas) → px khung hiển thị (video object-cover).
         const cont = camRef.current;
         if (cont && d.box) {
@@ -398,27 +425,14 @@ function KhungQuet({
         } else {
           setBox(null);
         }
-        const st = stableRef.current;
-        if (raw === st.raw) st.dem += 1;
-        else {
-          st.raw = raw;
-          st.dem = 1;
-        }
-        if (st.dem < 2) return; // chờ ổn định ~2 frame (~500ms) mới nhận
-        const r = parseCccdQr(raw);
-        if (!r.ok) {
-          // QR đọc được nhưng không đúng chuẩn CCCD → báo, tiếp tục quét.
-          stableRef.current = { raw: null, dem: 0 };
-          setLoi(r.message);
-          return;
-        }
-        batDuoc(r.data);
+        nhanRaw(d.raw);
       } finally {
         dangTickRef.current = false;
       }
     }
 
-    async function batCamera() {
+    // Nhánh 1 — máy có BarcodeDetector (Android/Chrome): tự quản camera + vòng quét, giữ khung bám QR.
+    async function batCameraNative() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
@@ -450,7 +464,44 @@ function KhungQuet({
       }
     }
 
-    void batCamera();
+    // Nhánh 2 — iPhone/iOS Safari (không có BarcodeDetector): bộ quét camera của thư viện qr-scanner
+    // (worker + dò lặp), ÉP quét TOÀN khung (tinhVungQuet) để bắt QR CCCD nằm lệch góc. BUG-14
+    async function batCameraQrScanner() {
+      try {
+        const QrScanner = (await import("qr-scanner")).default;
+        const v = videoRef.current;
+        if (!v || huy) return;
+        daBatRef.current = false;
+        stableRef.current = { raw: null, dem: 0 };
+        const qs = new QrScanner(
+          v,
+          (res) => {
+            if (!daBatRef.current) nhanRaw(res.data);
+          },
+          {
+            preferredCamera: "environment",
+            returnDetailedScanResult: true,
+            maxScansPerSecond: 5,
+            highlightScanRegion: false,
+            highlightCodeOutline: false,
+            calculateScanRegion: (vid) => tinhVungQuet(vid.videoWidth, vid.videoHeight),
+          },
+        );
+        qrScannerRef.current = qs;
+        await qs.start();
+        if (huy) {
+          dungCamera();
+          return;
+        }
+        const coFlash = await qs.hasFlash().catch(() => false);
+        setCoTorch(coFlash);
+      } catch (e) {
+        if (!huy) setLoiCamera(giaiThichLoiCamera(e));
+      }
+    }
+
+    if (coBarcodeDetector) void batCameraNative();
+    else void batCameraQrScanner();
     return () => {
       huy = true;
       dungCamera();
@@ -458,9 +509,21 @@ function KhungQuet({
   }, [batDuoc, dungCamera, setLoi]);
 
   async function toggleTorch() {
+    const moi = !torchBat;
+    const qs = qrScannerRef.current;
+    if (qs) {
+      // nhánh iPhone: đèn do QrScanner quản (BUG-14)
+      try {
+        if (moi) await qs.turnFlashOn();
+        else await qs.turnFlashOff();
+        setTorchBat(moi);
+      } catch {
+        // thiết bị không bật được đèn — bỏ qua
+      }
+      return;
+    }
     const track = streamRef.current?.getVideoTracks()[0];
     if (!track) return;
-    const moi = !torchBat;
     try {
       await track.applyConstraints({ advanced: [{ torch: moi } as unknown as MediaTrackConstraintSet] });
       setTorchBat(moi);

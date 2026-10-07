@@ -6,6 +6,7 @@ import {
   ngayToIso,
   gioiTinhToMF,
   kiemDoDaiTen,
+  tinhVungQuet,
 } from "./qr";
 
 // 7 trường: CCCD | CMND cũ | Họ tên | NgaySinh(ddMMyyyy) | Giới tính | Nơi TT | NgayCap(ddMMyyyy)
@@ -143,5 +144,34 @@ describe("THU-01 — kiemDoDaiTen (EC-030 cảnh báo độ dài)", () => {
     const hvt = kt.find((x) => x.ten === "Họ và tên");
     expect(hvt?.dai).toBe(51);
     expect(hvt?.max).toBe(50);
+  });
+});
+
+describe("tinhVungQuet — BUG-14: nhánh iPhone ép quét TOÀN khung", () => {
+  it("quét từ gốc (0,0) phủ toàn khung → KHÔNG bỏ sót QR nằm lệch góc", () => {
+    const r = tinhVungQuet(1920, 1080);
+    expect(r.x).toBe(0);
+    expect(r.y).toBe(0);
+    expect(r.width).toBe(1920);
+    expect(r.height).toBe(1080);
+  });
+
+  it("giữ độ phân giải: downscale tối đa 1024 (không tụt ~400 làm mất mã nhỏ)", () => {
+    const r = tinhVungQuet(1920, 1080);
+    expect(r.downScaledWidth).toBe(1024);
+    expect(r.downScaledHeight).toBe(1024);
+  });
+
+  it("khung nhỏ hơn 1024 → giữ nguyên, không phóng to vô ích", () => {
+    const r = tinhVungQuet(640, 480);
+    expect(r.downScaledWidth).toBe(640);
+    expect(r.downScaledHeight).toBe(480);
+  });
+
+  it("video chưa sẵn (w/h ≤ 0) → mặc định 1280×720 an toàn", () => {
+    const r = tinhVungQuet(0, 0);
+    expect(r.width).toBe(1280);
+    expect(r.height).toBe(720);
+    expect(r.downScaledWidth).toBe(1024);
   });
 });

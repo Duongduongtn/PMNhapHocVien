@@ -130,3 +130,30 @@ export function kiemDoDaiTen(hoTen: string): CanhBaoTen[] {
   ];
   return kt.filter((x) => x.dai > x.max);
 }
+
+// ---- Vùng quét cho bộ quét thư viện qr-scanner (nhánh iPhone/iOS — BUG-14) ----
+// iOS Safari không có BarcodeDetector → dùng QrScanner của thư viện. Mặc định thư viện chỉ
+// quét vùng GIỮA khung (~2/3 cạnh ngắn) nên BỎ SÓT mã QR CCCD nằm lệch GÓC TRÊN PHẢI thẻ.
+// Hàm này ép quét TOÀN khung hình + giữ độ phân giải (downscale tối đa 1024, không để tụt
+// ~400 mặc định làm mất mã nhỏ). w/h ≤ 0 (video chưa sẵn) → mặc định 1280×720 an toàn.
+export interface VungQuet {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  downScaledWidth: number;
+  downScaledHeight: number;
+}
+
+export function tinhVungQuet(w: number, h: number): VungQuet {
+  const vw = w > 0 ? w : 1280;
+  const vh = h > 0 ? h : 720;
+  return {
+    x: 0,
+    y: 0,
+    width: vw,
+    height: vh,
+    downScaledWidth: Math.min(vw, 1024),
+    downScaledHeight: Math.min(vh, 1024),
+  };
+}
