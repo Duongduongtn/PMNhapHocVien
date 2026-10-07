@@ -132,7 +132,7 @@
 
 #### [THU-06] Chụp ảnh thẻ → tự đọc chữ (OCR) điền sẵn hồ sơ (app web)
 
-**Trạng thái:** ⏳ Todo — thêm 07/10/2026 (CHANGES #49). Lối nhập **thứ 3** khi QR không quét được (đặc biệt iPhone/iOS — engine QR trên web yếu hơn Android, xem BUG-14). Mở cho **mọi thiết bị**. Engine OCR + nơi chạy (client / dịch vụ) **chốt ở `/tdd`**.
+**Trạng thái:** 🔄 In Progress — thêm 07/10/2026 (CHANGES #49). Lối nhập **thứ 3** khi QR không quét được (đặc biệt iPhone/iOS — engine QR trên web yếu hơn Android, xem BUG-14). Mở cho **mọi thiết bị**. Engine OCR + nơi chạy (client / dịch vụ) **chốt ở `/tdd`**.
 **Story:** Là nhân viên thu nhận, khi QR trên thẻ không quét được (mờ/lóa/nhỏ), tôi muốn chụp ảnh mặt trước CCCD để hệ thống tự đọc chữ điền sẵn hồ sơ, để khỏi gõ tay toàn bộ.
 
 **Steps to Complete:**
