@@ -463,7 +463,7 @@ def keo_ve_xoa_neu_cho(uuid: str) -> bool:
 # staging.sqlite KHÔNG commit/backup (.gitignore).
 _NHAP_DDL = (
     "CREATE TABLE IF NOT EXISTS nhap_chuan_bi ("
-    "uuid TEXT PRIMARY KEY, dia_chi_json TEXT, chi_tiet TEXT, noi_cap TEXT, "
+    "uuid TEXT PRIMARY KEY, dia_chi_json TEXT, chi_tiet TEXT, noi_cap TEXT, ngay_cap TEXT, "
     "tick_json TEXT, jp2_b64 TEXT, anh_preview TEXT, updated_at TEXT)"
 )
 
@@ -472,6 +472,12 @@ def _nhap_conn() -> sqlite3.Connection:
     ORPHAN_DB.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(ORPHAN_DB))
     conn.execute(_NHAP_DDL)
+    # Migrate (CHANGES #43): DDL dùng CREATE TABLE IF NOT EXISTS nên KHÔNG thêm cột vào bảng đã
+    # tồn tại (máy đã tạo nhap_chuan_bi theo #32). ngay_cap là cột bổ sung ở #43 → thêm thủ công
+    # nếu thiếu, không thì INSERT (… ngay_cap …) ném OperationalError làm vỡ lưu nháp.
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(nhap_chuan_bi)")}
+    if "ngay_cap" not in cols:
+        conn.execute("ALTER TABLE nhap_chuan_bi ADD COLUMN ngay_cap TEXT")
     return conn
 
 
@@ -510,29 +516,30 @@ def nhap_doc(uuid: str) -> dict | None:
     conn = _nhap_conn()
     try:
         row = conn.execute(
-            "SELECT uuid, dia_chi_json, chi_tiet, noi_cap, tick_json, jp2_b64, anh_preview, "
-            "updated_at FROM nhap_chuan_bi WHERE uuid=?", (str(uuid),)
+            "SELECT uuid, dia_chi_json, chi_tiet, noi_cap, ngay_cap, tick_json, jp2_b64, "
+            "anh_preview, updated_at FROM nhap_chuan_bi WHERE uuid=?", (str(uuid),)
         ).fetchone()
     finally:
         conn.close()
     if row is None:
         return None
-    cols = ("uuid", "dia_chi_json", "chi_tiet", "noi_cap", "tick_json", "jp2_b64",
+    cols = ("uuid", "dia_chi_json", "chi_tiet", "noi_cap", "ngay_cap", "tick_json", "jp2_b64",
             "anh_preview", "updated_at")
     return dict(zip(cols, row))
 
 
 def nhap_luu(uuid: str, *, dia_chi_json: str | None = None, chi_tiet: str | None = None,
-             noi_cap: str | None = None, tick_json: str | None = None,
+             noi_cap: str | None = None, ngay_cap: str | None = None, tick_json: str | None = None,
              jp2_b64: str | None = None, anh_preview: str | None = None) -> None:
-    """Lưu (upsert) nháp chuẩn bị. Ghi khi đóng drawer / debounce (không mỗi phím)."""
+    """Lưu (upsert) nháp chuẩn bị. Ghi khi đóng drawer / debounce (không mỗi phím).
+    ngay_cap (CHANGES #43): ngày cấp CCCD dạng 'yyyymmdd' operator đã sửa; rỗng/None = chưa đặt."""
     conn = _nhap_conn()
     try:
         conn.execute(
             "INSERT OR REPLACE INTO nhap_chuan_bi "
-            "(uuid, dia_chi_json, chi_tiet, noi_cap, tick_json, jp2_b64, anh_preview, updated_at) "
-            "VALUES (?,?,?,?,?,?,?,?)",
-            (str(uuid), dia_chi_json, chi_tiet, noi_cap, tick_json, jp2_b64, anh_preview,
+            "(uuid, dia_chi_json, chi_tiet, noi_cap, ngay_cap, tick_json, jp2_b64, anh_preview, "
+            "updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
+            (str(uuid), dia_chi_json, chi_tiet, noi_cap, ngay_cap, tick_json, jp2_b64, anh_preview,
              datetime.now().isoformat(timespec="seconds")),
         )
         conn.commit()

@@ -139,3 +139,43 @@ def test_api_nhap_chua_dang_nhap_401(staging_tmp):
     assert client.put("/local/nap/nhap/u1", json={}).status_code == 401
     assert client.delete("/local/nap/nhap/u1").status_code == 401
     assert client.get("/local/nap/nhap?uuids=u1").status_code == 401
+
+
+# ---- CHANGES #43: ô Ngày cấp CCCD (nhap_chuan_bi.ngay_cap) ----
+def test_nhap_luu_doc_ngay_cap_round_trip(staging_tmp):
+    nap.nhap_luu("u1", chi_tiet="Số 1", ngay_cap="20200115")
+    d = nap.nhap_doc("u1")
+    assert d["ngay_cap"] == "20200115" and d["chi_tiet"] == "Số 1"
+
+
+def test_nhap_reset_dia_chi_giu_ngay_cap(staging_tmp):
+    # BUG-04 mở rộng #43: reset RIÊNG địa chỉ, GIỮ ngay_cap (cùng nhóm với ảnh/tick/nơi cấp)
+    nap.nhap_luu("u1", dia_chi_json='{"xa":"cũ"}', chi_tiet="Số 1", ngay_cap="20200115")
+    assert nap.nhap_reset_dia_chi("u1") is True
+    d = nap.nhap_doc("u1")
+    assert d["dia_chi_json"] is None and d["chi_tiet"] is None     # địa chỉ reset
+    assert d["ngay_cap"] == "20200115"                             # GIỮ ngày cấp
+
+
+def test_migrate_them_cot_ngay_cap_cho_bang_cu(staging_tmp):
+    """3.1 (Chặn /reviewtdd #43): máy đã có bảng nhap_chuan_bi theo #32 (THIẾU cột ngay_cap) →
+    _nhap_conn phải ALTER thêm cột, nhap_luu(ngay_cap=...) KHÔNG ném OperationalError."""
+    import sqlite3
+    conn = sqlite3.connect(str(nap.ORPHAN_DB))              # dựng bảng CŨ y DDL #32 (không ngay_cap)
+    conn.execute(
+        "CREATE TABLE nhap_chuan_bi ("
+        "uuid TEXT PRIMARY KEY, dia_chi_json TEXT, chi_tiet TEXT, noi_cap TEXT, "
+        "tick_json TEXT, jp2_b64 TEXT, anh_preview TEXT, updated_at TEXT)"
+    )
+    conn.execute("INSERT INTO nhap_chuan_bi (uuid, chi_tiet) VALUES ('old', 'cũ')")
+    conn.commit()
+    conn.close()
+    nap.nhap_luu("old", chi_tiet="cũ", ngay_cap="20200115")  # _nhap_conn tự ALTER → không vỡ
+    d = nap.nhap_doc("old")
+    assert d["ngay_cap"] == "20200115" and d["chi_tiet"] == "cũ"
+
+
+def test_api_nhap_doc_mac_dinh_co_ngay_cap_none(staging_tmp, auth_headers):
+    # Dòng chưa chuẩn bị → default dict phải CÓ khóa ngay_cap (=None), không thiếu trường
+    g = client.get("/local/nap/nhap/chua-co", headers=auth_headers)
+    assert g.status_code == 200 and g.json()["ngay_cap"] is None

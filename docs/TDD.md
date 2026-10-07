@@ -616,9 +616,16 @@ Một hồ sơ sống ở **2 nơi**: VPS (app web — nơi collector tạo) và
 
 ### 9.3a Lưu nháp chuẩn bị BỀN (CHANGES #32)
 
-Trước #32, mọi chỉnh sửa khi chuẩn bị nạp (`nhap[uuid]`: `diaChi`, `chiTiet`, `noiCap`, `tick`, `jp2`, `anhPreview`) **chỉ sống trong RAM** của màn NapHoSo → tải lại trang/đóng tool là mất. Nay **lưu bền xuống staging** để sống qua phiên và để 2 chip trạng thái (§10.5) đúng kể cả sau khi mở lại.
+Trước #32, mọi chỉnh sửa khi chuẩn bị nạp (`nhap[uuid]`: `diaChi`, `chiTiet`, `noiCap`, `ngayCap`, `tick`, `jp2`, `anhPreview`) **chỉ sống trong RAM** của màn NapHoSo → tải lại trang/đóng tool là mất. Nay **lưu bền xuống staging** để sống qua phiên và để 2 chip trạng thái (§10.5) đúng kể cả sau khi mở lại.
 
-- **Kho:** bảng RIÊNG trong `staging.sqlite` — **`nhap_chuan_bi(uuid PRIMARY KEY, dia_chi_json, chi_tiet, noi_cap, tick_json, jp2_b64, anh_preview, updated_at)`**. *Vì sao bảng riêng chứ không thêm cột vào `keo_ve`: tách bạch DỮ LIỆU GỐC VPS (`keo_ve`, do `keo_ve_upsert` làm tươi) khỏi NHÁP OPERATOR — upsert làm tươi dòng `cho` không vô tình đè/được đè bởi nháp; xóa nháp độc lập.*
+- **Kho:** bảng RIÊNG trong `staging.sqlite` — **`nhap_chuan_bi(uuid PRIMARY KEY, dia_chi_json, chi_tiet, noi_cap, ngay_cap, tick_json, jp2_b64, anh_preview, updated_at)`**. *Vì sao bảng riêng chứ không thêm cột vào `keo_ve`: tách bạch DỮ LIỆU GỐC VPS (`keo_ve`, do `keo_ve_upsert` làm tươi) khỏi NHÁP OPERATOR — upsert làm tươi dòng `cho` không vô tình đè/được đè bởi nháp; xóa nháp độc lập.*
+- **Migrate cột `ngay_cap` (BẮT BUỘC — DDL là `CREATE TABLE IF NOT EXISTS`):** cột `ngay_cap` là bổ sung ở #43; máy đã chạy tool (đã tạo `nhap_chuan_bi` theo #32) có bảng **thiếu** cột này, mà `IF NOT EXISTS` **không thêm cột** vào bảng đã có → `INSERT ... (… ngay_cap …)` ném `OperationalError: no column named ngay_cap`, lưu nháp vỡ. `tool/app` **không có cơ chế migrate** → phải thêm guard idempotent trong `_nhap_conn()` ngay sau `CREATE TABLE IF NOT EXISTS`:
+  ```python
+  cols = {r[1] for r in conn.execute("PRAGMA table_info(nhap_chuan_bi)")}
+  if "ngay_cap" not in cols:
+      conn.execute("ALTER TABLE nhap_chuan_bi ADD COLUMN ngay_cap TEXT")
+  ```
+  Áp cùng cách cho mọi lần thêm cột vào bảng staging dùng `CREATE TABLE IF NOT EXISTS` về sau.
 - **Ảnh trong nháp:** `jp2_b64` (ảnh đã đổi nền, để nạp) + `anh_preview` (PNG để hiển thị) lưu **trong SQLite** cạnh nháp — là **PII ảnh căn cước nằm lại máy tool**, đi ngược nguyên tắc §9.3/§7.4 cũ; chấp nhận có điều kiện (máy nội bộ CSDT + tự xóa — xem TDD-decisions §11). Dọn như §9.3: nạp xong thì xóa.
 - **API (tool-local):**
   - `GET /local/nap/nhap?uuids=<csv>` — **danh sách cờ NHẸ** cho cả lưới: mỗi dòng chỉ `{uuid, co_dia_chi, co_anh, co_tick}` (boolean), KHÔNG kèm `jp2_b64`/`anh_preview`. Dùng vẽ 2 chip §10.5 cho mọi dòng mà không tải ảnh. *Vì sao tách (review #32, Điểm 5): nếu dùng GET-theo-uuid full để lấy cờ thì phải tải toàn bộ base64 ảnh cả khóa chỉ để hiện 1 chip boolean → giật + tốn RAM tab.*
@@ -626,8 +633,10 @@ Trước #32, mọi chỉnh sửa khi chuẩn bị nạp (`nhap[uuid]`: `diaChi`
   - `PUT /local/nap/nhap/{uuid}` — lưu nháp (gọi khi **đóng drawer Chuẩn bị** hoặc debounce khi đổi — không spam mỗi phím).
 - **Vòng đời — tự xóa nháp** (đi kèm mọi điểm dòng `keo_ve` kết thúc): nạp xong (`keo_ve_cap_nhat(... 'xong')`), "Bỏ khỏi hàng đợi" (`keo_ve_xoa`), đồng bộ xóa VPS (`keo_ve_xoa_neu_cho`) → **xóa dòng `nhap_chuan_bi` cùng `uuid`**. Gom thành 1 helper `nhap_xoa(uuid)` gọi chung ở các chỗ này. Thêm **nút "Xóa nháp"** trên drawer Chuẩn bị gọi cùng `nhap_xoa(uuid)` để operator **chủ động dọn** một nháp.
 - **Giới hạn PII nháp bỏ dở (review #32, Điểm 4):** nháp của một dòng `cho` mà operator **không nạp** và collector **không xóa trên app web** thì không rơi vào 3 lối tự-xóa trên → **tồn tại (gồm ảnh căn cước) tới khi operator bấm "Xóa nháp"**. Chấp nhận giới hạn này (máy nội bộ CSDT) — xem TDD-decisions §11.
-- **Cạm bẫy `keo_ve_upsert` + BUG-04 (bắt buộc):** `keo_ve_upsert` khi làm tươi dòng `cho` hiện GHI ĐÈ `noi_tt_raw` bằng bản mới từ VPS. Khi **`noi_tt_raw` ĐỔI** so với bản đang có → **reset phần ĐỊA CHỈ của nháp bền** (`dia_chi_json=NULL`, `chi_tiet` tính lại từ raw mới) + chip địa chỉ về `✗` + toast "địa chỉ của N hồ sơ đã đổi, cần map lại"; **GIỮ** `jp2_b64`/`anh_preview`/`tick_json`/`noi_cap`. `noi_tt_raw` **không đổi** → giữ nguyên nháp. *Đặt so-sánh + reset ở BACKEND (trong/cạnh `keo_ve_upsert`, so raw cũ↔mới trước khi đè) để nguồn sự thật nhất quán, thay vì chỉ ở client `lamTuoiNhapDiaChi` như hiện tại.*
+- **Cạm bẫy `keo_ve_upsert` + BUG-04 (bắt buộc):** `keo_ve_upsert` khi làm tươi dòng `cho` hiện GHI ĐÈ `noi_tt_raw` bằng bản mới từ VPS. Khi **`noi_tt_raw` ĐỔI** so với bản đang có → **reset phần ĐỊA CHỈ của nháp bền** (`dia_chi_json=NULL`, `chi_tiet` tính lại từ raw mới) + chip địa chỉ về `✗` + toast "địa chỉ của N hồ sơ đã đổi, cần map lại"; **GIỮ** `jp2_b64`/`anh_preview`/`tick_json`/`noi_cap`/`ngay_cap`. `noi_tt_raw` **không đổi** → giữ nguyên nháp. *Đặt so-sánh + reset ở BACKEND (trong/cạnh `keo_ve_upsert`, so raw cũ↔mới trước khi đè) để nguồn sự thật nhất quán, thay vì chỉ ở client `lamTuoiNhapDiaChi` như hiện tại.*
 - **Luật ghép địa chỉ hiển thị (review #32 — xác minh DB thật 04/10):** DB lưu **tách** `NoiTT` (chi tiết, nvarchar 50) và địa chỉ hành chính dạng **mã** (`NoiTT_MaDVHC`/`NoiTT_MaDVQL` varchar 5) — **không có SP/view nào ghép** 2 phần, và `DM_DVHC.TenDayDu` cấp xã **đã chứa sẵn phẩy giữa các cấp** (vd `Xã Phước Hòa, Thành phố Hồ Chí Minh`). → Mọi chỗ **tool** hiển thị một dòng địa chỉ phải ghép `[chi_tiet, TenDayDu(xã)].filter(Boolean).join(", ")` (lọc rỗng, ngăn cách `", "`) — đã làm đúng ở popup Chi tiết (`TraCuuDB.tsx`), áp cùng cách cho preview địa chỉ ở drawer Nạp lô. **Lưu `NoiTT` vẫn chỉ chi tiết thuần** (không nhét tên xã/dấu phẩy — giữ §10.2). *App cũ tự render địa chỉ theo cách của nó — ngoài tầm tool.*
+- **Ngày cấp CCCD ở drawer Chuẩn bị (CHANGES #43):** ô có nhãn riêng dùng lại component **`ODate`** (nhập `dd/mm/yyyy`, kèm `max`=hôm nay) — **cùng control với ô Ngày cấp ở `TraCuuDB.tsx`/`TraCuuCDB.tsx`**, KHÔNG dùng `<input type="date">` (để đồng nhất giao diện + giữ chuẩn ngày VN dd/mm/yyyy; `<input type="date">` hiển thị theo locale máy, không chắc ra dd/mm/yyyy). **Điền sẵn** từ `keo_ve.ngay_cap` qua `ymdToVN` (yyyymmdd→dd/mm/yyyy) và **sửa được** như ô Nơi cấp; lưu vào `nhap_chuan_bi.ngay_cap` qua `vnToYmd` (dd/mm/yyyy→yyyymmdd), theo luật GIỮ khi reset địa chỉ (BUG-04). Lúc nạp, payload ưu tiên `nhap.ngayCap` rồi mới tới `keo_ve.ngay_cap` gốc (`NgayCapCMT`) — dùng **một quy tắc `nhap.ngayCap || keo_ve.ngay_cap`** cho cả hiển thị lẫn nạp, nên **ô để rỗng → quay về ngày gốc VPS** (ngày cấp gần như luôn có giá trị đúng từ CCCD; không mở ca "xóa trắng chủ động"). Trước #43 chỉ là chữ read-only, luôn lấy giá trị gốc. Nạp vẫn ghi đúng ngày cấp vào DB → **NAP-05 không đổi tiêu chí Done**.
+- **Nơi cấp luôn điền sẵn dù danh mục nguồn thiếu '00' (CHANGES #43, bền hóa #40):** combo Nơi cấp lấy option từ `DM_DVHC` DB nguồn; nếu máy CSDT **chưa chạy script đồng bộ `DM_DVHC` đích→nguồn** (#40) thì danh mục nguồn không có mã `'00'` Cục QLHC → `<select value="00">` không khớp option nào, tụt về placeholder (trông như "không tự chọn"). Fix phía client: khi `suyNoiCap(cccd)` hoặc nháp ra `'00'` mà danh sách combo chưa có → **tự chèn option `00 — Cục QLHC`** để luôn hiển thị đúng. Dữ liệu nạp không đổi (payload vẫn gửi `'00'`). *Đây là lớp phòng thủ cho tiền đề #40 chưa chạy trên máy đó, không thay cho việc đồng bộ danh mục.*
 
 ```
 Vòng đời nháp chuẩn bị (nhap_chuan_bi, keyed theo uuid dòng keo_ve):
@@ -635,15 +644,16 @@ Vòng đời nháp chuẩn bị (nhap_chuan_bi, keyed theo uuid dòng keo_ve):
    mở drawer / debounce sửa
         │ PUT /local/nap/nhap/{uuid}
         ▼
-   ┌─────────────┐   noi_tt_raw ĐỔI (keo_ve_upsert, BUG-04)
-   │  nháp bền   │──────────────────────────────┐
-   │ dia_chi,    │   reset dia_chi_json=NULL,    │
-   │ chi_tiet,   │   chi_tiet tính lại từ raw,   │
-   │ noi_cap,    │   chip địa chỉ → ✗ + toast;   │
-   │ tick,       │   GIỮ jp2/preview/tick/noi_cap│
-   │ jp2_b64,    │◀──────────────────────────────┘
-   │ anh_preview │
-   └─────────────┘
+   ┌──────────────┐   noi_tt_raw ĐỔI (keo_ve_upsert, BUG-04)
+   │  nháp bền    │──────────────────────────────────┐
+   │ dia_chi,     │   reset dia_chi_json=NULL,        │
+   │ chi_tiet,    │   chi_tiet tính lại từ raw,       │
+   │ noi_cap,     │   chip địa chỉ → ✗ + toast;       │
+   │ ngay_cap,    │   GIỮ jp2/preview/tick/noi_cap/   │
+   │ tick,        │       ngay_cap                    │
+   │ jp2_b64,     │◀──────────────────────────────────┘
+   │ anh_preview  │
+   └──────────────┘
         │ nhap_xoa(uuid) — xóa cả ảnh
         ▼
    (xóa khi)  • nạp xong            keo_ve_cap_nhat(...'xong')
@@ -1279,6 +1289,8 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 |---|---|---|
+| 07/10/2026 | 4.8 | **Sửa sau /reviewtdd §9.3a** (hẹp, phạm vi #43): ô Ngày cấp đổi `<input type="date">`→component **`ODate`** dd/mm/yyyy (`ymdToVN`/`vnToYmd`, `max`=hôm nay) đồng nhất TraCuuDB/TraCuuCDB + giữ chuẩn ngày VN (Nên sửa 2.1); chốt **ô rỗng → quay về ngày gốc** (`nhap.ngayCap \|\| keo_ve.ngay_cap`, một quy tắc cho cả hiển thị lẫn nạp — Nên sửa 2.2); +đoạn **Migrate cột `ngay_cap`** bắt buộc (guard `PRAGMA table_info`+`ALTER TABLE ADD COLUMN`, vì DDL là `IF NOT EXISTS` không tự thêm cột → tránh nạp vỡ trên máy đã có bảng — **Chặn** 3.1). 1 Chặn · 2 Nên-sửa · 3 Ghi-nhận, 0 tồn. Biên bản: docs/tdd-review-07-10-2026.md (mục #43). |
+| 07/10/2026 | 4.7 | **Ngày cấp CCCD + Nơi cấp điền sẵn ở drawer Nạp lô** (CHANGES #43, NAP-01): §9.3a — `nhap_chuan_bi` +cột `ngay_cap`; `nhap[uuid]` +`ngayCap`; ô Ngày cấp (`<input type="date">`) điền sẵn `keo_ve.ngay_cap` + sửa được + lưu nháp (GIỮ khi reset địa chỉ BUG-04); payload nạp ưu tiên `nhap.ngayCap`→gốc (`NgayCapCMT`), NAP-05 không đổi Done. +Bền hóa combo Nơi cấp: tự chèn option `00 — Cục QLHC` khi suy ra '00' mà danh mục nguồn thiếu (máy chưa chạy script đồng bộ `DM_DVHC` #40). |
 | 06/10/2026 | 4.5 | **Sửa sau /reviewtdd §11B.7** (hẹp, phạm vi #40): +edge "xã cũ trước sáp nhập" áp CẢ QLY-01 lẫn TCB-03 (combo Xã trống = giữ mã cũ); +Risks §16.1 **rủi ro mã '00' đa nghĩa** (DM_DVHC=Cục QLHC vs DM_DonViGTVT=Cục CSGT → hỏi người quản CDB tra bảng nào). 0 Chặn · 1 Nên-xác-nhận · 1 Ghi nhận. Biên bản: docs/tdd-review-06-10-2026.md. |
 | 06/10/2026 | 4.4 | **Nơi cấp căn cước = Cục QLHC '00' từ `DM_DVHC`** (CHANGES #40, §11B.7): đổi nguồn nơi cấp `DM_DonViGTVT`→`DM_DVHC.MaDvhc` (có '00' Cục QLHC) ở `ds_so_gtvt` + 3 hiển thị; CCCD 12 số mặc định '00'. **Tiền đề đã chạy:** đồng bộ `DM_DVHC` đích→nguồn (MERGE, backup). **Mở rộng Nạp QLY-01** +combo địa chỉ 2 cấp + nơi cấp + ngày cấp CCCD (đảo #37 "giữ 5 trường"), guard BC1 giữ nguyên. Cần /reviewtdd §11B.7. |
 | 04/10/2026 | 3.4 | QLY-09 task 48 (CHANGES #28, hướng A khi code): §11.8 — "hỏi trạng thái VPS" hiện thực bằng **endpoint READ server mới** `GET /api/nap/trang-thai?uuids=` (operator, batch, ca ②) + `GET /api/admin/ho-so` trả thêm `ma_dk`/`locked_at` (ca ①③). Tool `doisoat.py` (2 panel + 3 action) + phòng tuyến 2 `nap_fn` bỏ `da_nap` khi `trung_uuid` (không sửa `nap_mot_hv`). ⚠ Đổi server → cần deploy VPS. |

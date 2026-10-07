@@ -505,6 +505,7 @@ export interface NhapChuanBi {
   dia_chi_json: string | null;
   chi_tiet: string | null;
   noi_cap: string | null;
+  ngay_cap: string | null; // ngày cấp CCCD 'yyyymmdd' (CHANGES #43); null/'' = chưa đặt
   tick_json: string | null;
   jp2_b64: string | null;
   anh_preview: string | null;

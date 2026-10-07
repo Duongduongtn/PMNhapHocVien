@@ -3,6 +3,7 @@ import { Icon } from "../../components/Icon";
 import { PhanTrang } from "../../components/PhanTrang";
 import AddressCombo, { type DiaChiMoi } from "../../components/AddressCombo";
 import AnhModal from "../../components/AnhModal";
+import { ODate } from "../../components/ODate";
 import TraCuuDB from "./TraCuuDB";
 import { boDau, nghiSaiChinhTa, ymdToVN } from "../../lib/format";
 import { tachDiaChiGoc, lamTuoiNhapDiaChi } from "../../lib/diachi";
@@ -46,10 +47,18 @@ function suyNoiCap(cccd: string | null | undefined): string {
   return /^\d{12}$/.test(s) ? "00" : "";
 }
 
+// dd/mm/yyyy → 'yyyymmdd' (rỗng nếu chưa đủ ngày) — ô Ngày cấp CCCD (CHANGES #43).
+// Dùng chung kiểu với TraCuuDB/TraCuuCDB (ngày cấp lưu yyyymmdd); cặp với ymdToVN.
+function vnToYmd(v: string): string {
+  const m = (v || "").trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return m ? `${m[3]}${m[2]}${m[1]}` : "";
+}
+
 interface Nhap {
   diaChi: DiaChiMoi | null; // NAP-03: operator map/chọn tay — bắt buộc mới nạp được
   chiTiet: string;
   noiCap?: string; // mã Sở GTVT (nơi cấp); operator sửa khi suy từ CCCD sai (BUG-10)
+  ngayCap?: string; // CHANGES #43: ngày cấp CCCD dạng hiển thị dd/mm/yyyy (free-text khi gõ); undefined = chưa sửa, dùng gốc keo_ve.ngay_cap
   jp2: string | null;
   anhPreview: string | null; // CHANGES #23: PNG xem trước ảnh đã chỉnh (xem lại + mở lại chỉnh tiếp); .jp2 không render trực tiếp
   tick: number[] | null; // giấy tờ đã tick; null = chưa khởi tạo theo khóa
@@ -513,7 +522,7 @@ export default function NapHoSo() {
     setXacNhanXoaNhap(false);
     try {
       const d = await nhapDoc(uuid);
-      const co = d.dia_chi_json || d.chi_tiet || d.jp2_b64 || d.anh_preview || d.tick_json || d.noi_cap;
+      const co = d.dia_chi_json || d.chi_tiet || d.jp2_b64 || d.anh_preview || d.tick_json || d.noi_cap || d.ngay_cap;
       if (!co) return; // chưa có nháp bền → để prefill client (NAP-03) lo ô chi tiết
       setNhap((prev) => {
         const cu = prev[uuid];
@@ -525,6 +534,8 @@ export default function NapHoSo() {
           diaChi,
           chiTiet: d.chi_tiet ?? cu?.chiTiet ?? "",
           noiCap: d.noi_cap ?? cu?.noiCap,
+          // ngay_cap nháp lưu yyyymmdd → đổi sang dd/mm/yyyy để hiện; chưa đặt thì để undefined (drawer prefill từ gốc).
+          ngayCap: d.ngay_cap ? ymdToVN(d.ngay_cap) : cu?.ngayCap,
           jp2: d.jp2_b64 ?? cu?.jp2 ?? null,
           anhPreview: d.anh_preview ?? cu?.anhPreview ?? null,
           tick,
@@ -543,6 +554,7 @@ export default function NapHoSo() {
           dia_chi_json: n.diaChi ? JSON.stringify(n.diaChi) : null,
           chi_tiet: n.chiTiet || null,
           noi_cap: n.noiCap || null,
+          ngay_cap: vnToYmd(n.ngayCap ?? "") || null, // dd/mm/yyyy → yyyymmdd; chưa đủ/rỗng = null
           tick_json: n.tick ? JSON.stringify(n.tick) : null,
           jp2_b64: n.jp2,
           anh_preview: n.anhPreview,
@@ -580,7 +592,8 @@ export default function NapHoSo() {
       ngay_sinh: r.ngay_sinh,
       gioi_tinh: r.gioi_tinh || "M",
       so_cmt: (r.so_cccd || r.so_cmnd_cu || "").trim(),
-      ngay_cap_cmt: r.ngay_cap || undefined,
+      // Ngày cấp (#43): ưu tiên bản operator sửa (dd/mm/yyyy→yyyymmdd); ô rỗng → quay về gốc keo_ve.ngay_cap.
+      ngay_cap_cmt: vnToYmd(n.ngayCap ?? "") || r.ngay_cap || undefined,
       // nơi cấp: operator chọn tay > suy từ CCCD ('00' Cục QLHC); rỗng thì backend tự suy.
       // (Bỏ r.noi_cap_cccd: là TEXT "Cục QLHC…" không phải mã → nhét vào cột mã sẽ sai.)
       noi_cap_cmt: n.noiCap || suyNoiCap(r.so_cccd) || undefined,
@@ -1040,7 +1053,6 @@ export default function NapHoSo() {
                       <div className="text-muted-foreground mt-0.5">
                         {selRow.gioi_tinh === "F" ? "Nữ" : "Nam"} · CCCD {selRow.so_cccd || selRow.so_cmnd_cu || "—"}
                         {selRow.ngay_sinh && <> · NS {ymdToVN(selRow.ngay_sinh)}</>}
-                        {selRow.ngay_cap && <> · cấp {ymdToVN(selRow.ngay_cap)}</>}
                       </div>
                       <div className="text-muted-foreground">Địa chỉ gốc: {selRow.noi_tt_raw || "—"}</div>
                       {nghiSaiChinhTa(selRow.ho_ten || "") && (
@@ -1074,22 +1086,41 @@ export default function NapHoSo() {
                       />
                     </div>
 
-                    {/* Nơi cấp căn cước — mã Sở GTVT, tự suy từ CCCD, sửa được (BUG-10) */}
-                    <div className="rounded-lg border border-border bg-card p-4">
-                      <label className="field-label">
-                        Nơi cấp căn cước{" "}
-                        <span className="text-[11px] font-normal text-muted-foreground">(tự suy từ số CCCD — sửa nếu sai)</span>
-                      </label>
-                      <select
-                        className="field-input mt-1"
-                        value={layNhap(selRow.uuid).noiCap ?? suyNoiCap(selRow.so_cccd)}
-                        onChange={(e) => capNhatNhap(selRow.uuid, { noiCap: e.target.value })}
-                      >
-                        <option value="">— Chọn nơi cấp —</option>
-                        {soGtvt.map((s) => (
-                          <option key={s.ma} value={s.ma}>{s.ten}</option>
-                        ))}
-                      </select>
+                    {/* Ngày cấp + Nơi cấp căn cước — điền sẵn từ hồ sơ VPS, operator sửa được (CHANGES #43) */}
+                    <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+                      {/* Ngày cấp CCCD — ô ODate dd/mm/yyyy, điền sẵn keo_ve.ngay_cap, sửa được; rỗng → nạp dùng ngày gốc */}
+                      <ODate
+                        label={<>Ngày cấp căn cước <span className="text-[11px] font-normal text-muted-foreground">(điền sẵn từ hồ sơ — sửa nếu cần)</span></>}
+                        value={layNhap(selRow.uuid).ngayCap ?? ymdToVN(selRow.ngay_cap)}
+                        onChange={(v) => capNhatNhap(selRow.uuid, { ngayCap: v })}
+                        max={new Date().toISOString().slice(0, 10)}
+                      />
+                      {/* Nơi cấp — mã DM_DVHC, tự suy từ CCCD ('00' Cục QLHC), sửa được (BUG-10/#40) */}
+                      <div>
+                        <label className="field-label">
+                          Nơi cấp căn cước{" "}
+                          <span className="text-[11px] font-normal text-muted-foreground">(tự suy từ số CCCD — sửa nếu sai)</span>
+                        </label>
+                        {(() => {
+                          // Bền hóa #43: khi suy ra '00' Cục QLHC mà danh mục nguồn thiếu mã '00'
+                          // (máy chưa chạy script đồng bộ DM_DVHC #40) → tự chèn option để luôn hiển thị đúng.
+                          const noiCapVal = layNhap(selRow.uuid).noiCap ?? suyNoiCap(selRow.so_cccd);
+                          const thieu00 = noiCapVal === "00" && !soGtvt.some((s) => s.ma === "00");
+                          return (
+                            <select
+                              className="field-input mt-1"
+                              value={noiCapVal}
+                              onChange={(e) => capNhatNhap(selRow.uuid, { noiCap: e.target.value })}
+                            >
+                              <option value="">— Chọn nơi cấp —</option>
+                              {thieu00 && <option value="00">00 — Cục QLHC</option>}
+                              {soGtvt.map((s) => (
+                                <option key={s.ma} value={s.ma}>{s.ten}</option>
+                              ))}
+                            </select>
+                          );
+                        })()}
+                      </div>
                     </div>
 
                     {/* Giấy tờ */}

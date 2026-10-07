@@ -259,6 +259,7 @@ class NhapChuanBiIn(BaseModel):
     dia_chi_json: str | None = None   # địa chỉ 2 cấp đã map (JSON); None = chưa map
     chi_tiet: str | None = None       # số nhà/thôn (NoiTT)
     noi_cap: str | None = None        # nơi cấp CCCD
+    ngay_cap: str | None = None       # ngày cấp CCCD 'yyyymmdd' (CHANGES #43); None/'' = chưa đặt
     tick_json: str | None = None      # danh sách MaGT đã tick (JSON)
     jp2_b64: str | None = None        # ảnh đã đổi nền (.jp2 base64) — PII
     anh_preview: str | None = None    # PNG xem trước (base64)
@@ -278,7 +279,7 @@ def nhap_doc_mot(uuid: str, phien: Phien = Depends(require_session)):
     """Đọc ĐẦY ĐỦ 1 nháp (kèm jp2_b64 + anh_preview) — gọi khi MỞ drawer Chuẩn bị.
     Chưa có nháp → trả rỗng (các trường None), KHÔNG 404 (dòng mới chưa chuẩn bị là bình thường)."""
     return nap.nhap_doc(uuid) or {
-        "uuid": uuid, "dia_chi_json": None, "chi_tiet": None, "noi_cap": None,
+        "uuid": uuid, "dia_chi_json": None, "chi_tiet": None, "noi_cap": None, "ngay_cap": None,
         "tick_json": None, "jp2_b64": None, "anh_preview": None, "updated_at": None,
     }
 
