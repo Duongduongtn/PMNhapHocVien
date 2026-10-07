@@ -24,6 +24,10 @@ export default {
         sync: "hsl(184 65% 32%)",
         "sync-soft": "hsl(184 55% 95%)",
         "sync-border": "hsl(184 45% 80%)",
+        // Tông nhấn phân hệ Kết quả đào tạo (tím) — phân biệt Nạp (primary) & Sync (teal)
+        kq: "hsl(262 60% 46%)",
+        "kq-soft": "hsl(262 70% 96%)",
+        "kq-border": "hsl(262 50% 84%)",
       },
       borderRadius: { lg: "0.625rem", md: "0.5rem", sm: "0.375rem" },
     },

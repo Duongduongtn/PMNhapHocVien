@@ -25,6 +25,7 @@ from app.routers import doinen as doinen_router
 from app.routers import sync as sync_router
 from app.routers import sync_tracuu as sync_tracuu_router
 from app.routers import doisoat as doisoat_router
+from app.routers import ketqua as ketqua_router
 
 app = FastAPI(
     title="Tool nạp DB — Thu nhận hồ sơ học viên",
@@ -62,6 +63,7 @@ app.include_router(doinen_router.router, dependencies=_gac)
 app.include_router(doisoat_router.router, dependencies=_gac)
 app.include_router(sync_router.router, dependencies=_gac)
 app.include_router(sync_tracuu_router.router, dependencies=_gac)
+app.include_router(ketqua_router.router, dependencies=_gac)
 
 
 @app.on_event("startup")

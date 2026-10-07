@@ -141,3 +141,54 @@
   - **Mã hóa phiên đĩa: DPAPI (CurrentUser)** thay `key.bin`. *Đã từng chốt `key.bin`* → đổi vì `key.bin` nằm cùng thư mục, copy cả thư mục sang máy/user khác là giải mã được; DPAPI ràng vào máy + tài khoản Windows. (`key.bin` vẫn dùng cho config.)
   - **Thêm refresh-token VPS:** phiên local vĩnh viễn nhưng `vps_token` (JWT VPS) hết 8h → nạp từ VPS chết lặng sau 8h. Fix: VPS cấp refresh token (`POST /api/auth/refresh`), heartbeat đổi lấy access_token mới. Đụng server VPS nên đã qua `/capnhat` #39 (gộp vào DGT-04).
 - **Nguồn:** user 05/10/2026; TDD §11C + §12; CHANGES #38, #39; PRD DGT-01..04; biên bản tdd-review-05-10-2026.
+
+## 17. Module Cập nhật kết quả đào tạo — quy đổi điểm & nơi lưu cờ chương trình (07/10/2026, verify DB)
+
+- **Đã chốt (07/10/2026):**
+  - **Phạm vi:** CHỈ nhập KQĐT (`TT_XuLy` 03→09/10) qua `usp_NguoiLX_KetQuaDaoTao_CSDT_CapNhat`. **KHÔNG** kết xuất XML/gửi Sở (để PM CDB cũ lo — giữ phần mã hóa truyền tin).
+  - **Quy đổi điểm:** nhân viên nhập **điểm gốc**, app quy đổi /10 theo "Sổ theo dõi KQ học tập TT17" (2 đoạn tuyến tính, ngưỡng 5,0), **ghi 5 điểm per-môn** vào `DiemKQ*`, **KHÔNG ghi điểm trung bình** vào DB.
+  - **Quy tắc Đạt = từng môn ≥5** (`KetLuanCSDT`/`KQLyThuyet`/`KQThucHanh` do **app tự tính** rồi truyền SP). Bỏ điểm liệt, bỏ loại trực tiếp.
+  - **Cờ chương trình CŨ/MỚI (TT12/2025 vs TT108/2026) tích chọn theo TỪNG KHÓA**, lưu **phía tool** (map `MaKH→cũ/mới` trong SQLite/JSON cấu hình), mặc định CŨ — **không** nhảy tự động theo ngày, **không** đụng schema CDB.
+  - **Giờ/km thực hành (TT17/2026/TT-BXD):** giờ sân khóa cứng · km sân điền sẵn · giờ+km đường để trống, chỉ gợi ý tối thiểu.
+- **Vì sao:**
+  - **DB không định nghĩa "đạt"** — verify 06/10: `NguoiLX_HoSo` 0 trigger, 3 cột bit (`KQLyThuyet/KQThucHanh/KetLuanCSDT`) rỗng không computed/constraint, 2 SP CapNhat chỉ lưu nguyên tham số. HV đạt thật (`...000001`) có `KetLuanCSDT=1` nhưng mô phỏng/sa hình/chữ chi NULL → PM cũ set đạt tùy ý, **dữ liệu cũ không đáng tin để bắt chước** → tool tự đặt quy tắc theo TT17.
+  - **Cờ CŨ/MỚI theo khóa + lưu phía tool:** sau 01/03/2027 khóa cũ (khai giảng trước) + khóa mới chạy song song; cắt theo ngày kiểm tra sẽ quy đổi LT sai hàng loạt (vd B 28 câu: /30→6,7 vs /50→3,1). DB đích không có cột cho cờ này nên lưu phía tool như `dvhc_map`.
+  - **Per-môn ≥5 thay vì trung bình nhóm:** chặt hơn — HV mô phỏng 4,0 nhưng LT 6,7 theo TB vẫn đạt (5,35), theo per-môn là trượt. User chốt per-môn (A).
+- **Phương án đã cân nhắc:**
+  - *Xét đạt:* (A) **từng môn ≥5** ← chọn · (B) trung bình nhóm ≥5 (như cột Q của sổ).
+  - *Nơi lưu cờ CŨ/MỚI:* (A) **theo từng khóa, lưu phía tool** ← chọn · (B) công tắc toàn cục màn Cấu hình (dễ quên gạt → sai hàng loạt).
+  - *`TongQDThucHanh`:* chốt = **quãng đường trên đường** (nhân viên nhập), khớp dữ liệu cũ (~719 ≈ km đường), KHÔNG phải tổng sân+đường.
+- **Đánh đổi:** per-môn ≥5 + bắt nhập đủ 5 điểm chặt hơn PM cũ (cũ cho để trống) — đúng tinh thần TT17 nhưng nhân viên gõ nhiều ô hơn. Cờ theo khóa thêm 1 thao tác tích chọn/khóa, đổi lại không sai quy đổi khi giao thời.
+- **Phạm vi:** chỉ **tool máy CSDT** (ghi CDB đích). Không đụng app web/VPS, không đụng Nạp/Sync/TCB (module riêng `routers/ketqua.py`).
+- **Nguồn:** user 06-07/10/2026; TDD §11D; CHANGES #42; PRD KQD-01..04; probe DB 06/10; `thamkhao/` (TT17/2026/TT-BXD + Sổ theo dõi KQ học tập TT17); `docs/DB-GPLX_CDB_CSDT.md` §5.
+
+## 18. App web cho chụp bù ảnh kể cả hồ sơ ĐÃ NẠP — Phương án B (07/10/2026)
+
+- **Đã chốt (07/10/2026):** cho collector **chụp/bổ sung ảnh trên app web cho HV THIẾU ảnh kể cả khi hồ sơ đã `imported`** (không chỉ `pending`). Ảnh ghi đè lên ảnh thô VPS; người nạp **kéo về ở Tra cứu DB** (QLY-05 nguồn b) để bổ sung vào DB Nạp. **Chỉ mở cho ẢNH** — sửa thông tin & xóa hồ sơ đã nạp vẫn khóa ở app web.
+- **Cách operator biết HV nào có ảnh mới:** chốt **A — không cờ "ảnh mới"**. Operator tự lọc "Chưa ảnh" ở Tra cứu DB → mở HV → bấm kéo ảnh VPS; có thì hiện để chỉnh, không thì báo chưa có. KHÔNG thêm cột/tín hiệu đồng bộ trên VPS.
+- **Đã từng chốt (01/10/2026) — Phương án A:** *"thay/bổ sung ảnh cho HV đã nạp CHỈ dùng ảnh từ máy tool (chọn file/chụp tại máy), KHÔNG mở đường app web chụp lại rồi tool kéo về"* (phản ánh ở TDD §11.5 + chặn `pending` ở `POST .../anh`). **Lý do đổi:** HV nạp lúc chưa có ảnh (collector chưa kịp chụp / gửi nhanh không ảnh) thì ảnh **thật của học viên** nằm ở điện thoại collector; Phương án A chỉ cho ảnh-từ-máy-tool nên **không lấy được ảnh collector chụp tại chỗ** cho HV đã nạp. Thực tế vận hành cần đúng ca này (user 07/10).
+- **Vì sao đổi được an toàn:** endpoint `POST /api/ho-so/:uuid/anh` chỉ ghi `anh_tho_path`, không đổi `trang_thai`/thông tin → mở cho `imported` không ảnh hưởng vòng đời nạp; vẫn chặn `importing` (đang nạp) tránh đua; giữ kiểm `created_by` (chỉ ảnh của mình).
+- **Phương án đã cân nhắc (cờ ảnh mới):** (A) **không cờ, operator tự kéo** ← chọn (đơn giản, không đụng schema VPS) · (B) thêm cờ "có ảnh mới" + tool chủ động hiện danh sách (tiện hơn nhưng phải đồng bộ 3 hệ thống — để dành, thêm sau không phá gì).
+- **Đánh đổi:** app web không còn "đóng băng hoàn toàn sau nạp" (trước là ranh giới sạch §7.5) — nay có một khe hẹp cho ảnh. Chấp nhận vì chỉ ghi ảnh thô, không đổi dữ liệu nạp; bù lại lấy được ảnh collector cho HV đã nạp mà không phải gỡ về chờ nạp (QLY-08).
+- **Phạm vi 3 hệ thống:** app web (`DaGui.tsx` + `lib/gui.ts` cho chụp/gửi khi imported) · VPS (`server .../anh` nới chặn) · tool (TraCuuDB/AnhModal nguồn b — QLY-05 #32 đã specced).
+- **Nguồn:** user 07/10/2026; THU-02, QLY-05; TDD §6.2/§6.3/§11.5; CHANGES #44. Thay thế Phương án A chốt 01/10 (ở trên).
+
+## 19. Mở khóa để sửa điểm sau kết xuất — cổng theo gói chưa gửi (07/10/2026, verify DB)
+
+- **Đã chốt (07/10/2026):**
+  - **B-1 (cổng):** cho mở khóa HV `TT_XuLy=12` để sửa điểm **chỉ khi CSĐT còn gói `KET_QUA_DAO_TAO` chưa gửi** (`NoiGui=<mã CSĐT>` + `TrangThai='0'`). Gói đã gửi hết → **khóa cứng**.
+  - **B-1a (hành vi, mức CƠ SỞ — chốt phương án A sau /reviewtdd 07/10):** mở khóa = xóa (các) gói chưa gửi qua `usp_TRANS_CLI_HangDoiGui_Delete` + lùi **MỌI HV `12` của CƠ SỞ (mọi khóa)** về 09/10 (`UPDATE` tham số hóa, guard `KetLuanCSDT IS NOT NULL` — HV `12` không kết luận thì bỏ qua + cảnh báo, không ép '10' oan). Không mổ xẻ 1 HV. Sửa xong **kết xuất lại ở PM CDB cũ**.
+  - **M1 (thông báo khi khóa cứng):** chỉ nói **mức đợt** — liệt kê gói đã gửi + "không xác định được HV nằm gói nào". KHÔNG đoán gói cụ thể.
+  - **Nút ở CẢ 2 tab** (Cập nhật KQĐT dòng 🔒 + Theo dõi kết xuất). `13` khóa tuyệt đối.
+- **Vì sao:**
+  - **DB không nối HV↔gói:** tên gói chỉ có dấu thời gian (`KQDT_<CSDT>_<MaSoGTVT>_K<timestamp>.zip`), không chứa MaKH/MaDK; không bảng junction; `Transfer_flag=0` cho mọi HV kể cả `12` (verify 07/10). Danh sách HV nằm trong file nén. → không thể "hủy kết xuất 1 HV" hay "biết HV nằm gói nào" — chỉ biết ở mức CSĐT "còn gói chưa gửi không".
+  - **Vì sao phải lùi cả CƠ SỞ (B-1a — sửa sau review):** xóa gói chưa gửi buộc **quét cả CSĐT** (gói không nối khóa, không lọc được theo khóa) → nếu chỉ lùi HV `12` **của khóa đang xem**, HV `12` ở khóa khác (gói của họ cũng vừa bị xóa) treo "12 nhưng không còn gói" → không bao giờ gửi, PM cũ cũng không kết xuất lại (đang 12, ngoài nhóm 09/10 đủ điều kiện). Vì vậy lùi **mọi HV 12 của cơ sở** về 09/10 cho khớp phạm vi xóa — mọi HV vừa mất gói đều quay lại nhóm kết xuất.
+  - **Vì sao chặn khi gói đã gửi:** `_CapNhat` không bảo vệ 12 nên DB cho ghi đè, nhưng bản đã gửi vẫn ở Sở → sửa cục bộ sẽ lệch. Chờ Sở từ chối (14)→giải trình (90) là nhánh chính thức.
+  - **Lọc `NoiGui` không parse tên file:** cột `NoiGui`=mã CSĐT chuẩn (verify gói 75032 có `NoiGui='75032'`); tránh đụng 61 gói `TrangThai=0` của CSĐT 24005 lẫn trên máy dev dùng chung.
+- **Phương án đã cân nhắc:**
+  - *Cổng:* (A) cho mở mọi HV 12 kể cả gói đã gửi (linh hoạt, dễ lệch Sở) · (B-1) **chỉ khi còn gói chưa gửi** ← chọn · (B-3) chỉ thao tác cả đợt, không mở lẻ (an toàn nhưng cứng).
+  - *Phạm vi lùi:* (A) chỉ HV được chọn (→ HV khác treo) · (B) cả 12 của **khóa** (→ HV 12 khóa khác vẫn treo vì gói đã xóa cả CSĐT) · (C) **cả CƠ SỞ, mọi khóa** ← chọn (07/10, sau /reviewtdd phát hiện B còn rò treo).
+  - *Thông báo khi khóa cứng:* (M1) **mức đợt, trung thực** ← chọn · (M2) đoán gói theo thời gian (có thể sai → loại).
+- **Đánh đổi:** "mở khóa 1 người = mở cả CƠ SỞ" (mọi HV 12 chưa gửi của cơ sở cùng về 09/10, phải kết xuất lại). Cổng B-1 khiến tính năng hiếm khi khả dụng (gói thường đã gửi) — chấp nhận, vì đó chính là ranh an toàn; phần còn lại là thông báo khóa-cứng rõ ràng + chỉ đường qua 14/90.
+- **Phạm vi:** chỉ **tool máy CSDT** (ghi/xóa ở CDB đích). Endpoint `POST /local/ketqua/mo-khoa` là ngoại lệ duy nhất gỡ chặn 409 cho `12`; không đụng app web/VPS; module `routers/ketqua.py`.
+- **Nguồn:** user 07/10/2026 (chốt B-1 + B-1a + M1 + nút 2 tab, qua nhiều lượt); PRD KQD-05; TDD §11D.7; CHANGES #45; probe DB live 07/10 (`GPLX_CDB_CSDT`); memory `project_pmcsdtlx_huy_ketxuat_kqdt`; mock `ui-mock/theodoiketxuat.html`.

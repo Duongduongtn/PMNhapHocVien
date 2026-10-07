@@ -273,7 +273,7 @@ GET  /api/admin/tool-key        (admin) xem TOOL_API_KEY để cấu hình tool 
 POST /api/ho-so                 Gửi hồ sơ mới (uuid client-gen, idempotent)
 GET  /api/ho-so/cua-toi         DS mình đã gửi
 PUT  /api/ho-so/:uuid           Sửa (khi pending)
-POST /api/ho-so/:uuid/anh       Upload ảnh thô (multipart)
+POST /api/ho-so/:uuid/anh       Upload ảnh thô (multipart) — CHỈ khi 'pending' HOẶC 'imported' (bổ sung ảnh HV đã nạp, CHANGES #44); 'importing'/'deleted'→409; kiểm created_by (THU-02, luật đầy đủ §6.3)
 GET  /api/ho-so/:uuid/anh       Tải lại ảnh thô CỦA MÌNH (hiện thumbnail list/chi tiết — THU-02, CHANGES #12)
 GET  /api/ho-so/kiem-trung?cccd=<>  Kiểm CCCD đã có hồ sơ pending/importing trong hàng đợi CSDT — cảnh báo mềm (THU-04, CHANGES #13)
 DELETE /api/ho-so/:uuid         Xóa hồ sơ đã gửi — SOFT-DELETE (trang_thai→'deleted'), CHỈ khi 'pending'; collector CHỈ của mình (kiểm created_by, chống IDOR), admin bất kỳ; 'importing'/'imported'→409. Ghi audit_log (THU-05, CHANGES #24)
@@ -469,6 +469,7 @@ Tách `|`, **6 hoặc 7 trường**: `CCCD(12) | [CMND cũ(9)] | Họ tên | Ng�
 ### 6.3 Gửi & chống mất/trùng
 - `uuid` sinh ở client; POST gửi kèm. Mất mạng → giữ nháp (IndexedDB/localStorage), gửi lại cùng uuid (idempotent) khi có mạng.
 - Ảnh thô: JPEG, upload riêng `POST /api/ho-so/:uuid/anh`.
+- **Nới chặn trạng thái cho bổ sung ảnh (CHANGES #44, lật Phương án A):** `POST /api/ho-so/:uuid/anh` trước đây chặn `trang_thai != 'pending'` → **409**. Nay **cho upload CHỈ khi `trang_thai ∈ {'pending','imported'}`** (ghi đè ảnh thô VPS cho HV thiếu ảnh — để tool kéo về bổ sung ở Tra cứu DB/QLY-05). **Dùng allowlist, KHÔNG dùng blocklist:** mọi trạng thái khác → **409**, gồm `importing` (tool đang nạp giữa chừng → tránh đua ảnh) **và `deleted`** (hồ sơ đã xóa mềm — không được ghi ảnh làm sống lại dữ liệu đã xóa). Code: `if hs.trang_thai not in ("pending", "imported"): raise 409` — **không** viết `if == "importing"` (sẽ lọt `deleted`). Giữ kiểm `created_by` (chỉ ảnh của chính mình, chống IDOR). Endpoint này chỉ ghi `anh_tho_path`, KHÔNG đổi `trang_thai`/thông tin — nên mở cho `imported` không ảnh hưởng vòng đời nạp. **Khi ghi ảnh cho `imported`: set `updated_at=now`** (mốc gia hạn PII — xem §9.3/F4). *Vì sao không đụng xóa/sửa: chỉ ảnh mới cần — xóa (THU-05) và sửa thông tin của HV đã nạp vẫn khóa.*
 
 ### 6.4 Tìm trong "Hồ sơ đã gửi" (THU-02, CHANGES #10)
 Lọc **phía client** trên danh sách `/api/ho-so/cua-toi` đã tải (không thêm endpoint). Khớp theo **tên hoặc số CCCD**; tên **chuẩn hóa bỏ dấu cả hai vế** (NFD + xóa dấu kết hợp) để gõ không dấu vẫn ra. Ô tìm đặt **đầu danh sách**; màn hẹp thu gọn thành **nút kính lúp**.
@@ -478,12 +479,12 @@ Lọc **phía client** trên danh sách `/api/ho-so/cua-toi` đã tải (không 
 - **Màn vào không tự mở camera** (THU-01): **mobile** landing cho chọn Quét QR / Nhập tay / Tải ảnh; `getUserMedia` chỉ gọi khi bấm Quét (đỡ xin quyền đột ngột + hao pin). **Desktop (≥lg) vào thẳng form nhập tay** (THU-01, CHANGES #30): bỏ cổng chọn (`giaiDoan` khởi tạo thẳng `preview`/form trống trên desktop); nút **Quét QR / Tải ảnh** thu nhỏ ra góc phải tiêu đề form; bấm Quét QR mở **popover camera nổi** đè form (tái dùng logic `KhungQuet`/decode cascade, không full-screen), bắt được QR → `batDau(fields)` điền vào form đang mở rồi đóng popover. "Lưu & nhập hồ sơ tiếp" trên desktop quay về **form trống** (không về cổng chọn). Mobile giữ nguyên luồng `chon → quet/preview`. *Vì sao: desktop gõ bàn phím là chính, quét webcam phụ — đưa form lên trước, quét thành thao tác điền-nhanh, không bắt qua cổng chọn.* Thuần client `Quet.tsx` (nhánh `lg:`), KHÔNG đổi endpoint/schema.
 - **Khung bám QR** (THU-01): BarcodeDetector trả `cornerPoints` (4 góc QR trong khung hình) → vẽ khung khóa theo mã khi bắt trúng. Fallback qr-scanner không có tọa độ → giữ khung ngắm tĩnh.
 - **Layout mobile 1 màn** (THU-01, AppLayout): dùng `height:100%`/`100dvh` thay `100vh` (thanh URL mobile), khung camera `flex` co giãn, **bottom-nav + nút hành động chính dính đáy** (`position:sticky`/flex shrink-0), không cuộn mới thấy. Logo header là trang trí — bỏ nền/bo dáng nút.
-- **Xem lại + ảnh thật + sửa/chụp lại** (THU-02): danh sách & chi tiết "đã gửi" hiện ảnh thật qua `GET /api/ho-so/:uuid/anh` (của mình, kiểm `created_by` — chống IDOR như `_cua_minh`); modal chi tiết khi `pending` cho **Sửa** (`PUT /api/ho-so/:uuid`) + **Chụp/đổi ảnh** (`POST .../anh`); `importing`/`imported` → chỉ xem (server trả 409 nếu cố sửa).
+- **Xem lại + ảnh thật + sửa/chụp lại** (THU-02): danh sách & chi tiết "đã gửi" hiện ảnh thật qua `GET /api/ho-so/:uuid/anh` (của mình, kiểm `created_by` — chống IDOR như `_cua_minh`); modal chi tiết khi `pending` cho **Sửa** (`PUT /api/ho-so/:uuid`) + **Chụp/đổi ảnh** (`POST .../anh`); `importing`/`imported` → chỉ xem thông tin (server trả 409 nếu cố **sửa**/**xóa**) — **nhưng CHO bổ sung ảnh cho HV thiếu ảnh kể cả `imported`** (CHANGES #44, §4.3 nới chặn `POST .../anh`).
 
 ### 6.6 Nhập liên tiếp + badge/lọc thiếu ảnh + cảnh báo trùng (THU-01/THU-02/THU-04, CHANGES #13)
 *Vì sao: nhân viên nhập hàng loạt muốn gửi nhanh không bắt chụp ảnh từng hồ sơ, rồi gom các hồ sơ thiếu ảnh để chụp bù; và tránh gửi trùng một người lên hàng đợi.*
 - **Lưu & nhập hồ sơ tiếp** (THU-01/THU-02): nút thứ hai ở màn preview → gửi `POST /api/ho-so` **không kèm ảnh** (cơ chế gửi-không-ảnh + giữ nháp offline đã có) → **toast** thay màn kết quả → `setGiaiDoan("chon")` về màn chọn cách nhập. Không thêm endpoint. Thuần client `Quet.tsx`.
-- **Badge "Thiếu ảnh" + bộ lọc** (THU-02): lọc **phía client** trên `co_anh` của `/api/ho-so/cua-toi` (đã có field). Badge ở list card/table + chi tiết; thêm một lựa chọn lọc "Thiếu ảnh" cạnh tab trạng thái. Chụp bù vẫn qua nút "Thêm ảnh" khi `pending` (đã có). Không thêm endpoint. Thuần client `DaGui.tsx`.
+- **Badge "Thiếu ảnh" + bộ lọc** (THU-02): lọc **phía client** trên `co_anh` của `/api/ho-so/cua-toi` (đã có field). Badge ở list card/table + chi tiết; thêm một lựa chọn lọc "Thiếu ảnh" cạnh tab trạng thái. **Chụp bù ảnh cho HV thiếu ảnh qua nút "Thêm ảnh" — hiện cả khi `pending` lẫn `imported`** (CHANGES #44, lật Phương án A): nút gọi `POST /api/ho-so/:uuid/anh` (server đã nới chặn `pending`, §4.3), chỉ ghi đè ảnh thô VPS, KHÔNG đổi trạng thái/thông tin. Thuần client `DaGui.tsx` + `lib/gui.ts` (bỏ điều kiện chỉ-gửi-ảnh-khi-pending).
 - **Cảnh báo trùng CCCD** (THU-04): thêm `GET /api/ho-so/kiem-trung?cccd=` (collector) → đếm hồ sơ `pending`/`importing` cùng CSDT có `so_cccd` khớp (loại trừ chính `uuid` đang gửi). >0 → trả thông tin (ai gửi, lúc nào) để app hiện **banner cảnh báo mềm** (chuẩn ⑥), **vẫn cho gửi**. Mất mạng/khi gọi lỗi → bỏ qua, không chặn. KHÔNG đối chiếu SQL Server (app web không nối DB) — chốt trùng thật ở NAP-06. Server validate `cccd` (12 số) từ chối sớm; client hủy request cũ bằng `AbortController`.
 - **UX nhập liệu** (THU-01/THU-02, CHANGES #14): **ẩn ô CMND cũ** khỏi form (giá trị từ QR vẫn giữ trong nháp + gửi như cũ — không đổi payload/schema); ô ngày là **component gõ tay dd/mm/yyyy + nút lịch** (native date popover ghi ngược vào ô text; vẫn nhập năm-only → `yyyy0000`); **desktop** tách vị trí 2 nút + phím tắt (autofocus, Enter→nút chính). Thuần client.
 - **Xóa hồ sơ đã gửi** (THU-05, CHANGES #24): ở `/app/da-gui`, hồ sơ **`pending`** có nút **Xóa** (xác nhận 2 bước) → `DELETE /api/ho-so/:uuid` (soft-delete). Hồ sơ `importing`/`imported` **ẩn/khóa nút** (server cũng chặn 409). Phân quyền: collector chỉ xóa `created_by` = mình (chống IDOR như `_cua_minh`); admin bất kỳ. Sau xóa, bỏ dòng khỏi danh sách (client `DaGui.tsx`). Đồng bộ sang tool ở bước kéo (NAP-01, §11.7).
@@ -525,6 +526,7 @@ Lọc **phía client** trên danh sách `/api/ho-so/cua-toi` đã tải (không 
 
 ### 7.3 Xóa PII (BR-016)
 APScheduler quét mỗi giờ: `pending`/`imported` quá 30 ngày → xóa dòng + file ảnh thô; **bỏ qua** `importing` (EC-040). Ghi `audit_log(hanh_dong='xoa_pii')`.
+> **Mốc tuổi tính theo `updated_at`, KHÔNG theo `created_at` (CHANGES #44, F4):** vì #44 cho collector chụp bù ảnh cho HV `imported` thiếu ảnh (set `updated_at=now` khi ghi ảnh — §6.3), nếu job tính tuổi theo lúc tạo thì ảnh chụp bù cho HV nạp gần 30 ngày sẽ bị xóa ngay trước khi operator kịp kéo ở QLY-05. Tính theo `updated_at` → mỗi lần chụp bù gia hạn thêm 30 ngày cho operator kéo. (Hồ sơ không ai đụng vẫn hết hạn đúng 30 ngày kể từ lần ghi cuối.)
 
 ### 7.4 Validate ảnh thô khi nhận (bảo mật)
 `POST /api/ho-so/:uuid/anh` phải kiểm trước khi lưu: kích thước **≤ 8 MB**; **magic-byte** đúng JPEG/PNG (không tin đuôi/Content-Type); giới hạn số điểm ảnh (`Image.MAX_IMAGE_PIXELS`) để chặn ảnh "bung nén" (decompression bomb) làm treo/sập tool khi `rembg`/`Pillow` xử lý. Không hợp lệ → 4xx, báo lỗi rõ (PRD ⑦).
@@ -534,7 +536,7 @@ APScheduler quét mỗi giờ: `pending`/`imported` quá 30 ngày → xóa dòng
 Một hồ sơ sống ở **2 nơi**: VPS (app web — nơi collector tạo) và CSDT (qua tool — DB thật). Để không mâu thuẫn khi sửa/xóa từ 2 phía, quyền làm chủ **chuyển theo mốc nạp**:
 
 - **Trước nạp** (`pending`): **app web làm chủ.** Collector thêm/sửa/xóa (THU-05); tool chỉ kéo-mirror (NAP-01), chưa đụng DB.
-- **Sau nạp** (`imported`): **tool/CSDT làm chủ.** Operator sửa nhân thân/ảnh/đổi khóa/xóa (QLY-01/02/03/05/08); bản ghi app web **đóng băng** — chỉ xem, không sửa/xóa (`PUT`/`DELETE /api/ho-so/:uuid` chỉ khi `pending`). Bản VPS thành lịch sử, KHÔNG đẩy ngược từ CSDT.
+- **Sau nạp** (`imported`): **tool/CSDT làm chủ.** Operator sửa nhân thân/ảnh/đổi khóa/xóa (QLY-01/02/03/05/08); bản ghi app web **đóng băng** — chỉ xem, không sửa thông tin/xóa (`PUT`/`DELETE /api/ho-so/:uuid` chỉ khi `pending`). **Ngoại lệ (CHANGES #44): collector được bổ sung ẢNH cho HV `imported` thiếu ảnh** (`POST .../anh`, §6.3) — khe hẹp duy nhất, chỉ ghi ảnh thô, vẫn không sửa thông tin/xóa. Bản VPS thành lịch sử, KHÔNG đẩy ngược từ CSDT.
 
 **Edge (khóa chưa BC1):**
 
@@ -542,7 +544,7 @@ Một hồ sơ sống ở **2 nơi**: VPS (app web — nơi collector tạo) và
 |---|---|---|
 | Cửa sổ bàn giao | Collector sửa lúc tool vừa kéo bản cũ | Tool đọc bản mới nhất ở bước `lock` (lock trả record tươi) — không nạp bản staging cũ |
 | Cửa sổ bàn giao | Collector xóa đúng lúc operator bấm nạp | Ai tới trước: tool `lock` trước → app web `DELETE` 409; app web xóa trước → `lock` CAS 0 dòng → tool báo "hồ sơ đã bị người gửi xóa" |
-| Sau nạp | Collector muốn sửa/xóa trên app web | Không cho (đóng băng). Sửa làm ở tool (QLY-01/05) |
+| Sau nạp | Collector muốn sửa/xóa trên app web | Không cho sửa thông tin/xóa (đóng băng). **Riêng bổ sung ẢNH cho HV thiếu ảnh: cho** (§6.3/#44). Sửa khác làm ở tool (QLY-01/05) |
 | Sau nạp | Nạp nhầm khóa | Cùng hạng → QLY-02 (đổi khóa, trong DB); khác hạng / muốn sửa lại từ app → QLY-08 (gỡ về chờ nạp) |
 | Thêm | Collector tạo HV đã có trong DB (đã nạp) | App web không soi được DB → chốt trùng ở tool lúc nạp (NAP-06) |
 
@@ -845,7 +847,7 @@ Làm SAU NAP-05, **dùng lại cơ chế ghi ảnh hướng A** (§10.3) — kh�
 
 **Bổ sung ảnh cho HV THIẾU ảnh — 2 nguồn (CHANGES #32).** HV đã nạp nhưng `TT_XuLy='01'` (chưa ảnh) không có `.jp2` để làm ảnh gốc. Mở `AnhModal` với nguồn ảnh gốc chọn 1 trong 2 — **tái dùng toàn bộ, không viết cơ chế nạp ảnh mới**:
 - **(a) Chọn từ file máy tính:** `AnhModal.chonFile` sẵn có → crop + đổi nền như NAP-04.
-- **(b) Kéo ảnh thô VPS:** tra `uuid` theo `ma_dk` (`vps.tra_uuid`, §4.4) → tải ảnh thô (`vps.tai_anh` / proxy `tai_anh_keo_ve`) → URL nạp vào `AnhModal.napTuUrl` (sẵn có) làm ảnh gốc. **Điều kiện:** ảnh thô còn trên VPS (bản gửi giữ ~30 ngày — §9.3/BR-016). Hết hạn/không tra được uuid → ẩn nguồn (b), chỉ còn (a), báo "ảnh gốc trên máy chủ đã hết hạn, chọn ảnh từ máy".
+- **(b) Kéo ảnh thô VPS:** tra `uuid` theo `ma_dk` (`vps.tra_uuid`, §4.4) → tải ảnh thô (`vps.tai_anh` / proxy `tai_anh_keo_ve`) → URL nạp vào `AnhModal.napTuUrl` (sẵn có) làm ảnh gốc. **Điều kiện:** ảnh thô còn trên VPS (bản gửi giữ ~30 ngày — §9.3/BR-016). Hết hạn/không tra được uuid → ẩn nguồn (b), chỉ còn (a), báo "ảnh gốc trên máy chủ đã hết hạn, chọn ảnh từ máy". **CHANGES #44:** ảnh thô VPS nay có thể là bản **collector chụp bù sau khi đã nạp** (app web cho chụp bù HV thiếu ảnh kể cả `imported` — §6.2/§4.3). Operator **tự lọc "Chưa ảnh" → mở HV → bấm kéo** (chốt A, không có cờ "ảnh mới" chủ động — xem TDD-decisions §18). *Đua ảnh (F5, ghi nhận):* kéo đọc ảnh thô **tại thời điểm bấm**; nếu collector ghi đè ảnh sau đó → operator **kéo lại** để lấy bản mới nhất. Không khóa — không hỏng dữ liệu (last-write-wins trên file, `importing` đã bị chặn nên không đụng vòng đời nạp).
 
 Sau khi có ảnh gốc, cả 2 nguồn đi tiếp qua **cùng luồng QLY-05** (xuất `.jp2` → `nap_anh` → `ghi_anh_update`, nâng `TT_XuLy '01'→'03'`). *Vì sao tái dùng được trọn: `AnhModal` đã có cả `chonFile` lẫn `napTuUrl`; `vps.tra_uuid`/`vps.tai_anh` đã có cho QLY-08/NAP-01 — chỉ cần wiring.*
 *Ca lỗi:* app cũ đang khóa file `.jp2` → báo đóng app cũ rồi thử lại; ghi `.jp2` lỗi → giữ trạng thái ảnh cũ; UPDATE lỗi → retry theo `MaDK` (§10.3).
@@ -868,6 +870,36 @@ Vòng đời TT_XuLy & quy tắc thay ảnh (QLY-05/QLY-07):
      • mọi giá trị khác ('03'…'19') → GIỮ NGUYÊN  (chỉ thay file + DuongDanAnh)
   Vì sao: hạ HV đã Báo cáo về '03' → rơi khỏi usp_BaoCao2_DSHS
           → "HV không có trong Báo cáo 1" (bug #22)
+```
+
+**Luồng chụp bù ảnh HV ĐÃ NẠP — 3 hệ thống (CHANGES #44):**
+```
+  [App web - collector]          [VPS]                    [Tool - operator]
+         │                         │                              │
+   HV imported, thiếu ảnh          │                              │
+         │                         │                              │
+   bấm "Thêm ảnh" ────────────────▶│                              │
+   POST /api/ho-so/:uuid/anh       │                              │
+   (allowlist pending|imported;    │                              │
+    created_by=mình)          ghi đè anh_tho_path                 │
+         │                    (KHÔNG đổi trang_thai)              │
+         │                    set updated_at=now (F4, gia hạn PII)│
+         ▼                         │                              │
+   ảnh thô mới trên VPS            │                              │
+                                   │◀── operator lọc "Chưa ảnh" ──┤
+                                   │    mở HV → bấm kéo (QLY-05 b)│
+                                   │    tra uuid theo ma_dk        │
+                                   │─── tải ảnh thô ─────────────▶│
+                                   │                     AnhModal: chỉnh/đổi nền
+                                   │                              │
+                                   │                     ghi .jp2 + UPDATE
+                                   │                     TT_XuLy '01'→'03'
+                                   │                              ▼
+                                   │                        ảnh vào DB thật
+
+  Chốt A (không cờ ảnh-mới): operator TỰ lọc "Chưa ảnh" rồi kéo — VPS không
+  báo chủ động HV nào có ảnh mới (TDD-decisions §18). Ảnh chỉ vào DB thật
+  SAU bước operator duyệt ở AnhModal (F6: có người kiểm giữa).
 ```
 
 ### 11.6 Đổi nền trắng cả khóa (QLY-07) — CHANGES #22
@@ -1148,6 +1180,115 @@ Mở exe
 
 > **Phục vụ:** DGT-01/02/03/04. Không chạm nghiệp vụ Nạp/Sync/TCB — thuần đóng gói + khởi chạy + vòng đời phiên của tool. Quyết định kỹ thuật: TDD-decisions §16.
 
+## 11D. Cập nhật kết quả đào tạo (tool — workspace riêng) — KQD-01..05 (CHANGES #42, #45)
+
+> Ghi **CSDL đích** `GPLX_CDB_CSDT` (bảng `NguoiLX_HoSo`) như SYNC/TCB. Chỉ nhập KQĐT (`TT_XuLy` 03→09/10), **không** kết xuất XML. Schema đã probe: `docs/DB-GPLX_CDB_CSDT.md` §5. Quyết định kỹ thuật: TDD-decisions §17.
+
+### 11D.0 Kiến trúc & SP dùng
+- Module tool riêng (`routers/ketqua.py` + `ketqua_service.py` + `ketqua_quydoi.py`) — **không import** module Nạp/Sync. Kết nối đích tái dùng `db.sqlserver_conn_dich(target_key)` (§11B.1).
+- **Băng DB đích** (yêu cầu #2): component header dùng chung với Sync (Sync đã có "banner nhắc DB đích") — hiện `GPLX_CDB_CSDT · <host> · CSĐT <mã>`.
+- SP đích (verify 06-07/10/2026 trên `GPLX_CDB_CSDT`, **không tự chế UPDATE thô khi đã có SP phù hợp**):
+  - Đọc danh sách (lưới KQD-01): **SELECT tự viết trên `conn_dich`** như màn Tra cứu CDB (`sync_tracuu.py`), lọc thẳng `TT_XuLy` cho đúng 4 nhóm PRD (03/04 · 09/10 · 14 · 90 · tất cả). **KHÔNG dùng SP đọc** `_CNKQDT`/`_NguoiLX_KetQuaDaoTao_CSDT` cho lưới: tham số `@TrangThai` của SP gộp "Đã cập nhật" chỉ trả HV **Đạt (09)**, bỏ sót **Không đạt (10)** — lệch nhóm 09/10 PRD (quyết định khi code 07/10, user chốt A). SP `_CNKQDT` chỉ tham khảo danh sách cột cần hiển thị. · 1 HV (form sửa KQD-02/04): `usp_NguoiLX_KetQuaDaoTao_CSDT_GetHocVien` (verify 07/10: trả `GiaiTrinh`, `DiemKQ*`, giờ/km, `SoGiayCNTN`, ngày khóa → prefill form), hoặc SELECT tự viết nếu cần cột ngoài SP.
+  - Ghi điểm: `usp_NguoiLX_KetQuaDaoTao_CSDT_CapNhat` (**18 tham số** — verify 07/10, bản cũ ghi nhầm 19; `BEGIN TRAN` + `ROLLBACK` khi `@@ERROR`; `NgaySua=GETDATE()`; `WHERE MaDK=@MaDK AND MaKhoaHoc=@MaKH`). Chuyển trạng thái trong SP: `CASE WHEN TT_XuLy IN ('90','13','14') → giữ nguyên; @KetLuanCSDT='1' → '09'; '0' → '10'; else giữ`.
+  - ⚠️ **SP KHÔNG bảo vệ `TT_XuLy='12'`** (đã kết xuất gửi Sở): gọi `_CapNhat` vào HV `12` sẽ **kéo lùi 12→09**, lệch với hồ sơ Sở đã nhận. App **BẮT BUỘC** chặn gọi SP cho HV `12`/`13` — hàng chỉ-đọc, nút Lưu mờ (khớp PRD KQD-02). Chỉ `90/13/14` được SP giữ nguyên tự động. **Ngoại lệ duy nhất cho `12`:** luồng "Mở khóa để sửa" (KQD-05, §11D.7) — gỡ chặn **có kiểm soát** chỉ khi khóa còn gói chưa gửi. `13` khóa tuyệt đối, không có ngoại lệ.
+  - **Ghi giải trình (KQD-04):** SP `_CapNhat` **không** có tham số ghi `GiaiTrinh`/`LyDoTuChoiKQDT`. Cột `GiaiTrinh nvarchar(1000)` có sẵn trong `NguoiLX_HoSo` nhưng không SP nhập-liệu nào ghi → KQD-04 ghi bằng **`UPDATE` tham số hóa riêng cột `GiaiTrinh`** (pymssql `%s`, `WHERE MaDK=%s AND MaKhoaHoc=%s`, validate `len ≤ 1000` phía app), **chạy TRƯỚC khi gọi `_CapNhat`** trên cùng `sqlserver_conn_dich(target_key)`: lỗi ở bước GiaiTrinh thì chưa đụng điểm/trạng thái (HV vẫn 14/90, báo lỗi sạch); giải trình ghi xong mà SP lỗi thì vô hại (trạng thái chưa đổi, lần sau ghi đè). `LyDoTuChoiKQDT` (lý do Sở từ chối) do luồng Sở ghi — read SP `_GetHocVien`/`_CNKQDT` **không** trả cột này, cần `SELECT` riêng nếu KQD-04 muốn hiển thị cho nhân viên đọc.
+
+### 11D.1 Máy trạng thái TT_XuLy (DM_TrangThai)
+`03`/`04` Đã đăng ký khóa học → `09` Đã cập nhật KQ (Đạt) / `10` (Không đạt) → `12` Đã kết xuất gửi Sở (**do PM cũ**) → `13` Hoàn thành / `14` Sở từ chối / `90` Đang giải trình. Tool chỉ đi 03→09/10 (KQD-02) và sửa lại 14/90 (KQD-04). Lọc màn KQD-01 map: Đã đăng ký=03/04 · Đã cập nhật=09/10 · Sở từ chối=14 · Giải trình=90.
+
+```
+ ┌───────────────────── TOOL (máy CSDT) ─────────────────────┐   ┌──── NGOÀI TOOL (PM cũ / Sở) ────┐
+ │                                                            │   │                                 │
+ │   03/04 ──┬── Đạt (KetLuan=1) ──►  09 Đã cập nhật KQ ──────┼───┼─► 12 Đã kết xuất ──► 13 Hoàn thành│
+ │  Đã đăng  │   [KQD-02]                                     │   │   gửi Sở            (Sở duyệt)   │
+ │  ký khóa  └── Trượt (KetLuan=0) ►  10 Không đạt ───────────┼───┤      │                           │
+ │                                                            │   │      ├─► 14 Sở từ chối           │
+ │   14 / 90 ◄── sửa điểm + giải trình, SP GIỮ NGUYÊN 14/90 ──┤   │      └─► 90 Đang giải trình      │
+ │   [KQD-04]                                                 │   │                                 │
+ │                                                            │   └─────────────────────────────────┘
+ │   ✗ TUYỆT ĐỐI không gọi _CapNhat cho 12 / 13 (SP không     │        14/90 quay lại tool để sửa ──┐
+ │     bảo vệ 12 → kéo lùi 12→09). Hàng chỉ-đọc.              │◄───────────────────────────────────┘
+ │   ⟳ NGOẠI LỆ 12 → 09/10 (KQD-05, §11D.7): "Mở khóa để sửa" │
+ │     khi CƠ SỞ còn gói kết xuất chưa gửi → lùi MỌI HV 12    │
+ │     của cơ sở (mọi khóa) về 09/10. Ngoại lệ DUY NHẤT; 13 ✗ │
+ └────────────────────────────────────────────────────────────┘
+```
+
+> Mũi tên `12 → 09/10` chỉ mở qua `POST /local/ketqua/mo-khoa` (KQD-05), **mức CƠ SỞ** — không phải đường đi thường của KQD-02/04.
+
+### 11D.2 Quy đổi điểm (từ "Sổ theo dõi KQ học tập TT17")
+Nhân viên nhập **điểm gốc**, app quy đổi /10, GHI 5 điểm per-môn (KHÔNG ghi trung bình):
+
+| Môn (UI) | Nhập gốc | Cột DB | Ngưỡng | Tối đa |
+|---|---|---|---|---|
+| Lý thuyết | số câu đúng | `DiemKQLyThuyet` | theo hạng | tổng câu theo hạng |
+| Mô phỏng | /10 | `DiemKQMoPhong` | 5 | 10 (nhập thẳng) |
+| Sa hình (liên hoàn) | /100 | `DiemKQHinh` | 80 | 100 |
+| Tiến lùi chữ chi | /10 | `DiemKQTienLui` | 5 | 10 (nhập thẳng) |
+| Đường trường | /100 | `DiemKQThucHanh` | 80 | 100 |
+
+Công thức (2 đoạn tuyến tính, ngưỡng=5,0): `gốc≥ngưỡng → 5+(gốc−ngưỡng)/(tối đa−ngưỡng)×5` ; `gốc<ngưỡng → gốc/ngưỡng×5`. Kiểm khớp file: LT 28/30(ng.27)→6,7 · liên hoàn 84→6,0 · đường 85→6,3.
+
+**Xét Đạt (§11D.4) trên giá trị quy đổi THÔ chưa làm tròn** (tương đương so `gốc ≥ ngưỡng gốc`); **chỉ làm tròn 1 chữ số khi hiển thị và ghi `DiemKQ*`**. Tránh ca gốc dưới ngưỡng mà làm tròn lên 5,0 bị tính Đạt nhầm — vd sa hình gốc 79,2 (ngưỡng 80) → quy đổi 4,95 → làm tròn 5,0: xét trên 4,95 là **Trượt** (đúng), xét trên 5,0 là Đạt (sai).
+
+Tham số Lý thuyết theo hạng + giai đoạn (cờ CŨ/MỚI tích chọn theo khóa — §11D.4):
+
+| Hạng | Giai đoạn | Tổng câu | Ngưỡng | Căn cứ |
+|---|---|---|---|---|
+| B | CŨ | 30 | 27 | TT 12/2025/TT-BCA |
+| C1 | CŨ | 35 | 32 | TT 12/2025/TT-BCA |
+| B | MỚI | 50 | 45 | TT 108/2026/TT-BCA |
+| C1 | MỚI | 60 | 54 | TT 108/2026/TT-BCA |
+
+### 11D.3 Giờ/quãng đường thực hành (TT 17/2026/TT-BXD)
+Phân biệt hạng B tự động (`MaHangMoi='B.01'`/`MaHang='B11'`) vs sàn (`B`/`B1,B2`) vs `C1`.
+
+| Hạng | Giờ sân `TGThucHanhHinh` (khóa cứng) | km sân `QDThucHanhHinh` (điền sẵn) | Giờ đường `TGThucHanhDuong` (trống, gợi ý ≥½) | km đường `TongQDThucHanh` (trống, gợi ý ≥) |
+|---|---|---|---|---|
+| B.01 (tự động) | 34 | 240 | ≥12 | ≥710 |
+| B (sàn) | 34 | 240 | ≥20 | ≥810 |
+| C1 | 35 | 225 | ≥24 | ≥825 |
+
+Chỉ **km sân** điền-sẵn-cho-sửa; **giờ sân** khóa cứng; **giờ/km đường** để trống + placeholder tối thiểu (dưới ngưỡng → cảnh báo vàng, không chặn).
+
+**Hạng không xác định** (`MaHangMoi` NULL/rỗng ở dữ liệu cũ — SP lưới mặc định nhóm 3=ô tô): **không** điền-sẵn/khóa-cứng giờ-km, để nhân viên tự nhập + cảnh báo "không xác định hạng từ dữ liệu"; không đoán bừa 34h/240km.
+
+### 11D.4 Kết luận Đạt + 3 cờ bit (app tự tính)
+DB **không có** trigger/computed/constraint tính 3 cờ (verify 06/10: 0 trigger, 3 cột bit rỗng, 2 SP CapNhat chỉ lưu nguyên tham số) → **app tính rồi truyền `@KQLyThuyet/@KQThucHanh/@KetLuanCSDT`** (`'1'/'0'`). Quy tắc **từng môn ≥5** (user chốt A, bỏ điểm liệt/loại trực tiếp):
+- `KetLuanCSDT`=1 ⇔ cả 5 môn quy đổi ≥5
+- `KQLyThuyet`=1 ⇔ LT≥5 **và** Mô phỏng≥5
+- `KQThucHanh`=1 ⇔ Sa hình≥5 **và** Chữ chi≥5 **và** Đường≥5
+
+**Cờ CŨ/MỚI chương trình lưu phía tool** (không đụng schema CDB): map `MaKH → cũ/mới` trong SQLite/JSON cấu hình tool (như `dvhc_map`); mặc định CŨ. *Vì sao: sau 01/03/2027 khóa cũ + mới chạy song song, cắt theo ngày kiểm tra sẽ quy đổi LT sai hàng loạt; DB đích không có cột cho cờ này.*
+
+### 11D.5 Số giấy HTKH + các trường tự điền
+`SoGiayCNTN` = `MaDK + '-' + MaHangMoi` (verify 100% mẫu thật, vd `75032-20260803-000001-B`), tự sinh khi Đạt. `NgayRaQDTN`, `TGBatDau`, `TGKetThuc` điền sẵn từ ngày khóa (`KhoaHoc.NgayKG/NgayBG/NgayThi`), cho sửa.
+
+### 11D.6 API (tool, đề xuất — chốt khi code)
+`GET /local/ketqua/khoa?q=` (gợi ý khóa đã BC1, kèm đếm HV 5 nhóm trạng thái gồm **`ketxuat`=12**) · `GET /local/ketqua/hoc-vien?ma_kh&trang_thai&q` (lưới; `trang_thai` nhận cả `ketxuat` (12) cho KQD-03) · `POST /local/ketqua/cap-nhat` (1 HV: điểm gốc + hạng + cờ chương trình → app quy đổi → ghi `GiaiTrinh` trước (nếu có) → gọi SP) · **`GET /local/ketqua/mo-khoa`** (KQD-05/03 — cổng B-1 **chỉ đọc**: trả `mo_duoc` + `goi_chua_gui`/`goi_da_gui` (mỗi gói: id·ten_file·ngay_tao·kich_thuoc) + `so_hv_mo`/`so_hv_bo_qua`/`so_khoa`; panel gói KQD-03 + modal mở khóa KQD-05 dùng chung) · `POST /local/ketqua/mo-khoa` (KQD-05, §11D.7) · `POST /local/ketqua/xoa-diem` (KQD-06, §11D.8 — reset HV 09/10 về chưa có điểm; sửa lẻ dùng lại `/cap-nhat` với quy-đổi môn cũ). **KQD-03 "Theo dõi kết xuất" KHÔNG có endpoint `ket-xuat` riêng** (chốt khi code): tiến độ khóa ghép từ `/khoa` (đếm sẵn), panel gói từ `GET /mo-khoa` (CSĐT-wide, tải 1 lần), lưới HV từ `/hoc-vien?trang_thai=ketxuat|capnhat` — tránh thừa endpoint + khỏi nhồi danh sách gói vào mỗi lần chọn khóa. Tất cả gác session + `target_key` như §11B. **Combobox khóa:** debounce ~300ms + giới hạn ~20 gợi ý, chỉ đếm HV-theo-trạng-thái cho khóa thực sự hiển thị (tránh aggregate nặng mỗi phím gõ).
+
+### 11D.7 Mở khóa để sửa sau kết xuất (KQD-05) — gỡ chặn `12` có kiểm soát
+> Nghiệp vụ + lý do (DB không nối HV↔gói): TDD-decisions §19. Verify DB live 07/10/2026 trên `GPLX_CDB_CSDT`.
+
+- **Cổng B-1 (chỉ đọc, quyết định bật nút):** `EXISTS (SELECT 1 FROM dbo.TRANS_CLI_HangDoiGui WHERE KieuDuLieu='KET_QUA_DAO_TAO' AND NoiGui=@MaCSDT AND TrangThai='0')`. **Lọc theo `NoiGui`=mã CSĐT** (cột chuẩn, verify: gói 75032 có `NoiGui='75032'`), **KHÔNG** parse tên file. Né dữ liệu CSĐT khác lẫn máy dùng chung (hiện 61 gói `TrangThai='0'` là `NguoiTao='ADMIN'`/CSĐT 24005). `@MaCSDT` = `QTHT_ThamSoHT.MA_CSDT` (như các module khác). `TrangThai`: `0`=chưa gửi · `1`=đã gửi (đối chiếu DKKH 05/10).
+- **`POST /local/ketqua/mo-khoa` (body: `ma_kh` để ghi log/ngữ cảnh):** thao tác **mức CƠ SỞ** (review #2 — vì xóa gói buộc phải quét cả CSĐT, nên lùi HV cũng phải cả CSĐT để không rò treo sang khóa khác). Trong một `sqlserver_conn_dich` (autocommit). **Thứ tự: LÙI HV TRƯỚC, XÓA GÓI SAU** — nếu xóa gói lỗi giữa chừng thì HV đã về 09/10 (sửa được) + cổng B-1 còn mở để chạy lại, tránh kẹt "12 không gói"; khớp edge PRD KQD-05 ("xóa gói xong lỗi → HV đã lùi vẫn sửa được"). Đổi so với bản đầu (xóa trước) sau khi code:
+  1. Kiểm cổng B-1; không còn gói chưa gửi → trả **409** kèm danh sách gói đã gửi (cho UI hiện thông báo M1). KHÔNG đổi gì.
+  2. **Lùi MỌI HV `TT_XuLy='12'` của CƠ SỞ** (mọi khóa) về 09/10 — khớp phạm vi xóa ở bước 3, tránh HV khóa khác treo "12 không gói". 1 `UPDATE` tham số hóa: `UPDATE NguoiLX_HoSo SET TT_XuLy = CASE WHEN KetLuanCSDT=1 THEN '09' WHEN KetLuanCSDT=0 THEN '10' END, NgaySua=GETDATE()[, GiaiTrinh=@gt] WHERE MaCSDT=@MaCSDT AND TT_XuLy='12' AND KetLuanCSDT IS NOT NULL` (ghi `GiaiTrinh` cho mọi HV được lùi nếu UI gửi). **`KetLuanCSDT IS NOT NULL`** (review #3): HV `12` mà `KetLuanCSDT` NULL là bất thường (đã kết xuất ắt có kết luận) → **bỏ qua + ghi cảnh báo**, KHÔNG ép về '10' (tránh gán Không-đạt oan).
+  3. **Xóa từng gói** `KET_QUA_DAO_TAO` `NoiGui=@MaCSDT` `TrangThai='0'` qua `usp_TRANS_CLI_HangDoiGui_Delete(@Id)` (SP = `DELETE WHERE Id=@Id`). Xóa quét cả CSĐT (không lọc được theo khóa — gói không nối khóa).
+  4. Trả số HV đã mở + số khóa ảnh hưởng + số HV bỏ qua + số gói đã xóa.
+- **Sau khi mở:** HV về 09/10 → sửa điểm bình thường qua KQD-02 → nhân viên **kết xuất lại ở PM CDB cũ** (tool không sinh XML).
+- **Bất biến:** chỉ mở `12`; `13` tuyệt đối không; thao tác **mức CƠ SỞ** (không mổ xẻ 1 HV, không giới hạn 1 khóa — vì không biết HV/khóa nằm gói nào). Modal **phải nói rõ "mở khóa toàn bộ HV đã kết xuất chưa gửi của cơ sở (N người · M khóa)"**, không chỉ HV/khóa đang xem. Nút "Mở khóa" hiện ở cả màn KQD-02 (dòng 🔒) và KQD-03.
+
+### 11D.8 Sửa lẻ / xóa điểm đã lưu (KQD-06) — chỉ HV chưa kết xuất (09/10)
+> Phát sinh sau khi dùng thử KQD-02 (CHANGES #48). Verify DB 07/10: không có SP reset KQĐT; cột `DiemKQ*` (float) + 3 cờ bit + `SoGiayCNTN` nullable; `TT_XuLy` NOT NULL (set `'03'` được).
+
+- **Phạm vi:** chỉ HV `TT_XuLy` **09/10** (đã cập nhật, chưa gửi Sở). `12` phải mở khóa (§11D.7) trước; `13` khóa tuyệt đối; `14`/`90` sửa qua KQD-04. Backend **chặn cứng** TT ngoài 09/10 (409) cho cả 2 thao tác.
+- **Sửa lẻ 1 môn (giữ 4 môn cũ):** điểm lưu là **quy đổi /10** (không lưu điểm gốc) → KHÔNG tính ngược ra gốc (lệch làm tròn). Lưu gom **5 giá trị quy đổi** = {môn vừa sửa: quy đổi từ gốc nhập; môn không sửa: `DiemKQ*` đã lưu đọc từ `/hoc-vien`}; tính lại 3 cờ Đạt (per-môn ≥5 trên 5 quy đổi) → gọi SP `_CapNhat` như KQD-02 (SP nhận thẳng quy đổi). UI: cho Lưu khi chỉ 1 vài ô có giá trị, miễn **mỗi môn trống đều có điểm đã lưu** để điền chỗ trống; môn vừa trống-nhập vừa-chưa-lưu → vẫn báo thiếu (ô đỏ). *Chốt khi code:* mở rộng body `/cap-nhat` nhận cờ "giữ quy đổi cũ" theo môn, HOẶC endpoint riêng — không nối chuỗi, tham số hóa.
+- **Xóa điểm (reset về chưa có điểm):** `POST /local/ketqua/xoa-diem` (body `ma_dk`). UPDATE trực tiếp tham số hóa (SP không reset được): `UPDATE NguoiLX_HoSo SET DiemKQLyThuyet=NULL, DiemKQMoPhong=NULL, DiemKQHinh=NULL, DiemKQTienLui=NULL, DiemKQThucHanh=NULL, KQLyThuyet=NULL, KQThucHanh=NULL, KetLuanCSDT=NULL, SoGiayCNTN=NULL, TT_XuLy='03', NgaySua=GETDATE() WHERE MaDK=@MaDK AND TT_XuLy IN ('09','10')`. Trả số dòng đổi (0 = HV không ở 09/10 → 409). UI: nút "Xóa điểm" mỗi dòng 09/10 + **hộp xác nhận** (đổi dữ liệu thật). Giờ/km thực hành (`TGThucHanh*`/`QDThucHanh*`): *chốt khi code có xóa kèm không* — mặc định giữ (không thuộc "điểm").
+- **Bất biến:** chỉ 09/10; mọi SQL tham số hóa; xóa phải xác nhận; reset về `'03'` (đã đăng ký) — không đoán lại 03 vs 04.
+
+> **Phục vụ:** KQD-01/02/03/04/05/06. Dừng ở `TT_XuLy` 09/10/12 — kết xuất XML/gửi Sở thuộc PM cũ. Quy đổi điểm/giờ/km: nguồn `thamkhao/` (TT17 + Sổ theo dõi). Quyết định: TDD-decisions §17 (quy đổi) + §19 (mở khóa).
+
 ---
 
 ## 12. Security
@@ -1289,8 +1430,15 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 |---|---|---|
+| 07/10/2026 | 5.4 | **+KQD-06 Sửa lẻ / xóa điểm đã lưu** (CHANGES #48): §11D.8 mới — chỉ HV `TT_XuLy` 09/10; **sửa lẻ** gom 5 quy-đổi (môn sửa từ gốc + môn giữ lấy `DiemKQ*` đã lưu, không tính ngược gốc) → `_CapNhat`; **xóa điểm** `POST /xoa-diem` UPDATE trực tiếp NULL 5 điểm+3 cờ+`SoGiayCNTN` + `TT_XuLy='03'` (SP không reset được — verify DB 07/10); §11D.6 +endpoint `xoa-diem`. Cần /reviewtdd (API + nghiệp vụ mới). |
+| 07/10/2026 | 5.3 | **Đồng bộ tài liệu sau code KQD-05/03** (CHANGES #46, tài liệu lag code — không đổi yêu cầu): §11D.6 +`GET /local/ketqua/mo-khoa` (cổng B-1 chỉ đọc: `mo_duoc`/`goi_chua_gui`/`goi_da_gui`/`so_hv_mo`/`so_hv_bo_qua`/`so_khoa`) + ghi rõ **KQD-03 KHÔNG dùng endpoint `ket-xuat` riêng** (ghép từ `/khoa` đếm `ketxuat`=12 + `GET /mo-khoa` panel gói + `/hoc-vien?trang_thai=ketxuat`); §11D.7 **đảo thứ tự bước: LÙI HV (bước 2) TRƯỚC, XÓA gói (bước 3) SAU** cho khớp code + khớp edge PRD ("xóa gói xong lỗi → HV đã lùi vẫn sửa được"), + ghi `GiaiTrinh` gộp vào `UPDATE` lùi. |
+| 07/10/2026 | 5.2 | **Sửa sau /reviewtdd KQD-05** (phạm vi hẹp, mục #45): §11D.7 `POST /local/ketqua/mo-khoa` đổi từ "lùi HV `12` của **khóa**" → **mức CƠ SỞ** (lùi mọi HV `12` của CSĐT, mọi khóa) — **Chặn** (xóa gói buộc quét cả CSĐT, lùi theo khóa để treo HV khóa khác "12 không gói"), user chốt phương án A; `UPDATE` thêm guard **`KetLuanCSDT IS NOT NULL`** (HV `12` mà kết luận NULL → bỏ qua + cảnh báo, không ép '10' oan — Nên-sửa); §11D.1 +ghi chú/nhánh **ngoại lệ `12 → 09/10`** trong sơ đồ máy trạng thái. 1 Chặn (đã sửa) · 1 Nên-sửa · 1 Nên-sửa (sơ đồ), 0 tồn. Biên bản: docs/tdd-review-07-10-2026-kqd05.md. |
+| 07/10/2026 | 5.1 | **Sửa sau /reviewtdd #44** (phạm vi app web chụp bù ảnh HV đã nạp): §4.3 ghi rõ luật trạng thái ở dòng endpoint `POST .../anh` (F1); §6.3 đổi sang **allowlist `{pending,imported}`** + chặn cả `deleted`, cảnh báo không viết blocklist `==importing` (**Chặn** F2); §7.5 +ngoại lệ "khe hẹp cho ảnh" phá tuyên bố đóng-băng-tuyệt-đối (F3); §9.3 job PII tính tuổi theo `updated_at` + `upload_anh` set `updated_at=now` cho `imported` để gia hạn ảnh chụp-bù (F4); §11.5(b) +ghi nhận đua ảnh (kéo lại lấy bản mới, F5) + **sơ đồ luồng 3 hệ thống**. 1 Chặn · 3 Nên-sửa · 2 Ghi-nhận, 0 tồn. Biên bản: docs/tdd-review-07-10-2026.md (mục #44). |
+| 07/10/2026 | 5.0 | **Mở khóa để sửa điểm sau kết xuất + dựng lại tab Theo dõi kết xuất** (CHANGES #45, KQD-05/KQD-03): §11D.7 mới — luồng mở khóa `12` có kiểm soát (cổng B-1 `EXISTS ... NoiGui=@MaCSDT AND TrangThai='0'`; `POST /local/ketqua/mo-khoa` xóa gói chưa gửi qua `usp_TRANS_CLI_HangDoiGui_Delete` + lùi mọi HV 12 của khóa về 09/10; gói đã gửi hết → 409 + thông báo mức đợt M1); §11D.0 +ngoại lệ duy nhất cho `12`; §11D.6 +endpoint `mo-khoa` + `ket-xuat` trả tiến độ/gói/lưới; +decisions §19 (B-1/B-1a/M1, lý do DB không nối HV↔gói). KQD-03 viết lại khóa-first master–detail. KQD-02/04 giữ ⚠️ (yêu cầu lõi không đổi). |
+| 07/10/2026 | 4.9 | **App web chụp bù ảnh kể cả HV đã nạp — Phương án B** (CHANGES #44, lật quyết định A 01/10): §6.2/§6.3 app web cho chụp bù HV thiếu ảnh cả `pending` lẫn `imported`; §4.3 **nới chặn `POST /api/ho-so/:uuid/anh`** (cho `pending`+`imported`, vẫn chặn `importing`, giữ `created_by`); §11.5(b) ảnh thô VPS nay gồm bản collector chụp-bù, operator tự lọc "Chưa ảnh"→kéo (chốt A, không cờ ảnh-mới); +decisions §18 (lật A→B). THU-02 hạ ✅→⏳. |
 | 07/10/2026 | 4.8 | **Sửa sau /reviewtdd §9.3a** (hẹp, phạm vi #43): ô Ngày cấp đổi `<input type="date">`→component **`ODate`** dd/mm/yyyy (`ymdToVN`/`vnToYmd`, `max`=hôm nay) đồng nhất TraCuuDB/TraCuuCDB + giữ chuẩn ngày VN (Nên sửa 2.1); chốt **ô rỗng → quay về ngày gốc** (`nhap.ngayCap \|\| keo_ve.ngay_cap`, một quy tắc cho cả hiển thị lẫn nạp — Nên sửa 2.2); +đoạn **Migrate cột `ngay_cap`** bắt buộc (guard `PRAGMA table_info`+`ALTER TABLE ADD COLUMN`, vì DDL là `IF NOT EXISTS` không tự thêm cột → tránh nạp vỡ trên máy đã có bảng — **Chặn** 3.1). 1 Chặn · 2 Nên-sửa · 3 Ghi-nhận, 0 tồn. Biên bản: docs/tdd-review-07-10-2026.md (mục #43). |
 | 07/10/2026 | 4.7 | **Ngày cấp CCCD + Nơi cấp điền sẵn ở drawer Nạp lô** (CHANGES #43, NAP-01): §9.3a — `nhap_chuan_bi` +cột `ngay_cap`; `nhap[uuid]` +`ngayCap`; ô Ngày cấp (`<input type="date">`) điền sẵn `keo_ve.ngay_cap` + sửa được + lưu nháp (GIỮ khi reset địa chỉ BUG-04); payload nạp ưu tiên `nhap.ngayCap`→gốc (`NgayCapCMT`), NAP-05 không đổi Done. +Bền hóa combo Nơi cấp: tự chèn option `00 — Cục QLHC` khi suy ra '00' mà danh mục nguồn thiếu (máy chưa chạy script đồng bộ `DM_DVHC` #40). |
+| 07/10/2026 | 4.6 | **Sửa sau /reviewtdd §11D** (module KQD, verify DB `GPLX_CDB_CSDT`): §11D.0 SP ghi **18 tham số** (không phải 19) + SP đọc ưu tiên `_CNKQDT` (đủ cột lưới) + ⚠️ SP **không bảo vệ `TT_XuLy='12'`** → app chặn gọi SP cho 12/13 + KQD-04 ghi `GiaiTrinh` bằng `UPDATE` tham số hóa riêng chạy TRƯỚC `_CapNhat` (validate ≤1000; `LyDoTuChoiKQDT` read SP không trả, SELECT riêng nếu cần); §11D.1 +sơ đồ ASCII máy trạng thái (ranh giới tool/ngoài-tool); §11D.2 xét Đạt trên điểm **thô chưa làm tròn**; §11D.3 hạng `MaHangMoi` rỗng → không khóa-cứng giờ/km; §11D.6 combobox debounce+giới hạn gợi ý. 0 Chặn tồn · 5 Nên-sửa · 3 Ghi nhận. Biên bản: docs/tdd-review-07-10-2026.md. |
 | 06/10/2026 | 4.5 | **Sửa sau /reviewtdd §11B.7** (hẹp, phạm vi #40): +edge "xã cũ trước sáp nhập" áp CẢ QLY-01 lẫn TCB-03 (combo Xã trống = giữ mã cũ); +Risks §16.1 **rủi ro mã '00' đa nghĩa** (DM_DVHC=Cục QLHC vs DM_DonViGTVT=Cục CSGT → hỏi người quản CDB tra bảng nào). 0 Chặn · 1 Nên-xác-nhận · 1 Ghi nhận. Biên bản: docs/tdd-review-06-10-2026.md. |
 | 06/10/2026 | 4.4 | **Nơi cấp căn cước = Cục QLHC '00' từ `DM_DVHC`** (CHANGES #40, §11B.7): đổi nguồn nơi cấp `DM_DonViGTVT`→`DM_DVHC.MaDvhc` (có '00' Cục QLHC) ở `ds_so_gtvt` + 3 hiển thị; CCCD 12 số mặc định '00'. **Tiền đề đã chạy:** đồng bộ `DM_DVHC` đích→nguồn (MERGE, backup). **Mở rộng Nạp QLY-01** +combo địa chỉ 2 cấp + nơi cấp + ngày cấp CCCD (đảo #37 "giữ 5 trường"), guard BC1 giữ nguyên. Cần /reviewtdd §11B.7. |
 | 04/10/2026 | 3.4 | QLY-09 task 48 (CHANGES #28, hướng A khi code): §11.8 — "hỏi trạng thái VPS" hiện thực bằng **endpoint READ server mới** `GET /api/nap/trang-thai?uuids=` (operator, batch, ca ②) + `GET /api/admin/ho-so` trả thêm `ma_dk`/`locked_at` (ca ①③). Tool `doisoat.py` (2 panel + 3 action) + phòng tuyến 2 `nap_fn` bỏ `da_nap` khi `trung_uuid` (không sửa `nap_mot_hv`). ⚠ Đổi server → cần deploy VPS. |

@@ -4,6 +4,7 @@
 
 | # | Ngày | Mức | Story | Bug | Trạng thái | Deploy |
 |---|---|---|---|---|---|---|
+| 13 | 07/10/2026 | 🟠 Nặng | `KQD-01` · `KQD-02` | **Lưới Cập nhật KQĐT không hiện điểm + kết luận ĐÃ LƯU cho HV đã cập nhật (09/10/14/90).** Dòng các trạng thái này là dòng NHẬP: ô input lấy `value={nr[m]}` (state nhập RAM, trống) + cột Kết luận tính từ `nhap` (`!t.full`→"đang nhập…"), KHÔNG đọc `h.diem`/`h.ket_luan` đã lưu. Chỉ dòng khóa cứng 12/13 mới render điểm lưu. Hậu quả: nhân viên tưởng điểm chưa lưu (ca TRẦN THỊ VÂN ANH, điểm thực đã ghi TT=09 Đạt). Vi phạm PRD KQD-01 "lưới hiện điểm (nếu có)". Sửa: `diemHint.ts` (`hintDiem` hiện "đã lưu X,X" dưới ô khi chưa gõ + có điểm) + cột Kết luận hiện "Đạt/Không đạt · đã lưu". **Verify live CDB thật** (Vân Anh hiện đủ điểm + "Đạt · đã lưu"). | ✅ Đã sửa | ⬜ (chờ chạy lại tool) |
 | 12 | 03/10/2026 | 🟡 Nên sửa | `QLY-03` | **Xóa hẳn HV ở DB nhưng tab "Đã nạp" vẫn hiện.** `/xoa` (QLY-03) gỡ khỏi CSDT nhưng KHÔNG dọn dòng staging `'xong'` → "Đã nạp" (lọc keo_ve 'xong') còn hiện HV đã xóa. Sửa: sau `_xoa_hv_csdt` → `keo_ve_xoa(lay_uuid_theo_ma_dk(ma_dk))` (bỏ hẳn dòng staging, chỉ SQLite local; xóa hẳn ≠ gỡ nên KHÔNG về 'cho'). Frontend đã tự tải lại keoVe khi về tab Nạp (effect BUG-03). | ✅ Đã sửa | ⬜ (chờ chạy lại tool) |
 | 11 | 03/10/2026 | 🔴 Chặn | `QLY-01` | **Lưới học viên lặp dòng nhiều lần** (regression từ BUG-10): query chi tiết lưới thêm 3 `LEFT JOIN` (DM_DonViGTVT + DM_DVHC cho TT/CT) để lấy tên; nhưng `DM_DVHC.MaDvhc` KHÔNG duy nhất → join **nhân dòng** HV (khóa 6 HV hiện 12+). Sửa: đổi 3 JOIN → **scalar subquery `TOP 1`** (lấy đúng 1 tên, không nhân dòng). Verify khóa 6 HV: 12→6. | ✅ Đã sửa | ⬜ (chờ chạy lại tool) |
 | 10 | 03/10/2026 | 🟠 Nặng | `NAP-05` · `QLY-01` | **Nơi cấp căn cước rỗng + popup thiếu trường.** QR không mang nơi cấp → nạp để `NoiCapCMT` RỖNG (Lê Thị Hồng rỗng). Sửa: nạp **tự suy mã Sở GTVT từ số CCCD** (`cccd[2:3]`, vd `070…`→`70` Bình Phước; `NoiCapCMT`=mã đơn vị GTVT `DM_DonViGTVT` LoaiDV='SO', khớp 63/63) + **vá 6 bản ghi cũ** rỗng (chỉ CCCD 12 số hợp lệ). Popup "Chi tiết học viên" (tool) thêm **Ngày cấp · Nơi cấp (tên tỉnh) · Địa chỉ cư trú** + địa chỉ đầy đủ (join DM_DVHC). **Combobox "Nơi cấp" ở form nạp** (danh sách Sở GTVT, mặc định suy từ CCCD, operator sửa khi lệch) — endpoint `/local/dvhc/so-gtvt`. +2 test. **⚠️ THAY THẾ bởi CHANGES #40 (06/10): nơi cấp đổi sang `DM_DVHC.MaDvhc` (có '00' Cục QLHC), CCCD 12 số mặc định '00' — không còn là mã tỉnh/Sở GTVT.** | ✅ Đã sửa | ⬜ (chờ chạy lại tool) |
@@ -20,6 +21,17 @@
 Chú thích trạng thái: ✅ Đã sửa · 🔄 Đang sửa · ⏳ Đã xếp task · ⬜ Chưa xử
 
 ---
+
+## BUG-13 — Lưới KQĐT không hiện điểm + kết luận đã lưu cho HV đã cập nhật · 07/10/2026
+
+- **Mức:** 🟠 Nặng · **Story:** `KQD-01` (lưới hiện "điểm nếu có") · `KQD-02` · **File:** `tool/webui/src/pages/ketqua/CapNhatKQDT.tsx` + `diemHint.ts` (mới)
+- **Ai báo:** người quản CDB (nghiệm thu máy CSDT), ca HV **TRẦN THỊ VÂN ANH** (CCCD 075185005104, khóa 75032K260009).
+- **Tái hiện:** cập nhật điểm 1 HV → vào lọc "Đã cập nhật" xem lại → ô nhập trống + cột Kết luận "đang nhập…" → tưởng điểm chưa lưu. Verify DB đích: điểm ĐÃ ghi đủ (LT 8,3·MP 5,0·SH 6,3·CC 5,0·ĐT 7,3), TT_XuLy=09 Đạt.
+- **Nguyên nhân gốc:** lưới gộp KQD-01 (xem) + KQD-02 (nhập) — dòng HV 09/10/14/90 render **dạng NHẬP**: ô input `value={nr[m]}` lấy state nhập RAM (trống khi chưa gõ lại), gợi ý dưới ô + cột Kết luận tính từ `nhap` (`t.qd`/`t.full`), **không bao giờ đọc `h.diem`/`h.ket_luan` đã lưu**. Chỉ nhánh khóa cứng (12/13) mới hiện `d1(h.diem)`. → HV đã có điểm nhưng chưa kết xuất nhìn như trống.
+- **Đã sửa:** tách `hintDiem(over, qd, saved)` ra `diemHint.ts` — chưa gõ mà có điểm lưu → "đã lưu X,X" (thay "—"); đang gõ → preview "→ X,X"; vượt khung → "sai". Cột Kết luận: `!t.full` mà có `h.ket_luan` → "Đạt · đã lưu" / "Không đạt · đã lưu".
+- **Test hồi quy:** `tool/webui/src/pages/ketqua/diemHint.test.ts` (4 test) — case `hintDiem(false,null,8.3)` phải ra "đã lưu 8,3"; logic cũ (`qd==null?"—"`) ra "—" → FAIL trên code cũ, PASS trên code mới.
+- **Kiểm tay (đã chạy live):** CDB thật, khóa B01-K42 → HV Vân Anh hiện đủ "đã lưu …" 5 môn + Kết luận "Đạt · đã lưu".
+- **Deploy:** chưa commit (phần KQĐT chưa commit); hiệu lực sau khi chạy lại tool.
 
 ## BUG-07 — Địa chỉ 2 cấp KHÔNG tiền tố + chi tiết đầu không auto-map (ca Lê Thị Hồng) · 03/10/2026
 

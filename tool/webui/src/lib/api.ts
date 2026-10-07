@@ -917,3 +917,166 @@ export const postSyncRollback = (maKh: string, targetKey?: string) =>
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ ma_kh: maKh, target_key: targetKey }),
   }).then(json<SyncRollbackKetQua>);
+
+// ── KQD-01: Cập nhật kết quả đào tạo (đọc GPLX_CDB_CSDT) ──
+
+// Băng nhắc CSDL đích ở header (dùng chung mọi phân hệ ghi DB đích).
+export interface DbDichInfo {
+  database: string | null;
+  host: string | null;
+  ma_csdt: string | null;
+  connected: boolean;
+}
+export const getDbDichInfo = (targetKey?: string) =>
+  fetch(`${BASE}/local/ketqua/db-dich-info?${qs({ target_key: targetKey })}`, {
+    headers: authHeaders(),
+  }).then(json<DbDichInfo>);
+
+export interface KhoaKQD {
+  ma_kh: string;
+  ten_kh: string;
+  hang_gplx: string;
+  ngay_kg: string | null;
+  ngay_bg: string | null;
+  ngay_thi: string | null;
+  dem: { dangky: number; capnhat: number; tuchoi: number; giaitrinh: number; ketxuat: number };
+}
+export const dsKhoaKQD = (q: string, targetKey?: string) =>
+  fetch(`${BASE}/local/ketqua/khoa?${qs({ q, target_key: targetKey })}`, { headers: authHeaders() }).then(
+    json<KhoaKQD[]>,
+  );
+
+export interface DiemKQD {
+  ly_thuyet: number | null;
+  mo_phong: number | null;
+  hinh: number | null;
+  tien_lui: number | null;
+  duong: number | null;
+}
+export interface HocVienKQD {
+  ma_dk: string;
+  ho_ten: string;
+  ngay_sinh: string;
+  so_cccd: string;
+  so_ho_so: string;
+  hang: string | null;
+  ma_hang_moi: string | null;
+  ma_hang: string | null;
+  tt_xuly: string | null;
+  ket_luan: "dat" | "khong_dat" | null;
+  diem: DiemKQD;
+}
+// Nhóm lọc trạng thái (khớp _NHOM_TT backend) + 'all'. ketxuat=12 (KQD-03 "đã kết xuất").
+export type TrangThaiKQD = "all" | "dangky" | "capnhat" | "tuchoi" | "giaitrinh" | "ketxuat";
+export const dsHocVienKQD = (maKh: string, trangThai: TrangThaiKQD, targetKey?: string) =>
+  fetch(`${BASE}/local/ketqua/hoc-vien?${qs({ ma_kh: maKh, trang_thai: trangThai, target_key: targetKey })}`, {
+    headers: authHeaders(),
+  }).then(json<HocVienKQD[]>);
+
+// ── KQD-02: nhập điểm → quy đổi → ghi CDB ──
+export type ChuongTrinh = "cu" | "moi";
+export const getChuongTrinhKQD = (maKh: string) =>
+  fetch(`${BASE}/local/ketqua/chuong-trinh?${qs({ ma_kh: maKh })}`, { headers: authHeaders() }).then(
+    json<{ ma_kh: string; ct: ChuongTrinh }>,
+  );
+export const setChuongTrinhKQD = (maKh: string, ct: ChuongTrinh) =>
+  fetch(`${BASE}/local/ketqua/chuong-trinh`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ ma_kh: maKh, ct }),
+  }).then(json<{ ma_kh: string; ct: ChuongTrinh }>);
+
+export interface DiemGocKQD {
+  ly_thuyet: number;
+  mo_phong: number;
+  hinh: number;
+  tien_lui: number;
+  duong: number;
+}
+export interface CapNhatKQDIn {
+  ma_dk: string;
+  diem_goc: Partial<DiemGocKQD>; // KQD-02: đủ 5; KQD-06 sửa lẻ: chỉ môn sửa lại
+  giu_quydoi?: Partial<DiemGocKQD> | null; // KQD-06 sửa lẻ: {mon: quy đổi /10 đã lưu} cho môn giữ
+  km_san?: number | null;
+  gio_duong?: number | null;
+  km_duong?: number | null;
+  ngay_ra_qdtn?: string; // dd/mm/yyyy
+  tg_bat_dau?: string;
+  tg_ket_thuc?: string;
+  giai_trinh?: string | null; // KQD-04: null = không đụng; '' = xóa; chuỗi = ghi
+}
+// KQD-04: lý do Sở từ chối (chỉ đọc) + giải trình hiện có.
+export const getGiaiTrinhKQD = (maDk: string, targetKey?: string) =>
+  fetch(`${BASE}/local/ketqua/giai-trinh?${qs({ ma_dk: maDk, target_key: targetKey })}`, {
+    headers: authHeaders(),
+  }).then(json<{ ma_dk: string; ly_do_tu_choi: string | null; giai_trinh: string | null }>);
+export interface CapNhatKQDOut {
+  ok: boolean;
+  ma_dk: string;
+  ket_luan: "dat" | "khong_dat";
+  tt_moi: string;
+  so_giay: string | null;
+  quy_doi: DiemGocKQD;
+  ct: ChuongTrinh;
+}
+export const capNhatKQD = (body: CapNhatKQDIn, targetKey?: string) =>
+  fetch(`${BASE}/local/ketqua/cap-nhat?${qs({ target_key: targetKey })}`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(body),
+  }).then(json<CapNhatKQDOut>);
+
+// KQD-06: xóa điểm (reset HV 09/10 về chưa có điểm, TT='03'). 409 nếu HV không ở 09/10.
+export const xoaDiemKQD = (maDk: string, targetKey?: string) =>
+  fetch(`${BASE}/local/ketqua/xoa-diem?${qs({ target_key: targetKey })}`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ ma_dk: maDk }),
+  }).then(json<{ ok: boolean; ma_dk: string; tt_moi: string }>);
+
+// ── KQD-03/05: cổng B-1 mở khóa (gói hàng đợi gửi của CSĐT — CHỈ ĐỌC) ──
+// Gói lọc theo NoiGui=<mã CSĐT> (CSĐT-wide, không nối khóa). Panel KQD-03 dùng chung dữ liệu này.
+export interface GoiHangDoi {
+  id: string;
+  ten_file: string;
+  duong_dan: string;
+  ngay_tao: string | null; // dd/mm/yyyy HH:mm
+  kich_thuoc: number | null;
+}
+export interface MoKhoaTrangThai {
+  ma_csdt: string;
+  mo_duoc: boolean; // cổng B-1: còn gói chưa gửi → mở khóa được
+  goi_chua_gui: GoiHangDoi[];
+  goi_da_gui: GoiHangDoi[];
+  so_hv_mo: number; // HV 12 sẽ lùi (có kết luận)
+  so_hv_bo_qua: number; // HV 12 KetLuanCSDT NULL → bỏ qua
+  so_khoa: number;
+}
+export const moKhoaTrangThai = (targetKey?: string) =>
+  fetch(`${BASE}/local/ketqua/mo-khoa?${qs({ target_key: targetKey })}`, { headers: authHeaders() }).then(
+    json<MoKhoaTrangThai>,
+  );
+
+// POST mở khóa (KQD-05 task 77): xóa gói chưa gửi + lùi mọi HV 12 của cơ sở về 09/10.
+// ma_kh chỉ để log/ngữ cảnh (thao tác CSĐT-wide). giai_trinh ghi cho mọi HV được lùi.
+export interface MoKhoaKetQua {
+  ok: boolean;
+  ma_csdt: string;
+  so_hv_mo: number;
+  so_goi_xoa: number;
+  so_hv_bo_qua: number;
+  so_khoa: number;
+}
+// 409 (cơ sở đã gửi hết gói) → ném Error "khoa_cung" để UI mở lại trạng thái M1.
+export const moKhoa = async (
+  body: { ma_kh?: string | null; giai_trinh?: string | null },
+  targetKey?: string,
+): Promise<MoKhoaKetQua> => {
+  const r = await fetch(`${BASE}/local/ketqua/mo-khoa?${qs({ target_key: targetKey })}`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(body),
+  });
+  if (r.status === 409) throw new Error("khoa_cung");
+  return json<MoKhoaKetQua>(r);
+};

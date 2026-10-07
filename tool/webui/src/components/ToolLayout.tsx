@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, Link, useLocation } from "react-router-dom";
 import { Icon } from "./Icon";
 import CauHinhDrawer from "./CauHinhDrawer";
 import { ConfigDrawerContext } from "../lib/configDrawer";
 import { NHAN_VAI_TRO, useToolAuth } from "../auth/ToolAuth";
 import { MODULES, moduleForPath, type ModuleDef } from "../lib/modules";
+import { getDbDichInfo, coToken, type DbDichInfo } from "../lib/api";
 
 const SB_KEY = "tool.sidebar.collapsed";
 
@@ -24,6 +25,13 @@ const ACCENT = {
     ring: "focus-visible:ring-sync",
     chip: "text-sync bg-sync-soft",
   },
+  kq: {
+    activeItem: "bg-kq-soft text-kq",
+    rail: "bg-kq",
+    subActive: "bg-kq-soft text-kq",
+    ring: "focus-visible:ring-kq",
+    chip: "text-kq bg-kq-soft",
+  },
 } as const;
 
 export default function ToolLayout() {
@@ -33,6 +41,21 @@ export default function ToolLayout() {
   const acc = ACCENT[active.accent];
 
   const [cfgOpen, setCfgOpen] = useState(false);
+
+  // Băng nhắc CSDL đích (dùng chung Sync + Kết quả đào tạo): tên DB · máy · CSĐT · đã kết nối.
+  // Fetch khi mở phân hệ ghi DB đích; nối lỗi → connected=false (banner tự nhắc chưa kết nối).
+  const [dbInfo, setDbInfo] = useState<DbDichInfo | null>(null);
+  useEffect(() => {
+    if (!active.db || !coToken()) {
+      setDbInfo(null);
+      return;
+    }
+    let huy = false;
+    getDbDichInfo()
+      .then((d) => { if (!huy) setDbInfo(d); })
+      .catch(() => { if (!huy) setDbInfo({ database: active.db ?? null, host: null, ma_csdt: null, connected: false }); });
+    return () => { huy = true; };
+  }, [active.db, active.id]);
 
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try {
@@ -183,8 +206,23 @@ export default function ToolLayout() {
             <div className="shrink-0 flex items-center gap-2 px-4 py-1.5 text-[12.5px] bg-warning/10 border-b border-warning/30 text-warning">
               <Icon name="warn" className="w-4 h-4 shrink-0" />
               <span>
-                Phân hệ <b>{active.label}</b> ghi vào <b>CSDL đích: {active.db}</b> — khác CSDL nguồn của phần Nạp.
+                Phân hệ <b>{active.label}</b> ghi vào <b>CSDL đích: {active.db}</b>
+                {dbInfo?.host && <> · máy <b>{dbInfo.host}</b></>}
+                {dbInfo?.ma_csdt && <> · CSĐT <b>{dbInfo.ma_csdt}</b></>}
+                {" "}— ghi thẳng vào hồ sơ thật.
               </span>
+              {/* Chip trạng thái: đang nối DB đích nào (user yêu cầu) */}
+              {dbInfo && (
+                dbInfo.connected ? (
+                  <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-success/40 bg-success/10 px-2 py-0.5 text-[12px] font-medium text-success whitespace-nowrap">
+                    <span className="w-1.5 h-1.5 rounded-full bg-success" /> Đã kết nối DB đích
+                  </span>
+                ) : (
+                  <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-[12px] font-medium text-destructive whitespace-nowrap">
+                    <span className="w-1.5 h-1.5 rounded-full bg-destructive" /> Chưa kết nối DB đích
+                  </span>
+                )
+              )}
             </div>
           )}
 

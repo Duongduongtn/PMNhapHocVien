@@ -85,7 +85,7 @@
 
 #### [THU-02] Nhập tay + chụp ảnh + gửi VPS (app web)
 
-**Trạng thái:** ✅ Done — 01/10/2026. Gửi nhanh không ảnh (toast) + badge "Thiếu ảnh" + bộ lọc thiếu ảnh ở "Hồ sơ đã gửi" (task 30, CHANGES #13) + form nhập tay thân thiện (ô ngày auto-mask/lịch, CHANGES #14) + ảnh 2 nút chụp/chọn-từ-máy & phóng to popup (CHANGES #15). Kiểm: server 67 test · webapp 24 · 4 review đã vá · Playwright 1440/375 · deploy live.
+**Trạng thái:** ⚠️ Partial — **nhánh #44 (chụp-bù-imported) đã CODE + unit test 07/10/2026; CHƯA chạy E2E 3 hệ thống ở máy CSDT (app→VPS→tool kéo ảnh→nạp DB).** Đã làm: server nới `POST /api/ho-so/:uuid/anh` sang allowlist `{pending,imported}` + job PII tính tuổi theo `updated_at` (server 44 test pass); app web `DaGui.tsx` hiện nút chụp bù cho HV `imported` thiếu ảnh (webapp 24 test + tsc pass); tool `keoAnhVps`/lọc "Chưa ảnh" dùng lại QLY-05 nguồn b (có sẵn #32). **Lật Phương án A** (chốt 01/10) → B. Chờ nghiệm thu ở máy CSDT để chốt ✅. — ✅ Done trước đó 01/10/2026: Gửi nhanh không ảnh (toast) + badge "Thiếu ảnh" + bộ lọc thiếu ảnh ở "Hồ sơ đã gửi" (task 30, CHANGES #13) + form nhập tay thân thiện (ô ngày auto-mask/lịch, CHANGES #14) + ảnh 2 nút chụp/chọn-từ-máy & phóng to popup (CHANGES #15). Kiểm: server 67 test · webapp 24 · 4 review đã vá · Playwright 1440/375 · deploy live.
 **Story:** Là nhân viên thu nhận, tôi muốn nhập tay và chụp ảnh chân dung rồi gửi lên VPS, để thu thập được cả khi không quét được QR.
 
 **Steps to Complete:**
@@ -97,11 +97,12 @@
 - ✅ Gửi thành công → bản ghi có UUID, trạng thái `pending` trên VPS.
 - ✅ Xem lại được danh sách bản ghi mình đã gửi.
 - ✅ **Hiện ảnh chân dung thật** (thumbnail) ở danh sách + chi tiết hồ sơ đã gửi (không còn icon xám) — nhân viên tải lại ảnh của **chính mình** qua endpoint mới (TDD §4.3). (CHANGES #12)
-- ✅ **Bấm hồ sơ đã gửi → xem chi tiết**; khi còn **Chờ nạp** cho **Sửa thông tin** + **Chụp/đổi ảnh** (server cho sửa lúc `pending`); khi **Đang nạp/Đã nạp** thì **chỉ xem**. (CHANGES #12)
+- ✅ **Bấm hồ sơ đã gửi → xem chi tiết**; khi còn **Chờ nạp** cho **Sửa thông tin** + **Chụp/đổi ảnh** (server cho sửa lúc `pending`); khi **Đang nạp/Đã nạp** thì **chỉ xem** — **trừ bổ sung ảnh cho HV thiếu ảnh** (xem Done khi "chụp bù ảnh cho HV đã nạp", CHANGES #44). (CHANGES #12)
 - ✅ **Tìm trong danh sách đã gửi** theo **tên (khớp cả có dấu lẫn không dấu)** hoặc **số CCCD**; ô tìm đặt trên đầu danh sách, màn hẹp thu gọn thành **nút kính lúp** (bấm mới bung ô nhập). (CHANGES #10)
 - ✅ Nơi thường trú lấy từ QR (hoặc nhập tay), cho sửa trước khi gửi. Nơi cư trú (tạm trú) **không nhập ở app** — tool mặc định = nơi thường trú khi nạp (BR-004 / TDD §8.1; xem CHANGES #9).
 - ✅ **Gửi nhanh không ảnh để nhập liên tiếp** (CHANGES #13): ở màn xác nhận bấm "Lưu & nhập hồ sơ tiếp" → gửi hồ sơ **không kèm ảnh** → hiện **toast "Đã gửi ✓"** (không qua màn kết quả) → về màn chọn cách nhập. Mất mạng vẫn giữ nháp, tự gửi lại khi có mạng (như cũ).
-- ✅ **Badge "Thiếu ảnh" + bộ lọc** (CHANGES #13): ở "Hồ sơ đã gửi", hồ sơ chưa có ảnh chân dung hiện **badge "Thiếu ảnh"** (list + chi tiết) và có **bộ lọc riêng gom hồ sơ thiếu ảnh** để chụp bổ sung sau (nút "Thêm ảnh" cho hồ sơ Chờ nạp đã có). Badge thông báo cho mọi trạng thái; chụp bù chỉ áp hồ sơ còn **Chờ nạp** (đã nạp phải bổ sung ảnh ở tool — QLY-05).
+- ✅ **Badge "Thiếu ảnh" + bộ lọc** (CHANGES #13): ở "Hồ sơ đã gửi", hồ sơ chưa có ảnh chân dung hiện **badge "Thiếu ảnh"** (list + chi tiết) và có **bộ lọc riêng gom hồ sơ thiếu ảnh** để chụp bổ sung sau (nút "Thêm ảnh"). Badge thông báo cho mọi trạng thái.
+- ⚠️ **Chụp bù ảnh cho HV thiếu ảnh — kể cả ĐÃ NẠP** (CHANGES #44, lật Phương án A) — *code + unit test xong, chờ E2E máy CSDT*: với hồ sơ **thiếu ảnh**, nút "Thêm ảnh"/"Chụp ảnh" hiện **cả khi Chờ nạp lẫn Đã nạp** (trước đây chỉ Chờ nạp). Collector chụp/chọn ảnh → gửi lên VPS (ghi đè ảnh thô của hồ sơ đó) kể cả hồ sơ đã `imported`. Nhờ đó người nạp kéo ảnh về ở Tra cứu DB (QLY-05) để bổ sung vào DB. **Chỉ mở cho bổ sung ẢNH** — hồ sơ đã nạp vẫn **không sửa thông tin, không xóa** ở app web. (Vẫn chỉ ảnh của chính mình — kiểm `created_by`.)
 - ✅ **Form nhập tay thân thiện** (CHANGES #14): dùng chung màn xác nhận với THU-01 — ẩn ô CMND cũ, ô ngày có nút lịch (giữ năm-only), desktop bố cục gọn + phím tắt; ô sửa ngày sinh trong "Hồ sơ đã gửi" cũng có nút lịch.
 - ✅ **Ảnh: chụp trực tiếp hoặc chọn từ máy + xem phóng to** (CHANGES #15): màn chụp ảnh & đổi ảnh (hồ sơ Chờ nạp) có **2 nút "Chụp ảnh" / "Chọn từ máy"** (bỏ ép camera, chọn được ảnh có sẵn); bấm ảnh chân dung ở chi tiết → **phóng to popup**.
 - ❌ Không xóa phông/căn ảnh ở điện thoại (để tool làm).
@@ -427,7 +428,7 @@
 - ✅ Dùng lại đúng luồng xử lý ảnh NAP-04 (crop 3:4 + nền trắng + 353×471).
 - ⬜ **Giữ `TT_XuLy` khi HV đã ở Báo cáo 1/2** (CHANGES #22, 🐛): thay ảnh cho HV `'11'`–`'19'` KHÔNG hạ về `'03'` (sẽ làm HV biến mất khỏi Báo cáo 2) — chỉ thay file + `DuongDanAnh`/`NgayThuNhanAnh`.
 - ⬜ **Mở trình chỉnh ảnh từ màn Tra cứu DB** (CHANGES #22): click avatar/ảnh HV đã có → AnhModal (ảnh `.jp2` đã transcode→PNG làm ảnh gốc) → đổi nền/chỉnh → lưu đè.
-- ⬜ **Bổ sung ảnh cho HV thiếu ảnh — 2 nguồn** (CHANGES #32): với HV đã nạp nhưng **chưa có ảnh** (lọc "chưa ảnh"), mở AnhModal và lấy ảnh gốc từ: **(a) chọn từ file máy tính** · **(b) kéo ảnh thô học viên gửi trên VPS** (tra theo HV, nếu ảnh còn trên VPS — bản gửi giữ ~30 ngày). Qua **cùng trình chỉnh + đổi nền** như NAP-04 rồi nạp vào DB (dùng luồng QLY-05 sẵn có). Ảnh thô VPS đã hết hạn → chỉ còn nguồn (a).
+- ⬜ **Bổ sung ảnh cho HV thiếu ảnh — 2 nguồn** (CHANGES #32, #44): với HV đã nạp nhưng **chưa có ảnh** (lọc "chưa ảnh"), mở AnhModal và lấy ảnh gốc từ: **(a) chọn từ file máy tính** · **(b) kéo ảnh thô học viên gửi trên VPS** (tra theo HV, nếu ảnh còn trên VPS — bản gửi giữ ~30 ngày) — **gồm cả ảnh collector CHỤP BÙ sau khi đã nạp** (THU-02/#44: app web cho chụp bù HV thiếu ảnh kể cả imported). Qua **cùng trình chỉnh + đổi nền** như NAP-04 rồi nạp vào DB (dùng luồng QLY-05 sẵn có). Ảnh thô VPS đã hết hạn / chưa chụp → chỉ còn nguồn (a). Operator **tự lọc "Chưa ảnh" → mở HV → bấm kéo** (không có cờ "ảnh mới" — chốt A, CHANGES #44).
 - ⬜ **Sau khi lưu ảnh, hiện ngay ảnh mới + mở lại chỉnh tiếp** (CHANGES #23): lưu đè xong (`/nap-anh` thành công), khung ảnh HV hiện **ảnh mới** (làm tươi, không trả bản cũ từ bộ đệm); bấm chỉnh lần sau nạp sẵn **ảnh mới nhất** để chỉnh tiếp. Nút áp dụng trong trình chỉnh **nổi bật + nhãn rõ** (như NAP-04) — tránh dừng ở bước "Xử lý ảnh" tưởng đã lưu.
 - ⬜ **"Dùng lại ảnh gốc"** (CHANGES #26): khi thay ảnh HV đã có, nút quay về **ảnh `.jp2` đang lưu trong DB** (bản trước khi chỉnh ở phiên này, transcode PNG) để sửa lại từ đầu; xác nhận nhanh trước khi bỏ chỉnh sửa. Dùng chung nút với NAP-04 (ảnh gốc = nguồn tùy màn: NAP-04 là ảnh thô VPS, QLY-05 là ảnh DB).
 - ❌ Không tạo bản ghi HV mới (chỉ cập nhật HV đã có).
@@ -513,7 +514,7 @@
 
 #### [QLY-09] Đối soát & đồng bộ trạng thái VPS↔CSDT
 
-**Trạng thái:** 🔄 In Progress — task 48 (backend đối soát + phòng tuyến 2) đang code 04/10/2026. Yêu cầu mới 03/10/2026 (CHANGES #28, từ ca Lê Thị Hồng / BUG-01). Phạm vi chốt: đối soát **theo khóa / theo yêu cầu** (không quét toàn bộ).
+**Trạng thái:** ✅ Done — 04/10/2026, đủ 2 task: 48 backend đối soát VPS↔CSDT + phòng tuyến 2 (`82684ea`) · 49 webui panel "Đối soát VPS↔CSDT" + nút sửa 1 chạm (`a8b3274`); review-nghiepvu 15/16 + chốt edge BC1 (`e3a34c3`). Kiểm mức 1+2: server 128 pytest · tool 193 pytest · webui build+34 vitest. Yêu cầu từ CHANGES #28 (ca BUG-01). Phạm vi: đối soát **theo khóa / theo yêu cầu** (không quét toàn bộ). Playwright + verify lệch thật ở Checkpoint 10 (máy có dữ liệu).
 **Story:** Là nhân viên nạp DB (hoặc quản trị), tôi muốn tự phát hiện và sửa các bản ghi bị **lệch trạng thái giữa máy chủ (VPS) và CSDT**, để không phải nhờ kỹ thuật sửa tay cơ sở dữ liệu khi có sự cố.
 
 **Steps to Complete:**
@@ -627,7 +628,7 @@
 ---
 
 ### 🟣 Đồng bộ CDB (workspace riêng — tool máy CSDT)
-**Trạng thái:** 🔄 In Progress — 3 story SYNC-01/02/03 đã ✅ (task 56-62, 04/10/2026). **Chưa chốt Feature** — chờ user duyệt + E2E sync thật 1 khóa nhỏ (Checkpoint 12, `/kiemthu`). Còn task 26 (đóng gói .exe) ngoài phạm vi Feature.
+**Trạng thái:** ✅ Đã chốt — 07/10/2026 (user duyệt). 3 story SYNC-01/02/03 ✅ (task 56-62) · TDD §11B khớp · dấu vết commit đủ (SYNC-01 11·02 2·03 2) · review-nghiepvu từng story + review-giaodien đạt (Checkpoint 13) · **E2E live Checkpoint 12 PASS 04/10** (sync thật khóa A1m→3 HV khớp phần mềm CDB, hủy sync→CDB về 0/0/0, HV đã có skip, HV BC1 chặn 409; 265 pytest). Task 26 đóng gói .exe ngoài phạm vi Feature (thuộc DGT).
 
 > Nghiệp vụ **TÁCH HOÀN TOÀN** khỏi Nạp hồ sơ: workspace riêng trong tool (công tắc đổi màu nhấn, banner nhắc DB đích), module backend riêng (`routers/sync.py` + `sync_service.py` + `sync_helpers.py` — **không import** module nạp). Port nghiệp vụ từ công cụ đồng bộ GPLX v2.0 (`D:\Du_An\GPLX\sync_tool`). Chuyển học viên đã có trong DB nguồn `GPLX_CSDT` sang DB đích CDB `GPLX_CDB_CSDT` (cùng Server/User/Pass, **chỉ khác tên DB**). Nghiệp vụ DB đích: **1 người = 1 hồ sơ = 1 MaDK**.
 
@@ -762,6 +763,114 @@
 **Edge cases:** đổi khóa mà khóa đích đã DKKH/BC1 → chặn · khóa hiện tại của HV đã DKKH → chặn (nút mờ) · không còn khóa cùng hạng chưa DKKH & chưa BC1 để chuyển → báo.
 
 > Nguồn: user 04/10/2026 (CHANGES #35) + 05/10/2026 (CHANGES #36, nâng ngưỡng chặn lên DKKH) · đọc ở đích · tham chiếu QLY-02 (đổi khóa) + QLY-03 (xóa)
+
+---
+
+### 🟣 Cập nhật kết quả đào tạo (workspace riêng — tool máy CSDT)
+
+**Trạng thái:** ⏳ Todo — nhóm mới (CHANGES #42, 07/10/2026). Nhập kết quả học tập/kiểm tra của học viên vào CSDL đích CDB `GPLX_CDB_CSDT` (bảng `NguoiLX_HoSo`) để chuyển trạng thái "Đã đăng ký khóa học" → "Đã cập nhật kết quả", thay cho việc gõ từng người trong phần mềm CDB cũ.
+
+> Nghiệp vụ **ghi CDB đích** như SYNC/TCB (cùng Server/User/Pass, khác tên DB). **Phạm vi: CHỈ cập nhật KQĐT** (`TT_XuLy` `03`→`09` Đạt / `03`→`10` Không đạt). **KHÔNG làm kết xuất XML gửi Sở** — để phần mềm CDB cũ lo (giữ phần mã hóa truyền tin). Tool dừng ở `09`/`10`; phần mềm cũ đọc chung CDB rồi kết xuất (`09`→`12`). Ghi qua SP có sẵn `usp_NguoiLX_KetQuaDaoTao_CSDT_CapNhat`; đọc danh sách qua `usp_NguoiLX_KetQuaDaoTao_CSDT` / `_GetHocVien`. Quy đổi điểm + giờ/km theo **TT 17/2026/TT-BXD** + "Sổ theo dõi KQ học tập TT17" (tham khảo `thamkhao/`). Chi tiết schema: `docs/DB-GPLX_CDB_CSDT.md` §5. Quyết định kỹ thuật: TDD-decisions §17. **Ngoại lệ KQD-05 (CHANGES #45):** HV đã kết xuất (`12`) vẫn mở khóa sửa được **khi khóa còn gói chưa gửi** — xóa gói chưa gửi + lùi cả lô 12→09/10; vẫn **không** kết xuất XML (TDD-decisions §19).
+
+#### [KQD-01] Chọn khóa + lọc HV theo trạng thái + lưới danh sách (băng DB đích)
+
+**Trạng thái:** ✅ Done — chọn khóa đã BC1 (combobox gõ-tìm + đếm HV theo trạng thái) + lọc 4 nhóm + lưới xem (đọc CDB đích qua SELECT tự viết, TDD §11D.0); băng DB đích dùng chung Sync + chip "Đã kết nối DB đích" (máy·CSĐT). Backend import OK + 304 pytest; webui build + 34 vitest; **verify UI live trên CDB thật** (CSĐT 75032, 14 khóa BC1, HV thật) bám mockup `ui-mock/ketqua.html` — review-nghiepvu đủ 4 Done + 2 ❌ + 3 edge.
+**Story:** Là nhân viên nạp DB, tôi muốn chọn một khóa học rồi xem danh sách học viên của khóa đó theo trạng thái cập nhật, để biết ai đã/chưa nhập kết quả mà không lẫn với học viên khóa khác.
+
+**Done khi:**
+- ⬜ **Băng nhắc CSDL đích** nổi bật trên đầu workspace (nền cam): "CSDL đích: `GPLX_CDB_CSDT` · <máy> · CSĐT <mã>". Dùng **component header dùng chung** cho cả màn Sync (nhắc nhân viên đang ghi vào máy/DB nào).
+- ⬜ **Chọn khóa bằng combobox gõ-tìm** theo **tên khóa** (vd "B-K148") hoặc **MaKH**; mỗi gợi ý kèm ngày khai giảng + đếm HV theo trạng thái. **Chỉ hiện khóa đã có Báo cáo 1** (`EXISTS BaoCaoI` — khớp SP `usp_NguoiLX_KetQuaDaoTao_CSDT`).
+- ⬜ **Lọc HV theo 4 trạng thái** (map `DM_TrangThai` qua `TT_XuLy`): Đã đăng ký (`03`/`04`) · Đã cập nhật KQ (`09`/`10`) · Sở từ chối (`14`) · Đang giải trình (`90`) · (Tất cả). + ô tìm nhanh theo tên/CCCD.
+- ⬜ Lưới HV đọc qua `usp_NguoiLX_KetQuaDaoTao_CSDT` (phân trang) / `_GetHocVien` (1 HV): STT, họ tên, ngày sinh, CCCD, hạng, điểm (nếu có), trạng thái.
+- ❌ Không dồn phẳng toàn bộ HV mọi khóa vào 1 danh sách (phải chọn khóa trước); không hiện khóa chưa BC1.
+
+**Edge cases:** khóa không có HV ở trạng thái lọc → lưới rỗng có thông báo · mất kết nối DB đích → báo, không treo · khóa chưa BC1 không xuất hiện trong gợi ý.
+
+> Nguồn: user 06-07/10/2026 (trao đổi module KQĐT) · đọc CDB đích như SYNC/TCB · băng DB đích = yêu cầu #2 (áp cả Sync)
+
+#### [KQD-02] Nhập điểm gốc → quy đổi thang 10 → ghi kết quả vào CDB
+
+**Trạng thái:** ⚠️ Partial — **ghi thật qua SP `_CapNhat` vào CDB production chờ nghiệm thu máy CSDT** (máy dev không ghi happy-path vào CDB thật, như TCB/QLY). Đã xong + verify trên dev: nhập 5 điểm gốc inline → quy đổi /10 + 3 cờ Đạt per-môn (trên điểm thô) · tham số LT theo hạng×cờ CŨ/MỚI (lưu phía tool/khóa) · giờ sân khóa cứng + km sân điền sẵn + giờ/km đường gợi ý (cảnh báo vàng không chặn) · SoGiayCNTN tự sinh khi Đạt · chặn HV 12/13 (SP không bảo vệ 12) · ô đỏ khi thiếu điểm. **24 unit test quy đổi** + 332 pytest + webui build/34 vitest; **UI live trên CDB thật** bám mockup; review-nghiepvu đủ (đã vá edge ô-đỏ).
+**Story:** Là nhân viên nạp DB, tôi muốn nhập điểm gốc các môn của học viên, hệ thống tự quy đổi về thang 10 và kết luận Đạt/Không đạt rồi ghi vào CDB, để khỏi tự tính tay và tránh ghi sai.
+
+**Done khi:**
+- ⬜ **Nhập điểm GỐC 5 môn**, app tự quy đổi về /10 (hiện ngay bên cạnh), GHI 5 điểm quy đổi vào `NguoiLX_HoSo`: Lý thuyết→`DiemKQLyThuyet` · Mô phỏng→`DiemKQMoPhong` · Sa hình (liên hoàn)→`DiemKQHinh` · Tiến lùi chữ chi→`DiemKQTienLui` · Đường trường→`DiemKQThucHanh`. **KHÔNG ghi điểm trung bình.**
+- ⬜ **Công thức quy đổi** (2 đoạn tuyến tính, ngưỡng đạt = 5,0): `gốc ≥ ngưỡng` → `5+(gốc−ngưỡng)/(tối đa−ngưỡng)×5` ; `gốc < ngưỡng` → `gốc/ngưỡng×5` (làm tròn 1 chữ số). Lý thuyết nhập **số câu đúng** (ngưỡng/tổng theo hạng) · Sa hình & Đường nhập **/100** (ngưỡng 80, tối đa 100) · Mô phỏng & Chữ chi nhập thẳng **/10**.
+- ⬜ **Tham số Lý thuyết theo hạng + cờ chương trình**: CŨ (TT12/2025/TT-BCA) B 30 câu/ngưỡng 27, C1 35/32 · MỚI (TT108/2026/TT-BCA) B 50/45, C1 60/54. Cờ CŨ/MỚI **tích chọn theo TỪNG KHÓA** (không nhảy theo ngày), lưu phía tool (không đụng schema CDB) — xem TDD-decisions §17.
+- ⬜ **Giờ/quãng đường thực hành** (TT17/2026/TT-BXD): **Giờ sân** `TGThucHanhHinh` khóa cứng auto (B & B.01: 34 · C1: 35) · **km sân** `QDThucHanhHinh` điền sẵn sửa được (B & B.01: 240 · C1: 225) · **Giờ đường** `TGThucHanhDuong` + **km đường** `TongQDThucHanh` **để trống, chỉ gợi ý tối thiểu** (giờ ≥ ½ quy định: B.01 12 / B 20 / C1 24 · km ≥ quy định: B.01 710 / B 810 / C1 825). Phân biệt B số tự động (`MaHangMoi='B.01'`, `MaHang='B11'`) vs B số sàn (`MaHangMoi='B'`, `MaHang='B1/B2'`).
+- ⬜ **Kết luận Đạt do app tự tính** (không cho gõ tay), quy tắc TỪNG MÔN ≥5: `KetLuanCSDT`=Đạt ⇔ cả 5 môn ≥5 · `KQLyThuyet`=1 ⇔ LT≥5 **và** Mô phỏng≥5 · `KQThucHanh`=1 ⇔ Sa hình≥5 **và** Chữ chi≥5 **và** Đường≥5. **Bỏ điểm liệt, bỏ loại trực tiếp.** 3 cờ app tự tính rồi truyền vào SP (DB không có trigger/computed/constraint tính hộ — verify 06/10).
+- ⬜ **Số giấy HTKH** `SoGiayCNTN` = `MaDK` + `'-'` + hạng mới, **tự sinh khi Đạt**. Ngày cấp HTKH `NgayRaQDTN` + TG bắt đầu/kết thúc thực tế `TGBatDau`/`TGKetThuc` điền sẵn từ ngày khóa, cho sửa.
+- ⬜ Ghi qua **`usp_NguoiLX_KetQuaDaoTao_CSDT_CapNhat`** (SP tự đổi `TT_XuLy` 03→09 nếu Đạt / →10 nếu không; giữ nguyên nếu đang 90/13/14). Lưu theo **từng HV**.
+- ⬜ **Khóa sửa** HV đã `TT_XuLy=12/13` (đã gửi Sở) — dòng chỉ-đọc; riêng **TT=12 có nút "Mở khóa để sửa" (KQD-05)** khi cơ sở còn gói chưa gửi (TT=13 khóa tuyệt đối).
+- ❌ Không tự quy đổi theo chương trình mới khi chưa bật cờ; không ghi điểm trung bình; không làm kết xuất XML gửi Sở.
+
+**Edge cases:** điểm gốc vượt khung (câu > tổng, /100 > 100) → chặn nhập · giờ/km đường dưới ngưỡng gợi ý → cảnh báo vàng, không chặn · thiếu điểm bắt buộc của hạng → không cho Lưu (ô đỏ) · HV đã `12`/`13` → nút Lưu mờ (12 có lối "Mở khóa để sửa" qua KQD-05) · hạng mô tô (A) ẩn bớt ô thực hành (dữ liệu hiện chưa có HV hạng A).
+
+> Nguồn: user 06-07/10/2026 · quy đổi từ "Sổ theo dõi KQ học tập TT17" + giờ/km TT17/2026/TT-BXD · quy tắc Đạt per-môn (user chốt A)
+
+#### [KQD-03] Tab "Theo dõi kết xuất" (khóa-first, chỉ xem)
+
+**Trạng thái:** ⚠️ Partial — **chưa chạy end-to-end live, chờ restart backend dev** (task 74, CHANGES #45, 07/10/2026). Đã xong + verify: master–detail khóa-first (`TheoDoiKetXuat.tsx` dựng lại từ stub) + tiến độ 5 nhóm trạng thái + panel gói cơ sở (tái dùng `GET /mo-khoa`, note "không tra được HV nằm gói nào") + lưới HV lọc Đã kết xuất (12) / Còn sót (09/10); backend thêm đếm `ketxuat` ở `/khoa` + nhóm `ketxuat` ở `/hoc-vien`. **Backend logic verify qua Python** (ds_khoa trả ketxuat, lọc ketxuat→25 HV khóa K260003) + **layout verify qua ảnh Playwright desktop 1280** (`anh-kiem/07-10-2026-KQD-03/`, đủ dấu/không tràn) + webui build pass + 336 pytest. Còn: backend dev 8000 chạy code cũ (`--reload` không bắt + không restart sạch được) → **restart tool để xác nhận live rồi nâng ✅**. Read-only (không ghi CDB) nên verify được hẳn trên dev, không cần máy CSDT.
+**Story:** Là nhân viên nạp DB, tôi muốn theo dõi tiến độ kết xuất theo từng khóa — ai đã/chưa kết xuất, đợt đã gửi Sở chưa — để biết khóa nào nhập xong cần sang phần mềm cũ bấm kết xuất, mà không phải dò trong danh sách phẳng khó tìm.
+
+**Done khi:**
+- ⬜ Bố cục **master–detail theo KHÓA**: cột trái danh sách khóa (đã BC1) + thanh tiến độ "đã kết xuất X / còn sót Y" + lọc "Còn sót kết xuất"; cột phải là chi tiết khóa đang chọn.
+- ⬜ Chi tiết khóa gồm: **tiến độ theo trạng thái** (đã kết xuất 12 · đã cập nhật chưa kết xuất 09/10 · chưa có điểm 03 · Sở từ chối 14 · giải trình 90) · **panel gói hàng đợi gửi** (liệt kê gói `KET_QUA_DAO_TAO` của CSĐT: tên + giờ + trạng thái Chưa gửi/Đã gửi) · **lưới HV** lọc Đã kết xuất / Còn sót.
+- ⬜ Panel gói ghi rõ **không tra được HV nằm trong từng gói** (danh sách HV ở trong file nén, không có trong CSDL) — chỉ đối chiếu HV bằng cột trạng thái.
+- ⬜ **Không có nút kết xuất** (kết xuất/gửi Sở thuộc phần mềm CDB cũ) — tab chỉ theo dõi + chứa lối "Mở khóa để sửa" (KQD-05).
+- ❌ Không sinh file XML, không đẩy thêm `TRANS_CLI_HangDoiGui`, không dồn phẳng toàn bộ HV của CSĐT vào 1 danh sách (phải chọn khóa).
+
+**Edge cases:** khóa chưa có HV cập nhật → chi tiết rỗng có chú thích · khóa chưa có gói → panel gói trống · mất kết nối đích → báo, không treo.
+
+> Nguồn: user 07/10/2026 (dựng lại khóa-first thay list phẳng) · gói lọc theo `NoiGui=CSĐT`, không nối được HV↔gói (verify DB) · mock `ui-mock/theodoiketxuat.html`
+
+#### [KQD-04] Sửa lại kết quả HV Sở từ chối / đang giải trình
+
+**Trạng thái:** ⚠️ Partial — **ghi thật + luồng 14/90 chờ nghiệm thu máy CSDT** (dev không có HV TT_XuLy 14/90 để chạy live; ghi CDB production). Đã xong + verify code: HV 14/90 mở lại nhập điểm (như KQD-02) + nút "Giải trình" → drawer hiện **lý do Sở từ chối (đọc `LyDoTuChoiKQDT`, SELECT riêng)** + ô giải trình; ghi `GiaiTrinh` bằng UPDATE tham số hóa ≤1000 **TRƯỚC** SP (quyết định ④-A); SP giữ nguyên TT_XuLy 14/90 (verify DB 07/10); không áp HV 12/13; sửa `tt_moi` phản ánh đúng SP. webui build + 34 vitest + 332 pytest; review-nghiepvu 9/9 đủ.
+**Story:** Là nhân viên nạp DB, tôi muốn sửa lại kết quả cho học viên bị Sở từ chối hoặc đang giải trình, để nộp lại cho đúng.
+
+**Done khi:**
+- ⬜ HV ở `TT_XuLy=14` (Sở từ chối) / `90` (đang giải trình) → **mở lại cho sửa điểm** (như KQD-02) + ô nhập **giải trình**.
+- ⬜ Lưu lại qua SP cập nhật (SP giữ nguyên `TT_XuLy` khi đang 90/13/14 — không tự nhảy về 09).
+- ❌ Không áp cho HV đã `13` (hoàn thành). HV `12` (đã gửi Sở) sửa qua **KQD-05** (mở khóa khi còn gói chưa gửi), không qua luồng 14/90 này.
+
+**Edge cases:** HV không ở 14/90 → không hiện ở tab này.
+
+> Nguồn: user 06/10/2026 (chốt làm 4 story)
+
+#### [KQD-05] Mở khóa để sửa điểm sau kết xuất (TT_XuLy=12)
+
+**Trạng thái:** ⚠️ Partial — code xong cả 2 task, **chờ restart backend dev + nghiệm thu máy CSDT** (CHANGES #45, 07/10/2026). Task 76 backend (`GET/POST /local/ketqua/mo-khoa`, cổng B-1 + lùi mức cơ sở + guard KetLuanCSDT NULL + 409/M1) — verify qua Python/DB dev: cổng B-1 + 409 không ghi đúng. Task 77 UI: `MoKhoaModal.tsx` (2 ca mở được/khóa cứng bám mock) + nút "Mở khóa" ở **cả 2 tab** (dòng 🔒 HV 12 ở KQD-02 + header lưới "Đã kết xuất" ở KQD-03) + làm tươi sau mở; webui build pass + 336 pytest. **Còn:** (a) backend dev 8000 chạy code cũ → **restart tool** để chạy UI live; (b) happy-path xóa gói+lùi HV cần **máy CSDT** (dev hiện 2 gói đều đã gửi → chỉ test được ca khóa cứng M1).
+**Story:** Là nhân viên nạp DB, khi lỡ nhập sai điểm cho học viên đã kết xuất nhưng đợt chưa gửi đi Sở, tôi muốn mở khóa để sửa lại rồi kết xuất lại, mà không phải chờ Sở từ chối.
+
+**Done khi:**
+- ⬜ **Cổng mở khóa (B-1):** nút "Mở khóa để sửa" trên HV `TT_XuLy=12` **chỉ bật khi CSĐT còn gói KQĐT chưa gửi** — `EXISTS TRANS_CLI_HangDoiGui WHERE KieuDuLieu='KET_QUA_DAO_TAO' AND NoiGui=<mã CSĐT> AND TrangThai='0'`. Lọc theo `NoiGui` (không parse tên file) để không đụng gói CSĐT khác.
+- ⬜ **Hành vi mở khóa (B-1a, mức CƠ SỞ):** xóa (các) gói chưa gửi của CSĐT qua `usp_TRANS_CLI_HangDoiGui_Delete` + lùi **MỌI HV đang `TT_XuLy=12` của cơ sở (mọi khóa)** về 09/10 → khớp phạm vi xóa gói (buộc quét cả CSĐT), tránh HV khóa khác treo "12 không gói". HV `12` mà chưa có kết luận (bất thường) → bỏ qua + cảnh báo, không ép Không-đạt oan. Sau đó nhân viên sửa điểm (KQD-02) rồi **kết xuất lại ở phần mềm CDB cũ**.
+- ⬜ **Cảnh báo trước khi mở:** modal nêu rõ "mở khóa **toàn bộ HV đã kết xuất chưa gửi của cơ sở (N người · M khóa)**" + các bước + ô lý do (ghi vào `GiaiTrinh`).
+- ⬜ **Gói đã gửi hết → khóa cứng (M1):** không mở; thông báo **mức đợt** — liệt kê các gói đã gửi + nói rõ **"hệ thống không xác định được HV nằm gói nào"** (danh sách HV ở trong file nén). Lối sửa: chờ Sở từ chối (14) → giải trình (90, KQD-04).
+- ⬜ **Nút ở CẢ 2 tab:** trên dòng 🔒 ở "Cập nhật KQĐT" (KQD-02) + ở "Theo dõi kết xuất" (KQD-03).
+- ⬜ **Nới chặn 409 có kiểm soát:** endpoint mở-khóa là ngoại lệ duy nhất cho `TT=12`; mọi đường ghi khác vẫn chặn 12/13. **TT=13 khóa tuyệt đối** (Sở đã duyệt).
+- ❌ Không mở khi gói đã gửi; không mở TT=13; không tự kết xuất lại (PM cũ lo); không đoán HV nằm gói nào.
+
+**Edge cases:** còn gói chưa gửi nhưng của CSĐT khác (dữ liệu test lẫn máy) → lọc `NoiGui` loại ra → coi như không có gói → khóa cứng · xóa gói xong SP lỗi giữa chừng → báo lỗi, HV đã lùi 09/10 vẫn sửa được · 2 nhân viên mở cùng lúc → thao tác mức cơ sở, lần sau không còn gói → tự khóa · HV khóa khác đang xem cũng bị lùi 12→09/10 (hệ quả cố ý của mức cơ sở — modal báo trước "mọi khóa").
+
+> Nguồn: user 07/10/2026 (chốt B-1 + B-1a mức cơ sở + M1, nút 2 tab) · DB không nối HV↔gói nên thao tác ở mức cơ sở (verify live 07/10) · TDD §11D.7 · decisions §19 · mock `ui-mock/theodoiketxuat.html`
+
+#### [KQD-06] Sửa lẻ / xóa điểm đã lưu (HV chưa kết xuất)
+
+**Trạng thái:** ⚠️ Partial — code xong, **chờ restart backend + nghiệm thu máy CSDT** (CHANGES #48, 07/10/2026). Backend: `ket_qua_hon_hop` (sửa lẻ giữ quy-đổi môn cũ) + `POST /local/ketqua/xoa-diem` (reset về 03, chỉ 09/10, 409 nếu khác) — verify qua **4 unit test** (340 pytest). Frontend `CapNhatKQDT.tsx`: Lưu nhận sửa lẻ (1 môn, giữ điểm cũ) + nút "Xóa điểm" trong drawer có xác nhận — **verify render live** (Lưu bật khi gõ 1 môn; nút Xóa hiện cho HV 09/10). **Còn:** write thật (sửa lẻ ghi đè + xóa reset) cần restart backend (đang chạy code cũ) + máy CSDT.
+**Story:** Là nhân viên nạp DB, khi lỡ nhập sai điểm cho học viên **đã cập nhật nhưng chưa kết xuất**, tôi muốn sửa lại chỉ môn sai hoặc xóa điểm để nhập lại, mà không phải gõ lại cả 5 môn.
+
+**Done khi:**
+- ⬜ **Sửa lẻ:** HV đã cập nhật (`TT_XuLy` 09/10) → sửa 1 hoặc vài môn, **các môn không sửa GIỮ điểm đã lưu** (truyền lại điểm quy đổi đã lưu, KHÔNG tính ngược ra điểm gốc để tránh lệch làm tròn); bấm Lưu **không bắt điền đủ 5 ô**.
+- ⬜ **Xóa điểm:** nút "Xóa điểm" trên dòng HV 09/10 → **xác nhận** → đưa HV **về chưa có điểm**: `TT_XuLy='03'`, NULL 5 điểm (`DiemKQ*`) + 3 cờ (`KQLyThuyet`/`KQThucHanh`/`KetLuanCSDT`) + `SoGiayCNTN`. Qua **UPDATE trực tiếp** (SP `_CapNhat` chỉ đặt 09/10, không lùi được 03 — verify 07/10).
+- ⬜ **Chỉ áp HV chưa kết xuất (09/10).** HV `12` phải "Mở khóa" (KQD-05) trước; `13` khóa tuyệt đối; `14`/`90` sửa qua luồng giải trình (KQD-04) — không áp xóa/sửa-lẻ ở đây.
+- ⬜ **Xác nhận trước khi xóa** (đổi dữ liệu đã ghi vào CDB thật).
+- ❌ Không xóa/reset HV `12`/`13`/`14`/`90`; không "xóa" khi HV chưa có điểm (nút mờ); không sinh XML.
+
+**Edge cases:** HV đã có `SoGiayCNTN` (Đạt) → xóa điểm xóa luôn số giấy · sửa lẻ mà HV chưa có điểm cũ nào → coi như nhập mới (phải đủ 5) · xóa xong HV về 03 → biến khỏi lọc "Đã cập nhật", quay lại "Đã đăng ký".
+
+> Nguồn: user 07/10/2026 (sau khi dùng thử KQD-02) · SP không reset được → UPDATE trực tiếp (verify DB 07/10) · điểm lưu là quy đổi /10 → giữ môn cũ bằng truyền lại quy đổi · TDD §11D.8
 
 ---
 
@@ -967,4 +1076,7 @@
 | 05/10/2026 | v3.4 — **DGT-04 +refresh-token VPS** (CHANGES #39, gỡ Chặn vps_token 8h từ /reviewtdd #38): thêm "Done khi" giữ quyền máy chủ lâu dài (vé gia hạn + tự đổi ngầm); sửa mô tả mã hóa phiên "key.bin" → "ràng vào máy + tài khoản Windows". Gộp vào DGT-04, không thêm story. | PM |
 | 06/10/2026 | v3.5 — **Nơi cấp căn cước = Cục QLHC '00' từ `DM_DVHC`** (CHANGES #40, đảo #31/BUG-10 + #37): nơi cấp đọc/lưu theo `DM_DVHC.MaDvhc` (có '00' Cục QLHC) thay `DM_DonViGTVT`; CCCD 12 số mặc định '00'. **Mở rộng modal sửa QLY-01 Nạp** +combo địa chỉ 2 cấp + nơi cấp + ngày cấp CCCD (ngang TCB-03), guard BC1 giữ nguyên. Tiền đề: đã đồng bộ `DM_DVHC` đích→nguồn. NAP-05 giữ ✅, QLY-01 ⚠️ Partial, TCB-03 🔄. | PM |
 | 05/10/2026 | v3.3 — **+Nhóm "Đóng gói & khởi chạy tool độc lập"** (CHANGES #38): 4 story mới `DGT-01` (đóng gói exe PyInstaller + FastAPI phục vụ UI cùng cổng) · `DGT-02` (tự mở trình duyệt + khay hệ thống + chống chạy 2 bản + tùy chọn tự chạy khi bật máy) · `DGT-03` (wizard thiết lập lần đầu, tái dùng test-before-save) · `DGT-04` (phiên đăng nhập **vĩnh viễn** lưu đĩa + thu hồi từ xa, chỉ Đăng xuất mới thoát). HTG-01 +dòng trỏ DGT-04 (chỉ tool; web giữ phiên thường, vẫn ✅). | PM |
+| 07/10/2026 | v3.6 — **+Nhóm "Cập nhật kết quả đào tạo"** (CHANGES #42, prefix mới KQD): 4 story `KQD-01` (chọn khóa combobox gõ-tìm + lọc HV 4 trạng thái + lưới + băng DB đích) · `KQD-02` (nhập điểm GỐC → quy đổi /10 theo Sổ TT17 → ghi 5 điểm per-môn; giờ/km TT17/2026; cờ CŨ/MỚI theo khóa; Đạt từng-môn-≥5 app tự tính) · `KQD-03` (tab Theo dõi kết xuất chỉ xem) · `KQD-04` (sửa lại HV Sở từ chối/giải trình). Module tool ghi CDB đích qua `usp_NguoiLX_KetQuaDaoTao_CSDT_CapNhat`; chỉ cập nhật, KHÔNG kết xuất XML. | PM |
+| 07/10/2026 | v3.8 — **App web chụp bù ảnh kể cả HV ĐÃ NẠP — Phương án B** (CHANGES #44, lật quyết định A 01/10): `THU-02` +Done khi "chụp bù ảnh HV thiếu ảnh kể cả imported" (chỉ ảnh, không sửa/xóa), hạ ✅→⏳; `QLY-05` nguồn (b) kéo ảnh VPS nay gồm bản collector chụp-bù, operator tự lọc "Chưa ảnh"→kéo (chốt A không cờ). | PM |
 | 07/10/2026 | v3.7 — **Ngày cấp + Nơi cấp điền sẵn ở drawer Nạp lô** (CHANGES #43, `NAP-01`): +Done khi ô **Ngày cấp CCCD** điền sẵn + sửa được (lưu nháp bền, nạp vào `NgayCapCMT`) · ô **Nơi cấp** luôn điền sẵn "Cục QLHC" cho CCCD 12 số kể cả khi máy chưa đồng bộ '00' (bền hóa #40). Không thêm mã, NAP-01 giữ 🔄, NAP-05 giữ ✅. | PM |
+| 07/10/2026 | v3.9 — **Sửa điểm sau kết xuất + dựng lại tab Theo dõi kết xuất** (CHANGES #45): +story mới `KQD-05` "Mở khóa để sửa điểm" (cổng B-1: chỉ mở khi còn gói chưa gửi `NoiGui=CSĐT`/`TrangThai=0`; hành vi B-1a mức lô: xóa gói + lùi mọi HV 12 của khóa về 09/10; M1: gói đã gửi hết → khóa cứng + thông báo mức đợt, không truy được HV nằm gói nào; nút ở cả 2 tab; nới chặn 409 cho TT=12). `KQD-03` viết lại khóa-first master–detail (thay list phẳng). `KQD-02`/`KQD-04` +ghi chú ngoại lệ TT=12 qua KQD-05 (giữ ⚠️ Partial — yêu cầu lõi không đổi). Số story 41→42. | PM |

@@ -121,6 +121,26 @@ def save_sync_config(
     return get_sync_config()
 
 
+# --- Cờ chương trình đào tạo CŨ/MỚI theo từng khóa (KQD-02) --------------
+# Map MaKH → 'cu' (TT12/2025) | 'moi' (TT108/2026), lưu PHÍA TOOL (không đụng schema
+# CDB) — quyết định tích theo TỪNG KHÓA, không nhảy theo ngày (TDD-decisions §17).
+# Mặc định 'cu' khi khóa chưa tích.
+def get_kqd_chuong_trinh(ma_kh: str) -> str:
+    data = load_config()
+    m = data.get("kqd_chuong_trinh") or {}
+    v = m.get((ma_kh or "").strip())
+    return "moi" if v == "moi" else "cu"
+
+
+def set_kqd_chuong_trinh(ma_kh: str, ct: str) -> str:
+    data = load_config()
+    m = dict(data.get("kqd_chuong_trinh") or {})
+    m[(ma_kh or "").strip()] = "moi" if ct == "moi" else "cu"
+    data["kqd_chuong_trinh"] = m
+    save_config(data)
+    return get_kqd_chuong_trinh(ma_kh)
+
+
 def get_sync_target(key: str | None = None) -> dict[str, Any] | None:
     """Trả target theo key, hoặc target đang chọn nếu không truyền key."""
     cfg = get_sync_config()
