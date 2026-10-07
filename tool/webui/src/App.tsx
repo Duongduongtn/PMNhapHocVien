@@ -1,12 +1,15 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import ToolLayout from "./components/ToolLayout";
 import NapHoSo from "./pages/tool/NapHoSo";
+import TraCuuDBPage from "./pages/tool/TraCuuDBPage";
 import TaoKhoa from "./pages/tool/TaoKhoa";
 import DangNhap from "./pages/tool/DangNhap";
 import Wizard from "./pages/tool/Wizard";
 import BanDongBo from "./pages/sync/BanDongBo";
 import TraCuuCDB from "./pages/sync/TraCuuCDB";
 import LichSu from "./pages/sync/LichSu";
+import CapNhatKQDT from "./pages/ketqua/CapNhatKQDT";
+import TheoDoiKetXuat from "./pages/ketqua/TheoDoiKetXuat";
 import { ToolAuthProvider, useToolAuth } from "./auth/ToolAuth";
 import type { ReactNode } from "react";
 
@@ -31,12 +34,16 @@ export default function App() {
           <Route index element={<Navigate to="/tool/nap" replace />} />
           {/* Phân hệ Nạp hồ sơ */}
           <Route path="tool/nap" element={<CoBaoVe><NapHoSo /></CoBaoVe>} />
+          <Route path="tool/tra-cuu" element={<CoBaoVe><TraCuuDBPage /></CoBaoVe>} />
           <Route path="tool/tao-khoa" element={<CoBaoVe><TaoKhoa /></CoBaoVe>} />
           {/* Cấu hình kết nối: panel ⚙ trên header (HTG-07) — không còn route riêng */}
           {/* Phân hệ Đồng bộ CDB (màn thật dựng ở các bước sau) */}
           <Route path="sync/ban-dong-bo" element={<CoBaoVe><BanDongBo /></CoBaoVe>} />
           <Route path="sync/tra-cuu" element={<CoBaoVe><TraCuuCDB /></CoBaoVe>} />
           <Route path="sync/lich-su" element={<CoBaoVe><LichSu /></CoBaoVe>} />
+          {/* Phân hệ Kết quả đào tạo (KQD) — module #3 */}
+          <Route path="ket-qua/cap-nhat" element={<CoBaoVe><CapNhatKQDT /></CoBaoVe>} />
+          <Route path="ket-qua/ket-xuat" element={<CoBaoVe><TheoDoiKetXuat /></CoBaoVe>} />
         </Route>
       </Routes>
     </ToolAuthProvider>

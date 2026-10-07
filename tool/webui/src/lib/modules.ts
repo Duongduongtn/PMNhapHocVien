@@ -2,7 +2,7 @@
 // (không sửa khung ToolLayout). Mỗi phân hệ có sub-nav riêng, màu nhấn, và
 // CSDL mà nó ghi vào (banner nhắc để tránh thao tác nhầm giữa các phân hệ).
 
-export type Accent = "primary" | "sync";
+export type Accent = "primary" | "sync" | "kq";
 
 export interface SubNav {
   to: string;
@@ -33,6 +33,7 @@ export const MODULES: ModuleDef[] = [
     base: "/tool",
     subnav: [
       { to: "/tool/nap", label: "Nạp hồ sơ", icon: "file" },
+      { to: "/tool/tra-cuu", label: "Tra cứu DB", icon: "search" },
       { to: "/tool/tao-khoa", label: "Tạo khóa", icon: "plus" },
     ],
   },
@@ -51,12 +52,15 @@ export const MODULES: ModuleDef[] = [
   },
   {
     id: "ketqua",
-    label: "Kết quả học tập",
+    label: "Kết quả đào tạo",
     icon: "check",
-    accent: "primary",
+    accent: "kq",
     base: "/ket-qua",
-    subnav: [],
-    comingSoon: true,
+    db: "GPLX_CDB_CSDT",
+    subnav: [
+      { to: "/ket-qua/cap-nhat", label: "Cập nhật KQĐT", icon: "check" },
+      { to: "/ket-qua/ket-xuat", label: "Theo dõi kết xuất", icon: "clock" },
+    ],
   },
 ];
 

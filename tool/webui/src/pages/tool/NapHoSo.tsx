@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
 import { Icon } from "../../components/Icon";
 import { PhanTrang } from "../../components/PhanTrang";
 import AddressCombo, { type DiaChiMoi } from "../../components/AddressCombo";
 import AnhModal from "../../components/AnhModal";
 import { ODate } from "../../components/ODate";
-import TraCuuDB from "./TraCuuDB";
+import { ComboLoc } from "../../components/ComboLoc";
 import { boDau, nghiSaiChinhTa, ymdToVN } from "../../lib/format";
 import { tachDiaChiGoc, lamTuoiNhapDiaChi } from "../../lib/diachi";
 import {
@@ -281,7 +282,7 @@ function NapLoDialog({ khoa, items, boQua, onDong, onXong, onXemDB, onBoSungAnh 
 
 // NAP-01: Tool kéo hàng đợi VPS → staging + nạp lô (chế độ Nạp). Tra cứu DB = QLY-01 (task 22, stub).
 export default function NapHoSo() {
-  const [mode, setMode] = useState<"nap" | "tracuu">("nap");
+  const navigate = useNavigate();
 
   // Khóa đích (chỉ chưa BC1 — NAP-02)
   const [loai, setLoai] = useState<LoaiXe>("oto");
@@ -324,7 +325,6 @@ export default function NapHoSo() {
   // Task 47 — dialog nạp 3 pha + "Xem trong DB"
   const [napDialog, setNapDialog] = useState<{ items: NapIn[]; boQua: number } | null>(null);
   const [napKhoa, setNapKhoa] = useState<Record<string, string>>({}); // uuid → mã khóa đã nạp (cho "Xem trong DB" dòng đã nạp)
-  const [xemDB, setXemDB] = useState<{ maKh: string; maDks: string[]; nonce: number; locAnh?: "all" | "chua" | "roi" } | null>(null);
 
   // ── Tải khóa đích ──
   useEffect(() => {
@@ -361,16 +361,14 @@ export default function NapHoSo() {
     };
   }, [maKh, khoa?.ma_loai_hs, khoa?.hang_dt]);
 
-  // ── Tải danh sách chờ nạp mỗi khi vào chế độ Nạp (gồm lần mở màn) ──
-  // BUG-03: "Gỡ về chờ nạp" nằm ở Tra cứu DB (component khác) → đưa dòng về 'cho' ở kho cục bộ
-  // nhưng KHÔNG chạm state màn Nạp. Trước đây chỉ tải 1 lần lúc mount nên quay lại tab Nạp vẫn
-  // thấy danh sách cũ, phải bấm "Kéo từ VPS". Tải lại theo mode='nap' → HV vừa gỡ hiện NGAY
-  // (PRD QLY-08). Chỉ đọc SQLite cục bộ, KHÔNG gọi VPS.
+  // ── Tải danh sách chờ nạp mỗi khi mở màn Nạp ──
+  // BUG-03: "Gỡ về chờ nạp" nằm ở Tra cứu DB (route khác) → đưa dòng về 'cho' ở kho cục bộ.
+  // Nạp & Tra cứu nay là 2 route riêng → chuyển tab là unmount/mount lại màn Nạp, effect này
+  // chạy lại mỗi lần quay về → HV vừa gỡ hiện NGAY (PRD QLY-08). Chỉ đọc SQLite cục bộ, KHÔNG gọi VPS.
   useEffect(() => {
-    if (mode !== "nap") return;
     getDanhSachKeoVe().then((ds) => { setKeoVe(ds); taiCoNhap(ds); }).catch(() => setKeoVe([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode]);
+  }, []);
 
   // Tải cờ nháp NHẸ cho các dòng chưa nạp (vẽ 2 chip) — không kèm ảnh (TDD §10.5, task 51).
   const taiCoNhap = (ds: KeoVeRow[]) => {
@@ -652,11 +650,11 @@ export default function NapHoSo() {
     setNapDialog({ items, boQua: Math.max(0, chon.size - items.length) });
   };
 
-  // Task 47 — nhảy sang Tra cứu DB, mở khóa đích + làm nổi HV vừa nạp.
+  // Task 47 — nhảy sang route Tra cứu DB, mở khóa đích + làm nổi HV vừa nạp.
+  // Gộp 3 tab 1 hàng: Tra cứu là route riêng → truyền tham số qua router state (TraCuuDBPage đọc lại).
   // CHANGES #32: locAnh="chua" → mở sẵn bộ lọc "chưa ảnh" để bổ sung ảnh HV vừa nạp thiếu ảnh.
   const xemTrongDB = (maKh: string, maDks: string[], locAnh?: "all" | "chua" | "roi") => {
-    setXemDB({ maKh, maDks, nonce: Date.now(), locAnh });
-    setMode("tracuu");
+    navigate("/tool/tra-cuu", { state: { maKh, maDks, nonce: Date.now(), locAnh } });
   };
 
   // NAP-01 task 38 — nút trên dòng: nạp lại nhanh (🔴) tái dùng nạp lô 1 uuid; bỏ khỏi hàng đợi (🟢).
@@ -677,39 +675,7 @@ export default function NapHoSo() {
 
   return (
     <>
-      {/* Thanh IA 2 chế độ (CHANGES #6) */}
-      <div className="px-4 py-3 border-b border-border flex items-center gap-3 flex-wrap">
-        <div className="inline-flex rounded-lg border border-border bg-muted p-1">
-          <button
-            onClick={() => setMode("nap")}
-            className={
-              "inline-flex items-center gap-2 px-4 py-2 text-sm rounded-md transition-colors " +
-              (mode === "nap" ? "bg-primary text-primary-foreground font-semibold shadow-sm" : "text-muted-foreground font-medium hover:text-foreground")
-            }
-          >
-            <Icon name="plus" className="w-4 h-4" /> Nạp hồ sơ
-          </button>
-          <button
-            onClick={() => { setXemDB(null); setMode("tracuu"); }}
-            className={
-              "inline-flex items-center gap-2 px-4 py-2 text-sm rounded-md transition-colors " +
-              (mode === "tracuu" ? "bg-primary text-primary-foreground font-semibold shadow-sm" : "text-muted-foreground font-medium hover:text-foreground")
-            }
-          >
-            <Icon name="search" className="w-4 h-4" /> Tra cứu DB
-          </button>
-        </div>
-        <p className="text-[12px] text-muted-foreground">
-          {mode === "nap"
-            ? "Kéo hồ sơ từ VPS và nạp vào khóa chưa lập BC1."
-            : "Tìm mọi khóa (kể cả 🔒 đã BC1) để xem/sửa hồ sơ đã có trong DB."}
-        </p>
-      </div>
-
-      {/* ============ CHẾ ĐỘ NẠP ============ */}
-      {mode === "nap" && (
-        <>
-          {/* Toolbar chọn khóa + kéo về */}
+      {/* Toolbar chọn khóa + kéo về */}
           <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center gap-4 flex-wrap">
             <div className="inline-flex rounded-lg border border-border bg-card p-0.5">
               {(["moto", "oto"] as const).map((l) => (
@@ -1102,22 +1068,22 @@ export default function NapHoSo() {
                           <span className="text-[11px] font-normal text-muted-foreground">(tự suy từ số CCCD — sửa nếu sai)</span>
                         </label>
                         {(() => {
-                          // Bền hóa #43: khi suy ra '00' Cục QLHC mà danh mục nguồn thiếu mã '00'
-                          // (máy chưa chạy script đồng bộ DM_DVHC #40) → tự chèn option để luôn hiển thị đúng.
+                          // Combobox gõ-để-tìm (ComboLoc) — dùng chung với ô Nơi cấp ở Tra cứu DB (TraCuuDB).
+                          // Bền hóa #43: suy ra '00' Cục QLHC mà danh mục nguồn thiếu mã '00' (máy chưa chạy
+                          // script đồng bộ DM_DVHC #40) → tự chèn '00' vào đầu options để luôn hiển thị + tìm được.
                           const noiCapVal = layNhap(selRow.uuid).noiCap ?? suyNoiCap(selRow.so_cccd);
                           const thieu00 = noiCapVal === "00" && !soGtvt.some((s) => s.ma === "00");
+                          const opts = (thieu00 ? [{ ma: "00", ten: "Cục QLHC" }] : []).concat(
+                            soGtvt.map((s) => ({ ma: s.ma, ten: s.ten })),
+                          );
                           return (
-                            <select
-                              className="field-input mt-1"
+                            <ComboLoc
+                              className="mt-1"
                               value={noiCapVal}
-                              onChange={(e) => capNhatNhap(selRow.uuid, { noiCap: e.target.value })}
-                            >
-                              <option value="">— Chọn nơi cấp —</option>
-                              {thieu00 && <option value="00">00 — Cục QLHC</option>}
-                              {soGtvt.map((s) => (
-                                <option key={s.ma} value={s.ma}>{s.ten}</option>
-                              ))}
-                            </select>
+                              options={opts}
+                              onChon={(ma) => capNhatNhap(selRow.uuid, { noiCap: ma })}
+                              placeholder="Gõ Cục QLHC hoặc tên tỉnh…"
+                            />
                           );
                         })()}
                       </div>
@@ -1202,11 +1168,6 @@ export default function NapHoSo() {
               </div>
             </div>
           )}
-        </>
-      )}
-
-      {/* ============ CHẾ ĐỘ TRA CỨU DB (QLY-01 — task 22) ============ */}
-      {mode === "tracuu" && <TraCuuDB khoaMa={xemDB?.maKh} noiBat={xemDB?.maDks} moNonce={xemDB?.nonce} locAnhBanDau={xemDB?.locAnh} />}
 
       {/* Task 47 — dialog nạp lô 3 pha */}
       {napDialog && khoa && (
