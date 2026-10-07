@@ -2,7 +2,7 @@
 
 > File do `/kehoach` sinh. `/tieptheo` đọc file này để biết làm gì tiếp theo.
 > **Thứ tự code** nằm ở đây. **Yêu cầu và trạng thái story** nằm ở `docs/PRD.md`.
-> Cập nhật lần cuối: 07/10/2026 (v16 — bổ sung KQD-05 "Mở khóa để sửa điểm sau kết xuất" (CHANGES #45): task 76 backend + 77 UI vào cuối Phase 6, Checkpoint 16 mở rộng 71→77; thao tác mức CƠ SỞ theo /reviewtdd. Trước đó v15 — Phase 6 KQD-01..04)
+> Cập nhật lần cuối: 07/10/2026 (v17 — bổ sung KQD-06 "Sửa lẻ / xóa điểm đã lưu" (CHANGES #48, đã code trước khi ghi sổ): task 78 vào cuối Phase 6, Checkpoint 16 mở rộng 71→78. Trước đó v16 — KQD-05 task 76/77; v15 — Phase 6 KQD-01..04)
 
 ## Quyết định về thứ tự
 
@@ -12,7 +12,7 @@
 - **`NAP-05` và `HTG-02` cắt đôi** để không còn task cỡ L.
 - **1 người build → tuần tự một luồng**, không tách nhánh song song (quyết định chủ dự án 01/10/2026).
 - **Phase 4 Đồng bộ CDB (task 54-60) — module mới tách khỏi Nạp:** SHOULD, xếp cuối sau mọi task Nạp/thu thập (không đảo lên MUST). Đổi `ToolLayout`→sidebar (task 54) đụng chrome dùng chung → chạy một mình, nhưng **hành vi màn Nạp không đổi** (không hạ story Nạp). Ghi vào CSDL đích GPLX_CDB_CSDT (≠ CSDL Nạp) → module backend tách (`sync_*`), không import Nạp. Tạo HV **qua 3 SP chuẩn CDB** + MaCSDT từ `QTHT.MA_CSDT`/khóa đích (đã phân tích DB: `docs/DB-GPLX_CDB_CSDT.md`). Khóa đích đã BC1: **cảnh báo, vẫn cho sync** (user chốt B 04/10) — khác NAP-02 chặn cứng, vì sync là thao tác bù dữ liệu chủ động.
-- **KQD (task 71-77, Phase 6) — module #3 "Cập nhật kết quả đào tạo":** xếp sau DGT vì là module mới hoàn toàn, tái dùng hạ tầng CDB đã ổn định (sidebar task 54 + `conn_dich`/config đích task 55). Cắt KQD-02 làm 2 task (72 backend quy đổi/Đạt/ghi · 73 UI form) và KQD-05 làm 2 task (76 backend mở-khóa · 77 UI) tránh cỡ L (nhiều tiêu chí Done). KQD-05 "Mở khóa để sửa sau kết xuất" thao tác **mức CƠ SỞ** (DB không nối HV↔gói). Chỉ ghi KQĐT (`TT_XuLy` 03→09/10, riêng KQD-05 lùi 12→09/10), KHÔNG kết xuất XML. Mọi ghi thật đối chiếu phần mềm CDB → nghiệm thu máy CSDT (như TCB/QLY).
+- **KQD (task 71-78, Phase 6) — module #3 "Cập nhật kết quả đào tạo":** xếp sau DGT vì là module mới hoàn toàn, tái dùng hạ tầng CDB đã ổn định (sidebar task 54 + `conn_dich`/config đích task 55). Cắt KQD-02 làm 2 task (72 backend quy đổi/Đạt/ghi · 73 UI form) và KQD-05 làm 2 task (76 backend mở-khóa · 77 UI) tránh cỡ L (nhiều tiêu chí Done); KQD-06 (task 78) sửa lẻ/xóa điểm gộp 1 task. KQD-05 "Mở khóa để sửa sau kết xuất" thao tác **mức CƠ SỞ** (DB không nối HV↔gói). Chỉ ghi KQĐT (`TT_XuLy` 03→09/10, riêng KQD-05 lùi 12→09/10, KQD-06 lùi 09/10→03 khi xóa điểm), KHÔNG kết xuất XML. Mọi ghi thật đối chiếu phần mềm CDB → nghiệm thu máy CSDT (như TCB/QLY).
 - **#24/#26 (task 41-47) — lần đầu sửa server VPS từ Phase 2:** task 41/42/44 đổi server đang chạy prod → phải **deploy lại VPS** + verify 3 vai trò/luồng gửi-kéo ngay sau (Checkpoint 8). Thứ tự trong cụm: 41 (THU-05, tạo `deleted` — nền cho 44) → 42 (server QLY-08) → 43 (tool QLY-08, dep 42) → 44 (đồng bộ xóa, dep 41). Task 45-47 thuần client (ảnh gốc + redesign Nạp lô), code sau, chạy skill `impeccable` lúc dựng UI.
 
 ## Cây phụ thuộc
@@ -275,11 +275,13 @@
 | 75 | **KQD-04** sửa lại HV `14`/`90`: mở lại form sửa điểm (reuse KQD-02) + ô nhập **giải trình** → ghi `GiaiTrinh` bằng `UPDATE` tham số hóa riêng (pymssql `%s`, validate ≤1000) **chạy TRƯỚC `_CapNhat`** cùng `conn_dich` + hiển thị `LyDoTuChoiKQDT` (read SP không trả → `SELECT` riêng); SP giữ nguyên `14`/`90`. KHÔNG áp cho `12`/`13` | `KQD-04` | M | 73,72 | 1+2 | → PRD |
 | 76 | **KQD-05 (1/2) backend**: `POST /local/ketqua/mo-khoa` — cổng B-1 (`EXISTS TRANS_CLI_HangDoiGui WHERE KieuDuLieu='KET_QUA_DAO_TAO' AND NoiGui=@MaCSDT AND TrangThai='0'`, lọc `NoiGui` không parse tên file) → còn gói chưa gửi thì xóa từng gói qua `usp_TRANS_CLI_HangDoiGui_Delete` + **lùi MỌI HV `12` của CƠ SỞ (mọi khóa)** 1 `UPDATE` tham số hóa `WHERE MaCSDT=@MaCSDT AND TT_XuLy='12' AND KetLuanCSDT IS NOT NULL` (CASE 1→'09'/0→'10', `NgaySua=GETDATE()`; HV 12 kết luận NULL → bỏ qua + cảnh báo) + ghi `GiaiTrinh` nếu UI gửi; hết gói chưa gửi → **409** kèm danh sách gói đã gửi (M1). Ngoại lệ DUY NHẤT gỡ chặn `12`; `13` tuyệt đối không. +`GET /mo-khoa` cổng B-1 cho UI. `routers/ketqua.py` | `KQD-05 (1/2)` | M | 71 | 1 | [x] |
 | 77 | **KQD-05 (2/2) UI**: nút "Mở khóa để sửa" ở **CẢ 2 tab** (dòng 🔒 HV `12` ở KQD-02 + tab KQD-03) + modal 2 ca bám mock `ui-mock/theodoiketxuat.html` — ca mở được (xóa gói + báo "toàn bộ HV của cơ sở N người · M khóa") / ca khóa cứng M1 (liệt kê gói đã gửi + "không xác định HV nằm gói nào") + ô lý do → `GiaiTrinh`. Chạy `impeccable`+`ui-ux-pro-max` | `KQD-05 (2/2)` | M | 76,73,74 | 1 | [x] |
+| 78 | **KQD-06** sửa lẻ / xóa điểm đã lưu (HV chưa kết xuất 09/10): **sửa lẻ** — `ket_qua_hon_hop` ghi lại 1/vài môn, các môn không sửa **GIỮ điểm quy đổi đã lưu** (truyền lại quy đổi /10, KHÔNG tính ngược ra gốc để tránh lệch làm tròn); Lưu không bắt đủ 5 ô + **xóa điểm** `POST /local/ketqua/xoa-diem` đưa HV về `TT_XuLy='03'` + NULL 5 `DiemKQ*` + 3 cờ (`KQLyThuyet`/`KQThucHanh`/`KetLuanCSDT`) + `SoGiayCNTN` bằng **UPDATE trực tiếp tham số hóa** (SP `_CapNhat` chỉ đặt 09/10, không lùi 03 — verify 07/10); chỉ 09/10 (**409** nếu 12/13/14/90). UI `CapNhatKQDT.tsx`: Lưu nhận sửa lẻ + nút "Xóa điểm" có xác nhận. +4 unit test (340 pytest). `routers/ketqua.py` + `ketqua_quydoi.py` | `KQD-06` | M | 72,73 | 1 | [x] |
 
 > KQD-02 cắt 2 task (72/73) cùng trỏ 1 story → PRD `KQD-02` chỉ ✅ khi xong cả 2. Tái dùng SP đã verify 07/10 trên `GPLX_CDB_CSDT` (biên bản `tdd-review-07-10-2026.md`): SP ghi 18 tham số, SP không bảo vệ `12`, cột `GiaiTrinh nvarchar(1000)` ghi ngoài SP.
 > KQD-05 cắt 2 task (76/77) cùng trỏ 1 story → PRD `KQD-05` chỉ ✅ khi xong cả 2. Thao tác **mức CƠ SỞ** (user chốt phương án A sau /reviewtdd 07/10 — DB không nối HV↔gói nên xóa gói buộc quét cả CSĐT; biên bản `tdd-review-07-10-2026-kqd05.md`, TDD §11D.7, decisions §19). Ghi/xóa thật ở CDB → **nghiệm thu máy CSDT**.
+> KQD-06 (task 78) **đã code trước khi ghi sổ** (user chốt phương án A gộp 1 story 07/10): sửa lẻ **giữ quy-đổi môn cũ** + xóa điểm reset `03` bằng **UPDATE trực tiếp** (SP không lùi 03 được) — chỉ áp HV `09/10`. TDD §11D.8, CHANGES #48. Ghi/xóa thật ở CDB → **nghiệm thu máy CSDT**.
 
-### ✅ Checkpoint 16 — sau task 71-77 (module KQD)
+### ✅ Checkpoint 16 — sau task 71-78 (module KQD)
 - [ ] Chọn 1 khóa đã BC1 → lưới HV đúng 4 trạng thái; khóa chưa BC1 không hiện trong gợi ý; khóa rỗng → lưới rỗng có thông báo.
 - [ ] **Mức 2** (unit quy đổi): khớp "Sổ theo dõi KQ TT17" (LT 28/30(ng.27)→6,7 · liên hoàn 84→6,0 · đường 85→6,3); **ranh giới làm tròn** (sa hình gốc 79,2→quy đổi 4,95 = **Trượt**, không làm tròn thành 5,0 rồi tính Đạt); 3 cờ Đạt per-môn đúng; tham số LT đổi theo cờ CŨ/MỚI của khóa.
 - [ ] Ghi 1 HV đạt → mở phần mềm CDB đối chiếu điểm/`TT_XuLy`=09/`SoGiayCNTN` khớp.
@@ -287,6 +289,8 @@
 - [ ] KQD-04: HV `14`/`90` → sửa điểm + nhập giải trình → `GiaiTrinh` ghi được, mở lại thấy; lỗi bước GiaiTrinh thì điểm/trạng thái **chưa đổi** (HV vẫn 14/90).
 - [ ] **KQD-05 cổng B-1:** cơ sở còn gói `NoiGui=@MaCSDT TrangThai='0'` → nút "Mở khóa" bật ở cả 2 tab; chỉ còn gói CSĐT khác (lẫn máy) → nút tắt (khóa cứng, không đụng gói lạ).
 - [ ] **KQD-05 mở khóa (mức cơ sở):** bấm mở → mọi gói chưa gửi của cơ sở bị xóa + **mọi HV `12` của cơ sở (nhiều khóa) về 09/10**; HV `12` mà `KetLuanCSDT` NULL → bỏ qua, không bị ép '10'. Gói đã gửi hết → 409 + thông báo mức đợt M1, **không đổi gì**. `13` không mở được.
+- [ ] **KQD-06 sửa lẻ:** HV `09/10` sửa 1 môn → Lưu (không bắt đủ 5 ô) → mở lại thấy môn sửa đổi, **các môn khác giữ nguyên điểm quy đổi cũ** (không lệch làm tròn).
+- [ ] **KQD-06 xóa điểm:** nút "Xóa điểm" dòng HV `09/10` → xác nhận → HV về `03` + sạch 5 điểm/3 cờ/`SoGiayCNTN`, rời lọc "Đã cập nhật"; HV `12/13/14/90` → **không có nút / 409** (không đụng).
 - [ ] Playwright desktop (1280/1440) workspace KQĐT + form sửa + **modal mở khóa 2 ca** — 0 tràn.
 - [ ] **Ghi thật/đối chiếu phần mềm CDB → nghiệm thu ở máy CSDT** (máy dev CDB toàn khóa đã BC1/DKKH; nhất quán cách TCB/QLY "⚠️ chờ verify máy CSDT").
 
@@ -331,15 +335,16 @@
 
 > `/tieptheo` so mục này với PRD mỗi buổi để biết kế hoạch còn khớp không. Lệch thì báo user chạy lại `/kehoach` chế độ bổ sung. **Không tự sửa kế hoạch.**
 
-- **Số story trong PRD khi cập nhật:** 42 (thêm `KQD-05` từ CHANGES #45; trước đó `KQD-01/02/03/04` #42; `DGT-01/02/03/04` #38/#39; `TCB-01/02/03/04` #35; `HTG-07` #34; `SYNC-01/02/03` #33; chưa tính NICE `QLY-04`, `THU-03`)
-- **Mã story đã đưa vào kế hoạch:** `HTG-01`, `HTG-02`, `HTG-03`, `HTG-07`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `SYNC-01`, `SYNC-02`, `SYNC-03`, `TCB-01`, `TCB-02`, `TCB-03`, `TCB-04`, `DGT-01`, `DGT-02`, `DGT-03`, `DGT-04`, `KQD-01`, `KQD-02`, `KQD-03`, `KQD-04`, `KQD-05`
+- **Số story trong PRD khi cập nhật:** 43 (thêm `KQD-06` từ CHANGES #48; `KQD-05` #45; trước đó `KQD-01/02/03/04` #42; `DGT-01/02/03/04` #38/#39; `TCB-01/02/03/04` #35; `HTG-07` #34; `SYNC-01/02/03` #33; chưa tính NICE `QLY-04`, `THU-03`)
+- **Mã story đã đưa vào kế hoạch:** `HTG-01`, `HTG-02`, `HTG-03`, `HTG-07`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `SYNC-01`, `SYNC-02`, `SYNC-03`, `TCB-01`, `TCB-02`, `TCB-03`, `TCB-04`, `DGT-01`, `DGT-02`, `DGT-03`, `DGT-04`, `KQD-01`, `KQD-02`, `KQD-03`, `KQD-04`, `KQD-05`, `KQD-06`
 - **Mã story chưa đưa vào:** `QLY-04`, `THU-03` (NICE, chưa đủ chi tiết) · **`HTG-04/05/06`** (thêm ở CHANGES #18, đã code thẳng — chưa có task trong plan; cần `/kehoach` bổ sung riêng nếu muốn khớp sổ)
-- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 07/10/2026 (#45)
+- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 07/10/2026 (#48)
 
 ## Changelog
 
 | Ngày | Thay đổi |
 |---|---|
+| 07/10/2026 | v17 — bổ sung (CHANGES #48, **đã code trước khi ghi sổ**): thêm **KQD-06 "Sửa lẻ / xóa điểm đã lưu"** vào cuối Phase 6 — task **78** (backend `ket_qua_hon_hop` giữ quy-đổi môn cũ + `POST /local/ketqua/xoa-diem` reset `03` bằng UPDATE trực tiếp, chỉ 09/10, 409 khác + UI nút Xóa điểm có xác nhận; +4 unit test, 340 pytest). Checkpoint 16 mở rộng 71→78 + 2 mục kiểm KQD-06 (sửa lẻ giữ môn cũ · xóa về 03). User chốt phương án A gộp 1 story; TDD §11D.8. +1 story. 78 task. |
 | 07/10/2026 | v16 — bổ sung (CHANGES #45, sau /reviewtdd KQD-05): thêm **KQD-05 "Mở khóa để sửa điểm sau kết xuất"** vào cuối Phase 6 — task **76** backend (`POST /local/ketqua/mo-khoa`: cổng B-1 `EXISTS NoiGui=@MaCSDT TrangThai='0'` + xóa gói chưa gửi + `UPDATE` lùi **mọi HV 12 của CƠ SỞ** guard `KetLuanCSDT IS NOT NULL` + 409/M1) + task **77** UI (nút 2 tab + modal 2 ca bám mock). Checkpoint 16 mở rộng 71→77 + 2 mục kiểm KQD-05. Thao tác **mức cơ sở** (phương án A — DB không nối HV↔gói; biên bản tdd-review-07-10-2026-kqd05). +1 story. 77 task. |
 | 07/10/2026 | v15 — bổ sung (CHANGES #42, sau /reviewtdd §11D): thêm **Phase 6 Cập nhật kết quả đào tạo (KQD)** task **71-75** — workspace KQĐT module #3 sidebar + đọc CDB (71, KQD-01) · KQD-02 cắt 2: backend quy đổi/Đạt per-môn điểm thô/giờ-km TT17/cờ CŨ-MỚI phía tool/ghi _CapNhat 18 th.số chặn 12-13 (72) + UI form (73) · tab Theo dõi kết xuất chỉ-đọc (74, KQD-03) · sửa HV 14/90 + ghi GiaiTrinh UPDATE riêng trước SP (75, KQD-04) + Checkpoint 16. Verify SP/cột trên CDB thật (biên bản tdd-review-07-10-2026). +4 story KQD. 75 task. |
 | 01/10/2026 | v1 — kế hoạch đầu tiên, 26 task (3 phase, risk-first theo TDD §17) |
