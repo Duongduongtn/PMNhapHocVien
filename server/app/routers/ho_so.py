@@ -236,10 +236,18 @@ def xoa_ho_so(uuid: UUID, user: User = Depends(require_role("collector")), db: S
 
 @router.post("/{uuid}/anh", response_model=HoSoOut)
 async def upload_anh(uuid: UUID, file: UploadFile, user: User = Depends(require_role("collector")), db: Session = Depends(get_db)):
-    """Upload ảnh thô (JPEG/PNG). Chỉ khi hồ sơ còn pending và là của mình."""
+    """Upload ảnh thô (JPEG/PNG) cho hồ sơ của MÌNH (TDD §6.3, CHANGES #44).
+
+    Allowlist trạng thái: CHỈ 'pending' HOẶC 'imported' (bổ sung ảnh cho HV đã nạp
+    thiếu ảnh — collector chụp bù → tool kéo về ở Tra cứu DB/QLY-05). Mọi trạng thái
+    khác → 409: 'importing' (tool đang nạp, tránh đua ảnh) và 'deleted' (đã xóa mềm,
+    không ghi ảnh làm sống lại). Dùng allowlist chứ KHÔNG viết `== "importing"` —
+    blocklist sẽ lọt 'deleted'. Endpoint chỉ ghi `anh_tho_path`, không đổi `trang_thai`.
+    Ghi ảnh cho 'imported' làm UPDATE → `updated_at` tự bump (onupdate) → job PII
+    gia hạn 30 ngày để operator kịp kéo (§9.3)."""
     hs = _cua_minh(uuid, user, db)
-    if hs.trang_thai != "pending":
-        raise HTTPException(status.HTTP_409_CONFLICT, "Hồ sơ đã được xử lý, không đổi ảnh được")
+    if hs.trang_thai not in ("pending", "imported"):
+        raise HTTPException(status.HTTP_409_CONFLICT, "Hồ sơ đang nạp hoặc đã xóa, không đổi ảnh được")
     data = await file.read()
     try:
         ext = validate_anh(data)

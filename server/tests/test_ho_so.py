@@ -154,6 +154,47 @@ def test_upload_ho_so_nguoi_khac_404(api):
     assert r.status_code == 404
 
 
+# ── Chụp bù ảnh cho HV đã nạp — allowlist {pending,imported} (CHANGES #44) ──
+def test_upload_anh_khi_imported_ok(api, db_setup):
+    """HV đã nạp thiếu ảnh → collector chụp bù được (lật Phương án A)."""
+    db, _ = db_setup
+    h = _login(api, "col1")
+    u = str(uuid4())
+    api.post("/api/ho-so", headers=h, json={"uuid": u, "ho_ten": "A"})
+    hs = db.get(HoSoThuThap, UUID(u))
+    hs.trang_thai = "imported"
+    db.commit()
+    r = api.post(f"/api/ho-so/{u}/anh", headers=h, files={"file": ("a.jpg", _anh_bytes("JPEG"), "image/jpeg")})
+    assert r.status_code == 200
+    assert r.json()["co_anh"] is True
+
+
+def test_upload_anh_khi_importing_409(api, db_setup):
+    """Tool đang nạp giữa chừng → chặn để tránh đua ảnh."""
+    db, _ = db_setup
+    h = _login(api, "col1")
+    u = str(uuid4())
+    api.post("/api/ho-so", headers=h, json={"uuid": u, "ho_ten": "A"})
+    hs = db.get(HoSoThuThap, UUID(u))
+    hs.trang_thai = "importing"
+    db.commit()
+    r = api.post(f"/api/ho-so/{u}/anh", headers=h, files={"file": ("a.jpg", _anh_bytes(), "image/jpeg")})
+    assert r.status_code == 409
+
+
+def test_upload_anh_khi_deleted_409(api, db_setup):
+    """Hồ sơ đã xóa mềm → không ghi ảnh làm sống lại (allowlist, không blocklist)."""
+    db, _ = db_setup
+    h = _login(api, "col1")
+    u = str(uuid4())
+    api.post("/api/ho-so", headers=h, json={"uuid": u, "ho_ten": "A"})
+    hs = db.get(HoSoThuThap, UUID(u))
+    hs.trang_thai = "deleted"
+    db.commit()
+    r = api.post(f"/api/ho-so/{u}/anh", headers=h, files={"file": ("a.jpg", _anh_bytes(), "image/jpeg")})
+    assert r.status_code == 409
+
+
 # ── Tải lại ảnh của mình (THU-02, CHANGES #12) ──
 def test_tai_anh_cua_minh_ok(api):
     h = _login(api, "col1")

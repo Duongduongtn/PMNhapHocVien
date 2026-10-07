@@ -490,7 +490,10 @@ export default function DaGui() {
 }
 
 function ChiTiet({ row, onDong, onCapNhat, onXoa }: { row: HoSoOut; onDong: () => void; onCapNhat: (moi: HoSoOut) => void; onXoa: () => void }) {
-  const suaDuoc = row.trang_thai === "pending"; // server chỉ cho sửa/xóa khi pending
+  const suaDuoc = row.trang_thai === "pending"; // sửa thông tin/xóa: server chỉ cho khi pending
+  // Chụp bù ảnh (CHANGES #44): cho khi pending (bất kỳ) HOẶC imported-mà-thiếu-ảnh — để người nạp
+  // kéo về bổ sung ở Tra cứu DB (QLY-05). importing/deleted: không (server cũng chặn 409).
+  const anhDuoc = row.trang_thai === "pending" || (row.trang_thai === "imported" && !row.co_anh);
   const [che, setChe] = useState<"xem" | "sua">("xem");
   const [f, setF] = useState<HoSoSua>({});
   const [luu, setLuu] = useState(false);
@@ -600,8 +603,9 @@ function ChiTiet({ row, onDong, onCapNhat, onXoa }: { row: HoSoOut; onDong: () =
             </div>
           </div>
 
-          {/* Đổi ảnh khi còn Chờ nạp: 2 lối — chụp trực tiếp / chọn ảnh có sẵn (CHANGES #15) */}
-          {suaDuoc && (
+          {/* Chụp/đổi ảnh: 2 lối — chụp trực tiếp / chọn ảnh có sẵn (CHANGES #15).
+              Hiện cả khi Đã nạp mà thiếu ảnh để chụp bù (CHANGES #44). */}
+          {anhDuoc && (
             <div className="mt-3 grid grid-cols-2 gap-2">
               <label className="h-10 rounded-lg border border-border bg-secondary text-foreground text-[13px] font-medium flex items-center justify-center gap-1.5 hover:bg-muted transition-colors cursor-pointer">
                 <Icon name="camera" className="w-4 h-4" /> {row.co_anh ? "Chụp lại" : "Chụp ảnh"}
@@ -614,6 +618,12 @@ function ChiTiet({ row, onDong, onCapNhat, onXoa }: { row: HoSoOut; onDong: () =
                   onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) void doiAnh(file); }} />
               </label>
             </div>
+          )}
+          {/* HV đã nạp thiếu ảnh: nói rõ vì sao vẫn chụp được (CHANGES #44) */}
+          {row.trang_thai === "imported" && !row.co_anh && (
+            <p className="mt-2 text-[12px] text-muted-foreground">
+              Hồ sơ đã nạp nhưng chưa có ảnh — chụp bù để người nạp lấy ảnh bổ sung vào hệ thống.
+            </p>
           )}
 
           {xemLon && row.co_anh && <AnhLightbox uuid={row.uuid} onDong={() => setXemLon(false)} />}

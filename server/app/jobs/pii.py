@@ -1,8 +1,12 @@
 """Job xóa PII quá hạn (TDD §7.3, BR-016, EC-040).
 
 Ảnh thô + số CCCD trên VPS là dữ liệu cá nhân: giữ tối đa `pii_retention_days`
-(mặc định 30) kể từ khi collector gửi (`created_at`). Quá hạn → xóa cả dòng DB
-lẫn file ảnh thô. BỎ QUA bản đang `importing` (tool có thể đang nạp dở — EC-040).
+(mặc định 30) kể từ **lần chạm cuối** (`updated_at`), KHÔNG phải lúc gửi (CHANGES #44).
+Vì sao `updated_at`: collector được chụp bù ảnh cho HV `imported` thiếu ảnh (§6.3) —
+nếu tính theo `created_at` thì ảnh chụp bù cho HV nạp gần 30 ngày sẽ bị xóa ngay
+trước khi operator kịp kéo ở Tra cứu DB/QLY-05. Mỗi lần chụp bù UPDATE → `updated_at`
+tự bump → gia hạn thêm 30 ngày. Hồ sơ không ai đụng vẫn hết hạn đúng 30 ngày.
+Quá hạn → xóa cả dòng DB lẫn file ảnh thô. BỎ QUA bản đang `importing` (EC-040).
 Chỉ ghi audit `hanh_dong='xoa_pii'` + uuid, KHÔNG ghi nội dung CCCD (§3.5).
 
 Tách khỏi scheduler để test được trực tiếp trên SQLite in-memory, không cần giờ thật.
@@ -57,7 +61,7 @@ def xoa_pii_qua_han(db: Session, *, now: datetime | None = None, retention_days:
     rows = db.scalars(
         select(HoSoThuThap).where(
             HoSoThuThap.trang_thai.in_(_XOA_DUOC),
-            HoSoThuThap.created_at < moc,
+            HoSoThuThap.updated_at < moc,  # CHANGES #44: tuổi theo lần chạm cuối, không theo lúc gửi
         )
     ).all()
 

@@ -15,12 +15,15 @@ NOW = datetime(2026, 10, 1, 12, 0, tzinfo=timezone.utc)
 
 
 def _them(db, trang_thai: str, ngay_tuoi: int, anh_tho_path: str | None = None):
+    # CHANGES #44: job tính tuổi theo updated_at → backdate cả hai mốc cho rõ ý "N ngày không ai chạm".
+    moc = NOW - timedelta(days=ngay_tuoi)
     hs = HoSoThuThap(
         uuid=uuid4(),
         trang_thai=trang_thai,
         ho_ten="A",
         anh_tho_path=anh_tho_path,
-        created_at=NOW - timedelta(days=ngay_tuoi),
+        created_at=moc,
+        updated_at=moc,
     )
     db.add(hs)
     db.commit()
@@ -41,6 +44,17 @@ def test_xoa_imported_qua_han(db_setup):
     db, _ = db_setup
     _them(db, "imported", 45)
     assert xoa_pii_qua_han(db, now=NOW, retention_days=30) == 1
+
+
+def test_imported_chup_bu_gia_han_khong_xoa(db_setup):
+    """CHANGES #44: HV imported gửi 45 ngày trước nhưng collector vừa chụp bù ảnh
+    (updated_at mới 5 ngày) → job tính theo updated_at → GIỮ, chờ operator kéo."""
+    db, _ = db_setup
+    hs = _them(db, "imported", 45)
+    hs.updated_at = NOW - timedelta(days=5)  # chụp bù gần đây
+    db.commit()
+    assert xoa_pii_qua_han(db, now=NOW, retention_days=30) == 0
+    assert db.get(HoSoThuThap, hs.uuid) is not None
 
 
 def test_giu_ban_con_moi(db_setup):
