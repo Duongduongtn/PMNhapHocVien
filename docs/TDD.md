@@ -491,14 +491,49 @@ Lọc **phía client** trên danh sách `/api/ho-so/cua-toi` đã tải (không 
 - **Desktop chọn-nhiều-để-xóa** (THU-05, CHANGES #30): bảng desktop thêm **cột ô tích chỉ render ở dòng `pending`** (dòng `importing`/`imported` không có ô tích — khớp luật server chặn xóa); ô tích đầu cột = chọn tất cả `pending` **trên trang hiện tại**. Thanh thao tác nổi "Đã chọn N · Bỏ chọn · Xóa N" hiện khi `chon.size > 0` → dialog xác nhận → **lặp `DELETE /api/ho-so/:uuid` phía client** (for-of, đếm lỗi như `xoaDaChon` của `QuanTriHoSo.tsx`), KHÔNG thêm endpoint batch. Mobile giữ card+modal (xóa lẻ), không thêm chế độ chọn. *Vì sao lặp client: endpoint xóa lẻ đã có quyền + CAS + audit đầy đủ; thêm batch endpoint là nhân đôi logic phân quyền/soft-delete.* Thuần client `DaGui.tsx`.
 
 ### 6.7 Chụp ảnh thẻ → tự đọc chữ (OCR) điền sẵn hồ sơ (THU-06, CHANGES #49)
-> ⚠️ **Khung nghiệp vụ — engine OCR + nơi chạy CHƯA chốt, để `/reviewtdd`/`/tdd` quyết** (ảnh hưởng lớn tới bảo mật PII + độ chính xác). Mục này chốt *luồng* và *ràng buộc*, không chốt *công nghệ*.
+> **Phục vụ:** THU-06
+> ⚠️ **Khung nghiệp vụ — engine OCR CHƯA chốt, để `/tdd` quyết** (ảnh hưởng lớn tới độ chính xác). Mục này chốt *luồng*, *quy tắc fail*, *ràng buộc PII* (gồm **nơi chạy = client-side, rào cứng**); chỉ còn *engine cụ thể* + *cách tách trường* để `/tdd`.
 
 *Vì sao thêm: iPhone/iOS Safari quét QR CCCD yếu hơn Android (không có `BarcodeDetector`, engine QR web — ZXing/zbar — không đọc nổi QR nhỏ/mờ/lóa; verify BUG-14: 3 engine native + tiền xử lý mạnh đều fail trên ảnh thật). Chữ IN trên thẻ to/rõ nên OCR đọc tốt hơn QR trong đúng ca này → lối nhập dự phòng.*
 
 - **Luồng:** màn vào (`/app/quet`) thêm lối thứ 3 **"Chụp ảnh thẻ (tự đọc)"** (mọi thiết bị) → chụp/tải ảnh mặt trước CCCD → **OCR** đọc trường → điền sẵn vào **màn xác nhận dùng chung** (THU-01/02) → **nhân viên soát/sửa** → lưu như các lối khác (`POST /api/ho-so`, giữ nháp offline, idempotent UUID — không thêm luồng gửi mới).
-- **Trường OCR đọc:** Số CCCD (validate 12 số), họ tên, ngày sinh (ddMMyyyy→yyyymmdd), giới tính (Nam/Nữ), nơi thường trú, ngày cấp. Trường không chắc → đánh dấu để soát; **không điền bừa** khi fail.
-- **Chưa chốt (để `/tdd`):** (1) **engine** — Tesseract.js (client, offline, nặng ~vài MB + độ chính xác tiếng Việt có dấu cần kiểm) · ML Kit/BarcodeDetector-text (không có trên iOS web) · **dịch vụ OCR/eKYC** (chính xác cao nhưng **gửi ảnh CCCD ra ngoài = PII**, phải cân HTTPS + xóa + đồng ý). (2) **nơi chạy:** client thuần (không lộ ảnh) vs gửi server/dịch vụ. (3) có **đọc tọa độ trường theo layout thẻ** hay OCR toàn ảnh rồi regex tách.
-- **Ràng buộc cứng (bất kể engine):** ảnh CCCD là **PII** — nếu gửi ra ngoài phải HTTPS + tự xóa, ghi rõ ở §12; **không tự lưu** khi nhân viên chưa xác nhận; validate đầu ra (CCCD 12 số, độ dài cột DB) y như THU-01/02. Bám parse địa chỉ/độ dài tên dùng chung (`lib/qr.ts`), map DVHC vẫn ở tool lúc nạp.
+- **Trường OCR đọc:** Số CCCD (validate 12 số), họ tên, ngày sinh (ddMMyyyy→yyyymmdd), giới tính (Nam/Nữ), nơi thường trú, ngày cấp.
+- **Quy tắc fail vs điền-một-phần (mốc = Số CCCD):** lấy **Số CCCD đọc ra có hợp lệ 12 số không** làm ranh giới (CCCD là trường định danh, thiếu nó hồ sơ vô nghĩa):
+  - **KHÔNG** đọc được CCCD 12 số hợp lệ → coi là **fail**: báo rõ "không đọc được", **không điền trường nào**, cho quay lại Nhập tay / Quét QR.
+  - **CÓ** CCCD 12 số → **điền phần đọc được**; trường thiếu/độ-tin-thấp để trống + **đánh dấu** cho nhân viên soát. Tuyệt đối không điền bừa.
+- **Màn xác nhận KHÔNG auto-submit:** đi qua màn xác nhận dùng chung THU-01/02; nhân viên soát/sửa **TỪNG trường** rồi mới lưu (CCCD đọc đủ 12 số vẫn có thể sai chữ số — vd nhầm 8↔3 — mà validate không bắt được; màn xác nhận là lưới chặn duy nhất).
+- **Tách trường & tái dùng helper:** tách 6 trường **TỪ text OCR là bước MỚI** (đọc theo layout thẻ / regex — để `/tdd`); `lib/qr.ts` **chỉ tái dùng cho chuẩn hóa hạ nguồn** (ngày ddMMyyyy→yyyymmdd, độ dài tên, parse địa chỉ 2 cấp), KHÔNG lo việc đọc chữ. Map DVHC vẫn ở tool lúc nạp.
+- **Phạm vi:** chỉ **CCCD 12 số gắn chip** (mẫu hiện hành). CMND 9 số / CCCD mã vạch cũ → validate 12 số bắt lỗi (ô đỏ) → rơi về Nhập tay.
+- **Ràng buộc PII (ảnh căn cước — hệ thống CSDT nhà nước):**
+  - **OCR chạy client-side (ảnh KHÔNG rời máy) — RÀO CỨNG.** Gửi ảnh ra dịch vụ OCR/eKYC ngoài chỉ mở khi có **phê duyệt pháp lý/dữ liệu**, KHÔNG phải lựa chọn kỹ thuật thuần ở `/tdd` — HTTPS chỉ bảo vệ đường truyền, bên thứ ba vẫn nhận/giữ/huấn luyện được ảnh CCCD công dân.
+  - **Downscale ảnh thẻ ≤ ~1600px cạnh dài TRƯỚC khi OCR** — tránh Tesseract.js treo/sập tab trên điện thoại yếu (ảnh OCR chạy client không qua validate §7.4).
+  - **Vòng đời ảnh thẻ:** đọc xong **chỉ giữ nếu tái dùng làm nguồn cắt ảnh chân dung** (như THU-01); nếu không → **hủy khỏi bộ nhớ client, không gửi server**. Không tạo đường lưu ảnh CCCD mới ngoài luồng đã có.
+  - **Không tự lưu** khi nhân viên chưa xác nhận; validate đầu ra (CCCD 12 số, độ dài cột DB HoVaTen ≤50…) y như THU-01/02; **không log đầu ra OCR** (§12).
+- **Hiệu năng:** bước OCR có **spinner tiến trình + hủy được → về Nhập tay**; mốc NFR "thao tác <2s" (§13) **KHÔNG áp** cho bước đọc OCR (Tesseract.js trên điện thoại mất vài giây).
+- **Chưa chốt (để `/tdd`):** **engine** — Tesseract.js (client, offline — ưu tiên theo rào PII; độ chính xác tiếng Việt có dấu cần kiểm) vs engine OCR client khác; **cách tách trường** (tọa độ theo layout thẻ vs OCR toàn ảnh rồi regex). *Nơi chạy đã chốt hướng client-side ở trên.*
+
+**Sơ đồ luồng OCR (THU-06):**
+```
+Chụp / tải ảnh mặt trước CCCD
+        │ downscale ≤ ~1600px cạnh dài (chống treo máy, client)
+        ▼
+   OCR đọc trường (client-side — ảnh không rời máy)
+        │
+   Đọc được Số CCCD hợp lệ 12 số?
+   ┌────┴───────────────────────┐
+  KHÔNG                         CÓ
+   │                             │
+ Báo "không đọc được",         Điền phần đọc được vào màn xác nhận;
+ KHÔNG điền trường nào         trường thiếu/độ-tin-thấp → để trống + đánh dấu
+ → quay lại Nhập tay / Quét QR  │
+                                ▼
+                      Nhân viên soát/sửa TỪNG trường (bắt buộc, không auto-submit)
+                                │ validate 12 số + độ dài cột DB
+                                ▼
+                      Lưu: POST /api/ho-so (idempotent UUID, nháp offline) — như THU-01/02
+                                │
+                      Ảnh thẻ: hủy khỏi client (trừ khi tái dùng cắt chân dung)
+```
 
 ---
 
@@ -1308,7 +1343,7 @@ DB **không có** trigger/computed/constraint tính 3 cờ (verify 06/10: 0 trig
 | Nhóm | Cơ chế |
 |---|---|
 | Xác thực | bcrypt password; JWT HS256 expire 8h; đọc `is_active`+vai trò từ DB mỗi request; logout qua blocklist `jti`; API key tool (cân nhắc **key riêng mỗi máy** nếu cần thu hồi độc lập); đăng nhập riêng, không dùng chung (SOD-002); **refresh token cho phiên tool vĩnh viễn (DGT-04, CHANGES #39):** VPS cấp refresh token lúc login (tool lưu **DPAPI**), endpoint `POST /api/auth/refresh` đổi lấy `access_token` mới. **Lưu HASH ở DB** (bảng `refresh_token(user_id, token_hash, created_at, last_used_at, revoked)`), KHÔNG plaintext (bí mật sống vĩnh viễn — lộ DB plaintext = chiếm phiên mọi tài khoản). **Xoay một-lần-dùng:** mỗi refresh trả access_token + refresh token MỚI, vô hiệu cái cũ; **không TTL lịch** (phục vụ "vĩnh viễn") nhưng revoke được. **Chống đá nhầm khi mạng chập chờn** (máy CSDT): cửa sổ ân hạn ngắn cho refresh cũ, HOẶC chỉ coi là replay khi refresh cũ dùng lại SAU khi token mới đã dùng thành công. **Thu hồi:** `logout` xóa refresh token của phiên (ngoài blocklist access `jti`); `doi-mat-khau` thu hồi TOÀN BỘ refresh token của user; `is_active=false` → refresh fail. Chỉ cấp refresh cho đăng nhập **qua tool**; app web giữ phiên thường |
-| Dữ liệu (PII) | HTTPS toàn bộ; ảnh thô + CCCD tự xóa 30 ngày; không log nội dung CCCD; SQL login riêng (không `sa`); validate ảnh upload (§7.4) |
+| Dữ liệu (PII) | HTTPS toàn bộ; ảnh thô + CCCD tự xóa 30 ngày; không log nội dung CCCD **(gồm đầu ra OCR THU-06 — họ tên, số CCCD — không ghi ra console client / dịch vụ theo dõi lỗi)**; ảnh thẻ cho OCR chạy **client-side**, không gửi server (§6.7); SQL login riêng (không `sa`); validate ảnh upload (§7.4) |
 | API | Chặn quyền theo vai trò (403); chống IDOR bằng **kiểm sở hữu `created_by`** (UUID chỉ là định danh); validate input (pydantic); nạp DB chỉ ở tool; `/local/*` buộc token operator (không mở trống localhost) |
 | DB đích | Ghi nhân thân/kết quả **qua SP**; **UPDATE trực tiếp cột ảnh** (`ChatLuongAnh`/`NgayThuNhanAnh` — SP không ghi ảnh, giống bên Nạp) và **mọi SQL động (MAX SoHoSo, tra `DM_DVHC_MAP` theo text địa chỉ, tra cứu TCB) phải parameterized** — không nối chuỗi; login hạn chế EXECUTE + SELECT danh mục |
 
@@ -1443,6 +1478,7 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 | Ngày | Version | Thay đổi |
 |---|---|---|
 | 07/10/2026 | 5.4 | **+KQD-06 Sửa lẻ / xóa điểm đã lưu** (CHANGES #48): §11D.8 mới — chỉ HV `TT_XuLy` 09/10; **sửa lẻ** gom 5 quy-đổi (môn sửa từ gốc + môn giữ lấy `DiemKQ*` đã lưu, không tính ngược gốc) → `_CapNhat`; **xóa điểm** `POST /xoa-diem` UPDATE trực tiếp NULL 5 điểm+3 cờ+`SoGiayCNTN` + `TT_XuLy='03'` (SP không reset được — verify DB 07/10); §11D.6 +endpoint `xoa-diem`. Cần /reviewtdd (API + nghiệp vụ mới). |
+| 07/10/2026 | 5.7 | **Sửa sau /reviewtdd §6.7** (THU-06 OCR, khung nghiệp vụ): +dòng `Phục vụ: THU-06`; **quy tắc fail** (mốc = CCCD 12 số hợp lệ: không có → fail không điền gì, có → điền phần đọc được + đánh dấu); màn xác nhận **không auto-submit**; làm rõ tách trường từ OCR là bước mới, `lib/qr.ts` chỉ chuẩn hóa hạ nguồn; phạm vi **CCCD 12 số gắn chip**; **siết PII: OCR client-side = rào cứng** (dịch vụ ngoài cần phê duyệt pháp lý), **downscale ≤~1600px trước OCR** (chống treo máy), **vòng đời ảnh thẻ** (hủy khỏi client nếu không cắt chân dung); NFR <2s không áp bước OCR + spinner/hủy; +sơ đồ luồng OCR ASCII; §12 +không log đầu ra OCR. 0 Chặn · 7 Nên sửa · 5 Ghi nhận, 0 tồn. Biên bản: docs/tdd-review-07-10-2026-thu06.md. *(+TDD-decisions §20 sửa khớp quyết định BUG-14 A.)* |
 | 07/10/2026 | 5.6 | **Sửa sau /reviewtdd §11D.8** (KQD-06, hẹp — khớp tài liệu↔code): §11D.8 **tách chặn backend theo thao tác** (dùng chung endpoint): *Xóa điểm* `/xoa-diem` chặn cứng ngoài 09/10; *Sửa lẻ* dùng chung `/cap-nhat` với KQD-02 (nhập lần đầu `03`) + KQD-04 (giải trình `14/90`) nên endpoint chỉ chặn `12/13`, phạm vi 09/10 do UI kiểm (user chốt A — sửa TDD cho khớp code, không đụng guard đang chạy); *Xóa điểm* đổi sang **kiểm `TT_XuLy` bằng SELECT trước** (ngoài 09/10 → 409, không tìm thấy → 404) thay vì dựa `rowcount` pymssql (có thể trả -1 → báo nhầm thất bại), `IN ('09','10')` trong UPDATE giữ làm lưới chống đua — sửa `tool/app/routers/ketqua.py:xoa_diem`. `MaDK` lọc không kèm `MaCSDT`: xác nhận KHÔNG lỗi (`MaDK` là PK toàn CDB, nhúng sẵn `MaCSDT`). 1 điểm chốt A · 1 phi-lỗi · 1 sửa code, 0 tồn. |
 | 07/10/2026 | 5.5 | **+THU-06 OCR đọc chữ trên thẻ (khung nghiệp vụ)** (CHANGES #49): §6.7 mới — lối nhập thứ 3 "Chụp ảnh thẻ → tự đọc chữ", mọi thiết bị, điền sẵn 6 trường → nhân viên xác nhận; +decisions §20 (lật "không OCR" của THU-01). **Engine OCR + nơi chạy + PII CHƯA chốt — để /tdd**. Nguồn: iPhone quét QR yếu hơn Android (BUG-14). Cần /reviewtdd + /tdd (chốt công nghệ). |
 | 07/10/2026 | 5.3 | **Đồng bộ tài liệu sau code KQD-05/03** (CHANGES #46, tài liệu lag code — không đổi yêu cầu): §11D.6 +`GET /local/ketqua/mo-khoa` (cổng B-1 chỉ đọc: `mo_duoc`/`goi_chua_gui`/`goi_da_gui`/`so_hv_mo`/`so_hv_bo_qua`/`so_khoa`) + ghi rõ **KQD-03 KHÔNG dùng endpoint `ket-xuat` riêng** (ghép từ `/khoa` đếm `ketxuat`=12 + `GET /mo-khoa` panel gói + `/hoc-vien?trang_thai=ketxuat`); §11D.7 **đảo thứ tự bước: LÙI HV (bước 2) TRƯỚC, XÓA gói (bước 3) SAU** cho khớp code + khớp edge PRD ("xóa gói xong lỗi → HV đã lùi vẫn sửa được"), + ghi `GiaiTrinh` gộp vào `UPDATE` lùi. |
