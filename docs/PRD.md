@@ -70,7 +70,7 @@
 - ✅ Decoder: BarcodeDetector native + fallback qr-scanner (ZXing) — tham khảo cách quét từ dự án webThanhdat; hiệu ứng thiết kế riêng.
 - ✅ **Lưu & nhập hồ sơ tiếp** (CHANGES #13): màn xác nhận có thêm nút **"Lưu & nhập hồ sơ tiếp"** bên cạnh "Tiếp tục — chụp ảnh chân dung" → gửi ngay **không kèm ảnh** (chi tiết gửi + toast ở THU-02) rồi về **màn chọn cách nhập** (Quét QR / Nhập tay / Tải ảnh) để làm hồ sơ kế tiếp. Áp cho cả quét QR lẫn nhập tay (cùng đi qua màn xác nhận). **Desktop không có cổng chọn → quay về form nhập tay TRỐNG cho hồ sơ kế tiếp** (CHANGES #30).
 - ✅ **Màn xác nhận thân thiện nhập tay** (CHANGES #14): **ẩn ô "Số CMND cũ"** khỏi form (vẫn lưu/gửi giá trị từ QR nếu có); ô **ngày sinh/ngày cấp** gõ tay dd/mm/yyyy **+ nút lịch** bấm chọn, vẫn nhập được **năm-only**; **desktop**: tách vị trí 2 nút tránh bấm nhầm, bố cục gọn, **phím tắt** (autofocus ô đầu, Enter → nút chính, tab order hợp lý).
-- ❌ Không OCR chữ trên thẻ; ảnh thẻ chỉ dùng cắt ảnh chân dung.
+- ❌ THU-01 không tự OCR — đọc chữ trên thẻ bằng OCR **tách sang `THU-06`** (lối dự phòng khi QR không quét được, CHANGES #49); ảnh thẻ ở THU-01 chỉ dùng cắt ảnh chân dung.
 
 **Edge cases:**
 | Tình huống | Hành vi mong muốn |
@@ -129,6 +129,35 @@
 - ❌ VPS không kết nối SQL Server.
 
 > Nguồn: CAP-003 · BR-016 · EC-040 · OG-001, OG-007
+
+#### [THU-06] Chụp ảnh thẻ → tự đọc chữ (OCR) điền sẵn hồ sơ (app web)
+
+**Trạng thái:** ⏳ Todo — thêm 07/10/2026 (CHANGES #49). Lối nhập **thứ 3** khi QR không quét được (đặc biệt iPhone/iOS — engine QR trên web yếu hơn Android, xem BUG-14). Mở cho **mọi thiết bị**. Engine OCR + nơi chạy (client / dịch vụ) **chốt ở `/tdd`**.
+**Story:** Là nhân viên thu nhận, khi QR trên thẻ không quét được (mờ/lóa/nhỏ), tôi muốn chụp ảnh mặt trước CCCD để hệ thống tự đọc chữ điền sẵn hồ sơ, để khỏi gõ tay toàn bộ.
+
+**Steps to Complete:**
+1. Màn vào (mobile) thêm lối thứ 3 **"Chụp ảnh thẻ (tự đọc)"** cạnh Quét QR / Nhập tay / Tải ảnh CCCD — **mọi thiết bị**, không khóa theo máy.
+2. Chụp hoặc tải ảnh mặt trước CCCD → hệ thống **OCR** đọc các trường in trên thẻ.
+3. Điền sẵn vào **màn xác nhận dùng chung** (THU-01/02): Số CCCD, họ tên, ngày sinh, giới tính, nơi thường trú, ngày cấp.
+4. **Nhân viên xác nhận/sửa** từng trường trước khi lưu — OCR có thể đọc sai ký tự, không tin tuyệt đối.
+
+**Done khi:**
+- ⬜ Màn vào có lối **"Chụp ảnh thẻ (tự đọc)"** trên **mọi thiết bị** (iPhone/Android/desktop), không khóa theo máy.
+- ⬜ Ảnh mặt trước CCCD rõ → OCR điền sẵn đúng các trường: CCCD (12 số), họ tên, ngày sinh (ddMMyyyy→yyyymmdd), giới tính (Nam/Nữ), nơi thường trú, ngày cấp.
+- ⬜ Mọi trường OCR **sửa được** trước khi lưu; trường đọc không chắc **đánh dấu để nhân viên soát** (đi qua màn xác nhận dùng chung THU-01/02).
+- ⬜ Ảnh quá mờ / OCR fail → **báo rõ, không điền bừa**, cho quay lại Nhập tay / Quét QR.
+- ⬜ Số CCCD đọc ra **validate 12 số** (sai → ô đỏ, không tự lưu); các trường bám ràng buộc độ dài cột DB như THU-01/02 (HoVaTen ≤50…).
+- ❌ Không đọc mặt sau thẻ; **không lưu khi nhân viên chưa xác nhận**; engine OCR chạy client hay gửi ảnh lên dịch vụ — **chốt ở `/tdd`** (cân nhắc PII vì gửi ảnh CCCD).
+
+**Edge cases:**
+| Tình huống | Hành vi mong muốn |
+|---|---|
+| Ảnh mờ/lóa/nghiêng → OCR sai nhiều | Nhân viên sửa tay, chụp lại, hoặc chuyển Nhập tay |
+| OCR sai 1-2 ký tự số CCCD | Ô CCCD validate 12 số + cho sửa; không tự lưu |
+| Chụp nhầm mặt sau / không phải CCCD | OCR không ra trường → báo, không điền bừa |
+| Nơi thường trú 2 cấp mới / chữ xuống dòng | Ghép dòng, giữ dấu tiếng Việt; nhân viên soát (map địa chỉ vẫn ở tool lúc nạp) |
+
+> Nguồn: user 07/10/2026 (sau BUG-14 — iPhone quét QR CCCD yếu hơn Android; chữ in to/rõ nên OCR đọc tốt). Lật quyết định "không OCR" của THU-01 — xem `TDD-decisions` §20. Engine + nơi chạy OCR: `/tdd`.
 
 #### [NAP-01] Tool kéo hàng đợi + chống trùng
 
@@ -1080,3 +1109,4 @@
 | 07/10/2026 | v3.8 — **App web chụp bù ảnh kể cả HV ĐÃ NẠP — Phương án B** (CHANGES #44, lật quyết định A 01/10): `THU-02` +Done khi "chụp bù ảnh HV thiếu ảnh kể cả imported" (chỉ ảnh, không sửa/xóa), hạ ✅→⏳; `QLY-05` nguồn (b) kéo ảnh VPS nay gồm bản collector chụp-bù, operator tự lọc "Chưa ảnh"→kéo (chốt A không cờ). | PM |
 | 07/10/2026 | v3.7 — **Ngày cấp + Nơi cấp điền sẵn ở drawer Nạp lô** (CHANGES #43, `NAP-01`): +Done khi ô **Ngày cấp CCCD** điền sẵn + sửa được (lưu nháp bền, nạp vào `NgayCapCMT`) · ô **Nơi cấp** luôn điền sẵn "Cục QLHC" cho CCCD 12 số kể cả khi máy chưa đồng bộ '00' (bền hóa #40). Không thêm mã, NAP-01 giữ 🔄, NAP-05 giữ ✅. | PM |
 | 07/10/2026 | v3.9 — **Sửa điểm sau kết xuất + dựng lại tab Theo dõi kết xuất** (CHANGES #45): +story mới `KQD-05` "Mở khóa để sửa điểm" (cổng B-1: chỉ mở khi còn gói chưa gửi `NoiGui=CSĐT`/`TrangThai=0`; hành vi B-1a mức lô: xóa gói + lùi mọi HV 12 của khóa về 09/10; M1: gói đã gửi hết → khóa cứng + thông báo mức đợt, không truy được HV nằm gói nào; nút ở cả 2 tab; nới chặn 409 cho TT=12). `KQD-03` viết lại khóa-first master–detail (thay list phẳng). `KQD-02`/`KQD-04` +ghi chú ngoại lệ TT=12 qua KQD-05 (giữ ⚠️ Partial — yêu cầu lõi không đổi). Số story 41→42. | PM |
+| 07/10/2026 | v4.0 — **+story mới `THU-06` "Chụp ảnh thẻ → tự đọc chữ (OCR)"** (CHANGES #49): lối nhập thứ 3 khi QR không quét được, **mọi thiết bị** (iPhone/iOS engine QR web yếu hơn Android — BUG-14); OCR điền sẵn 6 trường → nhân viên xác nhận/sửa trước khi lưu. Lật quyết định "không OCR" của THU-01 (dòng ❌ nay trỏ THU-06; THU-01 giữ ⚠️, hành vi QR không đổi). Engine OCR + nơi chạy để `/tdd`. Số story 43→44. | PM |

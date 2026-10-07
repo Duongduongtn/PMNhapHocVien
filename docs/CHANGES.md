@@ -4,6 +4,7 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 49 | 07/10/2026 | ➕ Thêm (lật quyết định) | `THU-06` | **OCR đọc chữ trên thẻ CCCD làm lối nhập dự phòng** (user 07/10, sau BUG-14). Lối nhập **thứ 3** "Chụp ảnh thẻ → tự đọc chữ" ở màn vào `/app/quet`, **mọi thiết bị**: chụp/tải ảnh mặt trước CCCD → OCR điền sẵn 6 trường (CCCD/họ tên/ngày sinh/giới tính/nơi TT/ngày cấp) → **nhân viên xác nhận/sửa** trước khi lưu (OCR có thể sai ký tự) → luồng gửi dùng chung (idempotent UUID, nháp offline). **Lật quyết định "không OCR"** của THU-01 (dòng ❌ nay trỏ THU-06; THU-01 giữ ⚠️ Partial, hành vi QR không đổi). Vì sao: iPhone/iOS quét QR CCCD yếu hơn Android hẳn — engine QR web (ZXing/zbar/OpenCV) đọc không nổi QR nhỏ/mờ/lóa (verify BUG-14 trên ảnh thật), chữ in to/rõ nên OCR chắc hơn. **Engine OCR + nơi chạy + PII CHƯA chốt — để `/tdd`.** **Số story 43→44.** | ✅ +[THU-06] + sửa ❌ THU-01 (v4.0) | ✅ §6.7 + decisions §20 (v5.5) | ⬜ màn #23 → `/prototype-next` | ⬜ (chờ /tdd chốt engine) |
 | 48 | 07/10/2026 | ➕ Thêm | `KQD-06` | **Sửa lẻ / xóa điểm đã lưu** (user 07/10, sau khi dùng thử KQD-02). HV đã cập nhật chưa kết xuất (09/10): **sửa lẻ 1 môn** (giữ điểm quy-đổi 4 môn cũ, KHÔNG tính ngược gốc; Lưu không bắt đủ 5) + **xóa điểm** (nút Xóa + xác nhận → UPDATE trực tiếp NULL 5 điểm/3 cờ/`SoGiayCNTN` + `TT_XuLy='03'`; SP `_CapNhat` không reset được — verify DB 07/10). Chỉ 09/10 (12 phải mở khóa KQD-05, 13 khóa tuyệt đối, 14/90 qua KQD-04). **Số story 42→43.** | ✅ +[KQD-06] | ✅ §11D.8 + §11D.6 (v5.4) | ⬜ (dựng thẳng tool/webui) | ⬜ |
 | 47 | 07/10/2026 | ✏️ Sửa | `KQD-01` · `KQD-02` | **4 cải tiến UX lưới Cập nhật KQĐT** (user 07/10, thuần giao diện, không đổi nghiệp vụ/data/API): ① **ghim tiêu đề lưới** (sticky thead) khi cuộn danh sách HV · ② **thu gọn khung chọn khóa** (nút Thu gọn/Mở rộng) để xem nhiều HV hơn · ③ **phím mũi tên ↑↓←→** di chuyển giữa ô nhập điểm (←→ khi con trỏ ở đầu/cuối ô) · ④ nút **Lưu + Chi tiết ngang hàng** (Lưu trước) thay xếp dọc, dòng thấp hơn. **Không thêm mã**, số story giữ. (Bug hiện điểm/kết luận đã lưu = BUGS #13, không trùng.) | — (chỉ hiển thị) | — | ✅ `CapNhatKQDT.tsx` (verify live) | ✅ |
 | 46 | 07/10/2026 | ✏️ Sửa | `KQD-05`, `KQD-03` | **Đồng bộ tài liệu TDD sau code KQD-05/03** (tài liệu lag code, KHÔNG đổi yêu cầu). ① §11D.6 +`GET /local/ketqua/mo-khoa` (cổng B-1 chỉ đọc: `mo_duoc`/`goi_chua_gui`/`goi_da_gui`/`so_hv_mo`/`so_hv_bo_qua`/`so_khoa`) — panel gói KQD-03 + modal KQD-05 dùng chung; + ghi rõ **KQD-03 KHÔNG có endpoint `ket-xuat` riêng** (ghép từ `/khoa` đếm `ketxuat`=12 + `GET /mo-khoa` + `/hoc-vien?trang_thai=ketxuat`). ② §11D.7 **đảo thứ tự bước: LÙI HV (bước 2) TRƯỚC — XÓA gói (bước 3) SAU** cho khớp code + edge PRD ("xóa gói xong lỗi → HV đã lùi vẫn sửa được", tránh kẹt "12 không gói"); `GiaiTrinh` gộp vào `UPDATE` lùi. Không đổi PRD/màn/plan, số story giữ 42. | — (hành vi đã có ở PRD KQD-05) | ✅ §11D.6 + §11D.7 (v5.3) | — (UI đã dựng task 74/77) | 🟡 code KQD-05/03 đã viết + build (task 76/74/77); chờ restart backend + máy CSDT verify |
@@ -54,6 +55,19 @@
 | 1 | 01/10/2026 | ✏️ Sửa | — | Đổi nơi lưu bảng ánh xạ `DM_DVHC_MAP`: GPLX_CSDT → SQLite cục bộ của tool | — | ✅ | — | ✅ (task 5) |
 
 Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên quan
+
+---
+
+## #49 — OCR đọc chữ trên thẻ CCCD làm lối nhập dự phòng (THU-06) · 07/10/2026
+
+- **Mã:** `THU-06` — story mới, prefix THU có sẵn (số kế tiếp chưa dùng). **Số story 43→44.**
+- **Vì sao:** user báo iPhone quét QR CCCD **không được**, test lại đúng — **iPhone/iOS Safari quét QR yếu hơn Android hẳn**. Gốc: iOS không có `BarcodeDetector`, engine QR trên web (ZXing/zbar) đọc không nổi QR nhỏ/mờ/lóa trên thẻ. **Verify (BUG-14):** giải mã thử ảnh thẻ thật bằng **zxing-cpp + pyzbar + OpenCV QRCodeDetector** + xoay + downscale + cắt sát + tăng tương phản + nhị phân Otsu + phóng 3× → **không engine nào đọc được**. Nhưng chữ IN trên thẻ **to/rõ**, đọc bằng mắt/OCR tốt → OCR là lối thoát chắc hơn QR trong đúng ca này.
+- **Chốt (user 07/10):** thêm lối nhập thứ 3 "Chụp ảnh thẻ → tự đọc chữ (OCR)", **mọi thiết bị** (không khóa theo máy — Android gặp thẻ hỏng cũng dùng được). OCR điền sẵn 6 trường → **nhân viên xác nhận/sửa** trước khi lưu. Qua **màn xác nhận + luồng gửi dùng chung** (không thêm luồng gửi mới).
+- **Lật quyết định:** THU-01 từng ghi *"❌ Không OCR chữ trên thẻ"* → nay OCR tách sang THU-06; THU-01 **giữ ⚠️ Partial** (hành vi quét QR của nó không đổi). Chi tiết: `TDD-decisions` §20 (giữ "Đã từng chốt").
+- **Chưa chốt (để `/tdd`):** engine OCR (Tesseract.js client / dịch vụ eKYC) · nơi chạy (client thuần vs gửi server) · cách tách trường. **Chi phối bởi PII** — gửi ảnh CCCD ra dịch vụ ngoài là lộ dữ liệu căn cước, ưu tiên cân client-side trước.
+- **Đã sửa tài liệu:** PRD (+[THU-06] ⏳ Todo + sửa dòng ❌ THU-01, Changelog v4.0) · TDD (§6.7 khung nghiệp vụ + Changelog v5.5) · TDD-decisions (§20) · SCREENS (+màn #23 ⬜, lượt 22).
+- **Chưa code** (⬜) — chờ `/reviewtdd` §6.7 + `/tdd` chốt engine, rồi `/kehoach` bổ sung + `/prototype-next` dựng lối vào.
+- **Quan hệ BUG-14:** OCR (THU-06) là lối thoát chắc ăn cho iPhone; **song song** vẫn cải thiện quét QR iPhone (engine web mạnh hơn + UX chụp gần/nét) ở BUG-14 — hai việc bổ trợ.
 
 ---
 
@@ -694,7 +708,8 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 > `/capnhat` đọc mục này ở Bước 0b để biết có thay đổi nào chưa ghi sổ không.
 > So bằng **danh sách mã**, không so bằng thời gian sửa file.
 
-- **Cập nhật:** 07/10/2026 (#48 ➕ `KQD-06` "Sửa lẻ / xóa điểm đã lưu" (chỉ HV 09/10; UPDATE trực tiếp reset về 03) — **số story 42→43**. #47 ✏️ 4 cải tiến UX lưới KQĐT (ghim tiêu đề · thu gọn khung khóa · phím mũi tên · 2 nút ngang hàng) — thuần UI, không thêm mã, KQD-01/02 giữ nguyên trạng thái.)
+- **Cập nhật:** 07/10/2026 (#49 ➕ `THU-06` "Chụp ảnh thẻ → tự đọc chữ (OCR)" — lối nhập dự phòng mọi thiết bị khi QR không quét được (iPhone yếu hơn Android, BUG-14); lật quyết định "không OCR" của THU-01; engine để /tdd — **số story 43→44**.)
+- **Cập nhật trước:** 07/10/2026 (#48 ➕ `KQD-06` "Sửa lẻ / xóa điểm đã lưu" (chỉ HV 09/10; UPDATE trực tiếp reset về 03) — **số story 42→43**. #47 ✏️ 4 cải tiến UX lưới KQĐT (ghim tiêu đề · thu gọn khung khóa · phím mũi tên · 2 nút ngang hàng) — thuần UI, không thêm mã, KQD-01/02 giữ nguyên trạng thái.)
 - **Cập nhật trước:** 07/10/2026 (#46 ✏️ Đồng bộ tài liệu TDD sau code KQD-05/03 — tài liệu lag code, KHÔNG đổi yêu cầu: §11D.6 +`GET /mo-khoa` + ghi rõ KQD-03 không có endpoint `ket-xuat` riêng; §11D.7 đảo thứ tự lùi-HV-trước/xóa-gói-sau. Số story giữ 42.)
 - **Cập nhật trước:** 07/10/2026 (#45 ➕ Thêm `KQD-05` "Mở khóa để sửa điểm sau kết xuất" (cổng B-1 còn-gói-chưa-gửi · B-1a lùi cả lô → **sau /reviewtdd đổi mức CƠ SỞ** · M1 khóa cứng) + viết lại `KQD-03` khóa-first. KQD-02/04 giữ ⚠️ (1A+2A). **Số story 41→42.** +TDD §11D.7 + decisions §19. DB không nối HV↔gói → thao tác mức cơ sở.)
 - **Cập nhật trước:** 07/10/2026 (#44 ✏️ App web cho chụp bù ảnh kể cả HV ĐÃ NẠP — Phương án B, lật quyết định A 01/10; THU-02 hạ ✅→⏳, QLY-05 nguồn b; **không thêm mã**, số story giữ 41. Chỉ mở bổ sung ẢNH cho HV đã nạp, sửa/xóa vẫn khóa.)
@@ -705,6 +720,6 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 - **Cập nhật trước:** 04/10/2026 (#34 +story `HTG-07` cấu hình kết nối lên header dùng chung; hạ `SYNC-01`+`SYNC-02` ✅→⏳ làm lại UI (nay đã ✅ lại); sửa bullet `HTG-01`)
 - **Trước nữa:** 04/10/2026 (#33 +Feature "Đồng bộ CDB" 3 story `SYNC-01/02/03` SHOULD, port sync_tool v2.0 + tool chuyển sidebar module)
 - **Trước đó:** 04/10/2026 (#32 bổ sung tiêu chí NAP-01 + QLY-05; ⚠️ #31 có dòng bảng nhưng THIẾU mục chi tiết — cần phiên #31 bổ sung) · 03/10/2026 (gộp 2 phiên song song: #28 QLY-09 + #29 NAP-01/03 + #30 THU-01/05; THU-01 hạ ✅→⏳)
-- **Số story trong PRD:** 43 (gồm `KQD-01/02/03/04` #42 + `KQD-05` #45 + **`KQD-06`** #48; cùng `HTG-01..07` · `THU-01/02/04/05` · `NAP-01..06` · `KHO-01` · `QLY-01/02/03/05/06/07/08/09` · `SYNC-01/02/03` · `TCB-01/02/03/04` · `DGT-01/02/03/04`; chưa tính NICE `QLY-04`, `THU-03`)
-- **Mã story hiện có:** `HTG-01`…`HTG-07`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `SYNC-01`, `SYNC-02`, `SYNC-03`, `TCB-01`, `TCB-02`, `TCB-03`, `TCB-04`, `DGT-01`, `DGT-02`, `DGT-03`, `DGT-04`, `KQD-01`, `KQD-02`, `KQD-03`, `KQD-04`, `KQD-05`, `KQD-06` (NICE: `QLY-04`, `THU-03`)
+- **Số story trong PRD:** 44 (gồm **`THU-06`** #49 + `KQD-01/02/03/04` #42 + `KQD-05` #45 + `KQD-06` #48; cùng `HTG-01..07` · `THU-01/02/04/05` · `NAP-01..06` · `KHO-01` · `QLY-01/02/03/05/06/07/08/09` · `SYNC-01/02/03` · `TCB-01/02/03/04` · `DGT-01/02/03/04`; chưa tính NICE `QLY-04`, `THU-03`)
+- **Mã story hiện có:** `HTG-01`…`HTG-07`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `THU-06`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `SYNC-01`, `SYNC-02`, `SYNC-03`, `TCB-01`, `TCB-02`, `TCB-03`, `TCB-04`, `DGT-01`, `DGT-02`, `DGT-03`, `DGT-04`, `KQD-01`, `KQD-02`, `KQD-03`, `KQD-04`, `KQD-05`, `KQD-06` (NICE: `QLY-04`, `THU-03`)
 - **Mã đã nghỉ hưu:** (chưa có)

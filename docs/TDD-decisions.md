@@ -192,3 +192,12 @@
 - **Đánh đổi:** "mở khóa 1 người = mở cả CƠ SỞ" (mọi HV 12 chưa gửi của cơ sở cùng về 09/10, phải kết xuất lại). Cổng B-1 khiến tính năng hiếm khi khả dụng (gói thường đã gửi) — chấp nhận, vì đó chính là ranh an toàn; phần còn lại là thông báo khóa-cứng rõ ràng + chỉ đường qua 14/90.
 - **Phạm vi:** chỉ **tool máy CSDT** (ghi/xóa ở CDB đích). Endpoint `POST /local/ketqua/mo-khoa` là ngoại lệ duy nhất gỡ chặn 409 cho `12`; không đụng app web/VPS; module `routers/ketqua.py`.
 - **Nguồn:** user 07/10/2026 (chốt B-1 + B-1a + M1 + nút 2 tab, qua nhiều lượt); PRD KQD-05; TDD §11D.7; CHANGES #45; probe DB live 07/10 (`GPLX_CDB_CSDT`); memory `project_pmcsdtlx_huy_ketxuat_kqdt`; mock `ui-mock/theodoiketxuat.html`.
+
+## 20. Thêm OCR đọc chữ trên thẻ CCCD làm lối nhập dự phòng (07/10/2026)
+
+- **Đã chốt (07/10/2026):** thêm lối nhập **thứ 3** "Chụp ảnh thẻ → tự đọc chữ (OCR)" (`THU-06`), mở cho **mọi thiết bị**. OCR điền sẵn 6 trường → **nhân viên xác nhận/sửa** trước khi lưu (không tin OCR tuyệt đối).
+- **Đã từng chốt (lúc viết PRD) — "KHÔNG OCR":** THU-01 ghi *"❌ Không OCR chữ trên thẻ; ảnh thẻ chỉ dùng cắt ảnh chân dung"*. **Lý do đổi:** iPhone/iOS Safari quét QR CCCD yếu hơn Android hẳn (không có `BarcodeDetector`; engine QR web đọc không nổi QR nhỏ/mờ/lóa — verify BUG-14: zxing-cpp + zbar + OpenCV + tiền xử lý mạnh đều fail trên ảnh thẻ thật). Chữ IN trên thẻ to/rõ → OCR là lối thoát chắc hơn QR trong đúng ca này. User chốt 07/10 (sau khi test iPhone + xem kết quả giải mã thử).
+- **CHƯA chốt (để `/tdd`):** engine OCR (Tesseract.js client / dịch vụ eKYC) · nơi chạy (client thuần vs gửi server) · cách tách trường (layout vs regex). Chi phối bởi **PII**: gửi ảnh CCCD ra dịch vụ ngoài là lộ dữ liệu căn cước → ưu tiên cân nhắc client-side trước.
+- **Phạm vi:** app web (THU-06); không đụng tool/VPS luồng ghi. Vẫn qua màn xác nhận + luồng gửi dùng chung (idempotent UUID, nháp offline).
+- **Quan hệ BUG-14:** OCR (THU-06) là lối thoát chắc ăn cho ca iPhone; song song vẫn cải thiện quét QR iPhone (đổi engine web mạnh hơn + UX chụp gần/nét) ở BUG-14 — hai việc bổ trợ, không thay nhau.
+- **Nguồn:** user 07/10/2026; PRD THU-06; CHANGES #49; BUG-14 (probe giải mã QR ảnh thật).
