@@ -123,6 +123,10 @@ export default function Quet() {
   const [offline, setOffline] = useState(false);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // THU-06: OCR đọc chữ mặt trước CCCD làm lối nhập dự phòng (chạy client, ảnh không rời máy).
+  const [dangOcr, setDangOcr] = useState(false); // spinner trong lúc OCR (có thể vài giây)
+  const [canhBaoOcr, setCanhBaoOcr] = useState<string[] | null>(null); // trường cần soát sau OCR
+  const ocrHuy = useRef(false); // user bấm Hủy giữa chừng → bỏ kết quả OCR
 
   // Có mạng trở lại → tự gửi lại nháp còn tồn.
   useEffect(() => {
@@ -157,9 +161,11 @@ export default function Quet() {
     }
   }
 
-  // Có dữ liệu (quét QR / tải ảnh) → điền vào form. Desktop: đóng popover + reseed form đang mở.
-  const batDau = useCallback((f: CccdFields) => {
+  // Có dữ liệu (quét QR / tải ảnh / OCR) → điền vào form. Desktop: đóng popover + reseed form đang mở.
+  // canhBao: danh sách trường cần soát (OCR điền một phần); QR thì bỏ trống.
+  const batDau = useCallback((f: CccdFields, canhBao?: string[]) => {
     setFields(f);
+    setCanhBaoOcr(canhBao ?? null);
     setLoiQuet(null);
     setFormKey((k) => k + 1);
     setQuetPopover(false);
@@ -168,6 +174,7 @@ export default function Quet() {
 
   function nhapTay() {
     setFields(FIELDS_RONG);
+    setCanhBaoOcr(null);
     setLoiQuet(null);
     setFormKey((k) => k + 1);
     setGiaiDoan("preview");
@@ -176,6 +183,7 @@ export default function Quet() {
   // Làm hồ sơ kế tiếp: desktop về form trống (không có cổng chọn), mobile về cổng chọn.
   function quetTiep() {
     setFields(FIELDS_RONG);
+    setCanhBaoOcr(null);
     setUuid("");
     setOffline(false);
     setLoiQuet(null);
@@ -200,11 +208,57 @@ export default function Quet() {
     batDau(r.data);
   }
 
+  // THU-06: chụp/tải ảnh MẶT TRƯỚC thẻ → OCR (client) điền sẵn 5 trường. Ngày cấp ở mặt sau
+  // → để trống, nhân viên nhập tay. Không đọc được CCCD 12 số → báo lỗi, không điền bừa.
+  const NHAN_OCR: Record<string, string> = {
+    soCccd: "Số CCCD",
+    hoTen: "Họ và tên",
+    ngaySinh: "Ngày sinh",
+    gioiTinh: "Giới tính",
+    noiThuongTru: "Nơi thường trú",
+    ngayCap: "Ngày cấp (ở mặt sau thẻ — nhập tay)",
+  };
+  async function docOcr(file: File, onErr: (m: string) => void) {
+    ocrHuy.current = false;
+    setDangOcr(true);
+    try {
+      const { docTheCccd } = await import("../lib/ocr"); // tải Tesseract.js chỉ khi dùng
+      const r = await docTheCccd(file);
+      if (ocrHuy.current) return; // user đã bấm Hủy → bỏ kết quả
+      if (!r.ok) {
+        onErr(r.message);
+        return;
+      }
+      const d = r.ket.data;
+      batDau(
+        {
+          soCccd: d.soCccd,
+          soCmndCu: "",
+          hoTen: d.hoTen,
+          ngaySinh: d.ngaySinh,
+          gioiTinh: (d.gioiTinh || FIELDS_RONG.gioiTinh) as GioiTinh,
+          noiThuongTru: d.noiThuongTru,
+          ngayCap: "",
+        },
+        r.ket.danhDau.map((k) => NHAN_OCR[k] ?? k),
+      );
+    } catch {
+      if (!ocrHuy.current) onErr("Không đọc được thẻ — thử lại hoặc chuyển Nhập tay.");
+    } finally {
+      if (!ocrHuy.current) setDangOcr(false);
+    }
+  }
+  function huyOcr() {
+    ocrHuy.current = true;
+    setDangOcr(false);
+    nhapTay(); // chuyển thẳng sang Nhập tay cho mượt
+  }
+
   return (
     <div className="h-full flex flex-col lg:h-auto lg:p-6 lg:max-w-2xl lg:mx-auto">
       {/* Cổng chọn + camera toàn màn: CHỈ mobile. Desktop vào thẳng form (CHANGES #30). */}
       {giaiDoan === "chon" && !isDesktop && (
-        <ChonCach onQuet={() => { setLoiChon(null); setGiaiDoan("quet"); }} onNhapTay={nhapTay} onAnhFile={(f) => void docAnh(f, setLoiChon)} loi={loiChon} />
+        <ChonCach onQuet={() => { setLoiChon(null); setGiaiDoan("quet"); }} onNhapTay={nhapTay} onAnhFile={(f) => void docAnh(f, setLoiChon)} onOcrFile={(f) => void docOcr(f, setLoiChon)} loi={loiChon} />
       )}
       {giaiDoan === "quet" && !isDesktop && (
         <KhungQuet onQuet={batDau} onNhapTay={nhapTay} onQuayLai={() => setGiaiDoan("chon")} loi={loiQuet} setLoi={setLoiQuet} />
@@ -216,8 +270,10 @@ export default function Quet() {
               key={formKey}
               fields={fields}
               isDesktop={isDesktop}
+              canhBaoOcr={canhBaoOcr}
               onMoQuet={() => { setLoiQuet(null); setQuetPopover(true); }}
               onAnhFile={(f) => void docAnh(f, (m) => baoToast(m, false))}
+              onOcrFile={(f) => void docOcr(f, (m) => baoToast(m, false))}
               onLuu={(id) => { setUuid(id); setGiaiDoan("anh"); }}
               onLuuVaTiep={luuVaTiep}
               onQuetLai={quetTiep}
@@ -248,6 +304,22 @@ export default function Quet() {
           </div>
         </div>
       )}
+
+      {/* THU-06: spinner lúc OCR đọc thẻ (có thể vài giây, lần đầu còn tải bộ đọc) + Hủy */}
+      {dangOcr && (
+        <div className="fixed inset-0 z-50 bg-background/85 backdrop-blur-sm flex flex-col items-center justify-center gap-3 p-6 text-center">
+          <Icon name="refresh" className="w-8 h-8 text-primary animate-spin" />
+          <p className="text-[15px] font-semibold">Đang đọc chữ trên thẻ…</p>
+          <p className="text-[12px] text-muted-foreground max-w-xs">Lần đầu có thể mất vài giây để tải bộ đọc. Ảnh thẻ chỉ xử lý trên máy bạn, không gửi đi.</p>
+          <button
+            type="button"
+            onClick={huyOcr}
+            className="mt-2 h-10 px-4 rounded-lg border border-border bg-card text-foreground text-[13px] font-medium hover:bg-muted transition-colors"
+          >
+            Hủy → Nhập tay
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -257,11 +329,13 @@ function ChonCach({
   onQuet,
   onNhapTay,
   onAnhFile,
+  onOcrFile,
   loi,
 }: {
   onQuet: () => void;
   onNhapTay: () => void;
   onAnhFile: (f: File) => void | Promise<void>;
+  onOcrFile: (f: File) => void | Promise<void>;
   loi: string | null;
 }) {
   return (
@@ -287,6 +361,21 @@ function ChonCach({
         >
           <Icon name="scan" className="w-5 h-5" /> Quét QR CCCD
         </button>
+        {/* THU-06: lối dự phòng khi QR không quét được (iPhone yếu) — chụp mặt trước, OCR tự đọc */}
+        <label className="w-full h-14 rounded-xl border border-border bg-card text-foreground font-semibold text-[15px] flex items-center justify-center gap-2.5 hover:bg-muted transition-colors cursor-pointer">
+          <Icon name="image" className="w-5 h-5" /> Chụp ảnh thẻ (tự đọc)
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (f) void onOcrFile(f);
+            }}
+          />
+        </label>
         <button
           type="button"
           onClick={onNhapTay}
@@ -702,16 +791,20 @@ function lucHienThi(iso: string): string {
 function Preview({
   fields,
   isDesktop = false,
+  canhBaoOcr,
   onMoQuet,
   onAnhFile,
+  onOcrFile,
   onLuu,
   onLuuVaTiep,
   onQuetLai,
 }: {
   fields: CccdFields;
   isDesktop?: boolean;
+  canhBaoOcr?: string[] | null; // THU-06: trường điền từ OCR cần soát (gồm ngày cấp nhập tay)
   onMoQuet?: () => void; // desktop: mở popover quét
   onAnhFile?: (f: File) => void; // desktop: tải ảnh CCCD đọc QR
+  onOcrFile?: (f: File) => void; // desktop: chụp/tải ảnh thẻ → OCR (THU-06)
   onLuu: (uuid: string) => void;
   onLuuVaTiep: (uuid: string) => void;
   onQuetLai: () => void;
@@ -808,6 +901,20 @@ function Preview({
                   }}
                 />
               </label>
+              {/* THU-06: đọc chữ trên ảnh thẻ (dự phòng khi QR không đọc được) */}
+              <label className="h-9 px-3 rounded-lg border border-border bg-card text-foreground text-[13px] font-medium flex items-center gap-1.5 hover:bg-muted transition-colors cursor-pointer">
+                <Icon name="scan" className="w-4 h-4" /> Đọc thẻ (OCR)
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    e.target.value = "";
+                    if (f && onOcrFile) onOcrFile(f);
+                  }}
+                />
+              </label>
             </div>
           </div>
         </>
@@ -821,6 +928,16 @@ function Preview({
           </div>
           <p className="text-[12px] text-muted-foreground -mt-1">Kiểm tra và sửa nếu sai trước khi giữ</p>
         </>
+      )}
+
+      {/* THU-06: điền từ OCR — nhắc nhân viên soát các trường chưa chắc + nhập ngày cấp */}
+      {canhBaoOcr && canhBaoOcr.length > 0 && (
+        <div className="flex items-start gap-2 text-[12px] text-warning bg-warning/10 border border-warning/30 rounded-lg px-3 py-2">
+          <Icon name="warn" className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>
+            Đã điền từ ảnh thẻ bằng OCR — có thể đọc sai. Kiểm/nhập lại: <strong>{canhBaoOcr.join(", ")}</strong>.
+          </span>
+        </div>
       )}
 
       {/* Desktop: 2 cột cho thấy hết trường, đỡ cuộn khi nhập tay (CHANGES #14) */}
