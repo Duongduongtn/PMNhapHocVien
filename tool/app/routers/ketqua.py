@@ -394,26 +394,33 @@ def xoa_diem(body: XoaDiemIn, target_key: str | None = None) -> dict:
     """KQD-06: xóa điểm đã lưu, đưa HV về chưa có điểm (TT_XuLy='03').
 
     CHỈ HV `TT_XuLy` 09/10 (đã cập nhật, CHƯA gửi Sở). HV 12 phải mở khóa (KQD-05) trước;
-    13 khóa tuyệt đối; 14/90 sửa qua KQD-04 → các TT này `UPDATE` không khớp (0 dòng) → 409.
+    13 khóa tuyệt đối; 14/90 sửa qua KQD-04. Kiểm trạng thái bằng SELECT TRƯỚC rồi mới UPDATE:
+    không ở 09/10 → 409; không tìm thấy → 404. KHÔNG dùng `rowcount` để quyết (pymssql có thể
+    trả -1 khi bảng có trigger/NOCOUNT → báo nhầm thất bại dù điểm đã xóa).
     NULL 5 điểm + 3 cờ + SoGiayCNTN; reset TT về '03'. UI phải xác nhận trước khi gọi."""
     db = _db_dich(target_key)
     try:
         with sqlserver_conn_dich(db, autocommit=True) as conn:
             cur = conn.cursor(as_dict=True)
+            # 1) Kiểm trạng thái TRƯỚC (không tin rowcount pymssql)
+            cur.execute("SELECT TT_XuLy FROM dbo.NguoiLX_HoSo WHERE MaDK = %s", (body.ma_dk,))
+            hv = cur.fetchone()
+            if not hv:
+                raise HTTPException(status_code=404, detail="Không tìm thấy hồ sơ học viên ở CSDL đích.")
+            if (hv["TT_XuLy"] or "").strip() not in ("09", "10"):
+                raise HTTPException(
+                    status_code=409,
+                    detail="Chỉ xóa được điểm của HV đang 'Đã cập nhật' (09/10, chưa kết xuất). "
+                           "HV đã kết xuất phải Mở khóa trước; hoàn thành/giải trình không xóa ở đây.",
+                )
+            # 2) UPDATE — giữ ràng buộc 09/10 trong WHERE làm lưới chống đua (TOCTOU)
             cur.execute(_SQL_XOA_DIEM, (body.ma_dk,))
-            rc = cur.rowcount
     except HTTPException:
         raise
     except ConfigChuaDay as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception:
         raise HTTPException(status_code=502, detail="Không xóa được điểm — kiểm kết nối rồi thử lại.")
-    if not rc or rc <= 0:
-        raise HTTPException(
-            status_code=409,
-            detail="Chỉ xóa được điểm của HV đang 'Đã cập nhật' (09/10, chưa kết xuất). "
-                   "HV đã kết xuất phải Mở khóa trước; hoàn thành/giải trình không xóa ở đây.",
-        )
     return {"ok": True, "ma_dk": body.ma_dk, "tt_moi": "03"}
 
 
