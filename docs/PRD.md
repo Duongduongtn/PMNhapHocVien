@@ -181,7 +181,10 @@
 - ✅ **Tên học viên hiển thị IN HOA giữ dấu** ngay khi kéo về (khớp cách ghi DB).
 - ✅ **Cảnh báo "sai chính tả" mức A:** tô dấu hiệu khi tên **thiếu dấu tiếng Việt / có số/ký tự lạ / khoảng trắng thừa** (không dùng từ điển tên — tránh báo nhầm); cảnh báo mềm, nhân viên tự sửa.
 - ✅ **Nạp lô:** HV lỗi (trùng CCCD cùng khóa / thiếu dữ liệu…) **tô đỏ + nêu rõ lý do**; HV nạp được **tô xanh (kèm Số hồ sơ)**; HV khác trong lô vẫn nạp (EC-071).
-- ⬜ **"Bỏ khỏi hàng đợi"** (CHANGES #22): xóa dòng 🟢 Đã nạp khỏi hàng đợi staging của tool (SQLite cục bộ) — KHÔNG đụng DB prod; VPS đã đánh dấu đã nạp nên kéo lại không mang về. Tên nhẹ, TÁCH BẠCH với "Xóa khỏi DB" của Tra cứu DB (tránh xóa nhầm prod).
+- ⬜ **"Bỏ khỏi hàng đợi"** (CHANGES #22, #51): bỏ dòng khỏi hàng đợi staging của tool (SQLite cục bộ) — KHÔNG đụng DB prod, KHÔNG đụng máy chủ VPS. Tên nhẹ, TÁCH BẠCH với "Xóa khỏi DB" của Tra cứu DB (tránh xóa nhầm prod). Áp cho **mọi dòng**, không chỉ dòng đã nạp:
+  - **Dòng 🟢 Đã nạp:** bỏ như cũ. VPS đã đánh dấu đã nạp nên kéo lại không mang về.
+  - **Dòng ⚪ chờ nạp / 🔴 lỗi (CHANGES #51 — MỚI):** tool **ghi nhớ "bỏ qua"** uuid này; lần **"Kéo về từ VPS"** sau **không hiện lại nữa**. Dùng khi operator **không muốn nạp** hồ sơ đó vào DB (hồ sơ đã xóa bên app web nhưng tool kéo về từ trước nên còn sót, hoặc gửi nhầm/trùng). Vì sao cần "ghi nhớ bỏ qua": hồ sơ chờ có thể vẫn đang ở hàng chờ trên máy chủ — nếu chỉ xóa dòng cục bộ mà không nhớ, lần kéo sau nó quay lại.
+- ⬜ **Bỏ nhiều dòng một lượt** (CHANGES #51): chọn nhiều hồ sơ trong danh sách rồi **"Bỏ khỏi hàng đợi"** một lần, kèm **bước xác nhận** (nêu rõ số dòng sẽ bỏ, không lấy lại được qua giao diện — gửi lại thì tạo hồ sơ mới ở app web).
 - ⬜ **"Nạp lại nhanh"** dòng 🔴 lỗi (CHANGES #22): nút nạp lại ngay trên dòng lỗi (không phải chọn lại thủ công).
 - ⬜ **Kéo về đồng bộ bỏ hồ sơ đã xóa** (CHANGES #24): bấm "Kéo về từ VPS", hồ sơ collector đã **xóa ở app web** (đánh dấu đã xóa trên VPS — THU-05) → **biến mất khỏi hàng chờ nạp** của tool (bỏ dòng staging `pending` tương ứng). Chỉ áp dòng **chưa nạp**; dòng đã nạp/đã lỗi giữ nguyên.
 - ⬜ **Redesign UX màn Nạp lô — trạng thái sẵn sàng mỗi dòng** (CHANGES #26): mỗi hồ sơ chờ nạp hiện rõ `✔ Sẵn sàng` hoặc thiếu gì (`⚠ Thiếu địa chỉ` / `⚠ Thiếu ảnh` / `⚠ Chưa chọn giấy tờ`) — nhìn là biết nạp được hàng nào, không phải mở từng cái.
@@ -205,8 +208,10 @@
 | Tên thiếu dấu / ký tự lạ (từ QR hỏng hoặc gõ tay) | Cảnh báo mức A, cho sửa; không chặn cứng |
 | Kéo xong, người thu nhận sửa thông tin/ảnh trên app web | Kéo lại làm tươi bản 'chờ nạp'; bản đã nạp/đã lỗi giữ nguyên (CHANGES #11) |
 | Kéo lại mà **địa chỉ gốc đã đổi** trên app web, dù đã có nháp bền | Reset riêng **địa chỉ 2 cấp** đã map (cả bản nháp bền) + chip địa chỉ về `✗` + thông báo "địa chỉ của N hồ sơ đã đổi, cần map lại"; **giữ nguyên** ảnh đã đổi nền, tick giấy tờ, nơi cấp (CHANGES #32, mở rộng BUG-04) |
+| Bỏ qua dòng ⚪ chờ / 🔴 lỗi rồi bấm **"Kéo về từ VPS"** lại | Dòng đã bỏ qua **không hiện lại** (tool nhớ uuid "bỏ qua"); nháp đã chuẩn bị của dòng đó (gồm ảnh) cũng bị dọn (CHANGES #51) |
+| Hồ sơ đã bỏ qua được collector **gửi lại** trên app web (hồ sơ mới = uuid mới) | **Hiện lại bình thường** ở hàng chờ — "bỏ qua" chỉ gắn với uuid cũ, không chặn hồ sơ mới (CHANGES #51) |
 
-> Nguồn: CAP-004 · BR-015 · EC-062 · EC-071 · CHANGES #6 · CHANGES #11 · CHANGES #32
+> Nguồn: CAP-004 · BR-015 · EC-062 · EC-071 · CHANGES #6 · CHANGES #11 · CHANGES #32 · CHANGES #51
 
 #### [NAP-02] Chọn mô tô/ô tô + khóa chưa lập BC1
 

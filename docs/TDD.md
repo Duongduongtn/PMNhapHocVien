@@ -326,7 +326,7 @@ POST /local/ho-so/:madk/doi-khoa     Đổi khóa + di chuyển ảnh
 DELETE /local/ho-so/:madk            Xóa HV + xóa mềm ảnh (chặn khi khóa đã BC1 — §11.3)
 GET  /local/ho-so/anh?ma_dk=<>       Ảnh chân dung .jp2→PNG (xem); file mất→404, hỏng→422     [QLY-01]
 GET  /local/ho-so/anh-thumb?ma_dk=<> Thumbnail PNG avatar lưới (cache cục bộ, lazy)            [QLY-01]
-DELETE /local/keo-ve/:uuid           Bỏ dòng đã-nạp khỏi hàng đợi staging (tool-local)        [NAP-01]
+POST /local/nap/bo-qua               Bỏ khỏi hàng đợi (1 hay nhiều dòng, MỌI trạng thái) + nhớ "bỏ qua" cho cho/lỗi (keo_ve_bo_qua)  [NAP-01 #51]
 POST /local/khoa/:ma_kh/doi-nen      Đổi nền trắng cả khóa (job nền + tiến độ)                 [QLY-07]
 ```
 
@@ -567,7 +567,10 @@ Chụp / tải ảnh mặt trước CCCD
 - Trước nạp: `POST /nap/:uuid/lock` set `importing` + `locked_by` (compare-and-set nguyên tử trong 1 UPDATE có WHERE `trang_thai='pending'`). Tool khác thua → báo "đang được nạp". Lock **trả về bản ghi tươi** (thông tin + ảnh mới nhất) → tool nạp đúng bản collector vừa sửa, không nạp bản staging cũ (§7.5).
 - Nạp xong: `da_nap` + lưu `ma_dk`; `imported` không kéo lại → không tạo HV thứ 2.
 - Lỗi: `unlock` → `pending`; timeout khóa **15 phút** (env `IMPORT_LOCK_TIMEOUT_MIN=15`) → job tự mở khóa (EC-002).
-- **"Bỏ khỏi hàng đợi" (NAP-01, CHANGES #22):** xóa dòng trạng thái cục bộ `xong` khỏi `staging.sqlite` bảng `keo_ve` (endpoint tool-local `DELETE /local/keo-ve/:uuid`) — chỉ dọn hàng đợi tool, **KHÔNG đụng VPS/DB đích** (HV đã nạp, VPS đã `da_nap` nên kéo lại không mang về). Khác hẳn "Xóa khỏi DB" (QLY-03 `usp_NguoiLX_Delete`) — đặt tên/nút tách bạch để tránh xóa nhầm prod.
+- **"Bỏ khỏi hàng đợi" — MỘT đường duy nhất `POST /local/nap/bo-qua` (NAP-01, CHANGES #22 + #51, chốt review #51):** bỏ dòng khỏi `staging.sqlite` bảng `keo_ve` — chỉ dọn hàng đợi tool, **KHÔNG đụng VPS/DB đích**. Khác hẳn "Xóa khỏi DB" (QLY-03 `usp_NguoiLX_Delete`) — đặt tên/nút tách bạch để tránh xóa nhầm prod. Áp cho **MỌI trạng thái** (`cho`/`loi`/`xong`), **1 dòng hay nhiều dòng** đều qua endpoint này.
+  - **Vì sao 1 đường (chốt review #51, phương án A):** endpoint cũ `DELETE /local/keo-ve/:uuid` (task 38, guard `409` chỉ `xong`) **bị GỠ BỎ** ở #51 — gộp hết về `POST /bo-qua`. Lý do: nếu còn 2 đường, đường `DELETE` xóa dòng `cho`/`loi` mà **không ghi tombstone** → lần kéo sau hồ sơ quay lại (đúng bug #51 muốn chặn). Một đường duy nhất, tombstone xử theo trạng thái từng uuid (§9.3b) → không thể gọi nhầm đường không-tombstone. **UI phải chuyển** mọi chỗ đang gọi `DELETE /keo-ve/:uuid` sang `POST /bo-qua` với `{uuids: [<1 uuid>]}`.
+- **Vì sao dòng `cho`/`loi` cần tombstone:** dòng `cho`/`loi` có thể **vẫn đang `pending` trên VPS**, nên xóa suông thì lần `keo_ve_upsert` sau kéo lại. Giải: ghi uuid vào **tombstone cục bộ `keo_ve_bo_qua`** (§9.3b) → `keo_ve_upsert` **bỏ qua** uuid này ở mọi lượt kéo sau. Chỉ đụng `staging.sqlite`, **KHÔNG đụng VPS** (hồ sơ còn hay mất trên máy chủ là việc của app web — THU-05). Dọn kèm nháp (`nhap_xoa`). **Dùng cho ca "hồ sơ đã xóa bên app web nhưng tool kéo về từ trước nên còn sót"** mà cơ chế đồng bộ-xóa theo mốc (§11.7, chỉ bắt xóa SAU mốc) bỏ lọt. *Vì sao không nới watermark đồng bộ-xóa để tự dọn: đồng bộ-xóa chỉ bắt hồ sơ VPS báo `deleted`; hồ sơ operator chỉ "không muốn nạp" (chưa chắc đã xóa trên app) không có tín hiệu VPS → cần lối dọn tay, chủ động.*
+  - **Bỏ nhiều một lượt:** `POST /local/nap/bo-qua` `{uuids: [...]}` (tombstone + xóa `keo_ve` + `nhap_xoa` theo lô, idempotent — logic chi tiết §9.3b). UI chọn nhiều dòng + xác nhận 2 bước (tái dùng mẫu panel đỏ). Dòng `xong` lẫn trong lô vẫn bỏ được nhưng **không cần** tombstone (VPS đã `da_nap`) — tombstone chỉ ghi cho `cho`/`loi` (xem lý do QLY-08 ở §9.3b).
 
 ### 7.3 Xóa PII (BR-016)
 APScheduler quét mỗi giờ: `pending`/`imported` quá 30 ngày → xóa dòng + file ảnh thô; **bỏ qua** `importing` (EC-040). Ghi `audit_log(hanh_dong='xoa_pii')`.
@@ -704,13 +707,50 @@ Vòng đời nháp chuẩn bị (nhap_chuan_bi, keyed theo uuid dòng keo_ve):
         │ nhap_xoa(uuid) — xóa cả ảnh
         ▼
    (xóa khi)  • nạp xong            keo_ve_cap_nhat(...'xong')
-              • "Bỏ khỏi hàng đợi"  keo_ve_xoa
+              • "Bỏ khỏi hàng đợi"  keo_ve_xoa          (dòng 'xong')
+              • bỏ qua dòng cho/lỗi keo_ve_bo_qua + keo_ve_xoa (CHANGES #51)
               • đồng bộ xóa VPS     keo_ve_xoa_neu_cho
               • nút "Xóa nháp"      operator chủ động (review #32, Điểm 4)
 
    ⚠ Nháp bỏ dở (dòng 'cho' không nạp, VPS không xóa) TỒN TẠI tới khi
-     operator bấm "Xóa nháp" (giới hạn PII đã ghi ở TDD-decisions §11).
+     operator bấm "Xóa nháp" HOẶC "Bỏ khỏi hàng đợi" (CHANGES #51)
+     (giới hạn PII đã ghi ở TDD-decisions §11).
 ```
+
+### 9.3b Tombstone "bỏ qua" dòng chờ nạp (`keo_ve_bo_qua` — CHANGES #51, NAP-01)
+
+Operator "Bỏ khỏi hàng đợi" một dòng `cho`/`loi` = **chủ động không nạp** hồ sơ đó. Vì hồ sơ có thể **vẫn `pending` trên VPS** (chưa chắc đã xóa ở app web), xóa suông khỏi `keo_ve` thì `keo_ve_upsert` lượt kéo sau **mang về lại**. Cần nhớ uuid đã bỏ.
+
+```sql
+-- staging.sqlite — danh sách uuid operator đã "bỏ qua" (không kéo về lại).
+CREATE TABLE IF NOT EXISTS keo_ve_bo_qua (
+  uuid        TEXT PRIMARY KEY,   -- = uuid dòng keo_ve đã bỏ
+  ly_do       TEXT,               -- 'operator' (dọn tay) — để sau mở rộng nếu cần
+  created_at  TEXT NOT NULL       -- ISO, giờ ghi (chẩn đoán)
+);
+```
+
+- **Logic `POST /local/nap/bo-qua {uuids}` (idempotent, 1 transaction):**
+  ```
+  cho mỗi uuid trong uuids:
+      tt = keo_ve_trang_thai(uuid)              # 'cho' | 'loi' | 'xong' | None
+      nếu tt ∈ {'cho','loi'} HOẶC tt is None:   # None = dòng đã trôi / gọi lại lần 2
+          INSERT OR IGNORE INTO keo_ve_bo_qua(uuid, 'operator', now)
+      # tt == 'xong': KHÔNG ghi tombstone — xem lý do QLY-08 dưới
+      keo_ve_xoa(uuid)      # idempotent: không có dòng → no-op
+      nhap_xoa(uuid)        # dọn nháp bền + ảnh PII (TDD-decisions §11)
+  trả {bo: <số uuid đã xử>, tombstone: <số ghi mới>}
+  ```
+  Endpoint nhận `{uuids}` **trần** (không kèm trạng thái) → phải **tra `keo_ve_trang_thai(uuid)` từng uuid** để quyết định có ghi tombstone không. uuid **không còn** trong `keo_ve` (`None`: kéo trôi / gọi lại) → **vẫn ghi tombstone** (operator đã chủ ý bỏ; chặn kéo lại nếu VPS còn `pending`).
+- **Chặn kéo lại:** `keo_ve_upsert(rows)` **lọc bỏ** mọi row có `uuid ∈ keo_ve_bo_qua` TRƯỚC khi upsert (không thêm mới, không làm tươi). *Đặt lọc ở backend trong `keo_ve_upsert` để mọi đường kéo đều thống nhất — vì `keo_hang_doi` gọi `keo_ve_upsert` theo TỪNG trang cursor, lọc phải nằm TRONG `keo_ve_upsert`, không được lọc 1 lần ở router.*
+- **Vì sao KHÔNG ghi tombstone cho dòng `xong` (quan trọng — đừng "ghi luôn cho đồng nhất"):** dòng `xong` là HV đã nạp; nếu sau này **QLY-08 "Gỡ về chờ nạp"** đẩy VPS `imported→pending`, uuid đó phải **kéo lại được**. Ghi tombstone cho `xong` sẽ **chặn vĩnh viễn** đường QLY-08 đó → tuyệt đối không ghi. (`xong` bỏ qua `keo_ve_xoa` như cũ, VPS đã `da_nap` nên cũng không kéo lại trong luồng thường.)
+- **Lô rỗng `{uuids: []}`:** no-op, trả `{bo:0, tombstone:0}` 200 — không phải lỗi.
+- **Trần kích thước lô:** `len(uuids) ≤ 1000` → vượt trả `4xx` (phòng payload bất thường; UI chọn-cả-khóa thực tế vài trăm dòng).
+- **Tham số hóa bắt buộc:** mọi query chạm `keo_ve_bo_qua`/bỏ-qua phải dùng placeholder `?`, **tuyệt đối không ghép chuỗi `uuid` vào SQL** — dù endpoint chạy localhost, `uuid` vẫn là dữ liệu ngoài (do app web sinh). Bám đúng kiểu các query `keo_ve_*` sẵn có.
+- **Tombstone không tự dọn (giới hạn đã biết):** bảng `keo_ve_bo_qua` chỉ thêm, không có đường xóa → phình dần theo thời gian. **Chấp nhận:** `uuid` là khóa chính (tra có index), mỗi dòng ~40 byte, chục nghìn dòng vẫn <1 MB + lọc vẫn nhanh. Để ngỏ job dọn theo tuổi nếu sau này phình bất thường — **KHÔNG làm ở #51**.
+- **Gửi lại = uuid mới:** collector tạo hồ sơ mới trên app web sinh uuid khác → không khớp tombstone → **hiện lại bình thường** (đúng PRD edge case).
+- **Vì sao bảng riêng, không thêm cột `trang_thai='bo_qua'` vào `keo_ve`:** `keo_ve` chỉ chứa hồ sơ ĐANG trong hàng; tombstone cần sống **sau khi dòng đã bị xóa** để chặn kéo lại — bản chất khác, tách bảng cho sạch (giống lẽ tách `nhap_chuan_bi`).
+- **Migrate (bắt buộc — DDL `IF NOT EXISTS`):** bảng mới, máy đã chạy tool chưa có → thêm `CREATE TABLE IF NOT EXISTS keo_ve_bo_qua(...)` vào chỗ dựng schema staging (cùng nơi tạo `keo_ve`/`nhap_chuan_bi`); không cần `ALTER` vì là bảng trọn, không thêm cột vào bảng cũ.
 
 ### 9.4 Ca lỗi
 - rembg xấu (tóc/viền) → cho giữ ảnh gốc / chỉnh tay.
@@ -1477,6 +1517,8 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 |---|---|---|
+| 08/10/2026 | 6.1 | **Sửa sau /reviewtdd #51** (biên bản `tdd-review-08-10-2026.md`): §4+§7.2 — **GỠ endpoint `DELETE /local/keo-ve/:uuid`**, gộp mọi "Bỏ khỏi hàng đợi" (1 dòng lẫn nhiều dòng, mọi trạng thái) về **1 đường `POST /local/nap/bo-qua`** (tránh đường xóa-không-tombstone; UI phải chuyển DELETE→POST). §9.3b — thêm **pseudo-logic endpoint** (tra `keo_ve_trang_thai` từng uuid → tombstone cho `cho`/`loi`/`None`, KHÔNG cho `xong`) + **lý do QLY-08** (ghi tombstone cho `xong` sẽ chặn vĩnh viễn đường "Gỡ về chờ nạp") + lô rỗng no-op + trần ≤1000 uuid + tham số hóa `uuid` + ghi nhận tombstone không tự dọn. |
+| 08/10/2026 | 6.0 | **Bỏ dòng CHỜ/LỖI khỏi hàng đợi + nhớ "bỏ qua"** (CHANGES #51, NAP-01): §7.2 mở rộng "Bỏ khỏi hàng đợi" cho dòng `cho`/`loi` (trước guard `409` chỉ `xong`); §9.3b mới — bảng tombstone `keo_ve_bo_qua(uuid PK, ly_do, created_at)` trong `staging.sqlite`, `keo_ve_upsert` lọc bỏ uuid đã bỏ qua trước khi upsert → kéo lại không mang về; §4 +endpoint `POST /local/nap/bo-qua` (bỏ nhiều một lượt, tombstone + `keo_ve_xoa` + `nhap_xoa`, idempotent); vòng đời nháp §9.3a +nhánh bỏ-qua. Chỉ đụng `staging.sqlite`, KHÔNG đụng VPS/DB đích. Dọn ca "hồ sơ đã xóa app web nhưng tool kéo về từ trước còn sót" mà đồng bộ-xóa theo mốc (§11.7) bỏ lọt. Cần /reviewtdd (API + Data Model mới). |
 | 07/10/2026 | 5.4 | **+KQD-06 Sửa lẻ / xóa điểm đã lưu** (CHANGES #48): §11D.8 mới — chỉ HV `TT_XuLy` 09/10; **sửa lẻ** gom 5 quy-đổi (môn sửa từ gốc + môn giữ lấy `DiemKQ*` đã lưu, không tính ngược gốc) → `_CapNhat`; **xóa điểm** `POST /xoa-diem` UPDATE trực tiếp NULL 5 điểm+3 cờ+`SoGiayCNTN` + `TT_XuLy='03'` (SP không reset được — verify DB 07/10); §11D.6 +endpoint `xoa-diem`. Cần /reviewtdd (API + nghiệp vụ mới). |
 | 07/10/2026 | 5.9 | **THU-06 OCR bỏ ngày cấp** (`/capnhat` CHANGES #50, phát hiện khi build task 79): §6.7 dòng "Trường OCR đọc" đổi 6→**5 trường mặt trước** (CCCD, họ tên, ngày sinh, giới tính, nơi thường trú); **ngày cấp in ở mặt sau → không đọc** (THU-06 chỉ chụp mặt trước), để trống + đánh dấu, nhân viên nhập tay (user chốt A). Khớp PRD + code task 79. |
 | 07/10/2026 | 5.8 | **Chốt engine OCR THU-06** (`/tdd`, §6.7 + decisions §20): **engine = Tesseract.js** (WASM client-side, offline, dữ liệu `vie` — giữ ảnh trên máy đúng rào PII); **tách 6 trường = OCR toàn ảnh + regex theo nhãn in trên thẻ** (bền với ảnh chụp tay nghiêng/cắt lệch). Dịch vụ eKYC ngoài bị loại (lộ PII căn cước, chỉ mở khi có phê duyệt pháp lý). Mở kiểm: độ chính xác tiếng Việt có dấu của Tesseract.js trên thẻ thật cần thử nghiệm → quá thấp thì tăng sửa tay hoặc xin duyệt eKYC (/capnhat). §6.7 còn là chi tiết implement, hết mục "chưa chốt". |

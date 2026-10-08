@@ -2,7 +2,7 @@
 
 > File do `/kehoach` sinh. `/tieptheo` đọc file này để biết làm gì tiếp theo.
 > **Thứ tự code** nằm ở đây. **Yêu cầu và trạng thái story** nằm ở `docs/PRD.md`.
-> Cập nhật lần cuối: 07/10/2026 (v19 — sửa THU-06 chỉ OCR 5 trường mặt trước, bỏ ngày cấp (CHANGES #50). Trước đó v18 — Phase 7 THU-06 task 79-80; v17 — KQD-06 task 78)
+> Cập nhật lần cuối: 08/10/2026 (v20 — Phase 8 NAP-01 #51 "Bỏ khỏi hàng đợi" dòng chờ/lỗi + tombstone, task 81-82. Trước đó v19 — THU-06 chỉ OCR 5 trường (CHANGES #50); v18 — Phase 7 THU-06 task 79-80)
 
 ## Quyết định về thứ tự
 
@@ -312,6 +312,24 @@
 - [ ] Ảnh CCCD **không rời máy** (OCR client-side); ảnh **hủy khỏi bộ nhớ sau khi đọc** (trừ khi tái dùng cắt chân dung); không log đầu ra OCR.
 - [ ] Playwright webapp 375/800/1440 màn vào + luồng OCR (dùng ảnh mẫu) — 0 tràn.
 
+## Phase 8 — NAP-01: Bỏ khỏi hàng đợi cho dòng chờ/lỗi (tombstone)
+
+> Mở rộng NAP-01, CHANGES #51 (sau /reviewtdd → TDD v6.1, biên bản `tdd-review-08-10-2026.md`). Chỉ đụng `staging.sqlite` máy tool — KHÔNG đụng VPS/DB đích. Gộp **1 đường** `POST /local/nap/bo-qua` (gỡ endpoint `DELETE /local/keo-ve/:uuid` của task 38). Sau khi code → **đóng gói lại exe** (công thức memory `project_pmcsdtlx_tool_exe_build`).
+
+| # | Task | Story | Quy mô | Phụ thuộc | Kiểm | Xong |
+|---|---|---|---|---|---|---|
+| 81 | **NAP-01 #51 (1/2) backend**: bảng tombstone `keo_ve_bo_qua(uuid PK, ly_do, created_at)` + migrate `IF NOT EXISTS` (TDD §9.3b) · `keo_ve_upsert` **lọc bỏ uuid ∈ tombstone TRƯỚC upsert** (đặt TRONG hàm — kéo theo trang cursor) · endpoint `POST /local/nap/bo-qua {uuids}` idempotent/1-transaction (tra `keo_ve_trang_thai` từng uuid → tombstone cho `cho`/`loi`/`None`, KHÔNG `xong` vì QLY-08; `keo_ve_xoa`+`nhap_xoa` mọi dòng) + lô rỗng no-op + trần ≤1000 + tham số hóa · **GỠ endpoint `DELETE /local/keo-ve/:uuid`** (`bo_khoi_hang_doi`, task 38 — thay bởi POST). `tool/app/nap.py` + `tool/app/routers/nap.py`. ⚠ `impact` GitNexus TRƯỚC khi sửa `keo_ve_upsert` | `NAP-01` | M | 20,50,38 | 1+2 | [x] 08/10 — tombstone `keo_ve_bo_qua` + `_bo_qua_uuids`/lọc trong `keo_ve_upsert` + `bo_qua_nhieu` + `POST /local/nap/bo-qua` (gỡ DELETE cũ, trần 1000); impact nhiễu→grep xác nhận caller duy nhất `keo_hang_doi`; +11 test (50 test_nap_keo, 346 full suite); review-nghiepvu 6/6 |
+| 82 | **NAP-01 #51 (2/2) UI**: chọn nhiều dòng (checkbox) ở lưới hàng đợi + nút "Bỏ khỏi hàng đợi" cho dòng ⚪ chờ / 🔴 lỗi (trước chỉ 🟢) + panel xác nhận 2 bước (nêu số dòng, không lấy lại qua giao diện — tái dùng mẫu panel đỏ) + **chuyển mọi chỗ gọi `DELETE /keo-ve/:uuid` sang `POST /bo-qua` `{uuids:[1]}`**. `tool/webui/src/pages/tool/NapHoSo.tsx` + `api.ts`. Chạy `impeccable` | `NAP-01` | S | 81,51 | 1 | [x] 08/10 — `boKhoiHangDoi(uuids[])`→POST /bo-qua; checkbox sẵn có tái dùng cho nút "Bỏ khỏi hàng đợi (N)" ở thanh đáy + nút bỏ trên MỌI dòng + panel xác nhận 2 bước (modal đỏ) + thông báo kết quả (số nhớ bỏ-qua). build+tsc+38 vitest. Playwright/visual hoãn (màn cần login+dữ liệu, như 46/47/51) → Checkpoint 18 lúc chạy tool |
+
+> Task 81 **gỡ một phần task 38** (endpoint `DELETE /local/keo-ve/:uuid`) — task 38 đã [x], giữ nguyên dòng để lưu dấu vết; nút "Nạp lại nhanh" dòng lỗi của task 38 KHÔNG đụng. NAP-01 vẫn 🔄 tới khi mọi task con xong.
+
+### ✅ Checkpoint 18 — sau task 81-82 (NAP-01 #51 bỏ hàng đợi + tombstone)
+- [ ] Bỏ 1 dòng ⚪ chờ → bấm "Kéo về từ VPS" lại → **không hiện lại** (tombstone chặn); nháp (gồm ảnh) của dòng đó **đã dọn**.
+- [ ] Bỏ nhiều dòng một lượt + xác nhận 2 bước; dòng 🟢 lẫn trong lô vẫn bỏ được (không ghi tombstone).
+- [ ] **Mức 2:** `keo_ve_upsert` lọc bỏ uuid ∈ `keo_ve_bo_qua` (kéo lại không về); **`xong` KHÔNG bị ghi tombstone** (QLY-08 "Gỡ về chờ nạp" sau đó kéo lại được); hồ sơ gửi lại (uuid mới) hiện lại bình thường.
+- [ ] Không còn endpoint `DELETE /local/keo-ve/:uuid`; UI gọi `POST /bo-qua` cho cả 1 dòng.
+- [ ] Đóng gói lại exe (pnpm build webui TRƯỚC + PyInstaller) chạy được bản mới.
+
 ### ✅ Checkpoint 5 — cuối dự án
 - [ ] Mọi tiêu chí MUST + SHOULD trong PRD đạt.
 - [ ] Đối chiếu bảo mật OG đóng trước go-live (chặn go-live nếu chưa đạt).
@@ -356,12 +374,13 @@
 - **Số story trong PRD khi cập nhật:** 44 (thêm `THU-06` từ CHANGES #49; `KQD-06` #48; `KQD-05` #45; trước đó `KQD-01/02/03/04` #42; `DGT-01/02/03/04` #38/#39; `TCB-01/02/03/04` #35; `HTG-07` #34; `SYNC-01/02/03` #33; chưa tính NICE `QLY-04`, `THU-03`)
 - **Mã story đã đưa vào kế hoạch:** `HTG-01`, `HTG-02`, `HTG-03`, `HTG-07`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `THU-06`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `SYNC-01`, `SYNC-02`, `SYNC-03`, `TCB-01`, `TCB-02`, `TCB-03`, `TCB-04`, `DGT-01`, `DGT-02`, `DGT-03`, `DGT-04`, `KQD-01`, `KQD-02`, `KQD-03`, `KQD-04`, `KQD-05`, `KQD-06`
 - **Mã story chưa đưa vào:** `QLY-04`, `THU-03` (NICE, chưa đủ chi tiết) · **`HTG-04/05/06`** (thêm ở CHANGES #18, đã code thẳng — chưa có task trong plan; cần `/kehoach` bổ sung riêng nếu muốn khớp sổ)
-- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 07/10/2026 (#49)
+- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 08/10/2026 (#51)
 
 ## Changelog
 
 | Ngày | Thay đổi |
 |---|---|
+| 08/10/2026 | v20 — bổ sung (CHANGES #51, sau /reviewtdd → TDD v6.1): thêm **Phase 8 NAP-01 "Bỏ khỏi hàng đợi" dòng chờ/lỗi + tombstone** — task **81** backend (bảng `keo_ve_bo_qua` + migrate + lọc trong `keo_ve_upsert` + endpoint `POST /local/nap/bo-qua` xử mọi trạng thái/idempotent/trần 1000 + **GỠ `DELETE /local/keo-ve/:uuid`** của task 38) + task **82** UI (chọn nhiều + nút bỏ cho dòng ⚪/🔴 + xác nhận 2 bước + chuyển DELETE→POST) + Checkpoint 18. Chỉ đụng `staging.sqlite`, KHÔNG đụng VPS/DB. Mở rộng NAP-01, **không story mới, giữ 44**. Sau code → đóng gói lại exe. 82 task. |
 | 07/10/2026 | v19 — sửa (CHANGES #50, /capnhat — phát hiện khi build task 79): THU-06 OCR **chỉ đọc 5 trường mặt trước** (bỏ *ngày cấp* — in ở mặt sau, không chụp; nhân viên nhập tay, user chốt A). Sửa mô tả task 79 + Checkpoint 17 (mức 2: 5 trường + ngày cấp luôn trống). Task 79 đã code đúng (5 trường). Không đổi số task. 80 task. |
 | 07/10/2026 | v18 — bổ sung (CHANGES #49, sau /reviewtdd §6.7 + /tdd): thêm **Phase 7 Lối nhập OCR dự phòng (THU-06)** — task **79** nền OCR `lib/ocr.ts` (Tesseract.js client + dữ liệu `vie`, downscale ≤~1600px, tách 6 trường regex theo nhãn, mốc fail CCCD 12 số, hủy ảnh sau đọc, +unit test) + task **80** lối vào "Chụp ảnh thẻ (tự đọc)" + luồng UI (spinner/hủy, màn xác nhận dùng chung không auto-submit, lưu qua luồng gửi sẵn có) + Checkpoint 17. **Thuần webapp**, không đụng tool/VPS; engine chốt Tesseract.js client-side (rào PII, TDD §6.7 v5.8). +1 story THU-06. 80 task. |
 | 07/10/2026 | v17 — bổ sung (CHANGES #48, **đã code trước khi ghi sổ**): thêm **KQD-06 "Sửa lẻ / xóa điểm đã lưu"** vào cuối Phase 6 — task **78** (backend `ket_qua_hon_hop` giữ quy-đổi môn cũ + `POST /local/ketqua/xoa-diem` reset `03` bằng UPDATE trực tiếp, chỉ 09/10, 409 khác + UI nút Xóa điểm có xác nhận; +4 unit test, 340 pytest). Checkpoint 16 mở rộng 71→78 + 2 mục kiểm KQD-06 (sửa lẻ giữ môn cũ · xóa về 03). User chốt phương án A gộp 1 story; TDD §11D.8. +1 story. 78 task. |

@@ -323,6 +323,15 @@ _KEO_COLS = ("uuid", "so_cccd", "so_cmnd_cu", "ho_ten", "ngay_sinh", "gioi_tinh"
              "noi_tt_raw", "ngay_cap", "noi_cap_cccd", "co_anh", "created_at",
              "trang_thai", "loi", "ma_dk", "so_ho_so")
 
+# Tombstone "bỏ qua" (NAP-01, CHANGES #51, TDD §9.3b): uuid operator đã chủ động bỏ khỏi
+# hàng đợi khi dòng còn 'cho'/'loi' (có thể vẫn 'pending' trên VPS). keo_ve_upsert lọc bỏ
+# các uuid này TRƯỚC khi upsert nên lần kéo sau KHÔNG mang về lại. Chỉ sống trong staging.sqlite
+# cục bộ — KHÔNG đụng VPS. Bảng trọn (không ALTER), chỉ chứa uuid + lý do + giờ ghi (không PII).
+_BO_QUA_DDL = (
+    "CREATE TABLE IF NOT EXISTS keo_ve_bo_qua ("
+    "uuid TEXT PRIMARY KEY, ly_do TEXT, created_at TEXT NOT NULL)"
+)
+
 
 def iso_to_yyyymmdd(gia_tri: str | None) -> str:
     """Ngày cấp CCCD ISO 'yyyy-mm-dd' (cột VPS DATE) → 'yyyymmdd' (SP cần varchar(8),
@@ -335,7 +344,17 @@ def _keo_conn() -> sqlite3.Connection:
     ORPHAN_DB.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(ORPHAN_DB))
     conn.execute(_KEO_DDL)
+    conn.execute(_BO_QUA_DDL)  # tombstone bỏ-qua dùng chung connection với keo_ve (#51)
     return conn
+
+
+def _bo_qua_uuids() -> set[str]:
+    """Tập uuid đã "bỏ qua" (tombstone keo_ve_bo_qua) — để lọc khi kéo + để introspect (#51)."""
+    conn = _keo_conn()
+    try:
+        return {r[0] for r in conn.execute("SELECT uuid FROM keo_ve_bo_qua")}
+    finally:
+        conn.close()
 
 
 def keo_ve_upsert(rows: list[dict]) -> tuple[int, int, int]:
@@ -357,8 +376,14 @@ def keo_ve_upsert(rows: list[dict]) -> tuple[int, int, int]:
     conn = _keo_conn()
     reset_uuids: list[str] = []
     try:
+        # #51: lọc bỏ uuid operator đã "bỏ qua" TRƯỚC khi upsert → không thêm mới, không làm tươi.
+        # Đặt ở ĐÂY (trong keo_ve_upsert) vì keo_hang_doi gọi hàm này theo TỪNG trang cursor —
+        # lọc 1 lần ở router sẽ sót các trang sau (TDD §9.3b).
+        bo_qua = _bo_qua_uuids()
         moi = lam_tuoi = 0
         for r in rows:
+            if str(r.get("uuid")) in bo_qua:
+                continue  # đã bỏ qua → bỏ hẳn khỏi lượt kéo này
             gt = (
                 str(r.get("uuid")), r.get("so_cccd"), r.get("so_cmnd_cu"),
                 r.get("ho_ten"), r.get("ngay_sinh"), r.get("gioi_tinh"),
@@ -453,6 +478,44 @@ def keo_ve_xoa_neu_cho(uuid: str) -> bool:
     if da_bo:
         nhap_xoa(uuid)
     return da_bo
+
+
+def bo_qua_nhieu(uuids: list[str]) -> dict:
+    """NAP-01 #51 (TDD §7.2/§9.3b) — "Bỏ khỏi hàng đợi" 1 hay nhiều dòng MỌI trạng thái, idempotent.
+
+    Mỗi uuid:
+    - tra trạng thái cục bộ (`cho`/`loi`/`xong`/None=đã trôi hoặc gọi lại lần 2);
+    - `cho`/`loi`/`None` → ghi tombstone `keo_ve_bo_qua` (INSERT OR IGNORE) → lần kéo sau
+      keo_ve_upsert lọc bỏ, không mang về lại;
+    - `xong` → KHÔNG ghi tombstone: HV đã nạp, nếu sau này QLY-08 "Gỡ về chờ nạp" đẩy VPS
+      imported→pending thì uuid đó phải kéo lại được — tombstone sẽ chặn vĩnh viễn đường đó;
+    - MỌI trạng thái → xóa khỏi keo_ve + nhap_xoa (dọn nháp bền + ảnh PII).
+
+    Tombstone + xóa keo_ve chạy trong 1 transaction (không bỏ nửa lô). Chỉ đụng staging.sqlite,
+    KHÔNG đụng VPS/DB đích. Trả {bo: số uuid đã xử, tombstone: số tombstone ghi mới}."""
+    if not uuids:
+        return {"bo": 0, "tombstone": 0}
+    now = datetime.now().isoformat(timespec="seconds")
+    tombstone_moi = 0
+    conn = _keo_conn()
+    try:
+        for u in uuids:
+            su = str(u)
+            row = conn.execute("SELECT trang_thai FROM keo_ve WHERE uuid=?", (su,)).fetchone()
+            tt = row[0] if row else None
+            if tt in ("cho", "loi") or tt is None:
+                cur = conn.execute(
+                    "INSERT OR IGNORE INTO keo_ve_bo_qua (uuid, ly_do, created_at) VALUES (?,?,?)",
+                    (su, "operator", now),
+                )
+                tombstone_moi += cur.rowcount  # 0 nếu đã có (idempotent)
+            conn.execute("DELETE FROM keo_ve WHERE uuid=?", (su,))
+        conn.commit()
+    finally:
+        conn.close()
+    for u in uuids:  # dọn nháp PII — conn riêng, idempotent, ngoài transaction keo_ve
+        nhap_xoa(str(u))
+    return {"bo": len(uuids), "tombstone": tombstone_moi}
 
 
 # ---- Nháp chuẩn bị BỀN (NAP-01, CHANGES #32, TDD §9.3a) ---------------------

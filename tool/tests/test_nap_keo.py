@@ -250,7 +250,7 @@ def test_nap_lo_lock_409_ghi_loi(staging_tmp, op_headers, monkeypatch):
     assert nap.keo_ve_danh_sach()[0]["trang_thai"] == "loi"
 
 
-# ---- NAP-01 task 38: bỏ khỏi hàng đợi (DELETE /local/keo-ve/{uuid}) ----------
+# ---- NAP-01 #51: "Bỏ khỏi hàng đợi" + tombstone (POST /local/nap/bo-qua) -----
 def test_keo_ve_xoa_va_trang_thai(staging_tmp):
     nap.keo_ve_upsert([_keo_row("u1"), _keo_row("u2")])
     assert nap.keo_ve_trang_thai("u1") == "cho"
@@ -260,27 +260,89 @@ def test_keo_ve_xoa_va_trang_thai(staging_tmp):
     assert {r["uuid"] for r in nap.keo_ve_danh_sach()} == {"u2"}
 
 
-def test_bo_khoi_hang_doi_chua_dang_nhap_401(staging_tmp):
-    assert client.delete("/local/keo-ve/u1").status_code in (401, 403)
+def test_bo_qua_chua_dang_nhap_401(staging_tmp):
+    assert client.post("/local/nap/bo-qua", json={"uuids": ["u1"]}).status_code in (401, 403)
 
 
-def test_bo_khoi_hang_doi_khong_co_404(staging_tmp, op_headers):
-    assert client.delete("/local/keo-ve/khong-co", headers=op_headers).status_code == 404
+def test_bo_qua_dong_cho_ghi_tombstone(staging_tmp, op_headers):
+    """Dòng 'cho' → bỏ được + ghi tombstone (kéo lại không về). Khác hẳn hành vi cũ chặn 409."""
+    nap.keo_ve_upsert([_keo_row("u1")])
+    r = client.post("/local/nap/bo-qua", headers=op_headers, json={"uuids": ["u1"]})
+    assert r.status_code == 200 and r.json() == {"bo": 1, "tombstone": 1}
+    assert nap.keo_ve_trang_thai("u1") is None       # đã khỏi hàng đợi
+    assert "u1" in nap._bo_qua_uuids()               # tombstone ghi
 
 
-def test_bo_khoi_hang_doi_chua_nap_409(staging_tmp, op_headers):
-    nap.keo_ve_upsert([_keo_row("u1")])  # còn 'cho' → không được bỏ
-    r = client.delete("/local/keo-ve/u1", headers=op_headers)
-    assert r.status_code == 409
-    assert nap.keo_ve_trang_thai("u1") == "cho"  # KHÔNG bị xóa
+def test_bo_qua_uuid_khong_co_van_ghi_tombstone(staging_tmp, op_headers):
+    """uuid đã trôi khỏi keo_ve (kéo trôi / gọi lại) → None → vẫn ghi tombstone (chặn kéo lại)."""
+    r = client.post("/local/nap/bo-qua", headers=op_headers, json={"uuids": ["khong-co"]})
+    assert r.status_code == 200 and r.json() == {"bo": 1, "tombstone": 1}
 
 
-def test_bo_khoi_hang_doi_da_nap_xoa(staging_tmp, op_headers):
+def test_bo_qua_dong_xong_khong_tombstone(staging_tmp, op_headers):
+    """Dòng 'xong' (đã nạp) → xóa khỏi staging nhưng KHÔNG tombstone (QLY-08 cần kéo lại được)."""
     nap.keo_ve_upsert([_keo_row("u1")])
     nap.keo_ve_cap_nhat("u1", trang_thai="xong", ma_dk="M1", so_ho_so="056")
-    r = client.delete("/local/keo-ve/u1", headers=op_headers)
-    assert r.status_code == 200 and r.json()["ok"] is True
-    assert nap.keo_ve_trang_thai("u1") is None  # đã bỏ khỏi staging
+    r = client.post("/local/nap/bo-qua", headers=op_headers, json={"uuids": ["u1"]})
+    assert r.status_code == 200 and r.json() == {"bo": 1, "tombstone": 0}
+    assert nap.keo_ve_trang_thai("u1") is None
+    assert "u1" not in nap._bo_qua_uuids()
+
+
+def test_bo_qua_nhieu_mot_luot(staging_tmp, op_headers):
+    """Bỏ nhiều một lượt: 'cho'+'loi' ghi tombstone, 'xong' không; tất cả rời hàng đợi."""
+    nap.keo_ve_upsert([_keo_row("u1"), _keo_row("u2"), _keo_row("u3")])
+    nap.keo_ve_cap_nhat("u2", trang_thai="loi", loi="trùng CCCD")
+    nap.keo_ve_cap_nhat("u3", trang_thai="xong", ma_dk="M3", so_ho_so="056")
+    r = client.post("/local/nap/bo-qua", headers=op_headers, json={"uuids": ["u1", "u2", "u3"]})
+    assert r.status_code == 200 and r.json() == {"bo": 3, "tombstone": 2}  # u1 cho + u2 loi
+    assert nap.keo_ve_danh_sach() == []
+    assert nap._bo_qua_uuids() == {"u1", "u2"}
+
+
+def test_bo_qua_don_nhap_ben(staging_tmp, op_headers):
+    """Bỏ qua dòng 'cho' có nháp bền (ảnh PII) → nháp bị dọn (nhap_xoa) đầu-cuối."""
+    nap.keo_ve_upsert([_keo_row("u1")])
+    nap.nhap_luu("u1", jp2_b64="anh-pii", chi_tiet="123 Lê Lợi")
+    assert nap.nhap_doc("u1") is not None               # tiền đề: có nháp
+    client.post("/local/nap/bo-qua", headers=op_headers, json={"uuids": ["u1"]})
+    assert nap.nhap_doc("u1") is None                   # nháp (gồm ảnh) đã dọn
+
+
+def test_bo_qua_lo_rong_noop(staging_tmp, op_headers):
+    r = client.post("/local/nap/bo-qua", headers=op_headers, json={"uuids": []})
+    assert r.status_code == 200 and r.json() == {"bo": 0, "tombstone": 0}
+
+
+def test_bo_qua_vuot_tran_422(staging_tmp, op_headers):
+    body = {"uuids": [f"u{i}" for i in range(1001)]}
+    assert client.post("/local/nap/bo-qua", headers=op_headers, json=body).status_code == 422
+
+
+def test_bo_qua_idempotent(staging_tmp, op_headers):
+    """Gọi lại cùng uuid → tombstone đã có nên ghi mới = 0 (INSERT OR IGNORE)."""
+    nap.keo_ve_upsert([_keo_row("u1")])
+    client.post("/local/nap/bo-qua", headers=op_headers, json={"uuids": ["u1"]})
+    r = client.post("/local/nap/bo-qua", headers=op_headers, json={"uuids": ["u1"]})
+    assert r.json() == {"bo": 1, "tombstone": 0}
+
+
+def test_keo_ve_upsert_loc_bo_tombstone(staging_tmp, op_headers):
+    """keo_ve_upsert lọc bỏ uuid đã bỏ qua → kéo lại KHÔNG mang về (dù VPS còn gửi)."""
+    nap.keo_ve_upsert([_keo_row("u1")])
+    client.post("/local/nap/bo-qua", headers=op_headers, json={"uuids": ["u1"]})
+    moi, tuoi, _ = nap.keo_ve_upsert([_keo_row("u1")])  # VPS vẫn gửi u1 (còn pending)
+    assert (moi, tuoi) == (0, 0)                        # bị lọc: không thêm, không làm tươi
+    assert nap.keo_ve_danh_sach() == []
+
+
+def test_tombstone_khong_chan_uuid_moi(staging_tmp, op_headers):
+    """Gửi lại = uuid mới → không khớp tombstone → hiện lại bình thường (PRD edge #51)."""
+    nap.keo_ve_upsert([_keo_row("u1")])
+    client.post("/local/nap/bo-qua", headers=op_headers, json={"uuids": ["u1"]})
+    moi, _, _ = nap.keo_ve_upsert([_keo_row("u2")])     # hồ sơ gửi lại mang uuid mới
+    assert moi == 1
+    assert {r["uuid"] for r in nap.keo_ve_danh_sach()} == {"u2"}
 
 
 # ---- QLY-08: staging helper tra uuid theo ma_dk + đưa dòng về 'cho' ----

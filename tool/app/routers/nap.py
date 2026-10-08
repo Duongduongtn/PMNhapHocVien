@@ -226,19 +226,20 @@ def danh_sach_keo_ve():
     return nap.keo_ve_danh_sach()
 
 
-@router.delete("/keo-ve/{uuid}")
-def bo_khoi_hang_doi(uuid: str, phien: Phien = Depends(require_session)):
-    """NAP-01 task 38 — 'Bỏ khỏi hàng đợi': xóa 1 dòng ĐÃ NẠP ('xong') khỏi staging keo_ve
-    cục bộ (SQLite). TOOL-LOCAL, KHÔNG đụng DB prod/VPS (tách bạch 'Xóa khỏi DB' của Tra cứu DB).
-    Chỉ cho bỏ dòng 'xong' — tránh bỏ nhầm dòng đang chờ còn nháp (VPS vẫn pending, kéo lại về)."""
-    tt = nap.keo_ve_trang_thai(uuid)
-    if tt is None:
-        raise HTTPException(status_code=404, detail="Không tìm thấy hồ sơ trong hàng đợi.")
-    if tt != "xong":
-        raise HTTPException(status_code=409, detail="Chỉ bỏ được hồ sơ đã nạp khỏi hàng đợi.")
-    nap.keo_ve_xoa(uuid)
-    nap.nhap_xoa(uuid)  # dọn nháp bền kèm ảnh PII (CHANGES #32)
-    return {"ok": True, "uuid": uuid}
+class BoQuaIn(BaseModel):
+    uuids: list[str]  # uuid dòng cần bỏ khỏi hàng đợi (1 hay nhiều, mọi trạng thái)
+
+
+@router.post("/nap/bo-qua")
+def bo_khoi_hang_doi(body: BoQuaIn, phien: Phien = Depends(require_session)):
+    """NAP-01 #51 — "Bỏ khỏi hàng đợi" 1 hay nhiều dòng, MỌI trạng thái. TOOL-LOCAL, KHÔNG đụng
+    DB prod/VPS (tách bạch 'Xóa khỏi DB' của Tra cứu DB — tránh xóa nhầm prod). Dòng 'cho'/'loi'
+    → tool nhớ "bỏ qua" (tombstone) nên "Kéo về từ VPS" sau KHÔNG mang về lại; 'xong' bỏ như cũ,
+    không tombstone (xem nap.bo_qua_nhieu + lý do QLY-08). Thay endpoint DELETE /keo-ve/{uuid} cũ
+    (task 38) — gộp 1 đường, tombstone xử theo trạng thái từng uuid. Dọn kèm nháp (ảnh PII)."""
+    if len(body.uuids) > 1000:
+        raise HTTPException(status_code=422, detail="Bỏ tối đa 1000 hồ sơ một lượt.")
+    return nap.bo_qua_nhieu(body.uuids)
 
 
 @router.get("/nap/keo/{uuid}/anh")

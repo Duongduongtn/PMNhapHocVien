@@ -62,6 +62,15 @@ async function json<T>(r: Response): Promise<T> {
   return r.json() as Promise<T>;
 }
 
+// Số hiệu bản build (hiện trên thanh tiêu đề để nhận ra đang chạy bản mới nhất).
+// Bản đóng gói trả thời điểm build + commit; chạy dev trả "dev".
+export interface VersionInfo {
+  version: string;
+  build: string;
+  commit: string;
+}
+export const getVersion = () => fetch(`${BASE}/version`).then(json<VersionInfo>);
+
 // ── Đăng nhập cục bộ của tool (HTG-01③) ──
 export interface ToolNguoiDung {
   session_token: string;
@@ -486,11 +495,15 @@ export const keoHangDoi = () =>
 export const getDanhSachKeoVe = () =>
   fetch(`${BASE}/local/nap/danh-sach`, { headers: authHeaders() }).then(json<KeoVeRow[]>);
 
-// NAP-01 task 38 — "Bỏ khỏi hàng đợi": xóa 1 dòng đã nạp khỏi staging cục bộ (không đụng prod).
-export const boKhoiHangDoi = (uuid: string) =>
-  fetch(`${BASE}/local/keo-ve/${encodeURIComponent(uuid)}`, { method: "DELETE", headers: authHeaders() }).then(
-    json<{ ok: boolean; uuid: string }>,
-  );
+// NAP-01 #51 — "Bỏ khỏi hàng đợi" 1 hay nhiều dòng (MỌI trạng thái) qua 1 đường POST.
+// Dòng chờ/lỗi → tool nhớ "bỏ qua" (tombstone) nên kéo lại không mang về; 'xong' bỏ như cũ.
+// TOOL-LOCAL, không đụng prod/VPS. Thay endpoint DELETE /keo-ve/{uuid} cũ (task 38).
+export const boKhoiHangDoi = (uuids: string[]) =>
+  fetch(`${BASE}/local/nap/bo-qua`, {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ uuids }),
+  }).then(json<{ bo: number; tombstone: number }>);
 
 // ── Nháp chuẩn bị BỀN (NAP-01 task 50/51, CHANGES #32, TDD §9.3a) ────────────
 export interface NhapCo {

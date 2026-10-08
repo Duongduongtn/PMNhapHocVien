@@ -307,6 +307,9 @@ export default function NapHoSo() {
   // Cờ NHẸ cho 2 chip cả lưới (co_dia_chi/co_anh/co_tick) — nháp bền task 51 (không tải ảnh).
   const [nhapCoMap, setNhapCoMap] = useState<Record<string, NhapCo>>({});
   const [xacNhanXoaNhap, setXacNhanXoaNhap] = useState(false); // nút "Xóa nháp" — xác nhận 2 bước inline
+  // NAP-01 #51 — "Bỏ khỏi hàng đợi" 1 hay nhiều dòng: panel xác nhận 2 bước + thông báo kết quả
+  const [boXn, setBoXn] = useState<{ uuids: string[]; nhan: string } | null>(null);
+  const [boTb, setBoTb] = useState("");
 
   // Danh sách Sở GTVT cho combobox "Nơi cấp" (BUG-10) — tải 1 lần
   const [soGtvt, setSoGtvt] = useState<SoGtvt[]>([]);
@@ -657,16 +660,37 @@ export default function NapHoSo() {
     navigate("/tool/tra-cuu", { state: { maKh, maDks, nonce: Date.now(), locAnh } });
   };
 
-  // NAP-01 task 38 — nút trên dòng: nạp lại nhanh (🔴) tái dùng nạp lô 1 uuid; bỏ khỏi hàng đợi (🟢).
+  // NAP-01 task 38 — nạp lại nhanh dòng lỗi (tái dùng nạp lô 1 uuid).
   const napLaiNhanh = (r: KeoVeRow) => { void chayNapLo([r]); };
-  const boDong = async (r: KeoVeRow) => {
+
+  // NAP-01 #51 — "Bỏ khỏi hàng đợi" áp MỌI trạng thái qua 1 đường POST /bo-qua (dòng chờ/lỗi ghi
+  // "bỏ qua" tombstone nên kéo lại không về). Mở panel xác nhận 2 bước TRƯỚC khi gọi API.
+  const xinBoDong = (r: KeoVeRow) => {
+    setBoTb("");
+    setBoXn({ uuids: [r.uuid], nhan: (r.ho_ten || "").toUpperCase() || r.so_cccd || "1 hồ sơ" });
+  };
+  const xinBoNhieu = () => {
+    if (chon.size === 0) return;
+    setBoTb("");
+    setBoXn({ uuids: [...chon], nhan: `${chon.size} hồ sơ` });
+  };
+  const boDong = async () => {
+    if (!boXn) return;
+    const uuids = boXn.uuids;
     setNapErr("");
     try {
-      await boKhoiHangDoi(r.uuid);
+      const kq = await boKhoiHangDoi(uuids);
       setKeoVe(await getDanhSachKeoVe());
-      if (selUuid === r.uuid) setSelUuid(null);
+      setChon((prev) => { const n = new Set(prev); for (const u of uuids) n.delete(u); return n; });
+      if (selUuid && uuids.includes(selUuid)) { setSelUuid(null); setDrawerOpen(false); }
+      setBoXn(null);
+      setBoTb(
+        `Đã bỏ ${kq.bo} hồ sơ khỏi hàng đợi` +
+          (kq.tombstone > 0 ? ` · nhớ "bỏ qua" ${kq.tombstone} hồ sơ (kéo lại không mang về)` : "") + ".",
+      );
     } catch (e) {
       setNapErr(e instanceof Error ? e.message : "Không bỏ được khỏi hàng đợi.");
+      setBoXn(null);
     }
   };
 
@@ -793,9 +817,18 @@ export default function NapHoSo() {
                     )}
                   </span>
                   <button
+                    type="button"
+                    onClick={xinBoNhieu}
+                    disabled={chon.size === 0}
+                    title="Bỏ các hồ sơ đã chọn khỏi hàng đợi (không xóa khỏi DB)"
+                    className="ml-auto h-9 px-3 rounded-lg border border-destructive/40 text-destructive text-sm font-medium inline-flex items-center gap-1.5 hover:bg-destructive/5 transition-colors disabled:opacity-50"
+                  >
+                    <Icon name="x" className="w-4 h-4" /> Bỏ khỏi hàng đợi ({chon.size})
+                  </button>
+                  <button
                     onClick={() => moNapDialog(chonSanSang)}
                     disabled={napBusy || chonSanSang.length === 0 || !khoa}
-                    className="ml-auto h-10 px-5 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center gap-2 hover:brightness-110 transition-all shadow-sm disabled:opacity-60"
+                    className="h-10 px-5 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center gap-2 hover:brightness-110 transition-all shadow-sm disabled:opacity-60"
                   >
                     <Icon name="plus" className="w-4 h-4" />
                     {`Nạp ${chonSanSang.length} học viên${khoa ? ` vào ${khoa.ten_kh} (${khoa.ma_kh})` : ""}`}
@@ -817,6 +850,16 @@ export default function NapHoSo() {
                       <b>{soChinhTa} hồ sơ tên nghi sai chính tả</b> (mức A: thiếu dấu / ký tự lạ / khoảng trắng thừa) — kiểm lại họ tên trước khi nạp, hệ thống không chặn.
                     </Banner>
                   )}
+                </div>
+              )}
+
+              {/* NAP-01 #51 — thông báo kết quả "Bỏ khỏi hàng đợi" (có thể bỏ ở cả 2 nhóm) */}
+              {boTb && (
+                <div className="mx-4 mt-3 flex items-center gap-2 text-[13px] font-medium text-success bg-success/10 border border-success/30 rounded-lg px-3 py-2 shrink-0">
+                  <Icon name="check" className="w-4 h-4 shrink-0" /> {boTb}
+                  <button type="button" onClick={() => setBoTb("")} className="ml-auto text-muted-foreground hover:text-foreground">
+                    <Icon name="x" className="w-4 h-4" />
+                  </button>
                 </div>
               )}
 
@@ -918,17 +961,16 @@ export default function NapHoSo() {
                             </button>
                           );
                         })()}
-                        {/* NAP-01 task 38 — bỏ dòng đã nạp khỏi hàng đợi (staging, không đụng prod) */}
-                        {r.trang_thai === "xong" && (
-                          <button
-                            type="button"
-                            title="Bỏ khỏi hàng đợi (không xóa khỏi DB)"
-                            onClick={(e) => { e.stopPropagation(); void boDong(r); }}
-                            className="w-7 h-7 rounded-md inline-flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                          >
-                            <Icon name="x" className="w-4 h-4" />
-                          </button>
-                        )}
+                        {/* NAP-01 #51 — bỏ khỏi hàng đợi MỌI trạng thái (staging, không đụng prod);
+                            dòng chờ/lỗi sẽ được nhớ "bỏ qua". Mở panel xác nhận 2 bước. */}
+                        <button
+                          type="button"
+                          title="Bỏ khỏi hàng đợi (không xóa khỏi DB)"
+                          onClick={(e) => { e.stopPropagation(); xinBoDong(r); }}
+                          className="w-7 h-7 rounded-md inline-flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        >
+                          <Icon name="x" className="w-4 h-4" />
+                        </button>
                         <NapBadge tt={r.trang_thai} />
                       </div>
                     </div>
@@ -1190,6 +1232,47 @@ export default function NapHoSo() {
           onXemDB={(maDks) => { setNapDialog(null); xemTrongDB(khoa.ma_kh, maDks); }}
           onBoSungAnh={() => { setNapDialog(null); xemTrongDB(khoa.ma_kh, [], "chua"); }}
         />
+      )}
+
+      {/* NAP-01 #51 — panel xác nhận 2 bước "Bỏ khỏi hàng đợi" (1 hay nhiều dòng) */}
+      {boXn && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setBoXn(null)}>
+          <div
+            className="w-full max-w-md rounded-xl bg-card border border-border shadow-xl p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 text-destructive font-semibold text-[15px]">
+              <Icon name="warn" className="w-5 h-5" /> Bỏ {boXn.nhan} khỏi hàng đợi?
+            </div>
+            <div className="mt-3 text-[13px] text-muted-foreground space-y-2">
+              <p>
+                Chỉ dọn hàng đợi của tool — <b className="text-foreground">KHÔNG</b> xóa khỏi cơ sở dữ liệu,
+                KHÔNG đụng máy chủ.
+              </p>
+              <p>
+                Hồ sơ đang <b className="text-foreground">chờ / lỗi</b> sẽ được ghi nhớ "bỏ qua": lần "Kéo về từ VPS"
+                sau <b className="text-foreground">không mang về lại</b>. Không lấy lại được qua giao diện — người gửi
+                gửi lại trên app web sẽ là hồ sơ mới.
+              </p>
+            </div>
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setBoXn(null)}
+                className="h-9 px-4 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={() => void boDong()}
+                className="h-9 px-4 rounded-lg bg-destructive text-white text-sm font-semibold inline-flex items-center gap-1.5 hover:brightness-110 transition-all"
+              >
+                <Icon name="x" className="w-4 h-4" /> Bỏ khỏi hàng đợi
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {anhOpen && selRow && (
