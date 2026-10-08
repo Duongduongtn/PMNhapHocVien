@@ -23,6 +23,10 @@ export function ODate({
   req,
   placeholder = "dd/mm/yyyy",
   autoFocus,
+  icon,
+  state = "none",
+  nav,
+  onBlur,
 }: {
   label: string;
   value: string;
@@ -30,8 +34,13 @@ export function ODate({
   req?: boolean;
   placeholder?: string;
   autoFocus?: boolean;
+  icon?: string; // icon nhỏ ở nhãn cho sinh động
+  state?: "none" | "ok" | "error"; // ✓ xanh / viền đỏ sau khi kiểm
+  nav?: boolean; // gắn data-nav để điều hướng bằng phím mũi tên ở form cha
+  onBlur?: () => void; // đánh dấu đã chạm (để báo đỏ khi rời ô mà sai)
 }) {
   const lichRef = useRef<HTMLInputElement>(null);
+  const vien = state === "ok" ? " border-success" : state === "error" ? " border-destructive" : "";
 
   function moLich() {
     const el = lichRef.current;
@@ -45,14 +54,19 @@ export function ODate({
 
   return (
     <div>
-      <label className="field-label">
-        {label} {req && <span className="text-destructive">*</span>}
+      <label className="field-label flex items-center gap-1.5">
+        {icon && <Icon name={icon} className="w-3.5 h-3.5 text-muted-foreground" />}
+        <span>
+          {label} {req && <span className="text-destructive">*</span>}
+        </span>
       </label>
       <div className="relative mt-1">
         <input
-          className="field-input pr-11"
+          {...(nav ? { "data-nav": "" } : {})}
+          className={"field-input pr-11" + vien}
           value={value}
           onChange={(e) => onChange(maskNgay(e.target.value))}
+          onBlur={onBlur}
           placeholder={placeholder}
           inputMode="numeric"
           autoFocus={autoFocus}

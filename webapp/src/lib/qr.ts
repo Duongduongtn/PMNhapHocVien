@@ -107,6 +107,19 @@ export function gioiTinhToMF(g: GioiTinh): "M" | "F" {
   return g === "Nam" ? "M" : "F";
 }
 
+// ---- Suy Giới tính + Năm sinh từ số CCCD (gợi ý nhập nhanh) ----
+// Số CCCD 12 số mã hóa sẵn ở chữ số thứ 4 (index 3): 0/1 = thế kỷ 20 (19xx),
+// 2/3 = thế kỷ 21 (20xx), 4/5 = 21xx… — chẵn là Nam, lẻ là Nữ. Hai số kế (index 4-5)
+// là năm sinh trong thế kỷ đó. Cần ≥ 6 chữ số đầu. Chỉ là GỢI Ý mặc định, user sửa được.
+export function suyTuCccd(cccd: string): { gioiTinh: GioiTinh; namSinh: string } | null {
+  const s = cccd.replace(/\D/g, "");
+  if (s.length < 6) return null;
+  const ma = Number(s[3]);
+  const theKy = 1900 + Math.floor(ma / 2) * 100;
+  const nam = theKy + Number(s.slice(4, 6));
+  return { gioiTinh: ma % 2 === 0 ? "Nam" : "Nữ", namSinh: String(nam) };
+}
+
 // ---- Cảnh báo độ dài tên (EC-030) ----
 // Giới hạn cột DB đích (nvarchar): HoVaTen ≤50, HoDemNLX ≤30, TenNLX ≤20, HoVaTenIn ≤25.
 // Tách tên như tool nạp (NAP-05): từ cuối = Tên, phần còn lại = Họ đệm. Cảnh báo sớm

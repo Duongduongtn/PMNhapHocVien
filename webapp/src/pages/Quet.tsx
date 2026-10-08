@@ -3,7 +3,8 @@ import { Link } from "react-router-dom";
 import { Icon } from "../components/Icon";
 import { ODate } from "../components/ODate";
 import { ApiError, kiemTrungCccd, type KiemTrungKq } from "../lib/api";
-import { kiemDoDaiTen, parseCccdQr, tinhVungQuet, type CccdFields, type GioiTinh } from "../lib/qr";
+import { kiemDoDaiTen, parseCccdQr, suyTuCccd, tinhVungQuet, type CccdFields, type GioiTinh } from "../lib/qr";
+import { goiYDiaChi } from "../lib/dvhc";
 import { capNhatNhap, dsNhap, luuNhap, taoUuid, tuCccd } from "../lib/draft";
 import { dangKyGuiLai, guiMot } from "../lib/gui";
 
@@ -255,7 +256,7 @@ export default function Quet() {
   }
 
   return (
-    <div className="h-full flex flex-col lg:h-auto lg:p-6 lg:max-w-2xl lg:mx-auto">
+    <div className="h-full flex flex-col lg:h-auto lg:p-6 lg:max-w-3xl lg:mx-auto">
       {/* Cổng chọn + camera toàn màn: CHỈ mobile. Desktop vào thẳng form (CHANGES #30). */}
       {giaiDoan === "chon" && !isDesktop && (
         <ChonCach onQuet={() => { setLoiChon(null); setGiaiDoan("quet"); }} onNhapTay={nhapTay} onAnhFile={(f) => void docAnh(f, setLoiChon)} onOcrFile={(f) => void docOcr(f, setLoiChon)} loi={loiChon} />
@@ -813,10 +814,45 @@ function Preview({
   const [loi, setLoi] = useState<string | null>(null);
   const [trung, setTrung] = useState<KiemTrungKq | null>(null); // THU-04 cảnh báo mềm
   const [dangGui, setDangGui] = useState(false);
+  const [cham, setCham] = useState<Record<string, boolean>>({}); // ô đã rời (để báo đỏ, không báo khi đang gõ)
   const guiRef = useRef(false); // chặn double-tap "Lưu & nhập hồ sơ tiếp"
 
   const set = <K extends keyof CccdFields>(k: K, v: CccdFields[K]) => setF((p) => ({ ...p, [k]: v }));
+  const danhDauCham = (k: string) => setCham((p) => (p[k] ? p : { ...p, [k]: true }));
+
+  // Gõ số CCCD: lọc còn số, cắt tối đa 12, rồi suy Giới tính + Năm sinh (gợi ý, sửa được).
+  // Giới tính: đặt theo CCCD (đáng tin hơn cả OCR). Năm sinh: chỉ điền khi ô còn trống (không đè ngày đầy đủ từ QR).
+  const setCccd = (raw: string) => {
+    const v = raw.replace(/\D/g, "").slice(0, 12);
+    setF((p) => {
+      const next = { ...p, soCccd: v };
+      const suy = suyTuCccd(v);
+      if (suy) {
+        next.gioiTinh = suy.gioiTinh;
+        if (!p.ngaySinh.trim()) next.ngaySinh = suy.namSinh;
+      }
+      return next;
+    });
+  };
+
   const canhBaoTen = kiemDoDaiTen(f.hoTen);
+
+  // Cờ hợp lệ từng ô bắt buộc (để hiện ✓ xanh / báo đỏ / dòng "còn thiếu").
+  const cccdOk = /^\d{12}$/.test(f.soCccd);
+  const tenOk = f.hoTen.trim().length > 0 && canhBaoTen.length === 0;
+  const nsVal = f.ngaySinh.trim();
+  const nsOk = /^\d{4}$/.test(nsVal) || /^\d{2}\/\d{2}\/\d{4}$/.test(nsVal);
+  const nttOk = f.noiThuongTru.trim().length > 0;
+  const ngayCapVal = f.ngayCap.trim();
+  const ngayCapOk = /^\d{2}\/\d{2}\/\d{4}$/.test(ngayCapVal); // ô không bắt buộc: chỉ xét khi có nhập
+  const trangThai = (ok: boolean, daCham: boolean): "none" | "ok" | "error" =>
+    ok ? "ok" : daCham ? "error" : "none";
+  const thieu = [
+    !cccdOk && "Số CCCD",
+    !tenOk && "Họ tên",
+    !nsOk && "Ngày sinh",
+    !nttOk && "Nơi thường trú",
+  ].filter(Boolean) as string[];
 
   // THU-04 (CHANGES #13): CCCD đủ 12 số → soi hàng đợi, trùng thì cảnh báo mềm (không chặn).
   useEffect(() => {
@@ -857,21 +893,46 @@ function Preview({
     onLuuVaTiep(id);
   }
 
+  // Phím mũi tên nhảy giữa các ô cho nhập nhanh. Lên/Trái = ô trước, Xuống/Phải = ô sau.
+  // Trái/Phải trong ô chữ chỉ nhảy khi con trỏ ở ĐẦU/CUỐI (còn lại vẫn di con trỏ như thường).
+  // Ô Giới tính (data-gioitinh) tự xử Trái/Phải (đổi Nam/Nữ) nên bỏ qua ở đây. Ô địa chỉ khi
+  // đang mở gợi ý tự chặn mũi tên (stopPropagation) nên handler này không nhận được.
+  function dieuHuongPhim(e: React.KeyboardEvent<HTMLFormElement>) {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      giuVaTiep();
+      return;
+    }
+    if (e.key !== "ArrowUp" && e.key !== "ArrowDown" && e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    const el = e.target as HTMLElement;
+    const lui = e.key === "ArrowUp" || e.key === "ArrowLeft";
+    if (el.dataset.gioitinh === "1" && (e.key === "ArrowLeft" || e.key === "ArrowRight")) return;
+    if (el instanceof HTMLInputElement && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+      const o = el.selectionStart ?? 0;
+      const h = el.selectionEnd ?? 0;
+      if (e.key === "ArrowLeft" && !(o === 0 && h === 0)) return;
+      if (e.key === "ArrowRight" && !(o === el.value.length && h === el.value.length)) return;
+    }
+    const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>("[data-nav]"));
+    const cur = el.closest<HTMLElement>("[data-nav]");
+    const i = cur ? items.indexOf(cur) : -1;
+    if (i === -1) return;
+    const next = items[i + (lui ? -1 : 1)];
+    if (!next) return;
+    e.preventDefault();
+    next.focus();
+    if (next instanceof HTMLInputElement) {
+      const n = next.value.length;
+      try {
+        next.setSelectionRange(n, n);
+      } catch {
+        /* input không hỗ trợ selection — bỏ qua */
+      }
+    }
+  }
+
   return (
-    <form
-      className="space-y-3"
-      onSubmit={(e) => {
-        e.preventDefault();
-        giu();
-      }}
-      onKeyDown={(e) => {
-        // Ctrl/Cmd + Enter = lưu nhanh & nhập hồ sơ tiếp (phím tắt nhập liệu hàng loạt).
-        if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-          e.preventDefault();
-          giuVaTiep();
-        }
-      }}
-    >
+    <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); giu(); }} onKeyDown={dieuHuongPhim}>
       {isDesktop ? (
         <>
           {/* Desktop: form nhập tay là chủ đạo; Quét QR/Tải ảnh là nút phụ góc phải (CHANGES #30) */}
@@ -940,24 +1001,119 @@ function Preview({
         </div>
       )}
 
-      {/* Desktop: 2 cột cho thấy hết trường, đỡ cuộn khi nhập tay (CHANGES #14) */}
+      {/* Bố cục 2 cột (desktop): gom theo cụm thông tin trên thẻ — Số CCCD + Ngày cấp cùng hàng,
+          Họ tên và Nơi thường trú chiếm trọn bề ngang. Thứ tự nguồn = thứ tự nhảy bằng phím mũi tên. */}
       <div className="grid gap-3 lg:grid-cols-2">
-        <Field label="Số CCCD" req value={f.soCccd} onChange={(v) => set("soCccd", v)} inputMode="numeric" autoFocus />
-        <Field label="Họ và tên" req value={f.hoTen} onChange={(v) => set("hoTen", v)} />
-        <ODate label="Ngày sinh" req value={f.ngaySinh} onChange={(v) => set("ngaySinh", v)} />
+        <Field
+          label="Số CCCD"
+          icon="idCard"
+          req
+          value={f.soCccd}
+          onChange={setCccd}
+          onBlur={() => danhDauCham("cccd")}
+          inputMode="numeric"
+          autoFocus
+          state={trangThai(cccdOk, !!cham.cccd)}
+          rightLabel={
+            <span className={"text-[11px] font-medium " + (cccdOk ? "text-success" : "text-muted-foreground")}>
+              {f.soCccd.length}/12
+            </span>
+          }
+          errorText={
+            trangThai(cccdOk, !!cham.cccd) === "error"
+              ? f.soCccd.length === 0
+                ? "Chưa nhập số CCCD"
+                : "Số CCCD phải đủ 12 số"
+              : undefined
+          }
+        />
+        <ODate
+          label="Ngày cấp"
+          icon="calendar"
+          value={f.ngayCap}
+          onChange={(v) => set("ngayCap", v)}
+          nav
+          state={ngayCapOk ? "ok" : ngayCapVal ? "error" : "none"}
+        />
+        <div className="lg:col-span-2">
+          <Field
+            label="Họ và tên"
+            icon="user"
+            req
+            value={f.hoTen}
+            onChange={(v) => set("hoTen", v.toUpperCase())}
+            onBlur={() => danhDauCham("hoTen")}
+            state={tenOk ? "ok" : cham.hoTen || canhBaoTen.length > 0 ? "error" : "none"}
+          />
+        </div>
+        <ODate
+          label="Ngày sinh"
+          icon="cake"
+          req
+          value={f.ngaySinh}
+          onChange={(v) => set("ngaySinh", v)}
+          onBlur={() => danhDauCham("ngaySinh")}
+          nav
+          state={trangThai(nsOk, !!cham.ngaySinh)}
+        />
         <div>
-          <label className="field-label">
-            Giới tính <span className="text-destructive">*</span>
+          <label className="field-label flex items-center gap-1.5">
+            <Icon name="users" className="w-3.5 h-3.5 text-muted-foreground" />
+            <span>
+              Giới tính <span className="text-destructive">*</span>
+            </span>
           </label>
-          <select className="field-input mt-1" value={f.gioiTinh} onChange={(e) => set("gioiTinh", e.target.value as GioiTinh)}>
-            <option value="Nam">Nam</option>
-            <option value="Nữ">Nữ</option>
-          </select>
+          {/* Nút gạt thay dropdown: 1 bấm là xong, không phải xổ rồi rê chuột.
+              Ô này nằm trong chuỗi nhảy phím (data-nav + tabIndex 0); Trái/Phải đổi Nam/Nữ, Lên/Xuống nhảy ô. */}
+          <div
+            data-nav=""
+            data-gioitinh="1"
+            tabIndex={0}
+            role="radiogroup"
+            aria-label="Giới tính"
+            onKeyDown={(e) => {
+              if (e.key === "ArrowLeft") {
+                e.preventDefault();
+                set("gioiTinh", "Nam");
+              } else if (e.key === "ArrowRight") {
+                e.preventDefault();
+                set("gioiTinh", "Nữ");
+              }
+            }}
+            className="mt-1 grid grid-cols-2 gap-2 rounded-lg"
+          >
+            {(["Nam", "Nữ"] as GioiTinh[]).map((g) => {
+              const chon = f.gioiTinh === g;
+              return (
+                <button
+                  key={g}
+                  type="button"
+                  tabIndex={-1}
+                  role="radio"
+                  aria-checked={chon}
+                  onClick={() => set("gioiTinh", g)}
+                  className={
+                    "h-[38px] rounded-lg border text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors " +
+                    (chon
+                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                      : "bg-card text-foreground border-border hover:bg-muted")
+                  }
+                >
+                  {chon && <Icon name="check" className="w-4 h-4" sw={3} />}
+                  {g}
+                </button>
+              );
+            })}
+          </div>
         </div>
         <div className="lg:col-span-2">
-          <Field label="Nơi thường trú" req value={f.noiThuongTru} onChange={(v) => set("noiThuongTru", v)} />
+          <DiaChiField
+            value={f.noiThuongTru}
+            onChange={(v) => set("noiThuongTru", v)}
+            onBlur={() => danhDauCham("ntt")}
+            state={trangThai(nttOk, !!cham.ntt)}
+          />
         </div>
-        <ODate label="Ngày cấp" value={f.ngayCap} onChange={(v) => set("ngayCap", v)} />
       </div>
 
       {canhBaoTen.length > 0 && (
@@ -984,6 +1140,17 @@ function Preview({
       {loi && (
         <div className="flex items-start gap-2 text-[12px] text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2">
           <Icon name="warn" className="w-4 h-4 shrink-0 mt-0.5" /> {loi}
+        </div>
+      )}
+
+      {/* Tóm tắt trạng thái: thiếu gì thì liệt kê, đủ thì báo sẵn sàng — khỏi bấm thử mới biết. */}
+      {thieu.length > 0 ? (
+        <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
+          <Icon name="warn" className="w-4 h-4 shrink-0 text-warning" /> Còn thiếu: <strong>{thieu.join(", ")}</strong>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 text-[12px] text-success font-medium">
+          <Icon name="check" className="w-4 h-4 shrink-0" sw={3} /> Đã đủ thông tin bắt buộc, sẵn sàng lưu
         </div>
       )}
 
@@ -1023,6 +1190,11 @@ function Field({
   placeholder,
   inputMode,
   autoFocus,
+  icon,
+  state = "none",
+  rightLabel,
+  errorText,
+  onBlur,
 }: {
   label: string;
   req?: boolean;
@@ -1031,20 +1203,186 @@ function Field({
   placeholder?: string;
   inputMode?: "text" | "numeric";
   autoFocus?: boolean;
+  icon?: string; // icon nhỏ ở nhãn cho sinh động
+  state?: "none" | "ok" | "error"; // ✓ xanh khi đúng / viền + icon đỏ khi sai
+  rightLabel?: React.ReactNode; // vd bộ đếm 12/12 bên phải nhãn
+  errorText?: string; // câu lỗi ngắn dưới ô
+  onBlur?: () => void;
 }) {
+  const vien = state === "ok" ? " border-success" : state === "error" ? " border-destructive" : "";
   return (
     <div>
-      <label className="field-label">
-        {label} {req && <span className="text-destructive">*</span>}
+      <div className="flex items-center justify-between gap-2 min-h-[18px]">
+        <label className="field-label flex items-center gap-1.5">
+          {icon && <Icon name={icon} className="w-3.5 h-3.5 text-muted-foreground" />}
+          <span>
+            {label} {req && <span className="text-destructive">*</span>}
+          </span>
+        </label>
+        {rightLabel}
+      </div>
+      <div className="relative mt-1">
+        <input
+          data-nav=""
+          className={"field-input" + (state !== "none" ? " pr-9" : "") + vien}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={onBlur}
+          placeholder={placeholder}
+          inputMode={inputMode}
+          autoFocus={autoFocus}
+        />
+        {state === "ok" && (
+          <Icon name="check" sw={3} className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-success pointer-events-none" />
+        )}
+        {state === "error" && (
+          <Icon name="warn" className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-destructive pointer-events-none" />
+        )}
+      </div>
+      {errorText && (
+        <p className="mt-1 flex items-center gap-1 text-[11px] text-destructive">
+          <Icon name="warn" className="w-3 h-3 shrink-0" /> {errorText}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ---------- Ô "Nơi thường trú": nhập tự do + gợi ý Tỉnh/Xã (phương án A) ----------
+// Gợi ý theo ĐOẠN đang gõ (phần sau dấu phẩy cuối), khớp không dấu. Danh sách hiện DƯỚI ô,
+// không tự chèn chữ, không cướp con trỏ — gõ tiếp/Esc là ẩn. Chọn xong thì thay đoạn cuối
+// bằng "Phường X, Tỉnh Y". Khi danh sách mở, mũi tên Lên/Xuống + Enter chọn trong danh sách
+// (chặn không cho nhảy ô); khi đóng, mũi tên để form điều hướng như ô khác.
+function chuanHoaDiaChi(s: string): string {
+  return s.replace(/\s+/g, " ").replace(/\s*,\s*/g, ", ").replace(/\s*,\s*$/, "").trim();
+}
+
+function DiaChiField({
+  value,
+  onChange,
+  onBlur,
+  state = "none",
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onBlur?: () => void;
+  state?: "none" | "ok" | "error";
+}) {
+  const [goi, setGoi] = useState<string[]>([]);
+  const [mo, setMo] = useState(false);
+  const [idx, setIdx] = useState(-1); // mục đang sáng trong danh sách
+  const seqRef = useRef(0); // chống đua: chỉ nhận kết quả của lần gõ mới nhất
+  const boQuaRef = useRef(false); // vừa chọn xong → bỏ qua 1 lần gợi ý để không mở lại ngay
+  const focusRef = useRef(false); // chỉ mở danh sách khi ô đang có focus (tránh mở lại sau khi rời ô)
+  const dongTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const doanCuoi = (v: string) => (v.split(",").pop() ?? "").trim();
+
+  useEffect(() => {
+    if (boQuaRef.current) {
+      boQuaRef.current = false;
+      return;
+    }
+    const doan = doanCuoi(value);
+    const seq = ++seqRef.current;
+    if (doan.length < 2) {
+      setGoi([]);
+      setMo(false);
+      return;
+    }
+    void goiYDiaChi(doan).then((kq) => {
+      if (seq !== seqRef.current) return;
+      setGoi(kq);
+      setMo(kq.length > 0 && focusRef.current);
+      setIdx(-1);
+    });
+  }, [value]);
+
+  function chon(nhan: string) {
+    const i = value.lastIndexOf(",");
+    const dau = i >= 0 ? value.slice(0, i + 1) + " " : "";
+    boQuaRef.current = true; // chặn effect mở lại danh sách cho tỉnh vừa chọn
+    onChange(dau + nhan);
+    setMo(false);
+    setGoi([]);
+  }
+
+  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!mo || goi.length === 0) return; // đóng → để form xử lý điều hướng (bubble lên)
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      e.stopPropagation();
+      setIdx((p) => (p + 1) % goi.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      e.stopPropagation();
+      setIdx((p) => (p <= 0 ? goi.length - 1 : p - 1));
+    } else if (e.key === "Enter" && idx >= 0) {
+      e.preventDefault();
+      chon(goi[idx]);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      setMo(false);
+    }
+  }
+
+  const vien = state === "ok" ? " border-success" : state === "error" ? " border-destructive" : "";
+  return (
+    <div className="relative">
+      <label className="field-label flex items-center gap-1.5">
+        <Icon name="mapPin" className="w-3.5 h-3.5 text-muted-foreground" />
+        <span>
+          Nơi thường trú <span className="text-destructive">*</span>
+        </span>
       </label>
-      <input
-        className="field-input mt-1"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        inputMode={inputMode}
-        autoFocus={autoFocus}
-      />
+      <div className="relative mt-1">
+        <input
+          data-nav=""
+          className={"field-input" + (state !== "none" ? " pr-9" : "") + vien}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={onKeyDown}
+          onFocus={() => {
+            focusRef.current = true;
+            if (dongTimer.current) clearTimeout(dongTimer.current);
+            if (goi.length > 0) setMo(true);
+          }}
+          onBlur={() => {
+            focusRef.current = false;
+            dongTimer.current = setTimeout(() => setMo(false), 120); // chờ click vào mục rồi mới ẩn
+            onChange(chuanHoaDiaChi(value));
+            onBlur?.();
+          }}
+          placeholder="Số nhà, đường, Phường/Xã, Tỉnh/Thành"
+        />
+        {state === "ok" && (
+          <Icon name="check" sw={3} className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-success pointer-events-none" />
+        )}
+        {state === "error" && (
+          <Icon name="warn" className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-destructive pointer-events-none" />
+        )}
+      </div>
+      {mo && goi.length > 0 && (
+        <ul className="absolute z-20 left-0 right-0 mt-1 max-h-60 overflow-y-auto rounded-lg border border-border bg-card shadow-lg py-1">
+          {goi.map((g, i) => (
+            <li key={g}>
+              <button
+                type="button"
+                tabIndex={-1}
+                onMouseDown={(e) => e.preventDefault()} // giữ focus input, không để blur ẩn danh sách trước click
+                onClick={() => chon(g)}
+                className={
+                  "w-full text-left px-3 py-2 text-[13px] flex items-center gap-2 transition-colors " +
+                  (i === idx ? "bg-primary/10 text-primary" : "hover:bg-muted")
+                }
+              >
+                <Icon name="mapPin" className="w-3.5 h-3.5 shrink-0 text-muted-foreground" /> {g}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
