@@ -974,7 +974,7 @@
 - ⬜ Đổi xe của GV → hỏi xác nhận; gỡ xe khỏi khóa → liệt kê ghép xe sẽ bị xóa theo; "Bỏ ghép".
 - ❌ Không ghép xe hàng loạt tự động; không gán xe cho học viên; không sửa danh mục xe.
 
-**Edge cases:** xe lệch hạng khóa (vd xe B số sàn vào khóa B01) → cảnh báo, không chặn · xe đang chạy khóa khác chưa bế giảng → cảnh báo; trùng thời gian → chặn · GV thực hành chưa có xe → cảnh báo (không chặn ghi) · xe thuộc khóa nhưng chưa ghép → thông tin.
+**Edge cases:** xe lệch hạng khóa (vd xe B số sàn vào khóa B01) → cảnh báo, không chặn · xe đang chạy khóa khác chưa bế giảng → chỉ hiện ghi chú ở chỗ chọn xe (không phải cảnh báo ở cột kiểm tra); **trùng thời gian (chồng giờ) → cảnh báo, vẫn ghép bình thường** (user 10/10/2026) · GV thực hành chưa có xe → cảnh báo (không chặn ghi) · xe thuộc khóa nhưng chưa ghép → thông tin.
 
 > Nguồn: user 10/10/2026 (mock bước ③) · luật theo `usp_CheckWarningLichLSDXeTap`/`usp_CheckWarningXeTap` · TDD §11E.5
 
@@ -984,7 +984,7 @@
 **Story:** Là nhân viên cơ sở, tôi muốn mọi thay đổi nằm trong bản nháp, được kiểm chặt theo luật và chỉ ghi vào CDB sau khi tôi xem lại, để không ghi nhầm vào dữ liệu thật.
 
 **Done khi:**
-- ⬜ **Kiểm tra 3 mức, chạy lại mỗi thay đổi:** ⛔ **Chặn** (không lưu/ghi được): ngoài phạm vi khóa · bắt đầu ≥ kết thúc · chưa chọn môn · GV chưa trong khóa · GV/xe đã ngừng · GV/xe trùng thời gian (khóa khác **hoặc cùng khóa**) · xe chưa thuộc khóa · xe hết hạn giấy phép trước bế giảng · 1 xe 2 GV / 1 GV 2 xe · ghép xe cho GV không dạy thực hành. ⚠ **Cảnh báo** (ghi được sau xác nhận): GV/xe đang chạy khóa khác chưa bế giảng · lệch hạng (GV, xe) · thực hành chưa tới bế giảng · GV chưa phân công · GV thực hành chưa có xe · khóa đã gửi DKKH. ℹ **Thông tin**: xe chưa ghép.
+- ⬜ **Kiểm tra 3 mức, chạy lại mỗi thay đổi:** ⛔ **Chặn** (không lưu/ghi được): ngoài phạm vi khóa · bắt đầu ≥ kết thúc · chưa chọn môn · GV chưa trong khóa · GV/xe đã ngừng · xe chưa thuộc khóa · xe hết hạn giấy phép trước bế giảng · ghép xe cho GV không dạy thực hành. ⚠ **Cảnh báo** (ghi được sau xác nhận): GV/xe **trùng thời gian có xét giờ** (khóa khác hoặc cùng khóa; cùng ngày khác giờ không tính là trùng) · 1 xe 2 GV / 1 GV 2 xe chồng giờ · lệch hạng (GV, xe) · thực hành chưa tới bế giảng · GV chưa phân công · GV thực hành chưa có xe · khóa đã gửi DKKH. ℹ **Thông tin**: xe chưa ghép.
 - ⬜ **Hiển thị lỗi rõ:** thông báo ngay dưới ô/dòng sai (chữ lớn, dải màu bên trái), băng tóm tắt đầu mỗi bước ("N lỗi chặn — Tới lỗi đầu tiên"), cột "Kiểm tra khóa" bấm một lỗi → cuộn + nháy đúng dòng.
 - ⬜ **Bản nháp:** thanh dưới đếm thay đổi (thêm/sửa/xóa) + "Hủy thay đổi" (xác nhận); không ghi gì vào CDB trước khi bấm "Ghi vào CDB".
 - ⬜ **"Ghi vào CDB":** bị khóa khi còn lỗi chặn; hộp xem lại tóm tắt thêm/sửa/xóa (kèm SP sẽ gọi) + **tích "đây là CSDL thật"** + (nếu có) **tích "đã xem N cảnh báo"**; server **kiểm lại toàn bộ luật** trên trạng thái CDB hiện tại trước khi ghi (không tin client).

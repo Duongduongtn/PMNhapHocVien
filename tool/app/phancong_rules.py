@@ -125,13 +125,13 @@ def kiem_phan_cong(p: dict, ctx: dict) -> list[dict]:
     if hop_le_tg:
         for b in ctx.get("ban_gv", {}).get(ma, []):
             if chong_nhau(p["tu"], p["den"], b["tu"], b["den"]):
-                add(CHAN, "gv_trung_khoa_khac",
+                add(CANH_BAO, "gv_trung_khoa_khac",
                     f"Trùng thời gian với khóa {b['khoa']} ({fmt_khoang(b['tu'], b['den'])}).")
         for q in ctx["pc"]:
             if q is p or q.get("id") == p.get("id") or q["ma"] != ma or not (q.get("tu") and q.get("den")):
                 continue
             if chong_nhau(p["tu"], p["den"], q["tu"], q["den"]):
-                add(CHAN, "gv_trung_cung_khoa",
+                add(CANH_BAO, "gv_trung_cung_khoa",
                     "Chồng thời gian với phân công khác của GV này trong cùng khóa: "
                     f"{_ten_mon(q.get('mon') or [], ctx.get('ds_mon'))} ({fmt_khoang(q['tu'], q['den'])}).")
     if MON_THUC_HANH in (p.get("mon") or []) and p.get("den") and ngay(p["den"]) < khoa["bg"]:
@@ -177,7 +177,7 @@ def kiem_ghep_xe(m: dict, ctx: dict) -> list[dict]:
     if tu and den and _chuan(tu) < _chuan(den):
         for b in ctx.get("ban_xe", {}).get(bs, []):
             if chong_nhau(tu, den, b["tu"], b["den"]):
-                add(CHAN, "xe_trung_khoa_khac",
+                add(CANH_BAO, "xe_trung_khoa_khac",
                     f"Xe trùng thời gian với khóa {b['khoa']} ({fmt_khoang(b['tu'], b['den'])}).")
         for o in ctx["ghep"]:
             if o is m or not o.get("xe") or not (o.get("tu") and o.get("den")):
@@ -185,10 +185,10 @@ def kiem_ghep_xe(m: dict, ctx: dict) -> list[dict]:
             if not chong_nhau(tu, den, o["tu"], o["den"]):
                 continue
             if o["xe"] == bs and o["ma"] != ma:
-                add(CHAN, "xe_hai_gv",
+                add(CANH_BAO, "xe_hai_gv",
                     f"Xe này đã ghép cho GV {(gvm.get(o['ma']) or {}).get('ten') or o['ma']} trong khóa (1 xe chỉ 1 GV).")
             if o["ma"] == ma and o["xe"] != bs:
-                add(CHAN, "gv_hai_xe", "Giáo viên này đã có xe khác trong cùng khoảng thời gian (1 GV chỉ 1 xe).")
+                add(CANH_BAO, "gv_hai_xe", "Giáo viên này đã có xe khác trong cùng khoảng thời gian (1 GV chỉ 1 xe).")
     return out
 
 
@@ -238,16 +238,6 @@ def kiem_tra_khoa(
         if day_duoc and khoa.get("hang_nhom") and khoa["hang_nhom"] not in day_duoc:
             out.append(_vd(CANH_BAO, "gv_lech_hang", 1, f"gv-{ma}", ten,
                            f"Giáo viên chỉ được dạy hạng {', '.join(day_duoc)} — khóa này là hạng {khoa['hang_nhom']}."))
-        khoa_khac: dict[str, str] = {}
-        for b in ctx["ban_gv"].get(ma, []):
-            if (b.get("bg") or "") < ctx["hom_nay"]:
-                continue
-            if any(q["ma"] == ma and q.get("tu") and q.get("den") and chong_nhau(q["tu"], q["den"], b["tu"], b["den"]) for q in pc):
-                continue  # đã báo ⛔ trùng thời gian ở dòng phân công
-            khoa_khac.setdefault(b["khoa"], b["bg"])
-        if khoa_khac:   # MỘT dòng/GV, liệt kê các khóa
-            ds = ", ".join(f"{k} (bế giảng {_fmt_ngay(bg)})" for k, bg in khoa_khac.items())
-            out.append(_vd(CANH_BAO, "gv_dang_khoa_khac", 1, f"gv-{ma}", ten, f"Đang dạy khóa khác chưa kết thúc: {ds}."))
     # Cảnh báo theo xe (một lần/xe/khóa)
     for bs in dict.fromkeys(xe_khoa):
         x = xe_master.get(bs)
@@ -260,16 +250,6 @@ def kiem_tra_khoa(
         if hang_xe and x.get("hang") and x["hang"] not in XE_HOP_HANG.get(hang_xe, {hang_xe}):
             out.append(_vd(CANH_BAO, "xe_lech_hang", 3, f"xe-{bs}", bs,
                            f"Xe hạng {x['hang']} nhưng khóa dùng xe hạng {hang_xe}."))
-        khoa_khac = {}
-        for b in ctx["ban_xe"].get(bs, []):
-            if (b.get("bg") or "") < ctx["hom_nay"]:
-                continue
-            if any(m.get("xe") == bs and m.get("tu") and m.get("den") and chong_nhau(m["tu"], m["den"], b["tu"], b["den"]) for m in ghep):
-                continue
-            khoa_khac.setdefault(b["khoa"], b["bg"])
-        if khoa_khac:
-            ds = ", ".join(f"{k} (bế giảng {_fmt_ngay(bg)})" for k, bg in khoa_khac.items())
-            out.append(_vd(CANH_BAO, "xe_dang_khoa_khac", 3, f"xe-{bs}", bs, f"Xe đang chạy khóa khác chưa kết thúc: {ds}."))
     da_ghep_xe = {m["ma"] for m in ghep if m.get("xe")}
     for ma in gv_khoa:
         if co_phan_cong_thuc_hanh(ma, pc) and ma not in da_ghep_xe:

@@ -19,6 +19,16 @@ function homNay(): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
+const ddmm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+
+/** Các khóa khác mà xe có lịch CHỒNG GIỜ với [tu, den) — nửa mở, chạm đầu mút / cùng ngày khác giờ không tính. */
+function trungKhoaKhac(x: XePC | undefined, tu: string, den: string): string[] {
+  if (!x || !tu || !den) return [];
+  return (x.ban as { khoa?: string; tu?: string; den?: string }[])
+    .filter((b) => b.khoa && b.tu && b.den && !(den <= b.tu || tu >= b.den))
+    .map((b) => `${b.khoa} (${ddmm(b.tu as string)} → ${ddmm(b.den as string)})`);
+}
+
 function thongTinXe(x: XePC | undefined, khoa: KhoaPC): ReactNode {
   if (!x) return null;
   const nay = homNay();
@@ -80,6 +90,12 @@ export default function BuocXe({
   const [busyGoiY, setBusyGoiY] = useState(false);
   const dem = useRef(0);
 
+  const khoangTh = (ma: string) => {
+    const th = ban.pc.filter((p) => p.ma === ma && p.mon.includes(MON_TH));
+    return th.length
+      ? { tu: th.map((p) => p.tu).sort()[0], den: th.map((p) => p.den).sort().pop() as string }
+      : { tu: "", den: "" };
+  };
   const ghepCua = (ma: string) => ban.ghep.find((m) => m.ma === ma);
   const dungBoi = (bs: string) => ban.ghep.find((m) => m.xe === bs && m.xe)?.ma;
   const loiRef = (ref: string) => vande.filter((v) => v.ref === ref && v.buoc === 3 && v.muc !== "thong_tin");
@@ -256,9 +272,14 @@ export default function BuocXe({
                     {ban.xe_khoa.map((bs) => {
                       const u = dungBoi(bs);
                       const khac = !!u && u !== ma;
+                      const kk = trungKhoaKhac(theoXe.get(bs), m?.tu ?? khoangTh(ma).tu, m?.den ?? khoangTh(ma).den);
+                      const ghi = [
+                        khac ? `đang ghép ${theoGv.get(u as string)?.ten ?? u}` : "",
+                        kk.length ? `trùng giờ khóa ${kk[0]}${kk.length > 1 ? ` +${kk.length - 1}` : ""}` : "",
+                      ].filter(Boolean).join("; ");
                       return (
-                        <option key={bs} value={bs} disabled={khac}>
-                          {bs}{khac ? ` — đã ghép ${theoGv.get(u as string)?.ten ?? u}` : ""}
+                        <option key={bs} value={bs}>
+                          {bs}{ghi ? ` — ⚠ ${ghi}` : ""}
                         </option>
                       );
                     })}
@@ -280,6 +301,11 @@ export default function BuocXe({
                       <span className="text-[12px] text-muted-foreground ml-1">Theo ngày</span>
                     </div>
                     <div className="mt-1 text-[12px] text-muted-foreground">{thongTinXe(theoXe.get(m.xe), khoa)}</div>
+                    {trungKhoaKhac(theoXe.get(m.xe), m.tu, m.den).length > 0 && (
+                      <div className={`mt-1 rounded-md border-l-4 px-2.5 py-1.5 text-[13px] ${lopMuc("canh_bao")}`}>
+                        Xe trùng giờ với khóa {trungKhoaKhac(theoXe.get(m.xe), m.tu, m.den).join(", ")}. Vẫn ghép được — chỉ để bạn biết.
+                      </div>
+                    )}
                   </>
                 )}
                 {loi.map((v, i) => (

@@ -48,18 +48,19 @@ def test_cung_ngay_sang_chieu_khong_trung():
     assert "gv_trung_cung_khoa" not in ma_loi(chay(pc))
 
 
-def test_chong_gio_cung_khoa_chan_ca_hai_dong():
+def test_chong_gio_cung_khoa_canh_bao_ca_hai_dong_khong_chan():
     pc = [P(1, "75032101", [4], "2026-10-06T07:30", "2026-10-06T11:30"),
           P(2, "75032101", [1], "2026-10-06T09:30", "2026-10-06T13:30")]
     v = chay(pc)
-    assert ma_loi(v).count("gv_trung_cung_khoa") == 2          # mỗi dòng báo dòng kia
+    assert ma_loi(v, r.CANH_BAO).count("gv_trung_cung_khoa") == 2          # mỗi dòng báo dòng kia
     assert {x["ref"] for x in v if x["ma"] == "gv_trung_cung_khoa"} == {"pc-1", "pc-2"}
+    assert not r.co_chan(v)                                    # trùng chỉ cảnh báo — vẫn lưu/ghi được
 
 
 def test_lich_ca_giai_doan_chiem_moi_gio():
     pc = [P(1, "75032101", [6], "2026-10-15T00:00", "2026-12-20T00:00"),
           P(2, "75032101", [4], "2026-10-20T07:30", "2026-10-20T11:30")]
-    assert "gv_trung_cung_khoa" in ma_loi(chay(pc))
+    assert "gv_trung_cung_khoa" in ma_loi(chay(pc), r.CANH_BAO)
 
 
 def test_gv_khac_nhau_cung_gio_khong_trung():
@@ -68,27 +69,39 @@ def test_gv_khac_nhau_cung_gio_khong_trung():
     assert r.CHAN not in {v["muc"] for v in chay(pc, gv_khoa=("75032101", "75032102"))}
 
 
-def test_trung_khoa_khac_chan_va_khoa_khac_chua_be_giang_canh_bao():
+def test_trung_khoa_khac_chi_canh_bao_va_khong_con_canh_bao_dang_o_khoa_khac():
     p = P(1, "75032101", [6], "2026-10-15T00:00", "2026-12-20T00:00")
     ban = {"75032101": [{"khoa": "B-K149", "tu": "2026-08-28T00:00", "den": "2026-10-26T00:00", "bg": "2026-10-26"}]}
     v = chay([p], ban_gv=ban)
-    assert "gv_trung_khoa_khac" in ma_loi(v)
+    assert "gv_trung_khoa_khac" in ma_loi(v, r.CANH_BAO) and not r.co_chan(v)
+    # khóa khác chưa bế giảng nhưng KHÔNG chồng thời gian → không báo gì (bỏ cảnh báo nhiễu)
     ban2 = {"75032101": [{"khoa": "B01-K41", "tu": "2026-09-26T00:00", "den": "2026-10-12T00:00", "bg": "2026-10-28"}]}
     v2 = chay([p], ban_gv=ban2)
-    assert "gv_trung_khoa_khac" not in ma_loi(v2)
-    assert "gv_dang_khoa_khac" in ma_loi(v2, r.CANH_BAO)
+    assert "gv_trung_khoa_khac" not in ma_loi(v2, r.CANH_BAO)
+    assert "gv_dang_khoa_khac" not in {x["ma"] for x in v2}
 
 
 def test_cham_dau_mut_voi_khoa_khac_khong_trung():
     p = P(1, "75032101", [6], "2026-10-12T00:00", "2026-12-20T00:00")
     ban = {"75032101": [{"khoa": "B01-K41", "tu": "2026-09-26T00:00", "den": "2026-10-12T00:00", "bg": "2026-10-28"}]}
-    assert "gv_trung_khoa_khac" not in ma_loi(chay([p], ban_gv=ban))
+    assert "gv_trung_khoa_khac" not in ma_loi(chay([p], ban_gv=ban), r.CANH_BAO)
+
+
+def test_cung_ngay_khac_gio_voi_khoa_khac_khong_trung_gv_va_xe():
+    p = P(1, "75032101", [4], "2026-10-20T13:30", "2026-10-20T17:30")
+    ban = {"75032101": [{"khoa": "B01-K41", "tu": "2026-10-20T07:30", "den": "2026-10-20T11:30", "bg": "2026-10-28"}]}
+    assert "gv_trung_khoa_khac" not in ma_loi(chay([p], ban_gv=ban), r.CANH_BAO)
+    ban_xe = {"93C-1": [{"khoa": "C1-K14", "tu": "2026-10-20T07:30", "den": "2026-10-20T11:30", "bg": "2026-11-16"}]}
+    th = P(2, "75032101", [6], "2026-10-20T13:30", "2026-10-20T17:30")
+    v = chay([th], [dict(_gh("75032101", "93C-1"), tu="2026-10-20T13:30", den="2026-10-20T17:30")],
+             xe_khoa=("93C-1",), ban_xe=ban_xe)
+    assert "xe_trung_khoa_khac" not in {x["ma"] for x in v}
 
 
 def test_gio_le_cu_van_so_dung():
     pc = [P(1, "75032101", [4], "2026-10-06T07:30", "2026-10-06T11:34"),
           P(2, "75032101", [1], "2026-10-06T11:30", "2026-10-06T13:30")]       # 11:30 < 11:34 → chồng
-    assert "gv_trung_cung_khoa" in ma_loi(chay(pc))
+    assert "gv_trung_cung_khoa" in ma_loi(chay(pc), r.CANH_BAO)
 
 
 # ── Phạm vi khóa & thứ tự ──
@@ -162,19 +175,19 @@ def test_ghep_xe_ngoai_khoa_ngung_het_han_khong_day_th():
                                             [_gh("75032101", "93C-1")], xe_khoa=("93C-1",)))
 
 
-def test_mot_xe_hai_gv_va_mot_gv_hai_xe_bi_chan():
+def test_mot_xe_hai_gv_va_mot_gv_hai_xe_chi_canh_bao():
     pc = [_th("75032101", 1), _th("75032102", 2)]
     v = chay(pc, [_gh("75032101", "93C-1"), _gh("75032102", "93C-1")],
              gv_khoa=("75032101", "75032102"), xe_khoa=("93C-1",))
-    assert ma_loi(v).count("xe_hai_gv") == 2
+    assert ma_loi(v, r.CANH_BAO).count("xe_hai_gv") == 2 and not r.co_chan(v)
     # ghép của cùng GV chỉ 1 dòng/GV trong UI, nhưng service có thể gửi 2 dòng → luật vẫn chặn
     v2 = chay([_th()], [_gh("75032101", "93C-1"), _gh("75032101", "93C-2")], xe_khoa=("93C-1", "93C-2"))
-    assert "gv_hai_xe" in ma_loi(v2)
+    assert "gv_hai_xe" in ma_loi(v2, r.CANH_BAO)
 
 
 def test_xe_trung_khoa_khac_va_lech_hang():
     ban = {"93C-1": [{"khoa": "C1-K14", "tu": "2026-08-26T00:00", "den": "2026-11-16T00:00", "bg": "2026-11-16"}]}
-    assert "xe_trung_khoa_khac" in ma_loi(chay([_th()], [_gh("75032101", "93C-1")], xe_khoa=("93C-1",), ban_xe=ban))
+    assert "xe_trung_khoa_khac" in ma_loi(chay([_th()], [_gh("75032101", "93C-1")], xe_khoa=("93C-1",), ban_xe=ban), r.CANH_BAO)
     v = chay([_th()], [_gh("75032101", "60K-1")], xe_khoa=("60K-1",))
     assert "xe_lech_hang" in ma_loi(v, r.CANH_BAO) and r.CHAN not in {x["muc"] for x in v}
 
@@ -201,12 +214,12 @@ def test_fmt_khoang_vn():
 
 
 # ── Tinh chỉnh sau thử trên dữ liệu thật (10/10/2026) ──
-def test_canh_bao_gv_dang_khoa_khac_chi_mot_lan_moi_gv_khoa():
+def test_khong_con_canh_bao_dang_o_khoa_khac_du_khoa_kia_chua_be_giang():
     pc = [P(i, "75032101", [4], f"2026-10-0{i + 1}T07:30", f"2026-10-0{i + 1}T11:30") for i in range(1, 5)]
     ban = {"75032101": [{"khoa": "B01-K41", "tu": "2026-09-26T00:00", "den": "2026-09-30T00:00", "bg": "2026-10-28"},
                         {"khoa": "B01-K41", "tu": "2026-09-20T00:00", "den": "2026-09-25T00:00", "bg": "2026-10-28"}]}
     v = chay(pc, ban_gv=ban)
-    assert ma_loi(v, r.CANH_BAO).count("gv_dang_khoa_khac") == 1            # không lặp theo dòng/khóa
+    assert "gv_dang_khoa_khac" not in {x["ma"] for x in v}
 
 
 def test_lech_hang_gv_mot_lan_va_xe_b11_chap_nhan_xe_b1():
@@ -226,7 +239,7 @@ def test_xe_ngung_trong_danh_sach_xe_khoa_bi_chan_du_chua_ghep():
     assert "xe_ngung_trong_khoa" not in ma_loi(chay(xe_khoa=("93C-1",)))
 
 
-def test_xe_dang_chay_khoa_khac_chua_be_giang_chi_canh_bao():
+def test_xe_o_khoa_khac_chua_be_giang_nhung_khong_chong_thoi_gian_khong_bao_gi():
     ban = {"93C-1": [{"khoa": "C1-K14", "tu": "2026-08-26T00:00", "den": "2026-09-20T00:00", "bg": "2099-12-30"}]}
     v = chay([_th()], [_gh("75032101", "93C-1")], xe_khoa=("93C-1",), ban_xe=ban)
-    assert "xe_dang_khoa_khac" in ma_loi(v, r.CANH_BAO) and r.CHAN not in {i["muc"] for i in v}
+    assert "xe_dang_khoa_khac" not in {i["ma"] for i in v} and r.CHAN not in {i["muc"] for i in v}

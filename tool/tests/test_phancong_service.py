@@ -133,8 +133,8 @@ def test_kiem_tra_trung_khoa_khac_va_loai_tru_khoa_dang_sua(auth_headers, monkey
     _patch(monkeypatch, db)
     r = client.post("/local/phancong/kiem-tra", headers=auth_headers, json=_nhap())
     j = r.json()
-    assert j["co_chan"] is True
-    assert any(v["ma"] == "gv_trung_khoa_khac" and "B-K148" in v["noi_dung"] for v in j["vande"])
+    assert j["co_chan"] is False                       # trùng chỉ cảnh báo — vẫn ghi được
+    assert any(v["ma"] == "gv_trung_khoa_khac" and v["muc"] == "canh_bao" and "B-K148" in v["noi_dung"] for v in j["vande"])
     # SQL "bận" phải loại chính khóa đang sửa (bản nháp đã chứa trạng thái khóa này)
     sqls = [(s, p) for s, p in db.log if "KhoaHoc_GiaoVien g JOIN" in " ".join(s.split())]
     assert sqls and "g.MaKH <> %s" in " ".join(sqls[0][0].split()) and sqls[0][1][0] == "75032K260010"
