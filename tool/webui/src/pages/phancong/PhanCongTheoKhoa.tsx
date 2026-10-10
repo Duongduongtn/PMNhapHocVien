@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import BuocGiaoVien from "./BuocGiaoVien";
 import { Icon } from "../../components/Icon";
 import { useConfigDrawer } from "../../lib/configDrawer";
 import { ymdToVN } from "../../lib/format";
@@ -6,8 +7,12 @@ import {
   getSyncTargets,
   dsKhoaPC,
   hienTrangPC,
+  dsGiaoVienPC,
+  dsMonPC,
   kiemTraPC,
   type BanNhapPC,
+  type GiaoVienPC,
+  type MonPC,
   type HienTrangPC,
   type KhoaPC,
   type KiemTraPC,
@@ -53,6 +58,8 @@ export default function PhanCongTheoKhoa() {
   const [maKh, setMaKh] = useState<string | null>(null);
   const [hien, setHien] = useState<HienTrangPC | null>(null);
   const [ban, setBan] = useState<BanNhapPC | null>(null);
+  const [danhMuc, setDanhMuc] = useState<GiaoVienPC[]>([]);
+  const [mon, setMon] = useState<MonPC[]>([]);
   const [loiTai, setLoiTai] = useState<string | null>(null);
   const [dangTai, setDangTai] = useState(false);
 
@@ -95,7 +102,13 @@ export default function PhanCongTheoKhoa() {
     setLoiTai(null);
     setDangTai(true);
     try {
-      const h = await hienTrangPC(k.ma_kh, targetKey);
+      const [h, gv, mh] = await Promise.all([
+        hienTrangPC(k.ma_kh, targetKey),
+        dsGiaoVienPC(k.ma_kh, targetKey),
+        dsMonPC(targetKey),
+      ]);
+      setDanhMuc(gv.giao_vien);
+      setMon(mh);
       setHien(h);
       setBan(banTuHienTrang(h));
     } catch (e) {
@@ -242,18 +255,28 @@ export default function PhanCongTheoKhoa() {
               <b>Bước {buoc}.</b> {BUOC[buoc - 1].huongDan}
             </div>
 
-            <div className="rounded-lg border border-border bg-card p-5">
-              <h2 className="text-base font-semibold">{BUOC[buoc - 1].ten}</h2>
-              <dl className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                <div><dt className="text-[12px] text-muted-foreground">Giáo viên của khóa</dt><dd className="text-lg font-semibold">{ban.gv_khoa.length}</dd></div>
-                <div><dt className="text-[12px] text-muted-foreground">Dòng phân công</dt><dd className="text-lg font-semibold">{ban.pc.length}</dd></div>
-                <div><dt className="text-[12px] text-muted-foreground">Xe của khóa</dt><dd className="text-lg font-semibold">{ban.xe_khoa.length}</dd></div>
-                <div><dt className="text-[12px] text-muted-foreground">Dòng ghép xe</dt><dd className="text-lg font-semibold">{ban.ghep.length}</dd></div>
-              </dl>
-              <p className="mt-4 text-[13px] text-muted-foreground">
-                Thao tác chọn và nhập của bước này được dựng ở các task kế tiếp; hiện trang chỉ đọc hiện trạng khóa và kiểm tra theo luật CDB.
-              </p>
-            </div>
+            {buoc === 1 ? (
+              <BuocGiaoVien
+                khoa={khoa}
+                danhMuc={danhMuc}
+                mon={mon}
+                ban={ban}
+                setBan={(f) => setBan((b) => (b ? f(b) : b))}
+              />
+            ) : (
+              <div className="rounded-lg border border-border bg-card p-5">
+                <h2 className="text-base font-semibold">{BUOC[buoc - 1].ten}</h2>
+                <dl className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                  <div><dt className="text-[12px] text-muted-foreground">Giáo viên của khóa</dt><dd className="text-lg font-semibold">{ban.gv_khoa.length}</dd></div>
+                  <div><dt className="text-[12px] text-muted-foreground">Dòng phân công</dt><dd className="text-lg font-semibold">{ban.pc.length}</dd></div>
+                  <div><dt className="text-[12px] text-muted-foreground">Xe của khóa</dt><dd className="text-lg font-semibold">{ban.xe_khoa.length}</dd></div>
+                  <div><dt className="text-[12px] text-muted-foreground">Dòng ghép xe</dt><dd className="text-lg font-semibold">{ban.ghep.length}</dd></div>
+                </dl>
+                <p className="mt-4 text-[13px] text-muted-foreground">
+                  Thao tác nhập của bước này được dựng ở các task kế tiếp; hiện trang chỉ đọc hiện trạng khóa và kiểm tra theo luật CDB.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Cột Kiểm tra khóa */}

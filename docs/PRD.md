@@ -927,7 +927,7 @@
 
 #### [PCG-01] Chọn giáo viên của khóa (bước ①, kèm thao tác hàng loạt)
 
-**Trạng thái:** ⏳ Todo
+**Trạng thái:** ✅ Done — bản nháp ở trình duyệt; ghi CDB thuộc PCG-04. Kiểm với API giả (chưa chạy trên CDB thật)
 **Story:** Là nhân viên cơ sở, tôi muốn chọn nhanh các giáo viên sẽ dạy một khóa từ danh mục giáo viên đang hoạt động, để khóa có danh sách GV đúng mà không nhập từng dòng.
 
 **Done khi:**
