@@ -1,4 +1,4 @@
-"""PCG-04 (1/4) — task 85: luật thuần `phancong_rules` (không DB).
+"""PCG-04 (1/4) + PCG-02 (edge cases) — task 85: luật thuần `phancong_rules` (không DB).
 
 Khóa các bất biến của luật CDB đã verify 10/10/2026: datetime nửa mở (chạm đầu mút không
 trùng, cùng ngày khác giờ được), phạm vi khóa (bd > 00:00 KG, kt < 23:59:59 BG), trùng so cả

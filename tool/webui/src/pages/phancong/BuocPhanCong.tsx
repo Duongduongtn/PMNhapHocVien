@@ -4,7 +4,7 @@ import { ymdToVN } from "../../lib/format";
 import { kiemTraPC, type BanNhapPC, type GiaoVienPC, type KhoaPC, type MonPC, type PcDong, type VanDePC } from "../../lib/api";
 import { HuyHieu } from "./BuocGiaoVien";
 
-// PCG-02 (1/2) — Bước ② phân công dạy cho TỪNG giáo viên. Bám ui-mock/phancong.html (stepPC/renderEdit).
+// PCG-02 — Bước ② phân công dạy: từng giáo viên + hàng loạt. Bám ui-mock/phancong.html (stepPC/renderEdit).
 // Luật kiểm do SERVER quyết (POST /kiem-tra); khung nhập chỉ hỏi server về dòng đang soạn.
 // Thời gian lưu dạng "YYYY-MM-DDTHH:mm"; không chỉnh giờ = 00:00 → 00:00 ("Theo ngày").
 
@@ -56,12 +56,90 @@ function ThongBao({ v }: { v: VanDePC }) {
 interface Soan {
   id: number | string | null; // null/"tam" = dòng mới
   ma: string;
+  batch: string[] | null; // phân công cùng môn + thời gian cho nhiều GV
   mon: number[];
   tuD: string;
   denD: string;
   gio: boolean;
   tuT: string;
   denT: string;
+}
+
+/** Hộp xem trước hàng loạt: mỗi GV 1 dòng (hợp lệ / cảnh báo / bỏ qua kèm lý do); lỗi 1 GV không chặn cả lô. */
+function HopHangLoat({
+  tieuDe, mota, cands, thay, kiemFn, tenGv, nhanApDung, dong, apDung,
+}: {
+  tieuDe: string;
+  mota: ReactNode;
+  cands: PcDong[];
+  thay: string[];
+  kiemFn: (cands: PcDong[], thay: string[]) => Promise<VanDePC[]>;
+  tenGv: (ma: string) => string;
+  nhanApDung: (n: number) => string;
+  dong: () => void;
+  apDung: (ok: PcDong[]) => void;
+}) {
+  const [vd, setVd] = useState<VanDePC[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const khoaCands = JSON.stringify(cands);
+  useEffect(() => {
+    if (cands.length === 0) { setVd([]); return; }
+    let huy = false;
+    setBusy(true);
+    const h = setTimeout(() => {
+      kiemFn(cands, thay)
+        .then((r) => { if (!huy) setVd(r); })
+        .catch(() => { if (!huy) setVd(null); })
+        .finally(() => { if (!huy) setBusy(false); });
+    }, 200);
+    return () => { huy = true; clearTimeout(h); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [khoaCands, thay.join()]);
+
+  const theoGv = new Map<string, PcDong[]>();
+  for (const c of cands) theoGv.set(c.ma, [...(theoGv.get(c.ma) ?? []), c]);
+  const dong1 = [...theoGv].map(([ma, cs]) => {
+    const ids = new Set(cs.map((c) => `pc-${c.id}`));
+    const vs = (vd ?? []).filter((v) => ids.has(v.ref));
+    return { ma, cs, vs, chan: vs.some((v) => v.muc === "chan"), canh: vs.some((v) => v.muc === "canh_bao") };
+  });
+  const ok = dong1.filter((d) => !d.chan).flatMap((d) => d.cs);
+  const nGv = dong1.filter((d) => !d.chan).length;
+
+  return (
+    <Hop
+      tieuDe={tieuDe}
+      dong={dong}
+      chan={<>
+        <button onClick={dong} className="h-9 px-4 rounded-md border border-border text-[13px]">Hủy</button>
+        <button disabled={busy || vd === null || nGv === 0} onClick={() => apDung(ok)}
+          className="h-9 px-4 rounded-md bg-pc text-white text-[13px] font-semibold disabled:opacity-40">
+          {nhanApDung(nGv)}
+        </button>
+      </>}
+    >
+      <div>{mota}</div>
+      {cands.length === 0 ? (
+        <div className="text-[13px] text-muted-foreground">Chưa có gì để áp dụng — kiểm tra lại lựa chọn.</div>
+      ) : (
+        <ul className="rounded-lg border border-border divide-y divide-border/60 max-h-64 overflow-auto">
+          {dong1.map((d) => (
+            <li key={d.ma} className="px-3 py-2">
+              <div className="flex items-center gap-2 text-[13.5px]">
+                <Icon name={d.chan ? "x" : d.canh ? "warn" : "check"} className={"w-[18px] h-[18px] " + (d.chan ? "text-destructive" : d.canh ? "text-warning" : "text-success")} />
+                <b>{tenGv(d.ma)}</b>
+                <span className={"ml-auto text-[12.5px] " + (d.chan ? "text-destructive" : d.canh ? "text-warning" : "text-success")}>
+                  {busy ? "Đang kiểm…" : d.chan ? "Bỏ qua" : d.canh ? "Có cảnh báo" : "Hợp lệ"}
+                </span>
+              </div>
+              {d.vs.map((v, i) => <div key={i} className="mt-1 ml-6"><ThongBao v={v} /></div>)}
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="text-[12.5px] text-muted-foreground">GV có lỗi chặn bị bỏ qua (làm riêng sau); không chặn cả lô.</div>
+    </Hop>
+  );
 }
 
 export default function BuocPhanCong({
@@ -83,6 +161,9 @@ export default function BuocPhanCong({
   const [soan, setSoan] = useState<Soan | null>(null);
   const [xoa, setXoa] = useState<PcDong | null>(null);
   const [doiNgay, setDoiNgay] = useState<{ cu: string; moi: string; n: number } | null>(null);
+  const [chon, setChon] = useState<string[]>([]);
+  const [hl, setHl] = useState<"th" | "doi" | null>(null);
+  const [ngayDoi, setNgayDoi] = useState("");
   const [kiem, setKiem] = useState<VanDePC[] | null>(null);
   const [dangKiem, setDangKiem] = useState(false);
   const seq = useRef(0);
@@ -93,21 +174,29 @@ export default function BuocPhanCong({
   const ngoaiDs = useMemo(() => [...new Set(mo.map((p) => p.ma))].filter((m) => !trongKhoa.has(m)), [mo, trongKhoa]);
   const hang = [...ngoaiDs, ...ban.gv_khoa];
   const thieuNgayTh = !thStart;
+  const chuaTH = ban.gv_khoa.filter((ma) => theoMa.get(ma)?.loai === "TH" && !ban.pc.some((p) => p.ma === ma));
+  const thCuaChon = ban.pc.filter((p) => chon.includes(p.ma) && p.mon.includes(MON_TH));
 
-  // Dòng đang soạn → bản nháp giả định gửi /kiem-tra để lấy lỗi riêng dòng đó.
+  // Dòng đang soạn (hoặc cả lô) → bản nháp giả định gửi /kiem-tra để lấy lỗi riêng từng dòng đó.
   const idSoan = soan ? String(soan.id ?? "tam") : "";
   const tu = soan && soan.tuD ? mk(soan.tuD, soan.gio ? soan.tuT : "00:00") : "";
   const den = soan && soan.denD ? mk(soan.denD, soan.gio ? soan.denT : "00:00") : "";
+  const idLo = (ma: string) => `b-${ma}`;
   useEffect(() => {
     if (!soan) { setKiem(null); return; }
+    if (soan.batch && (!tu || !den)) { setKiem([]); return; }
     const s = ++seq.current;
     setDangKiem(true);
     const h = setTimeout(() => {
-      const dong: PcDong = { id: idSoan, ma: soan.ma, mon: soan.mon, tu, den };
-      const pc = [...ban.pc.filter((p) => String(p.id) !== idSoan), dong];
-      const gv_khoa = ban.gv_khoa.includes(soan.ma) ? ban.gv_khoa : [...ban.gv_khoa, soan.ma];
+      const cands: PcDong[] = soan.batch
+        ? soan.batch.map((ma) => ({ id: idLo(ma), ma, mon: soan.mon, tu, den }))
+        : [{ id: idSoan, ma: soan.ma, mon: soan.mon, tu, den }];
+      const thay = new Set(soan.batch ? [] : [idSoan]);
+      const pc = [...ban.pc.filter((p) => !thay.has(String(p.id))), ...cands];
+      const gv_khoa = soan.batch || ban.gv_khoa.includes(soan.ma) ? ban.gv_khoa : [...ban.gv_khoa, soan.ma];
+      const refs = new Set(cands.map((c) => `pc-${c.id}`));
       kiemTraPC(khoa.ma_kh, { ...ban, gv_khoa, pc }, targetKey)
-        .then((r) => { if (s === seq.current) setKiem(r.vande.filter((v) => v.ref === `pc-${idSoan}`)); })
+        .then((r) => { if (s === seq.current) setKiem(r.vande.filter((v) => refs.has(v.ref))); })
         .catch(() => { if (s === seq.current) setKiem(null); })
         .finally(() => { if (s === seq.current) setDangKiem(false); });
     }, 250);
@@ -115,22 +204,36 @@ export default function BuocPhanCong({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [soan, tu, den, idSoan]);
 
-  const coChan = (kiem ?? []).some((v) => v.muc === "chan");
+  const gvLoOk = (ma: string) => !(kiem ?? []).some((v) => v.ref === `pc-${idLo(ma)}` && v.muc === "chan");
+  const okLo = soan?.batch ? soan.batch.filter(gvLoOk) : [];
+  const coChan = soan?.batch
+    ? !!tu && !!den && soan.mon.length > 0 && okLo.length === 0
+    : (kiem ?? []).some((v) => v.muc === "chan");
 
   function moSoan(p?: PcDong, ma?: string) {
     if (p) {
       setSoan({
-        id: p.id, ma: p.ma, mon: [...p.mon], tuD: dP(p.tu), denD: dP(p.den),
+        id: p.id, ma: p.ma, batch: null, mon: [...p.mon], tuD: dP(p.tu), denD: dP(p.den),
         gio: tP(p.tu) !== "00:00" || tP(p.den) !== "00:00",
         tuT: tP(p.tu) === "00:00" ? "07:30" : tP(p.tu), denT: tP(p.den) === "00:00" ? "17:30" : tP(p.den),
       });
     } else {
-      setSoan({ id: null, ma: ma ?? "", mon: [], tuD: "", denD: "", gio: false, tuT: "07:30", denT: "11:30" });
+      setSoan({ id: null, ma: ma ?? "", batch: null, mon: [], tuD: "", denD: "", gio: false, tuT: "07:30", denT: "11:30" });
     }
+  }
+  function moHangLoat() {
+    setSoan({ id: null, ma: "", batch: [...chon], mon: [], tuD: "", denD: "", gio: false, tuT: "07:30", denT: "11:30" });
   }
 
   function luu() {
     if (!soan || coChan || !tu || !den) return;
+    if (soan.batch) {
+      const moi = okLo.map((ma) => ({ id: `n${Date.now().toString(36)}${++dem.current}`, ma, mon: soan.mon, tu, den }));
+      setBan((b) => ({ ...b, pc: [...b.pc, ...moi] }));
+      setChon([]);
+      setSoan(null);
+      return;
+    }
     const dong: PcDong = { id: soan.id ?? `n${Date.now().toString(36)}${++dem.current}`, ma: soan.ma, mon: soan.mon, tu, den };
     setBan((b) => ({
       ...b,
@@ -188,6 +291,14 @@ export default function BuocPhanCong({
   const xoaLaThCuoi = (p: PcDong) =>
     p.mon.includes(MON_TH) && ban.pc.filter((q) => q.ma === p.ma && q.mon.includes(MON_TH)).length === 1 && ban.ghep.some((m) => m.ma === p.ma);
 
+  // Kiểm cả lô: dòng ứng viên thay thế/bổ sung vào bản nháp, trả lỗi theo ref pc-<id> của ứng viên.
+  const kiemHL = (cands: PcDong[], thay: string[]) =>
+    kiemTraPC(
+      khoa.ma_kh,
+      { ...ban, pc: [...ban.pc.filter((p) => !thay.includes(String(p.id))), ...cands] },
+      targetKey,
+    ).then((r) => r.vande);
+
   const loiCuaPc = (id: number | string | null) => vande.filter((v) => v.ref === `pc-${id}`);
   const gioLe = soan && soan.gio && (!GIO.includes(soan.tuT) || !GIO.includes(soan.denT));
   const nhieuNgayCoGio = !!soan && soan.gio && soan.tuD && soan.denD && soan.tuD !== soan.denD;
@@ -213,7 +324,31 @@ export default function BuocPhanCong({
           onChange={(e) => doiThStart(e.target.value)}
           className={`ml-auto h-10 w-[170px] rounded-md border bg-background px-2 text-sm ${thieuNgayTh ? "border-pc" : "border-border"}`}
         />
+        {chuaTH.length > 0 && (
+          <button
+            disabled={thieuNgayTh}
+            onClick={() => setHl("th")}
+            title={thieuNgayTh ? "Nhập ngày bắt đầu thực hành trước" : ""}
+            className="h-10 px-3.5 rounded-lg bg-pc text-white text-[13px] font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Áp “Thực hành lái xe” cho {chuaTH.length} GV TH chưa có
+          </button>
+        )}
       </div>
+
+      {chon.length > 0 && (
+        <div className="mb-3 rounded-lg border border-pc-border bg-pc-soft px-3 py-2.5 flex items-center gap-2 flex-wrap text-[13.5px]">
+          <b>Đã chọn {chon.length} GV:</b>
+          <button onClick={moHangLoat} className="h-9 px-3 rounded-lg bg-pc text-white font-semibold text-[13px]">Phân công cho {chon.length} GV</button>
+          <button
+            onClick={() => { setNgayDoi(addDays(khoa.bg, -1)); setHl("doi"); }}
+            className="h-9 px-3 rounded-lg border border-pc-border text-pc font-semibold text-[13px] bg-white"
+          >
+            Dời ngày kết thúc thực hành
+          </button>
+          <button onClick={() => setChon([])} className="ml-auto text-[12.5px] text-muted-foreground underline">Bỏ chọn</button>
+        </div>
+      )}
 
       <div className="flex items-center gap-3 mb-2 text-[12.5px] text-muted-foreground flex-wrap">
         <span className="inline-flex items-center gap-1.5"><span className="inline-block w-3.5 h-3.5 rounded border-2 border-pc bg-pc-soft" /> Thực hành lái xe</span>
@@ -230,8 +365,14 @@ export default function BuocPhanCong({
           const ps = mo.filter((p) => p.ma === ma);
           const trong = trongKhoa.has(ma);
           return (
-            <div key={ma} id={`gv-${ma}`} className={`px-3 py-3 grid grid-cols-1 sm:grid-cols-[190px_1fr] gap-3 ${trong ? "" : "bg-destructive/5"}`}>
+            <div key={ma} id={`gv-${ma}`} className={`px-3 py-3 grid grid-cols-1 sm:grid-cols-[190px_1fr] gap-3 ${trong ? (chon.includes(ma) ? "bg-pc-soft" : "") : "bg-destructive/5"}`}>
               <div>
+                {trong && (
+                  <label className="mb-1 inline-flex items-center gap-1.5 text-[12px] text-muted-foreground cursor-pointer">
+                    <input type="checkbox" checked={chon.includes(ma)} onChange={() => setChon((c) => (c.includes(ma) ? c.filter((x) => x !== ma) : [...c, ma]))} aria-label={`Chọn ${g?.ten ?? ma}`} />
+                    Chọn
+                  </label>
+                )}
                 <div className="text-[14px] font-semibold">{g?.ten ?? ma}</div>
                 <div className="font-mono text-[12px] text-muted-foreground">{ma}</div>
                 <div className="mt-1 flex gap-1 flex-wrap">
@@ -282,18 +423,20 @@ export default function BuocPhanCong({
       {soan && (() => {
         const g = theoMa.get(soan.ma);
         const thBat = soan.mon.includes(MON_TH);
-        const khongLuu = coChan || !tu || !den || soan.mon.length === 0 || dangKiem;
+        const khongLuu = coChan || !tu || !den || soan.mon.length === 0 || dangKiem || kiem === null || (!!soan.batch && okLo.length === 0);
         return (
           <Hop
-            tieuDe={`${soan.id !== null ? "Sửa" : "Thêm"} phân công — ${g?.ten ?? soan.ma}`}
+            tieuDe={soan.batch ? `Phân công cho ${soan.batch.length} giáo viên` : `${soan.id !== null ? "Sửa" : "Thêm"} phân công — ${g?.ten ?? soan.ma}`}
             dong={() => setSoan(null)}
             chan={<>
               <span className="mr-auto text-[12.5px] text-muted-foreground">
-                {coChan ? "Còn lỗi chặn — chưa lưu được" : (kiem ?? []).length ? "Có cảnh báo — vẫn lưu được" : ""}
+                {soan.batch
+                  ? `Sẽ tạo ${okLo.length}/${soan.batch.length} phân công, bỏ qua ${soan.batch.length - okLo.length}`
+                  : coChan ? "Còn lỗi chặn — chưa lưu được" : (kiem ?? []).length ? "Có cảnh báo — vẫn lưu được" : ""}
               </span>
               <button onClick={() => setSoan(null)} className="h-9 px-4 rounded-md border border-border text-[13px]">Hủy</button>
               <button disabled={khongLuu} onClick={luu} className="h-9 px-4 rounded-md bg-pc text-white text-[13px] font-semibold disabled:opacity-40">
-                Lưu vào bản nháp
+                {soan.batch ? `Tạo ${okLo.length} phân công` : "Lưu vào bản nháp"}
               </button>
             </>}
           >
@@ -390,9 +533,9 @@ export default function BuocPhanCong({
 
             <div className="flex gap-2 flex-wrap items-center">
               <span className="text-[12px] text-muted-foreground">Điền nhanh (lý thuyết):</span>
-              <button type="button" disabled={!coTruoc} onClick={noiTiep}
+              {!soan.batch && <button type="button" disabled={!coTruoc} onClick={noiTiep}
                 title={coTruoc ? "" : "GV này chưa có phân công trước để nối tiếp"}
-                className="h-8 px-2.5 rounded-md border border-border text-[12.5px] hover:bg-muted disabled:opacity-40">Nối tiếp sau phân công trước</button>
+                className="h-8 px-2.5 rounded-md border border-border text-[12.5px] hover:bg-muted disabled:opacity-40">Nối tiếp sau phân công trước</button>}
               <button type="button" disabled={!soan.tuD}
                 onClick={() => setSoan({ ...soan, denD: addDays(soan.tuD, 6) })}
                 title={soan.tuD ? "" : "Chọn “Từ ngày” trước"}
@@ -400,17 +543,87 @@ export default function BuocPhanCong({
             </div>
 
             {/* Kiểm tra ngay — sát nút Lưu */}
-            <div className={`rounded-lg border-2 px-3 py-2.5 ${coChan ? "border-destructive/50 bg-destructive/5" : (kiem ?? []).length ? "border-warning/50 bg-warning/5" : "border-success/50 bg-success/5"}`}>
-              <div className={`text-[13.5px] font-bold mb-1 ${coChan ? "text-destructive" : "text-success"}`}>
-                Kiểm tra ngay {dangKiem && <Icon name="refresh" className="w-3.5 h-3.5 inline animate-spin text-muted-foreground" />}
+            <div className={`rounded-lg border-2 px-3 py-2.5 ${coChan && !soan.batch ? "border-destructive/50 bg-destructive/5" : (kiem ?? []).length ? "border-warning/50 bg-warning/5" : "border-success/50 bg-success/5"}`}>
+              <div className={`text-[15px] font-bold mb-1 ${coChan ? "text-destructive" : "text-success"}`}>
+                {soan.batch ? "Xem trước từng giáo viên" : "Kiểm tra ngay"} {dangKiem && <Icon name="refresh" className="w-3.5 h-3.5 inline animate-spin text-muted-foreground" />}
               </div>
-              {(kiem ?? []).length === 0
+              {soan.batch ? (
+                !tu || !den || soan.mon.length === 0
+                  ? <div className="text-[13.5px] text-muted-foreground">Chọn môn và khoảng ngày để xem trước từng giáo viên.</div>
+                  : <ul className="divide-y divide-border/50">
+                      {soan.batch.map((ma) => {
+                        const vs = (kiem ?? []).filter((v) => v.ref === `pc-${idLo(ma)}`);
+                        const b = vs.some((v) => v.muc === "chan");
+                        const w = vs.some((v) => v.muc === "canh_bao");
+                        return (
+                          <li key={ma} className="py-1.5">
+                            <div className="flex items-center gap-2 text-[13.5px]">
+                              <Icon name={b ? "x" : w ? "warn" : "check"} className={"w-[18px] h-[18px] " + (b ? "text-destructive" : w ? "text-warning" : "text-success")} />
+                              <b>{theoMa.get(ma)?.ten ?? ma}</b>
+                              <span className={"ml-auto text-[12.5px] " + (b ? "text-destructive" : w ? "text-warning" : "text-success")}>
+                                {b ? "Bỏ qua" : w ? "Có cảnh báo" : "Hợp lệ"}
+                              </span>
+                            </div>
+                            {vs.map((v, i) => <div key={i} className="mt-1 ml-6"><ThongBao v={v} /></div>)}
+                          </li>
+                        );
+                      })}
+                    </ul>
+              ) : (kiem ?? []).length === 0
                 ? <div className="text-[13.5px] text-success">{dangKiem ? "Đang kiểm tra…" : "✓ Hợp lệ."}</div>
                 : <div className="space-y-1.5">{(kiem ?? []).map((v, i) => <ThongBao key={i} v={v} />)}</div>}
             </div>
           </Hop>
         );
       })()}
+
+      {/* Hàng loạt: áp Thực hành cho GV TH chưa có */}
+      {hl === "th" && (
+        <HopHangLoat
+          tieuDe="Áp “Thực hành lái xe” hàng loạt"
+          mota={<>Tạo phân công <b>Thực hành lái xe</b>, <b className="tabular-nums">{fmtKhoang(mk(thStart), mk(khoa.bg))}</b> cho các GV thực hành chưa có phân công:</>}
+          cands={chuaTH.map((ma) => ({ id: `h-${ma}`, ma, mon: [MON_TH], tu: mk(thStart), den: mk(khoa.bg) }))}
+          thay={[]}
+          kiemFn={(cands, thay) => kiemHL(cands, thay)}
+          tenGv={(ma) => theoMa.get(ma)?.ten ?? ma}
+          nhanApDung={(n) => `Áp cho ${n} GV`}
+          dong={() => setHl(null)}
+          apDung={(ok) => {
+            const moi = ok.map((c) => ({ ...c, id: `n${Date.now().toString(36)}${++dem.current}` }));
+            setBan((b) => ({ ...b, pc: [...b.pc, ...moi] }));
+            setHl(null);
+          }}
+        />
+      )}
+      {/* Hàng loạt: dời ngày kết thúc thực hành */}
+      {hl === "doi" && (
+        <HopHangLoat
+          tieuDe={`Dời ngày kết thúc thực hành — ${[...new Set(thCuaChon.map((p) => p.ma))].length} GV`}
+          mota={
+            <div className="grid grid-cols-2 gap-3 items-end">
+              <label className="block">
+                <span className="block text-[12.5px] font-semibold mb-1">Ngày kết thúc mới</span>
+                <input type="date" value={ngayDoi} min={addDays(khoa.kg, 1)} max={khoa.bg}
+                  onChange={(e) => setNgayDoi(e.target.value)}
+                  className="h-10 w-full rounded-md border border-border bg-background px-2 text-sm" />
+              </label>
+              <div className="text-[12.5px] text-muted-foreground">Áp cho phân công <b>Thực hành</b> của các GV đã chọn. Ngày kết thúc để 00:00 (Theo ngày).</div>
+            </div>
+          }
+          cands={ngayDoi ? thCuaChon.map((p) => ({ ...p, den: mk(ngayDoi) })) : []}
+          thay={thCuaChon.map((p) => String(p.id))}
+          kiemFn={(cands, thay) => kiemHL(cands, thay)}
+          tenGv={(ma) => theoMa.get(ma)?.ten ?? ma}
+          nhanApDung={(n) => `Dời cho ${n} GV`}
+          dong={() => setHl(null)}
+          apDung={(ok) => {
+            const theoId = new Map(ok.map((c) => [String(c.id), c]));
+            setBan((b) => ({ ...b, pc: b.pc.map((p) => theoId.get(String(p.id)) ?? p) }));
+            setChon([]);
+            setHl(null);
+          }}
+        />
+      )}
 
       {/* Đổi ngày bắt đầu thực hành */}
       {doiNgay && (
