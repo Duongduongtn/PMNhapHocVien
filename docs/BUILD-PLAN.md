@@ -2,7 +2,7 @@
 
 > File do `/kehoach` sinh. `/tieptheo` đọc file này để biết làm gì tiếp theo.
 > **Thứ tự code** nằm ở đây. **Yêu cầu và trạng thái story** nằm ở `docs/PRD.md`.
-> Cập nhật lần cuối: 10/10/2026 (v21 — KQD-05 mở rộng "Sửa sau gửi" #53, task 83-84. Trước đó v20 — Phase 8 NAP-01 #51 "Bỏ khỏi hàng đợi" dòng chờ/lỗi + tombstone, task 81-82. Trước đó v19 — THU-06 chỉ OCR 5 trường (CHANGES #50); v18 — Phase 7 THU-06 task 79-80)
+> Cập nhật lần cuối: 10/10/2026 (v22 — Phase 9 Phân công GV – xe PCG-01..05, task 85-95, CHANGES #54. Trước đó v21 — KQD-05 mở rộng "Sửa sau gửi" #53, task 83-84. Trước đó v20 — Phase 8 NAP-01 #51 "Bỏ khỏi hàng đợi" dòng chờ/lỗi + tombstone, task 81-82. Trước đó v19 — THU-06 chỉ OCR 5 trường (CHANGES #50); v18 — Phase 7 THU-06 task 79-80)
 
 ## Quyết định về thứ tự
 
@@ -342,6 +342,46 @@
 - [ ] Không còn endpoint `DELETE /local/keo-ve/:uuid`; UI gọi `POST /bo-qua` cho cả 1 dòng.
 - [ ] Đóng gói lại exe (pnpm build webui TRƯỚC + PyInstaller) chạy được bản mới.
 
+## Phase 9 — Phân công giáo viên – xe (phân hệ #4, PCG-01..05)
+
+> Feature mới (CHANGES #54, PRD v4.3, TDD v6.4 §11E, decisions §22, mock `ui-mock/phancong.html`). Ghi `GPLX_CDB_CSDT` (`KhoaHoc_GiaoVien`, `KhoaHoc_XeTap`). **Rủi ro cao lên sớm:** luật + `/ghi` (ghi thẳng CDB thật) làm TRƯỚC UI. Không đụng task cũ. Ghi thật → **nghiệm thu máy CSDT**.
+
+| # | Task | Story | Quy mô | Phụ thuộc | Kiểm | Xong |
+|---|---|---|---|---|---|---|
+| 85 | **Luật thuần** `tool/app/phancong_rules.py` (không DB): trùng = `NOT(kt<=bd_cũ OR bd>=kt_cũ)` datetime nửa mở · phạm vi khóa (`bd>KG 00:00`, `kt<BG 23:59:59`, `bd<kt`) · GV/xe thuộc khóa, còn hoạt động · 1 GV–1 xe · hạn `GPXTL/GCNKD` · 3 mức Chặn/Cảnh báo/Thông tin (bảng TDD §11E.7) + unit test (chạm đầu mút, sáng/chiều cùng ngày, lịch 00:00 chiếm mọi giờ, cùng khóa chặn) | `PCG-04 (1/4)` | M | — | 1+2 | [x] |
+| 86 | **Backend đọc + kiểm:** `routers/phancong.py` (mount `require_session`) `GET /khoa`, `GET /khoa/{ma}` (hiện trạng GV/phân công/xe/ghép kèm `MaLichLV/MaLichSD`), `GET /giao-vien?ma_kh`, `GET /xe?ma_kh` (kèm "bận" ở khóa khác) + `POST /kiem-tra` (bản nháp → vấn đề, **không ghi**) + `phancong_service.py` (đọc CDB, đọc lại môn theo 3 định dạng) | `PCG-04 (2/4)` | M | 85 | 1+2 | [x] |
+| 87 | **Backend ghi:** `POST /ghi` — kiểm lại toàn bộ luật trên CDB hiện tại, 409 khi còn chặn / thiếu xác nhận cảnh báo / thiếu `xac_nhan_csdl_that`; thứ tự xóa→thêm→sửa từng dòng bằng SP (`usp_KhoaHoc_GiaoVien_Insert`, `usp_LichLV_KhoaHoc_GiaoVien_Insert/_Update`, `usp_KhoaHoc_XeTap_Insert`, `LichSD_KhoaHoc_XeTap_Insert`, `usp_LichSD_KhoaHoc_XeTap_Update`; xóa `usp_LLV_…_Delete`/`usp_LSD_…_Delete`; **KHÔNG** SP xóa lan); `TenMonHoc="1,8"`, `MaMonHoc` NULL, `GhiChu=''`, `NguoiTao`=người đăng nhập; lỗi giữa chừng trả đã/chưa ghi; nhật ký sqlite `phancong_nhat_ky` + `GET /nhat-ky`. Test cursor giả (không bao giờ gọi SP xóa lan) | `PCG-04 (3/4)` | M | 85,86 | 1+2 | [x] |
+| 88 | **Khung phân hệ #4:** thêm `phancong` vào `lib/modules.ts` (route `/phan-cong/*`, accent `pc`, `db: GPLX_CDB_CSDT`, sub-nav 2 mục) + token `pc` trong `tailwind.config.js` + route `App.tsx` + trang `PhanCongTheoKhoa.tsx` (chọn khóa gõ-tìm, chip hạng/ngày/DKKH, stepper 3 bước, cột phải "Kiểm tra khóa" gọi `/kiem-tra`, khung hướng dẫn từng bước) bám mock | — | M | 86 | 1 | [ ] |
+| 89 | **Bước ① GV của khóa:** 2 danh sách gọn (tìm, lọc LT/TH/AL), thêm từng GV (hộp cảnh báo), tích chọn → "Thêm N GV" (xem trước từng GV), "Chọn GV TH hợp hạng", gỡ GV (hộp liệt kê hậu quả xóa theo phân công + ghép xe); trạng thái bản nháp phía client | `PCG-01` | M | 88 | 1 | → PRD |
+| 90 | **Bản nháp + Ghi vào CDB:** thanh dưới đếm thay đổi (thêm/sửa/xóa) + "Hủy thay đổi"; hộp xem lại (tóm tắt + SP) + tích "CSDL thật" + tích "đã xem N cảnh báo"; nút Ghi khóa khi còn chặn; kết quả đã/chưa ghi; làm tươi hiện trạng + nhắc kết xuất lại nếu đã DKKH | `PCG-04 (4/4)` | M | 87,89 | 1 | → PRD |
+| 91 | **Bước ② phân công từng GV:** ô "Ngày bắt đầu thực hành của khóa" (tự nhập, để trống) · khung nhập: ô lớn ★ Thực hành lái xe (1 bấm), 8 môn khác, từ/đến ngày, ô tích "Chỉnh giờ" (danh sách bước 30 phút + nút tắt sáng/chiều/cả ngày, giờ lẻ cũ giữ nguyên), "nối tiếp"/"+1 tuần", ô "Kiểm tra ngay" sát nút Lưu · chip phân công (TH tô màu) + lỗi chữ lớn dưới ô sai · sửa/xóa (xóa TH cuối → xóa theo ghép xe) | `PCG-02 (1/2)` | M | 90 | 1 | [ ] |
+| 92 | **Bước ② hàng loạt:** tích nhiều GV → "Phân công cho N GV" (cùng môn + thời gian, xem trước từng GV, GV lỗi bỏ qua kèm lý do), "Dời ngày kết thúc thực hành cho N GV", "Áp Thực hành lái xe cho N GV TH chưa có" | `PCG-02 (2/2)` | M | 91 | 1 | → PRD |
+| 93 | **Bước ③ xe + ghép:** dải chip "Xe của khóa" + hộp "Thêm xe" (hạng, hạn giấy phép, xe ở khóa khác; xe ngừng không thêm được) · bảng ghép 1 GV–1 xe (chọn xe, từ–đến theo ngày, địa điểm điền sẵn, lỗi dưới ô) · đổi xe/gỡ xe/bỏ ghép có xác nhận | `PCG-03 (1/2)` | M | 91 | 1 | [ ] |
+| 94 | **Gợi ý ghép xe:** `POST /goi-y-ghep-xe` (xe còn trống, thuộc khóa, không bị chặn, ưu tiên đúng hạng; **không ghi**) + hộp xem trước/sửa/tích từng dòng → "Áp" vào bản nháp | `PCG-03 (2/2)` | S | 93 | 1+2 | → PRD |
+| 95 | **Rà soát khóa:** `GET /ra-soat` (`phancong_rasoat.py`) + tab 2 `RaSoat.tsx` (bảng mọi khóa, bấm dòng mở khóa đó) | `PCG-05` | S | 88 | 1 | → PRD |
+
+> PCG-04 cắt 4 task (85→86→87→90) cùng trỏ 1 story → PRD `PCG-04` chỉ ✅ khi xong cả 4. PCG-02 cắt 2 (91/92), PCG-03 cắt 2 (93/94). Mô tả chi tiết từng story ở PRD; thiết kế ở TDD §11E; **ghi thật chỉ nghiệm thu ở máy CSDT** (dev không ghi happy-path vào CDB thật).
+
+### ✅ Checkpoint 20 — sau task 85-87 (backend luật + đọc + ghi)
+- [ ] **Mức 2** unit `phancong_rules`: chạm đầu mút không trùng · sáng 07:30–11:30 và chiều 13:30–17:30 cùng ngày không trùng · chồng 07:30–11:30 với 09:30–13:30 chặn · lịch 00:00→00:00 chiếm mọi giờ → lịch có giờ nằm trong khoảng bị chặn · trùng **cùng khóa** chặn · `bd<=KG 00:00` chặn, `kt>=BG 23:59:59` chặn · 1 xe 2 GV / 1 GV 2 xe chặn · xe hết hạn trước bế giảng chặn.
+- [ ] `POST /ghi`: 409 khi còn lỗi chặn; 409 khi có cảnh báo mà thiếu xác nhận; thứ tự xóa→thêm→sửa; lỗi giữa chừng trả đã/chưa ghi; **không bao giờ gọi** `usp_KhoaHoc_*_Delete`/`usp_VoHieuLuc*`.
+- [ ] `GET` đọc đúng cả 3 định dạng môn (`MaMonHoc`+tên · danh sách mã · tên thuần).
+- [ ] `pytest` toàn bộ pass; không đụng module cũ.
+
+### ✅ Checkpoint 21 — sau task 88-90 (khung + bước ① + ghi)
+- [ ] Phân hệ #4 hiện ở sidebar (màu hồng), băng cam "CSDL đích", chọn khóa gõ-tìm, stepper 3 bước.
+- [ ] Bước ①: thêm 3 GV → bản nháp đếm 3 → "Ghi vào CDB" → hộp xem lại → tích → ghi → làm tươi; gỡ 1 GV có phân công → hộp liệt kê đúng hậu quả.
+- [ ] Nút Ghi **khóa** khi còn lỗi chặn; "Hủy thay đổi" về đúng hiện trạng.
+- [ ] Playwright 1280/1440: không tràn, đủ dấu, cảnh báo chữ ≥13px.
+
+### ✅ Checkpoint 22 — sau task 91-95 (bước ②③ + gợi ý + rà soát)
+- [ ] Luồng đầu–cuối trên 1 khóa test: GV → phân công (Thực hành 1 bấm + 1 GV lý thuyết có giờ sáng/chiều) → chọn xe → ghép → Ghi → mở lại thấy đúng.
+- [ ] Hàng loạt: phân công cho 5 GV (1 GV trùng khóa khác bị bỏ qua kèm lý do, 4 GV tạo); dời ngày kết thúc cho N GV.
+- [ ] "Gợi ý ghép xe": không gán xe hết hạn/đã ngừng/trùng; xem trước mới áp.
+- [ ] Rà soát khóa khớp số liệu rà soát DB 10/10/2026 (vd B-K149 11 xe chưa ghép).
+- [ ] Ngày bắt đầu thực hành **trống** → nút Thực hành khóa; không có gợi ý ngầm.
+- [ ] **Ghi thật CDB production + đối chiếu phần mềm CDB (GV/xe/lịch hiện đúng) → nghiệm thu máy CSDT**; hỏi hỗ trợ CDB việc gói DKKH có chứa GV/xe.
+
 ### ✅ Checkpoint 5 — cuối dự án
 - [ ] Mọi tiêu chí MUST + SHOULD trong PRD đạt.
 - [ ] Đối chiếu bảo mật OG đóng trước go-live (chặn go-live nếu chưa đạt).
@@ -356,6 +396,8 @@
 - Task 5 — bảng phụ trên DB đích.
 - Task 9, 14, 15 — cơ chế lõi (SP import / auth / hàng đợi), nhiều task dựa vào.
 - Task 83 → 84 — tuần tự, cùng đụng `routers/ketqua.py` + `CapNhatKQDT.tsx`/`MoKhoaModal.tsx`.
+- Task 85 → 94 (Phase 9) — tuần tự, cùng đụng `routers/phancong.py` / `phancong_rules.py` / `PhanCongTheoKhoa.tsx`; task 88 sửa `modules.ts` + `App.tsx` (shell dùng chung).
+- **Nhóm song song duy nhất:** task 95 với 91–94 — an toàn nếu tách file riêng (`phancong_rasoat.py`, `RaSoat.tsx`); chốt hợp đồng `GET /ra-soat` trước.
 
 ## Chờ chốt (chưa lên lịch code)
 
@@ -378,6 +420,9 @@
 | Xã chia không map được | Trung bình | Fallback popup chọn tay `DM_DVHC` (task 7) |
 | rembg xóa phông xấu (tóc/viền) | Trung bình | Cho giữ ảnh gốc/chỉnh tay (task 8) |
 | Đồng hồ máy DB sai giờ | Trung bình | So giờ trước go-live (Checkpoint 5) |
+| Ghi nhầm vào CDB thật khi phân công GV/xe (Phase 9, task 87/90) | Cao | Server kiểm lại toàn bộ luật + 2 lớp xác nhận (CSDL thật + cảnh báo) + bản nháp; ghi từng dòng báo đã/chưa ghi; nghiệm thu máy CSDT |
+| Luật tool nghiêm hơn dữ liệu cũ → chặn oan cặp chồng thời gian cùng khóa đã có (task 85/86) | Trung bình | Hiện 0 trường hợp (rà soát 10/10); hiển thị lý do + cho sửa từng dòng |
+| Chưa xác minh gói DKKH/BC1 có chứa GV/xe (task 90) | Thấp–TB | Đang để ⚠ "khóa đã gửi DKKH"; xác minh với hỗ trợ CDB trước khi nâng mức |
 | HV đang mở "sửa sau gửi" mà Sở trả 13/14 → SP tiếp nhận chỉ nhận HV `12` nên HV kẹt (task 83/84) | Cao | Cảnh báo + tích cam kết + khối đỏ nhắc; kết xuất lại ngay bằng phần mềm CDB |
 | Sở nhận 2 bản KQĐT cho cùng HV (bản đã gửi + kết xuất lại) — chưa rõ Sở xử lý (task 83/84) | Trung bình | Hỏi hỗ trợ CDB/Sở trước khi dùng thật; nghiệm thu máy CSDT |
 | Sửa server VPS đang chạy prod (task 41/42/44) làm gãy luồng thu thập đang live | Cao | Deploy giờ thấp điểm + verify login/gửi/kéo ngay sau deploy (Checkpoint 8); đổi thêm endpoint, không đổi endpoint cũ |
@@ -386,15 +431,16 @@
 
 > `/tieptheo` so mục này với PRD mỗi buổi để biết kế hoạch còn khớp không. Lệch thì báo user chạy lại `/kehoach` chế độ bổ sung. **Không tự sửa kế hoạch.**
 
-- **Số story trong PRD khi cập nhật:** 44 (thêm `THU-06` từ CHANGES #49; `KQD-06` #48; `KQD-05` #45; trước đó `KQD-01/02/03/04` #42; `DGT-01/02/03/04` #38/#39; `TCB-01/02/03/04` #35; `HTG-07` #34; `SYNC-01/02/03` #33; chưa tính NICE `QLY-04`, `THU-03`)
-- **Mã story đã đưa vào kế hoạch:** `HTG-01`, `HTG-02`, `HTG-03`, `HTG-07`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `THU-06`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `SYNC-01`, `SYNC-02`, `SYNC-03`, `TCB-01`, `TCB-02`, `TCB-03`, `TCB-04`, `DGT-01`, `DGT-02`, `DGT-03`, `DGT-04`, `KQD-01`, `KQD-02`, `KQD-03`, `KQD-04`, `KQD-05`, `KQD-06`
+- **Số story trong PRD khi cập nhật:** 49 (thêm `PCG-01..05` từ CHANGES #54; thêm `THU-06` từ CHANGES #49; `KQD-06` #48; `KQD-05` #45; trước đó `KQD-01/02/03/04` #42; `DGT-01/02/03/04` #38/#39; `TCB-01/02/03/04` #35; `HTG-07` #34; `SYNC-01/02/03` #33; chưa tính NICE `QLY-04`, `THU-03`)
+- **Mã story đã đưa vào kế hoạch:** `HTG-01`, `HTG-02`, `HTG-03`, `HTG-07`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `THU-06`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `SYNC-01`, `SYNC-02`, `SYNC-03`, `TCB-01`, `TCB-02`, `TCB-03`, `TCB-04`, `DGT-01`, `DGT-02`, `DGT-03`, `DGT-04`, `KQD-01`, `KQD-02`, `KQD-03`, `KQD-04`, `KQD-05`, `KQD-06`, `PCG-01`, `PCG-02`, `PCG-03`, `PCG-04`, `PCG-05`
 - **Mã story chưa đưa vào:** `QLY-04`, `THU-03` (NICE, chưa đủ chi tiết) · **`HTG-04/05/06`** (thêm ở CHANGES #18, đã code thẳng — chưa có task trong plan; cần `/kehoach` bổ sung riêng nếu muốn khớp sổ)
-- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 10/10/2026 (#53)
+- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 10/10/2026 (#54)
 
 ## Changelog
 
 | Ngày | Thay đổi |
 |---|---|
+| 10/10/2026 | v22 — bổ sung (CHANGES #54, PRD v4.3, TDD v6.4 §11E): thêm **Phase 9 Phân công giáo viên – xe** (feature mới, prefix `PCG`, 5 story) — task **85** luật thuần + test · **86** backend đọc + `/kiem-tra` · **87** backend `/ghi` + nhật ký (rủi ro cao làm trước UI) · **88** khung phân hệ #4 · **89** PCG-01 bước ① · **90** bản nháp + Ghi vào CDB · **91-92** PCG-02 bước ② (từng GV + hàng loạt) · **93-94** PCG-03 bước ③ (xe + ghép, gợi ý) · **95** PCG-05 rà soát + Checkpoint 20/21/22. Chỉ ghi `KhoaHoc_GiaoVien`/`KhoaHoc_XeTap`, không bảng mới; không dùng SP xóa lan. +5 story (44→49). 95 task. |
 | 10/10/2026 | v21 — bổ sung (CHANGES #53, PRD v4.2, TDD v6.3): thêm **KQD-05 mở rộng "Sửa sau gửi" chọn từng HV** vào cuối Phase 6 — task **83** backend (`POST /mo-sua-sau-gui` + `GET /sua-sau-gui` + nhật ký sqlite `sua_sau_gui`, lùi đúng HV chọn, không xóa gói, `13` 409) + task **84** UI (ô tích + hộp xác nhận + chip/băng cam + khối đỏ KQD-03 + sửa MoKhoaModal) + Checkpoint 19. Thay khóa cứng M1 (decisions §21). Không story mới, giữ 44. 84 task. |
 | 08/10/2026 | v20 — bổ sung (CHANGES #51, sau /reviewtdd → TDD v6.1): thêm **Phase 8 NAP-01 "Bỏ khỏi hàng đợi" dòng chờ/lỗi + tombstone** — task **81** backend (bảng `keo_ve_bo_qua` + migrate + lọc trong `keo_ve_upsert` + endpoint `POST /local/nap/bo-qua` xử mọi trạng thái/idempotent/trần 1000 + **GỠ `DELETE /local/keo-ve/:uuid`** của task 38) + task **82** UI (chọn nhiều + nút bỏ cho dòng ⚪/🔴 + xác nhận 2 bước + chuyển DELETE→POST) + Checkpoint 18. Chỉ đụng `staging.sqlite`, KHÔNG đụng VPS/DB. Mở rộng NAP-01, **không story mới, giữ 44**. Sau code → đóng gói lại exe. 82 task. |
 | 07/10/2026 | v19 — sửa (CHANGES #50, /capnhat — phát hiện khi build task 79): THU-06 OCR **chỉ đọc 5 trường mặt trước** (bỏ *ngày cấp* — in ở mặt sau, không chụp; nhân viên nhập tay, user chốt A). Sửa mô tả task 79 + Checkpoint 17 (mức 2: 5 trường + ngày cấp luôn trống). Task 79 đã code đúng (5 trường). Không đổi số task. 80 task. |

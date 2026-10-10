@@ -217,3 +217,30 @@
 - **Không làm — tự kết xuất XML:** file KQĐT (`FPT.GPLX.XML.dll`) là XML có chữ ký số RSA bằng khóa của phần mềm CDB. Tự ký = dùng lại khóa/giả mạo phần mềm chính thức; khóa nằm lộ trong DLL là lỗ hổng của nhà cung cấp, dự án không dùng và không chép. Muốn làm cần Cục/FPT cấp chứng thư riêng hoặc tài liệu nộp file chính thức. Kết xuất giữ ở phần mềm CDB.
 - **Phạm vi:** chỉ tool máy CSDT (ghi CDB đích + sqlite nhật ký phía tool). Không đụng app web/VPS. `13` khóa tuyệt đối.
 - **Nguồn:** user 10/10/2026 (qua trao đổi + chốt UI 4 phần); PRD KQD-05; TDD §11D.7b; CHANGES #53; probe DB live 10/10.
+
+## 22. Phân công giáo viên – xe cho khóa (10/10/2026, rà soát schema + dữ liệu CDB)
+
+- **Đã chốt (user, 10/10/2026):**
+  - **Phân hệ riêng #4** "Phân công GV – xe", prefix story `PCG`; ghi `GPLX_CDB_CSDT`; phạm vi **A**: danh sách GV/xe của khóa + phân công dạy (môn + từ→đến) + ghép xe 1 GV–1 xe. Bỏ lịch tuần `LichHoc`, bỏ phân xe theo HV.
+  - **Luật trùng thời gian = đúng công thức CDB (có xét giờ, khoảng nửa mở).** Cùng ngày khác giờ được; chạm đầu mút không trùng; so với mọi khóa kể cả cùng khóa.
+  - **Giờ mặc định "Theo ngày" = `00:00 → 00:00`** (như 126/198 dòng GV, 118/119 dòng xe hiện có), KHÔNG 23:59; ô "Chỉnh giờ" bước **30 phút** (tròn giờ hoặc :30).
+  - **Ngày bắt đầu thực hành của khóa: để trống, nhân viên tự nhập** — không gợi ý, không tự tính.
+  - **Môn Thực hành lái xe** nổi bật (1 bấm = chọn môn + điền ngày); GV lý thuyết không có mặc định độ dài.
+  - **Thao tác hàng loạt:** thêm/gỡ GV, phân công cùng môn+thời gian cho N GV, dời ngày kết thúc thực hành; xem trước từng GV, GV lỗi bị bỏ qua không chặn cả lô. **Ghép xe không tự ghi hàng loạt** — chỉ "Gợi ý" duyệt từng dòng.
+  - Loại GV: **LT** = Lý thuyết · **TH** = Thực hành · **AL** = Lý thuyết + Thực hành (nhãn trong phần mềm CDB).
+- **Vì sao:**
+  - **Schema không ràng buộc gì:** không UNIQUE, CHECK hay trigger; chỉ SP `usp_CheckWarningLichLVGiaoVien`/`…LichLSDXeTap`/`…GiaoVien`/`…XeTap` (UI CDB gọi) kiểm → tool phải tự áp luật, nếu không ghi thẳng sẽ lọt GV trùng giờ.
+  - **Công thức datetime nửa mở** suy ra từ SP và khớp dữ liệu thật: GV `75032004` có 09/08→20/08 rồi 20/08→22/08; GV `75032060` có 04/09 11:30 rồi 13:30 — đang lưu bình thường.
+  - **`00:00→00:00` thay vì 23:59:** 23:59 sẽ chặn oan ca nối tiếp cùng ngày biên đã có trong dữ liệu.
+  - **Ngày bắt đầu thực hành để trống:** dữ liệu 14 khóa cho thấy khoảng khai giảng→bắt đầu thực hành lệch theo hạng và theo khóa (B01 17, C1 20, B 20–22 ngày, có khóa lệch 1–2 ngày) → không có quy tắc cố định; ghi sai sẽ lan xuống mọi GV thực hành và ngày ghép xe.
+  - **Lưu môn kiểu danh sách mã** (`TenMonHoc="1,8"`, `MaMonHoc` NULL): định dạng phần mềm CDB hiện hành ghi từ 29/07/2026 (144 dòng/10 khóa; trước đó 54 dòng/5 khóa ghi mã+tên).
+  - **Không dùng SP xóa lan:** `usp_KhoaHoc_GiaoVien_Delete`/`usp_KhoaHoc_XeTap_Delete` xóa mọi dòng (khóa,GV|xe) gồm cả lịch; `usp_VoHieuLuc*` xóa danh sách ở **mọi khóa kể cả đã bế giảng** → xóa theo `MaLichLV`/`MaLichSD` từng dòng.
+  - **Luật chạy ở server, một nguồn:** UI gọi `POST /kiem-tra`; `POST /ghi` kiểm lại lần cuối (không tin client, hai người cùng sửa).
+- **Phương án đã cân nhắc:**
+  - *Giờ mặc định:* (A) 00:00→00:00 như CDB ← chọn · (B) 00:00→23:59 trực quan nhưng lệch CDB, chặn oan ca nối tiếp.
+  - *Trùng thời gian:* (A) có xét giờ như CDB ← chọn · (B) chặn cùng ngày (chặn oan ca sáng/chiều) · (C) theo loại GV (phức tạp, lệch CDB).
+  - *Ngày bắt đầu thực hành:* (A) gợi ý + xác nhận · (B) tự tính · (C) **để trống tự nhập ← chọn** (user).
+- **Đánh đổi:** tool ghi luật nghiêm hơn CDB ở một chỗ — trùng với **chính khóa đang sửa** bị chặn (CDB cũng chặn qua SP so mọi khóa nhưng UI cũ hay bị bỏ qua) → dữ liệu cũ có thể có cặp chồng cùng khóa; hiện 0 trường hợp. Ngày kết thúc `00:00` nghĩa là ngày đó chưa bị chiếm (như CDB) — nhãn "Theo ngày" nhắc điều này.
+- **Còn mở (xác minh ở /reviewtdd hoặc khi code):** gói DKKH/BC1 có chứa GV/xe không (đang ⚠); lọc môn theo hạng từ `DM_HangDT_MonHoc` (cấu hình giờ 3 hạng B/B.01/C1 hiện NULL); đối chiếu `CacHangGPLXDuocDT` với hạng khóa; mã `LoaiGV` AL có hạn chế môn không.
+- **Phạm vi:** chỉ tool máy CSDT; router mới `phancong.py`; không đụng app web/VPS/Nạp/Sync/KQĐT.
+- **Nguồn:** user 10/10/2026 (nhiều lượt trao đổi + mock `ui-mock/phancong.html`); PRD PCG-01..05; TDD §11E; CHANGES #54; probe DB live 10/10/2026 (`GPLX_CDB_CSDT`); `docs/DB-GPLX_CDB_CSDT.md` (bổ sung §8).

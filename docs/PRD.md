@@ -916,6 +916,102 @@
 
 ---
 
+### 🟣 Phân công giáo viên – xe cho khóa (workspace riêng — tool máy CSDT)
+
+**Trạng thái:** ⏳ Todo — nhóm mới (CHANGES #54, 10/10/2026, prefix **PCG**). Phân hệ #4 của tool: gán **giáo viên** và **xe tập lái** vào khóa, ghi **ai dạy môn gì, từ lúc nào đến lúc nào**, **xe nào đi với giáo viên nào** vào CSDL đích CDB `GPLX_CDB_CSDT` (bảng `KhoaHoc_GiaoVien`, `KhoaHoc_XeTap`), thay cho việc nhập từng dòng trong phần mềm CDB cũ.
+
+> Nghiệp vụ **ghi CDB đích** như SYNC/TCB/KQD. **Phạm vi:** danh sách GV/xe của khóa + phân công dạy + ghép xe 1 GV–1 xe. **KHÔNG làm:** lịch học theo tuần (`LichHoc` — chỉ 1/16 khóa dùng), phân xe cho từng học viên (`MaHV` luôn trống), thêm/sửa/xóa GV hoặc xe trong danh mục (do Sở tiếp nhận), kết xuất XML. Mock đã duyệt: `ui-mock/phancong.html` (ngăn "Mô tả nghiệp vụ" trong mock là bản mô tả chi tiết). Thiết kế: TDD §11E · quyết định: TDD-decisions §22 · schema/SP đã rà soát 10/10/2026 (trao đổi CHANGES #54).
+>
+> **Mô hình dữ liệu CDB (một bảng hai tầng, phân biệt bằng cờ):** `KhoaHoc_GiaoVien.IsKhoaHocGiaoVien=1` = GV thuộc khóa; `=0` = dòng phân công (`NgayBD/NgayKT` datetime, `TenMonHoc`). `KhoaHoc_XeTap.IsKhoaHocXeTap=1` = xe thuộc khóa; `=0` = ghép xe (`MaGV` + `BienSoXe` + `NgayBD/NgayKT` + `DiaDiem`).
+> **Luật thời gian (đúng công thức CDB, verify 10/10/2026):** `datetime`, trùng = hai khoảng **giao nhau có xét giờ**, **nửa mở** (kết thúc đúng lúc bắt đầu kế tiếp **không** trùng; cùng ngày khác giờ **không** trùng); so với **mọi khóa kể cả cùng khóa**; bắt đầu < kết thúc; bắt đầu > 00:00 ngày khai giảng; kết thúc < hết ngày bế giảng. **CDB không tự cưỡng chế** (schema không ràng buộc; chỉ SP `usp_CheckWarning*` do UI CDB gọi) → tool tự kiểm trước khi ghi. Không chỉnh giờ = ghi `00:00 → 00:00` ("Theo ngày") như dữ liệu CDB đang có.
+
+#### [PCG-01] Chọn giáo viên của khóa (bước ①, kèm thao tác hàng loạt)
+
+**Trạng thái:** ⏳ Todo
+**Story:** Là nhân viên cơ sở, tôi muốn chọn nhanh các giáo viên sẽ dạy một khóa từ danh mục giáo viên đang hoạt động, để khóa có danh sách GV đúng mà không nhập từng dòng.
+
+**Done khi:**
+- ⬜ Chọn **khóa** bằng combobox (chỉ khóa của CSĐT hiện tại) + hiện hạng, ngày khai giảng → bế giảng, trạng thái DKKH; băng cam "ghi CSDL đích" dùng chung với KQĐT/Sync.
+- ⬜ Danh sách trái = GV **đang hoạt động** chưa thuộc khóa (tìm tên/mã, lọc loại **TH** Thực hành · **LT** Lý thuyết · **AL** Lý thuyết + Thực hành); danh sách phải = GV của khóa. Mỗi GV có huy hiệu: loại, "Đã ngừng", "Chỉ dạy hạng X" khi lệch hạng khóa, "Đang ở khóa Y đến dd/mm" khi khóa kia chưa bế giảng.
+- ⬜ **Thêm từng GV**: GV có cảnh báo (lệch hạng/đang dạy khóa khác) → hộp nêu lý do, vẫn thêm được; GV đã ngừng → không thêm được.
+- ⬜ **Hàng loạt:** tích nhiều GV → "Thêm N GV" (hộp xem trước từng GV: hợp lệ / cảnh báo / không thêm được + lý do); nút "Chọn GV TH hợp hạng" (đang hoạt động, đúng hạng, không chạy khóa khác); "Gỡ N GV".
+- ⬜ **Gỡ GV khỏi khóa** → hộp xác nhận liệt kê **đúng các phân công + ghép xe sẽ bị xóa theo** (chỉ trong khóa này).
+- ❌ Không thêm/sửa/xóa giáo viên trong danh mục; không đổi `TrangThai` GV.
+
+**Edge cases:** GV đã có phân công trong khóa nhưng chưa thuộc danh sách (dữ liệu cũ) → hiện đỏ "Ngoài danh sách khóa" kèm nút "Thêm GV vào khóa" · danh sách GV rỗng → báo "chưa đồng bộ danh mục GV" · khóa đã gửi DKKH → băng cảnh báo (vẫn sửa được).
+
+> Nguồn: user 10/10/2026 (mock `phancong.html` bước ①) · luật badge dựa `usp_CheckWarningGiaoVien` · TDD §11E.3
+
+#### [PCG-02] Phân công dạy: môn + thời gian (bước ②, kèm hàng loạt)
+
+**Trạng thái:** ⏳ Todo
+**Story:** Là nhân viên cơ sở, tôi muốn ghi mỗi giáo viên dạy môn nào từ lúc nào đến lúc nào, để khóa có lịch phân công đúng và không bị trùng với khóa khác.
+
+**Done khi:**
+- ⬜ Ô **"Ngày bắt đầu thực hành của khóa"** đầu bước ②: **để trống, nhân viên tự nhập, không gợi ý/không tự tính** (bắt buộc trước khi dùng nút Thực hành); nhãn ghi rõ "không phải thời gian dạy lý thuyết"; khóa đã có phân công TH trong CDB thì hiện ngày thật; đổi ngày → hỏi có cập nhật cho N phân công TH chưa chỉnh riêng.
+- ⬜ Khung nhập phân công: ô lớn nổi bật **★ Thực hành lái xe** (1 bấm = chọn môn + điền từ ngày bắt đầu thực hành → đến ngày bế giảng, sửa được) + 8 môn khác (chọn 1 hoặc nhiều; khi code lọc theo hạng khóa từ `DM_HangDT_MonHoc` nếu có cấu hình). Chip phân công môn Thực hành tô màu riêng để nhìn nhanh.
+- ⬜ **Từ ngày / Đến ngày** là bộ chọn lịch, giới hạn trong khóa; **ô tích "Chỉnh giờ"** (mặc định tắt = ghi `00:00 → 00:00`, nhãn "Theo ngày"); bật → chọn **giờ bắt đầu/kết thúc bước 30 phút** (tròn giờ hoặc :30, danh sách chọn, không gõ tự do) + nút tắt "Sáng 07:30–11:30", "Chiều 13:30–17:30", "Cả ngày 07:30–17:30"; nhiều ngày + có giờ → ghi chú "tính liên tục, chiếm cả đêm". Dòng cũ có giờ lẻ (vd 11:34) giữ nguyên nếu không đụng, sửa giờ thì chọn lại theo bước 30 phút.
+- ⬜ Điền nhanh cho GV lý thuyết: "nối tiếp sau phân công trước", "+1 tuần" (không có giá trị mặc định cho độ dài).
+- ⬜ **Kiểm tra ngay trong khung nhập** (ô "Kiểm tra ngay" đặt sát nút Lưu, chữ lớn): nêu lỗi chặn/cảnh báo theo luật PCG-04; chặn → không lưu được.
+- ⬜ **Hàng loạt:** tích nhiều GV → "Phân công cho N GV" (cùng môn + cùng khoảng thời gian; xem trước từng GV, **GV có lỗi chặn bị bỏ qua kèm lý do, không chặn cả lô**) · "Dời ngày kết thúc thực hành cho N GV" (khi bế giảng dời; xem trước từng GV) · nút "Áp Thực hành lái xe cho N GV TH chưa có".
+- ⬜ Sửa/xóa từng phân công; xóa phân công Thực hành **cuối cùng** của GV → báo sẽ xóa theo ghép xe của GV đó.
+- ⬜ Ghi `TenMonHoc` = danh sách **mã môn** ngăn dấu phẩy (vd `"1,8"`), `MaMonHoc` = NULL (định dạng phần mềm CDB từ 29/07/2026).
+- ❌ Không gợi ý/tự tính ngày bắt đầu thực hành; không tạo lịch tuần `LichHoc`; không batch phân công lý thuyết khác môn/khác ngày giữa các GV.
+
+**Edge cases:** phân công kết thúc đúng lúc phân công kế bắt đầu (cùng ngày biên) → hợp lệ (nối tiếp) · sáng và chiều cùng ngày → hợp lệ · lịch "cả giai đoạn" 00:00 của GV chiếm mọi giờ → thêm lịch có giờ nằm trong khoảng đó cho cùng GV bị chặn · "1 ngày" ở chế độ Theo ngày (từ = đến) → chặn "bắt đầu phải trước kết thúc, hãy chỉnh giờ" · GV loại AL dạy được cả hai nhóm môn (không chặn theo loại).
+
+> Nguồn: user 10/10/2026 (mock + các quyết định: môn Thực hành nổi bật, ngày bắt đầu thực hành để trống, giờ bước 30 phút, batch) · luật datetime verify DB 10/10/2026 · TDD §11E.4
+
+#### [PCG-03] Chọn xe vào khóa và ghép xe cho giáo viên thực hành (bước ③)
+
+**Trạng thái:** ⏳ Todo
+**Story:** Là nhân viên cơ sở, tôi muốn chọn xe tập lái dùng cho khóa và ghép mỗi giáo viên thực hành với một xe theo khoảng ngày, để khóa có xe–GV rõ ràng và không dùng nhầm xe hết hạn hoặc đang chạy khóa khác.
+
+**Done khi:**
+- ⬜ "**Xe của khóa**" hiển thị gọn (dải chip: biển số · trạng thái · gỡ); "Thêm xe" mở danh sách xe đang hoạt động (hạng xe, hạn giấy phép, xe đang ở khóa khác); xe đã ngừng không thêm được; xe hết hạn vẫn thêm được vào danh sách nhưng **bị chặn khi ghép**.
+- ⬜ **Ghép xe:** mỗi GV có phân công "Thực hành lái xe" chọn **1 xe** từ danh sách xe của khóa, kèm từ ngày–đến ngày (mặc định theo phân công thực hành, ghi `00:00`, "Theo ngày") và địa điểm điền sẵn *"tại trung tâm Thành Đạt và trên đường"*; mỗi xe chỉ 1 GV, mỗi GV chỉ 1 xe trong cùng khoảng thời gian.
+- ⬜ **"Gợi ý ghép xe":** đề xuất xe còn trống, đã thuộc khóa, giấy phép còn hạn, ưu tiên đúng hạng cho các GV chưa có xe; **xem trước, sửa xe từng dòng, tích dòng muốn dùng rồi "Áp"** — không tự ghi.
+- ⬜ Đổi xe của GV → hỏi xác nhận; gỡ xe khỏi khóa → liệt kê ghép xe sẽ bị xóa theo; "Bỏ ghép".
+- ❌ Không ghép xe hàng loạt tự động; không gán xe cho học viên; không sửa danh mục xe.
+
+**Edge cases:** xe lệch hạng khóa (vd xe B số sàn vào khóa B01) → cảnh báo, không chặn · xe đang chạy khóa khác chưa bế giảng → cảnh báo; trùng thời gian → chặn · GV thực hành chưa có xe → cảnh báo (không chặn ghi) · xe thuộc khóa nhưng chưa ghép → thông tin.
+
+> Nguồn: user 10/10/2026 (mock bước ③) · luật theo `usp_CheckWarningLichLSDXeTap`/`usp_CheckWarningXeTap` · TDD §11E.5
+
+#### [PCG-04] Kiểm tra 3 mức, bản nháp và ghi vào CDB
+
+**Trạng thái:** 🔄 In Progress — đang build task 85→87 (backend luật + đọc + ghi) rồi 90 (UI bản nháp/ghi), từ 10/10/2026
+**Story:** Là nhân viên cơ sở, tôi muốn mọi thay đổi nằm trong bản nháp, được kiểm chặt theo luật và chỉ ghi vào CDB sau khi tôi xem lại, để không ghi nhầm vào dữ liệu thật.
+
+**Done khi:**
+- ⬜ **Kiểm tra 3 mức, chạy lại mỗi thay đổi:** ⛔ **Chặn** (không lưu/ghi được): ngoài phạm vi khóa · bắt đầu ≥ kết thúc · chưa chọn môn · GV chưa trong khóa · GV/xe đã ngừng · GV/xe trùng thời gian (khóa khác **hoặc cùng khóa**) · xe chưa thuộc khóa · xe hết hạn giấy phép trước bế giảng · 1 xe 2 GV / 1 GV 2 xe · ghép xe cho GV không dạy thực hành. ⚠ **Cảnh báo** (ghi được sau xác nhận): GV/xe đang chạy khóa khác chưa bế giảng · lệch hạng (GV, xe) · thực hành chưa tới bế giảng · GV chưa phân công · GV thực hành chưa có xe · khóa đã gửi DKKH. ℹ **Thông tin**: xe chưa ghép.
+- ⬜ **Hiển thị lỗi rõ:** thông báo ngay dưới ô/dòng sai (chữ lớn, dải màu bên trái), băng tóm tắt đầu mỗi bước ("N lỗi chặn — Tới lỗi đầu tiên"), cột "Kiểm tra khóa" bấm một lỗi → cuộn + nháy đúng dòng.
+- ⬜ **Bản nháp:** thanh dưới đếm thay đổi (thêm/sửa/xóa) + "Hủy thay đổi" (xác nhận); không ghi gì vào CDB trước khi bấm "Ghi vào CDB".
+- ⬜ **"Ghi vào CDB":** bị khóa khi còn lỗi chặn; hộp xem lại tóm tắt thêm/sửa/xóa (kèm SP sẽ gọi) + **tích "đây là CSDL thật"** + (nếu có) **tích "đã xem N cảnh báo"**; server **kiểm lại toàn bộ luật** trên trạng thái CDB hiện tại trước khi ghi (không tin client).
+- ⬜ Ghi từng dòng bằng SP có sẵn (TDD §11E.6); `GhiChu=''`, `NguoiTao/NguoiSua` = người đăng nhập tool; lỗi giữa chừng → báo dòng đã ghi / chưa ghi để làm tiếp; ghi xong → làm tươi dữ liệu + nhắc kết xuất lại nếu khóa đã gửi DKKH.
+- ⬜ Nhật ký thao tác phía tool (ai · lúc nào · khóa · thay đổi gì) để truy vết (CDB `NguoiTao` hiện trống).
+- ❌ Không dùng `usp_KhoaHoc_GiaoVien_Delete`, `usp_KhoaHoc_XeTap_Delete`, `usp_VoHieuLuc*` (xóa lan nhiều dòng/nhiều khóa) — xóa theo `MaLichLV`/`MaLichSD` từng dòng.
+
+**Edge cases:** hai nhân viên cùng sửa một khóa → server kiểm lại lúc ghi, báo dòng nào đã đổi · xe/GV bị ngừng giữa lúc đang soạn → lỗi chặn khi ghi · mất kết nối giữa chừng → danh sách dòng đã ghi.
+
+> Nguồn: user 10/10/2026 · schema không cưỡng chế luật (verify) · TDD §11E.6, decisions §22
+
+#### [PCG-05] Rà soát khóa (tab thứ 2)
+
+**Trạng thái:** ⏳ Todo
+**Story:** Là nhân viên cơ sở, tôi muốn thấy khóa nào đang làm dở hoặc lệch giữa danh sách và phân công, để xử lý đúng khóa cần.
+
+**Done khi:**
+- ⬜ Bảng mọi khóa của CSĐT: GV trong danh sách · GV chưa phân công · phân công ngoài danh sách · xe trong danh sách · xe chưa ghép · ghép xe ngoài danh sách · kết luận Ổn / Cần xử lý.
+- ⬜ Bấm một dòng → mở khóa đó ở màn Phân công theo khóa.
+- ❌ Chỉ đọc; không sửa hàng loạt nhiều khóa.
+
+**Edge cases:** khóa chưa có GV nào → "Cần xử lý" · khóa cũ chỉ có lịch xe không có danh sách xe (dữ liệu trước khi dùng danh sách) → hiện ở cột "Ghép xe ngoài danh sách".
+
+> Nguồn: user 10/10/2026 · số liệu mẫu từ rà soát DB 10/10/2026 · TDD §11E.7
+
+---
+
 ### 🟣 Đóng gói & khởi chạy tool độc lập (chỉ tool máy CSDT)
 
 **Trạng thái:** ⏳ Todo — nhóm mới (CHANGES #38, 05/10/2026). Mục tiêu: mang tool sang máy CSDT khác **không cần cài Python/Node**, mở như một phần mềm bình thường, lần sau dùng không phải thiết lập lại.
@@ -1125,3 +1221,4 @@
 | 07/10/2026 | v4.0 — **+story mới `THU-06` "Chụp ảnh thẻ → tự đọc chữ (OCR)"** (CHANGES #49): lối nhập thứ 3 khi QR không quét được, **mọi thiết bị** (iPhone/iOS engine QR web yếu hơn Android — BUG-14); OCR điền sẵn 6 trường → nhân viên xác nhận/sửa trước khi lưu. Lật quyết định "không OCR" của THU-01 (dòng ❌ nay trỏ THU-06; THU-01 giữ ⚠️, hành vi QR không đổi). Engine OCR + nơi chạy để `/tdd`. Số story 43→44. | PM |
 | 07/10/2026 | v4.1 — **THU-06 OCR chỉ đọc 5 trường mặt trước — bỏ ngày cấp** (CHANGES #50, phát hiện khi build task 79): ngày cấp in ở MẶT SAU thẻ → OCR mặt trước không đọc được; Steps bước 3 + Done-khi sửa 6→5 trường (CCCD/họ tên/ngày sinh/giới tính/nơi TT), +dòng "ngày cấp nhân viên nhập tay". User chốt A. Số story giữ 44, THU-06 giữ 🔄. | PM |
 | 10/10/2026 | v4.2 — **KQD-05 mở rộng: "Sửa sau khi đã gửi Sở" chọn từng HV** (CHANGES #53): thay khóa cứng M1 bằng lối sửa có xác nhận khi cơ sở hết gói chưa gửi — ô tích HV `12` trên lưới KQD-02 + hộp xác nhận (cảnh báo, lý do bắt buộc ≤1.000 ký tự, tích cam kết kết xuất lại) + chip cam "Sửa sau gửi — chưa kết xuất lại" + khối đỏ "chờ kết xuất lại" ở KQD-03; chỉ lùi HV được chọn, không xóa gói đã gửi, `13` từ chối. Lối "Mở khóa" cũ (còn gói chưa gửi) giữ nguyên. **KQD-05 hạ ⚠️ Partial → ⏳ Todo** (yêu cầu đổi). KQD-02/03/04 chỉ thêm ghi chú, giữ trạng thái. Số story giữ 44. Không làm kết xuất XML (file ký số). | PM |
+| 10/10/2026 | v4.3 — **+Feature "Phân công giáo viên – xe" (prefix mới `PCG`, 5 story `PCG-01..05`)** (CHANGES #54): phân hệ #4 của tool máy CSDT ghi `KhoaHoc_GiaoVien`/`KhoaHoc_XeTap` ở CDB đích — ① chọn GV của khóa (+hàng loạt) · ② phân công môn + từ→đến (môn Thực hành nổi bật, ngày bắt đầu thực hành tự nhập, giờ bước 30 phút, "Theo ngày"=00:00) · ③ chọn xe + ghép 1 GV–1 xe + "Gợi ý ghép xe" · kiểm 3 mức theo luật datetime nửa mở của CDB, bản nháp + "Ghi vào CDB" có xác nhận · tab "Rà soát khóa". Không làm lịch tuần `LichHoc`, phân xe theo HV, sửa danh mục GV/xe. **Số story 44→49.** | PM |

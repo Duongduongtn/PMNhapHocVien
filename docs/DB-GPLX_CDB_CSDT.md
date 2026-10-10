@@ -110,3 +110,18 @@ Mốc tính "đã kết xuất" = **có BẤT KỲ gói nào** (bất kể `Tran
 
 ---
 *Ghi bởi phân tích 04/10/2026 phục vụ SYNC-01/02/03 + module Cập nhật kết quả đào tạo. §7 thêm 05/10/2026 (định nghĩa DKKH đúng). Cập nhật lại nếu schema CDB đổi.*
+
+## 8. Phân GV / xe / lịch cho khóa (rà soát 10/10/2026 — phục vụ PCG-01..05)
+
+**Bảng:** `GiaoVien` (87) · `XeTap` (89, 7 đã tắt) · `KhoaHoc_GiaoVien` (373) · `KhoaHoc_XeTap` (214) · `LichHoc` (13, chỉ 1 khóa) · `DM_MonHoc` (9) · `DM_HangDT_MonHoc` (320; cấu hình giờ của B/B.01/C1 đang NULL). `KySH` rỗng.
+
+**Một bảng hai tầng, phân biệt bằng cờ:** `KhoaHoc_GiaoVien.IsKhoaHocGiaoVien` `1`=GV thuộc khóa (175 dòng, không ngày) · `0`=phân công (198 dòng: `NgayBD/NgayKT` datetime, `TenMonHoc`). `KhoaHoc_XeTap.IsKhoaHocXeTap` `1`=xe thuộc khóa (95 dòng, `MaGV` NULL) · `0`=ghép xe (119 dòng: `MaGV` + `BienSoXe` + `NgayBD/NgayKT` + `DiaDiem`). Không FK/UNIQUE giữa hai tầng; không CHECK, không trigger. `GhiChu` **NOT NULL** ở cả hai bảng. `KhoaHoc_GiaoVien.BienSoXe` và `SoHV` không bao giờ được điền; `KhoaHoc_XeTap.MaHV` trống 100%.
+
+**Luật thời gian nằm ở SP, không ở schema:** `usp_CheckWarningLichLVGiaoVien` / `usp_CheckWarningLichLSDXeTap` (UI CDB gọi trước khi ghi): `bd < kt`; `bd > NgayKG(00:00)`; `kt < NgayBG + 23:59:59`; trùng = `NOT (kt <= bd_cũ OR bd >= kt_cũ)` trên datetime so với **mọi khóa kể cả cùng khóa** (dòng cờ=0, `TrangThai=1`, bỏ dòng đang sửa). `usp_CheckWarningGiaoVien/XeTap` chỉ cảnh báo GV/xe đang ở khóa chưa bế giảng. **SP Insert/Update không tự gọi các SP kiểm.**
+- Dữ liệu thật: lịch GV 126/198 dòng `00:00→00:00` ("cả giai đoạn", 122 dòng kết thúc đúng 00:00 ngày bế giảng), 72 dòng có giờ (07:30–11:30, 13:30–17:30, 07:30–17:30; vài dòng phút lẻ do gõ tay); lịch xe 118/119 dòng `00:00`.
+- Định dạng môn: trước 07/2026 `MaMonHoc`+tên (54 dòng); từ 29/07/2026 `MaMonHoc`=NULL, `TenMonHoc`=danh sách mã `"1,8"` (144 dòng).
+- Loại GV (`LoaiHinh_DaoTao`, nhãn trong phần mềm CDB): `LT` Lý thuyết (1) · `TH` Thực hành (81) · `AL` Lý thuyết + Thực hành (5).
+
+**SP an toàn để ghi:** `usp_KhoaHoc_GiaoVien_Insert` (cờ=1) · `usp_LichLV_KhoaHoc_GiaoVien_Insert/_Update` (cờ=0, tự lấy `TenGV`/`LoaiGV` từ `GiaoVien`, ghi `BienSoXe=''`) · `usp_KhoaHoc_XeTap_Insert` (cờ=1) · `LichSD_KhoaHoc_XeTap_Insert` / `usp_LichSD_KhoaHoc_XeTap_Update` (cờ=0) · xóa theo `MaLichLV`/`MaLichSD`: `usp_LLV_KhoaHoc_GiaoVien_Delete`, `usp_LSD_KhoaHoc_Xetap_Delete`.
+**SP KHÔNG dùng (xóa lan):** `usp_KhoaHoc_GiaoVien_Delete`, `usp_KhoaHoc_XeTap_Delete` (xóa mọi dòng của (khóa, GV|xe) gồm lịch) · `usp_VoHieuLucKhoaHocGiaoVien/XeTap` (+`_TrongKhoaHoc`) (xóa danh sách ở **mọi khóa kể cả đã bế giảng**) · `usp_KhoaHoc_GiaoVien_Update` (đè mọi dòng của (khóa, GV), đè `NguoiTao/NgayTao`).
+
