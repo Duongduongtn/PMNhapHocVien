@@ -141,6 +141,21 @@ def kiem_phan_cong(p: dict, ctx: dict) -> list[dict]:
 
 
 # ── Kiểm một ghép xe (cờ=0 của xe) ──
+# Hạng được đào tạo (`GiaoVien.CacHangGPLXDuocDT`) hợp để dạy THỰC HÀNH khóa B / C1. Theo dữ liệu thật
+# 10/10/2026: khóa C1 ← GV "B" 22 · "C" 9 · "C1" 3; khóa B ← B, C1, C, D, D2; user chốt: GV có chứng chỉ
+# thực hành B (B2) dạy được khóa C1. Hạng khóa khác (chưa có dữ liệu): phải ∈ hạng được dạy.
+_HANG_DT_DAY_B_C1 = {"B", "C1", "C", "D1", "D2", "D", "E"}
+
+
+def gv_hop_hang(hang_duoc_day: list[str] | None, hang_nhom: str | None) -> bool:
+    """GV (theo hạng được đào tạo) có hợp để dạy thực hành khóa hạng `hang_nhom` không. Chỉ cảnh báo."""
+    if not hang_duoc_day or not hang_nhom:
+        return True
+    if hang_nhom in ("B", "C1"):
+        return bool(set(hang_duoc_day) & _HANG_DT_DAY_B_C1)
+    return hang_nhom in hang_duoc_day
+
+
 def co_phan_cong_thuc_hanh(ma_gv: str, pc: list[dict]) -> bool:
     return any(p["ma"] == ma_gv and MON_THUC_HANH in (p.get("mon") or []) for p in pc)
 
@@ -235,7 +250,8 @@ def kiem_tra_khoa(
             continue
         ten = g.get("ten") or ma
         day_duoc = g.get("hang_duoc_day") or []
-        if day_duoc and khoa.get("hang_nhom") and khoa["hang_nhom"] not in day_duoc:
+        # Chỉ xét hạng khi GV dạy THỰC HÀNH trong khóa; GV chỉ dạy lý thuyết không cần cảnh báo hạng.
+        if co_phan_cong_thuc_hanh(ma, pc) and not gv_hop_hang(day_duoc, khoa.get("hang_nhom")):
             out.append(_vd(CANH_BAO, "gv_lech_hang", 1, f"gv-{ma}", ten,
                            f"Giáo viên chỉ được dạy hạng {', '.join(day_duoc)} — khóa này là hạng {khoa['hang_nhom']}."))
     # Cảnh báo theo xe (một lần/xe/khóa)

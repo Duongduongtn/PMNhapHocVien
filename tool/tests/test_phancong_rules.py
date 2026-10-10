@@ -142,9 +142,23 @@ def test_gv_ngoai_khoa_ngung_khong_ton_tai():
 def test_gv_chua_phan_cong_va_lech_hang_la_canh_bao():
     v = chay([], gv_khoa=("75032101",))
     assert "gv_chua_phan_cong" in ma_loi(v, r.CANH_BAO)
-    p = P(1, "75032103", [4], "2026-10-06T00:00", "2026-10-08T00:00")
-    v2 = chay([p], gv_khoa=("75032103",), gvs=[gv("75032103", hang=("B",))])
+    khoa_c = dict(KHOA, hang_nhom="C")                    # hạng chưa có bảng hợp hạng → phải ∈ hạng được dạy
+    th = P(1, "75032103", [6], "2026-10-06T00:00", "2026-10-08T00:00")
+    v2 = chay([th], gv_khoa=("75032103",), gvs=[gv("75032103", hang=("B",))], khoa=khoa_c)
     assert "gv_lech_hang" in ma_loi(v2, r.CANH_BAO) and r.CHAN not in {x["muc"] for x in v2}
+
+
+def test_hang_chi_canh_bao_khi_day_thuc_hanh_va_b_day_duoc_khoa_c1():
+    lt = P(1, "75032103", [4], "2026-10-06T00:00", "2026-10-08T00:00")        # chỉ dạy lý thuyết
+    khoa_c = dict(KHOA, hang_nhom="C")
+    assert "gv_lech_hang" not in {x["ma"] for x in chay([lt], gv_khoa=("75032103",), gvs=[gv("75032103", hang=("B",))], khoa=khoa_c)}
+    th = P(2, "75032103", [6], "2026-10-06T00:00", "2026-10-08T00:00")
+    # khóa C1: GV có chứng chỉ thực hành B (B2) dạy được; GV C/D cũng được
+    for h in ("B", "C1", "C", "D"):
+        v = chay([th], gv_khoa=("75032103",), gvs=[gv("75032103", hang=(h,))])
+        assert "gv_lech_hang" not in {x["ma"] for x in v}, h
+    assert r.gv_hop_hang(["B"], "C1") and r.gv_hop_hang(["B"], "B") and r.gv_hop_hang([], "C1") and r.gv_hop_hang(["C"], "")
+    assert not r.gv_hop_hang(["B"], "C") and r.gv_hop_hang(["C"], "C")
 
 
 def test_thuc_hanh_chua_toi_be_giang_canh_bao():
@@ -223,8 +237,8 @@ def test_khong_con_canh_bao_dang_o_khoa_khac_du_khoa_kia_chua_be_giang():
 
 
 def test_lech_hang_gv_mot_lan_va_xe_b11_chap_nhan_xe_b1():
-    pc = [P(i, "75032103", [4], f"2026-10-0{i + 1}T00:00", f"2026-10-0{i + 2}T00:00") for i in range(1, 4)]
-    v = chay(pc, gv_khoa=("75032103",), gvs=[gv("75032103", hang=("B",))])
+    pc = [P(i, "75032103", [6], f"2026-10-0{i + 1}T00:00", f"2026-10-0{i + 2}T00:00") for i in range(1, 4)]
+    v = chay(pc, gv_khoa=("75032103",), gvs=[gv("75032103", hang=("B",))], khoa=dict(KHOA, hang_nhom="C"))
     assert ma_loi(v, r.CANH_BAO).count("gv_lech_hang") == 1
     khoa = dict(KHOA, hang_xe="B11", hang_nhom="B")
     ok = chay([_th()], [_gh("75032101", "60K-1")], xe_khoa=("60K-1",), khoa=khoa)           # xe B1 vào khóa B11

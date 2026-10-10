@@ -25,8 +25,10 @@ function khoaDangDay(g: GiaoVienPC): { khoa: string; bg: string }[] {
   return [...m].map(([khoa, bg]) => ({ khoa, bg }));
 }
 
-function lechHang(g: GiaoVienPC, khoa: KhoaPC): boolean {
-  return g.hang_duoc_day.length > 0 && !!khoa.hang_nhom && !g.hang_duoc_day.includes(khoa.hang_nhom);
+// Lệch hạng chỉ có nghĩa khi GV dạy THỰC HÀNH (loại TH/AL); GV lý thuyết không cần cảnh báo hạng.
+// Server quyết hợp hạng (`hop_hang`, bảng B/C1 theo dữ liệu thật) — UI không tự tính.
+function lechHang(g: GiaoVienPC, _khoa: KhoaPC): boolean {
+  return g.hop_hang === false && (g.loai === "TH" || g.loai === "AL");
 }
 
 function canhBao(g: GiaoVienPC, khoa: KhoaPC): string[] {

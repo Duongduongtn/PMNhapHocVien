@@ -188,6 +188,7 @@ def test_danh_muc_gv_xe_kem_ban(auth_headers, monkeypatch):
     g = client.get("/local/phancong/giao-vien?ma_kh=75032K260010", headers=auth_headers).json()["giao_vien"]
     assert g[0]["ma"] == "75032101" and g[0]["ten"] == "Trần Văn An" and g[0]["loai"] == "TH"
     assert g[0]["hang_duoc_day"] == ["B", "C1"] and g[0]["ban"][0]["khoa"] == "B-K148"
+    assert g[0]["hop_hang"] is True                      # khóa C1, GV được đào tạo B/C1 → hợp
     x = client.get("/local/phancong/xe?ma_kh=75032K260010", headers=auth_headers).json()["xe"]
     assert x[0]["bs"] == "93C-1" and x[0]["gp_het"] == "2027-06-30" and x[0]["ban"] == []
 

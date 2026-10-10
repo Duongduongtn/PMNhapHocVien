@@ -13,6 +13,7 @@ from fastapi import Depends
 
 from app import phancong_nhat_ky as nhat_ky
 from app import phancong_rasoat as rasoat
+from app import phancong_rules as rules
 from app import phancong_service as svc
 from app.db import ConfigChuaDay, sqlserver_conn_dich
 from app.routers.sync import _db_dich, _loi_db
@@ -102,10 +103,14 @@ def ds_giao_vien(ma_kh: str = Query(..., min_length=1), target_key: str | None =
     try:
         with sqlserver_conn_dich(db) as conn:
             ma = _csdt(conn)
+            kh = svc.doc_khoa(conn, ma, ma_kh)
+            hang_nhom = kh["hang_nhom"] if kh else ""
             ds = svc.ds_giao_vien(conn, ma)
             ban_gv, _ = svc.ban_khac(conn, ma_kh, [g["ma"] for g in ds], [])
             for g in ds:
                 g["ban"] = ban_gv.get(g["ma"], [])
+                # Hợp hạng để dạy THỰC HÀNH khóa này (server là nguồn duy nhất; chỉ để hiện huy hiệu/cảnh báo)
+                g["hop_hang"] = rules.gv_hop_hang(g.get("hang_duoc_day"), hang_nhom)
             return {"giao_vien": ds}
     except HTTPException:
         raise

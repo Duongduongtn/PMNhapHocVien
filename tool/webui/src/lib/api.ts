@@ -1207,6 +1207,8 @@ export interface GiaoVienPC {
   active: boolean;
   hang_gplx: string;
   hang_duoc_day: string[];
+  /** Server: hạng được đào tạo có hợp để dạy THỰC HÀNH khóa này không (chỉ để cảnh báo). */
+  hop_hang?: boolean;
   ban: BanKhacPC[];
 }
 export interface XePC {
