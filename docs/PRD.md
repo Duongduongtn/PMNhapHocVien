@@ -980,7 +980,7 @@
 
 #### [PCG-04] Kiểm tra 3 mức, bản nháp và ghi vào CDB
 
-**Trạng thái:** 🔄 In Progress — backend (task 85-87) + thanh bản nháp/hộp ghi (task 90) xong 10/10/2026; còn: băng tóm tắt đầu bước, bấm lỗi → cuộn + nháy, lỗi ngay dưới ô ở bước ②/③ (task 91-95); "hai người cùng sửa" chờ chốt
+**Trạng thái:** 🔄 In Progress — backend (task 85-87) + thanh bản nháp/hộp ghi (task 90) xong 10/10/2026; còn: băng tóm tắt đầu bước, bấm lỗi → cuộn + nháy, lỗi ngay dưới ô ở bước ②/③ (task 91-95)
 **Story:** Là nhân viên cơ sở, tôi muốn mọi thay đổi nằm trong bản nháp, được kiểm chặt theo luật và chỉ ghi vào CDB sau khi tôi xem lại, để không ghi nhầm vào dữ liệu thật.
 
 **Done khi:**
@@ -992,7 +992,7 @@
 - ⬜ Nhật ký thao tác phía tool (ai · lúc nào · khóa · thay đổi gì) để truy vết (CDB `NguoiTao` hiện trống).
 - ❌ Không dùng `usp_KhoaHoc_GiaoVien_Delete`, `usp_KhoaHoc_XeTap_Delete`, `usp_VoHieuLuc*` (xóa lan nhiều dòng/nhiều khóa) — xóa theo `MaLichLV`/`MaLichSD` từng dòng.
 
-**Edge cases:** hai nhân viên cùng sửa một khóa → server kiểm lại lúc ghi, báo dòng nào đã đổi · xe/GV bị ngừng giữa lúc đang soạn → lỗi chặn khi ghi · mất kết nối giữa chừng → danh sách dòng đã ghi.
+**Edge cases:** hai nhân viên cùng sửa một khóa → **không áp dụng** (user chốt 10/10/2026: tại một thời điểm chỉ có một người thao tác tool) · xe/GV bị ngừng giữa lúc đang soạn → lỗi chặn khi ghi · mất kết nối giữa chừng → danh sách dòng đã ghi.
 
 > Nguồn: user 10/10/2026 · schema không cưỡng chế luật (verify) · TDD §11E.6, decisions §22
 
