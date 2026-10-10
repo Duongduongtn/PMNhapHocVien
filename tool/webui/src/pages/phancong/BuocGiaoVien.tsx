@@ -38,7 +38,7 @@ function canhBao(g: GiaoVienPC, khoa: KhoaPC): string[] {
 
 const ddmm = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}`;
 
-function HuyHieu({ g, khoa }: { g: GiaoVienPC; khoa: KhoaPC }) {
+export function HuyHieu({ g, khoa }: { g: GiaoVienPC; khoa: KhoaPC }) {
   const dang = khoaDangDay(g);
   return (
     <>

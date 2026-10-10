@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import BuocGiaoVien from "./BuocGiaoVien";
+import BuocPhanCong from "./BuocPhanCong";
 import GhiBanNhap from "./GhiBanNhap";
 import { Icon } from "../../components/Icon";
 import { useConfigDrawer } from "../../lib/configDrawer";
@@ -60,6 +61,7 @@ export default function PhanCongTheoKhoa() {
   const [maKh, setMaKh] = useState<string | null>(null);
   const [hien, setHien] = useState<HienTrangPC | null>(null);
   const [ban, setBan] = useState<BanNhapPC | null>(null);
+  const [thStart, setThStart] = useState(""); // ngày bắt đầu thực hành của khóa — tự nhập, không gợi ý
   const [goc, setGoc] = useState<BanNhapPC | null>(null); // đúng như CDB lúc tải/ghi gần nhất
   const [danhMuc, setDanhMuc] = useState<GiaoVienPC[]>([]);
   const [mon, setMon] = useState<MonPC[]>([]);
@@ -101,6 +103,7 @@ export default function PhanCongTheoKhoa() {
     setHien(null);
     setBan(null);
     setGoc(null);
+    setThStart("");
     setKt(null);
     setBuoc(1);
     setLoiTai(null);
@@ -116,6 +119,9 @@ export default function PhanCongTheoKhoa() {
       setHien(h);
       setBan(banTuHienTrang(h));
       setGoc(banTuHienTrang(h));
+      // Khóa đã có phân công Thực hành trong CDB → hiện ngày thật (sớm nhất); chưa có thì để trống.
+      const dauTh = h.pc.filter((x) => x.mon.includes(6)).map((x) => x.tu.slice(0, 10)).sort()[0];
+      setThStart(dauTh ?? "");
     } catch (e) {
       setLoiTai((e as Error).message);
     } finally {
@@ -276,6 +282,18 @@ export default function PhanCongTheoKhoa() {
                 ban={ban}
                 setBan={(f) => setBan((b) => (b ? f(b) : b))}
                 vande={kt?.vande ?? []}
+              />
+            ) : buoc === 2 && targetKey ? (
+              <BuocPhanCong
+                khoa={khoa}
+                danhMuc={danhMuc}
+                mon={mon}
+                ban={ban}
+                setBan={(f) => setBan((b) => (b ? f(b) : b))}
+                vande={kt?.vande ?? []}
+                targetKey={targetKey}
+                thStart={thStart}
+                setThStart={setThStart}
               />
             ) : (
               <div className="rounded-lg border border-border bg-card p-5">
