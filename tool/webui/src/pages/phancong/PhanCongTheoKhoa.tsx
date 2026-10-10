@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import BuocGiaoVien from "./BuocGiaoVien";
 import BuocPhanCong from "./BuocPhanCong";
+import BuocXe from "./BuocXe";
 import GhiBanNhap from "./GhiBanNhap";
 import { Icon } from "../../components/Icon";
 import { useConfigDrawer } from "../../lib/configDrawer";
@@ -11,10 +12,12 @@ import {
   hienTrangPC,
   dsGiaoVienPC,
   dsMonPC,
+  dsXePC,
   kiemTraPC,
   type BanNhapPC,
   type GiaoVienPC,
   type MonPC,
+  type XePC,
   type GhiPCKetQua,
   type HienTrangPC,
   type KhoaPC,
@@ -65,6 +68,7 @@ export default function PhanCongTheoKhoa() {
   const [goc, setGoc] = useState<BanNhapPC | null>(null); // đúng như CDB lúc tải/ghi gần nhất
   const [danhMuc, setDanhMuc] = useState<GiaoVienPC[]>([]);
   const [mon, setMon] = useState<MonPC[]>([]);
+  const [xeDm, setXeDm] = useState<XePC[]>([]);
   const [loiTai, setLoiTai] = useState<string | null>(null);
   const [dangTai, setDangTai] = useState(false);
 
@@ -109,11 +113,13 @@ export default function PhanCongTheoKhoa() {
     setLoiTai(null);
     setDangTai(true);
     try {
-      const [h, gv, mh] = await Promise.all([
+      const [h, gv, mh, xe] = await Promise.all([
         hienTrangPC(k.ma_kh, targetKey),
         dsGiaoVienPC(k.ma_kh, targetKey),
         dsMonPC(targetKey),
+        dsXePC(k.ma_kh, targetKey),
       ]);
+      setXeDm(xe.xe);
       setDanhMuc(gv.giao_vien);
       setMon(mh);
       setHien(h);
@@ -294,6 +300,15 @@ export default function PhanCongTheoKhoa() {
                 targetKey={targetKey}
                 thStart={thStart}
                 setThStart={setThStart}
+              />
+            ) : buoc === 3 ? (
+              <BuocXe
+                khoa={khoa}
+                danhMuc={danhMuc}
+                xeDm={xeDm}
+                ban={ban}
+                setBan={(f) => setBan((b) => (b ? f(b) : b))}
+                vande={kt?.vande ?? []}
               />
             ) : (
               <div className="rounded-lg border border-border bg-card p-5">
