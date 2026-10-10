@@ -169,6 +169,25 @@ export default function PhanCongTheoKhoa() {
 
   const khoa = hien?.khoa ?? null;
 
+  // Bấm một lỗi → sang đúng bước, cuộn tới dòng sai và nháy khung (ref: pc-<id> | gv-<ma> | gh-<ma> | xe-<bs>).
+  function toiLoi(v: VanDePC) {
+    if (v.buoc >= 1 && v.buoc <= 3) setBuoc(v.buoc as 1 | 2 | 3);
+    if (!v.ref) return;
+    setTimeout(() => {
+      const el = document.getElementById(v.ref);
+      if (!el) return;
+      el.scrollIntoView({ block: "center", behavior: "smooth" });
+      const cu = el.style.outline;
+      el.style.outline = "3px solid hsl(330 62% 44%)";
+      el.style.outlineOffset = "2px";
+      setTimeout(() => { el.style.outline = cu; }, 1600);
+    }, 80);
+  }
+  const loiBuoc = (kt?.vande ?? []).filter((v) => v.buoc === buoc);
+  const nChanBuoc = loiBuoc.filter((v) => v.muc === "chan").length;
+  const nCanhBaoBuoc = loiBuoc.filter((v) => v.muc === "canh_bao").length;
+  const dauTien = loiBuoc.find((v) => v.muc === "chan") ?? loiBuoc.find((v) => v.muc === "canh_bao");
+
   function sauKhiGhi(r: GhiPCKetQua) {
     // Làm tươi bản nháp + mốc theo CDB sau khi ghi (cả khi lỗi giữa chừng — tránh ghi trùng dòng đã ghi).
     if (r.hien_trang) {
@@ -298,6 +317,31 @@ export default function PhanCongTheoKhoa() {
               <b>Bước {buoc}.</b> {BUOC[buoc - 1].huongDan}
             </div>
 
+            {dauTien && (
+              <div
+                role="status"
+                className={
+                  "mb-3 rounded-lg border-2 px-3.5 py-2.5 flex items-center gap-3 " +
+                  (nChanBuoc ? "border-destructive bg-destructive/5" : "border-warning bg-warning/10")
+                }
+              >
+                <span className={"text-[14px] font-bold " + (nChanBuoc ? "text-destructive" : "text-warning")}>
+                  {nChanBuoc
+                    ? `${nChanBuoc} lỗi chặn ở bước này — phải sửa mới ghi được`
+                    : `${nCanhBaoBuoc} cảnh báo ở bước này — cần xem trước khi ghi`}
+                </span>
+                <button
+                  onClick={() => toiLoi(dauTien)}
+                  className={
+                    "ml-auto h-9 px-3 rounded-lg border bg-white text-[13px] font-semibold " +
+                    (nChanBuoc ? "border-destructive text-destructive" : "border-warning text-warning")
+                  }
+                >
+                  Tới lỗi đầu tiên →
+                </button>
+              </div>
+            )}
+
             {buoc === 1 ? (
               <BuocGiaoVien
                 khoa={khoa}
@@ -368,7 +412,7 @@ export default function PhanCongTheoKhoa() {
                       <li key={`${v.ma}-${v.ref}-${i}`}>
                         <button
                           type="button"
-                          onClick={() => setBuoc(v.buoc as 1 | 2 | 3)}
+                          onClick={() => toiLoi(v)}
                           className={`w-full text-left rounded-md border-l-4 px-3 py-2 text-[13px] leading-snug ${MUC[m].lop}`}
                         >
                           <span className="text-foreground">{v.noi_dung}</span>
