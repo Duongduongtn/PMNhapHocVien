@@ -32,6 +32,13 @@ const ACCENT = {
     ring: "focus-visible:ring-kq",
     chip: "text-kq bg-kq-soft",
   },
+  pc: {
+    activeItem: "bg-pc-soft text-pc",
+    rail: "bg-pc",
+    subActive: "bg-pc-soft text-pc",
+    ring: "focus-visible:ring-pc",
+    chip: "text-pc bg-pc-soft",
+  },
 } as const;
 
 export default function ToolLayout() {

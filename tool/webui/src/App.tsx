@@ -10,6 +10,8 @@ import TraCuuCDB from "./pages/sync/TraCuuCDB";
 import LichSu from "./pages/sync/LichSu";
 import CapNhatKQDT from "./pages/ketqua/CapNhatKQDT";
 import TheoDoiKetXuat from "./pages/ketqua/TheoDoiKetXuat";
+import PhanCongTheoKhoa from "./pages/phancong/PhanCongTheoKhoa";
+import RaSoatKhoa from "./pages/phancong/RaSoatKhoa";
 import { ToolAuthProvider, useToolAuth } from "./auth/ToolAuth";
 import type { ReactNode } from "react";
 
@@ -44,6 +46,10 @@ export default function App() {
           {/* Phân hệ Kết quả đào tạo (KQD) — module #3 */}
           <Route path="ket-qua/cap-nhat" element={<CoBaoVe><CapNhatKQDT /></CoBaoVe>} />
           <Route path="ket-qua/ket-xuat" element={<CoBaoVe><TheoDoiKetXuat /></CoBaoVe>} />
+
+          <Route path="phan-cong" element={<Navigate to="/phan-cong/theo-khoa" replace />} />
+          <Route path="phan-cong/theo-khoa" element={<CoBaoVe><PhanCongTheoKhoa /></CoBaoVe>} />
+          <Route path="phan-cong/ra-soat" element={<CoBaoVe><RaSoatKhoa /></CoBaoVe>} />
         </Route>
       </Routes>
     </ToolAuthProvider>

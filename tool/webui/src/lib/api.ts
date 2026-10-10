@@ -1151,3 +1151,130 @@ export const dsSuaSauGui = (targetKey?: string) =>
   fetch(`${BASE}/local/ketqua/sua-sau-gui?${qs({ target_key: targetKey })}`, { headers: authHeaders() }).then(
     json<SuaSauGuiMuc[]>,
   );
+
+// ── Phân công GV – xe (PCG) — /local/phancong/* ──
+export interface KhoaPC {
+  ma_kh: string;
+  ten_kh: string;
+  hang_gplx: string;
+  hang_dt: string;
+  hang_nhom: string;
+  hang_xe: string;
+  kg: string; // yyyy-mm-dd
+  bg: string;
+  so_hv: number;
+  da_dkkh: boolean;
+}
+export interface MonPC {
+  id: number;
+  ten: string;
+}
+export interface PcDong {
+  id: number | string | null;
+  ma: string;
+  mon: number[];
+  tu: string; // yyyy-mm-ddTHH:mm
+  den: string;
+}
+export interface GhepDong {
+  id: number | string | null;
+  ma: string;
+  xe: string;
+  tu: string;
+  den: string;
+  dia_diem: string;
+}
+export interface BanNhapPC {
+  gv_khoa: string[];
+  pc: PcDong[];
+  xe_khoa: string[];
+  ghep: GhepDong[];
+}
+export interface HienTrangPC {
+  khoa: KhoaPC;
+  gv_khoa: { id: number; ma: string }[];
+  pc: PcDong[];
+  xe_khoa: { id: number; bs: string }[];
+  ghep: GhepDong[];
+}
+export interface BanKhacPC {
+  [k: string]: unknown;
+}
+export interface GiaoVienPC {
+  ma: string;
+  ten: string;
+  loai: string; // LT | TH | AL
+  active: boolean;
+  hang_gplx: string;
+  hang_duoc_day: string[];
+  ban: BanKhacPC[];
+}
+export interface XePC {
+  bs: string;
+  hang: string;
+  active: boolean;
+  gp_het: string;
+  ban: BanKhacPC[];
+}
+export type MucVanDe = "chan" | "canh_bao" | "thong_tin";
+export interface VanDePC {
+  muc: MucVanDe;
+  ma: string;
+  buoc: number;
+  ref: string; // pc-<id> | gh-<ma> | gv-<ma> | xe-<bs>
+  ai: string;
+  noi_dung: string;
+}
+export interface KiemTraPC {
+  vande: VanDePC[];
+  tom_tat: Record<string, number>;
+  co_chan: boolean;
+}
+export interface GhiPCKetQua {
+  ok: boolean;
+  da_ghi: { loai: string; mo_ta: string }[];
+  chua_ghi: { loai: string; mo_ta: string }[];
+  loi: string | null;
+  thong_bao?: string;
+  hien_trang?: Omit<HienTrangPC, "khoa">;
+}
+
+export const dsKhoaPC = (q: string, targetKey?: string) =>
+  fetch(`${BASE}/local/phancong/khoa?${qs({ q, target_key: targetKey })}`, { headers: authHeaders() }).then(json<KhoaPC[]>);
+export const dsMonPC = (targetKey?: string) =>
+  fetch(`${BASE}/local/phancong/mon?${qs({ target_key: targetKey })}`, { headers: authHeaders() }).then(json<MonPC[]>);
+export const hienTrangPC = (maKh: string, targetKey?: string) =>
+  fetch(`${BASE}/local/phancong/khoa/${encodeURIComponent(maKh)}?${qs({ target_key: targetKey })}`, {
+    headers: authHeaders(),
+  }).then(json<HienTrangPC>);
+export const dsGiaoVienPC = (maKh: string, targetKey?: string) =>
+  fetch(`${BASE}/local/phancong/giao-vien?${qs({ ma_kh: maKh, target_key: targetKey })}`, {
+    headers: authHeaders(),
+  }).then(json<{ giao_vien: GiaoVienPC[] }>);
+export const dsXePC = (maKh: string, targetKey?: string) =>
+  fetch(`${BASE}/local/phancong/xe?${qs({ ma_kh: maKh, target_key: targetKey })}`, {
+    headers: authHeaders(),
+  }).then(json<{ xe: XePC[] }>);
+export const kiemTraPC = (maKh: string, ban: BanNhapPC, targetKey?: string) =>
+  fetch(`${BASE}/local/phancong/kiem-tra?${qs({ target_key: targetKey })}`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ ma_kh: maKh, ...ban }),
+  }).then(json<KiemTraPC>);
+export const ghiPC = async (
+  maKh: string,
+  ban: BanNhapPC,
+  xacNhan: { da_xem_canh_bao: boolean; xac_nhan_csdl_that: boolean },
+  targetKey?: string,
+): Promise<GhiPCKetQua> => {
+  const r = await fetch(`${BASE}/local/phancong/ghi?${qs({ target_key: targetKey })}`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ ma_kh: maKh, ...ban, ...xacNhan }),
+  });
+  if (r.status === 400 || r.status === 409) {
+    const d = (await r.json().catch(() => null))?.detail;
+    throw new Error(typeof d === "string" ? d : d?.thong_bao ?? "Không ghi được (trạng thái đã đổi).");
+  }
+  return json<GhiPCKetQua>(r);
+};

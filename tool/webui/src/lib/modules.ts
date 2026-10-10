@@ -2,7 +2,7 @@
 // (không sửa khung ToolLayout). Mỗi phân hệ có sub-nav riêng, màu nhấn, và
 // CSDL mà nó ghi vào (banner nhắc để tránh thao tác nhầm giữa các phân hệ).
 
-export type Accent = "primary" | "sync" | "kq";
+export type Accent = "primary" | "sync" | "kq" | "pc";
 
 export interface SubNav {
   to: string;
@@ -60,6 +60,18 @@ export const MODULES: ModuleDef[] = [
     subnav: [
       { to: "/ket-qua/cap-nhat", label: "Cập nhật KQĐT", icon: "check" },
       { to: "/ket-qua/ket-xuat", label: "Theo dõi kết xuất", icon: "clock" },
+    ],
+  },
+  {
+    id: "phancong",
+    label: "Phân công GV – xe",
+    icon: "calendar",
+    accent: "pc",
+    base: "/phan-cong",
+    db: "GPLX_CDB_CSDT",
+    subnav: [
+      { to: "/phan-cong/theo-khoa", label: "Phân công theo khóa", icon: "calendar" },
+      { to: "/phan-cong/ra-soat", label: "Rà soát khóa", icon: "search" },
     ],
   },
 ];
