@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Icon } from "../../components/Icon";
 import { boDau, ymdToVN } from "../../lib/format";
-import type { BanNhapPC, GiaoVienPC, KhoaPC, MonPC } from "../../lib/api";
+import type { BanNhapPC, GiaoVienPC, KhoaPC, MonPC, VanDePC } from "../../lib/api";
 
 // PCG-01 — Bước ① chọn giáo viên của khóa (kèm thao tác hàng loạt). Bám ui-mock/phancong.html.
 // Chỉ sửa BẢN NHÁP ở trình duyệt; ghi CDB làm ở task 90. Luật cảnh báo mirror phancong_rules.py
@@ -86,13 +86,14 @@ function Hop({ tieuDe, children, chan, dong, rong = "max-w-[620px]" }: { tieuDe:
 type HopDangMo = { loai: "them1"; ma: string } | { loai: "themN" } | { loai: "go"; ds: string[] } | null;
 
 export default function BuocGiaoVien({
-  khoa, danhMuc, mon, ban, setBan,
+  khoa, danhMuc, mon, ban, setBan, vande,
 }: {
   khoa: KhoaPC;
   danhMuc: GiaoVienPC[];
   mon: MonPC[];
   ban: BanNhapPC;
   setBan: (f: (b: BanNhapPC) => BanNhapPC) => void;
+  vande: VanDePC[];
 }) {
   const [q, setQ] = useState("");
   const [loai, setLoai] = useState("");
@@ -269,7 +270,7 @@ export default function BuocGiaoVien({
               const np = tomPc(g.ma).length;
               const coXe = ban.ghep.some((m) => m.ma === g.ma);
               return (
-                <li key={g.ma} className={"px-3 py-1.5 flex items-center gap-2.5 " + (chonKhoa.includes(g.ma) ? "bg-destructive/5" : "hover:bg-muted/50")}>
+                <li id={`gv-${g.ma}`} key={g.ma} className={"px-3 py-1.5 flex items-center gap-2.5 flex-wrap " + (chonKhoa.includes(g.ma) ? "bg-destructive/5" : "hover:bg-muted/50")}>
                   <input
                     type="checkbox"
                     aria-label={`Chọn ${g.ten}`}
@@ -289,6 +290,19 @@ export default function BuocGiaoVien({
                   <button onClick={() => setHop({ loai: "go", ds: [g.ma] })} className="shrink-0 h-7 px-2 rounded-md border border-border text-[12px] hover:bg-muted">
                     Gỡ
                   </button>
+                  {vande
+                    .filter((v) => v.ref === `gv-${g.ma}` && v.buoc === 1 && v.muc !== "thong_tin")
+                    .map((v, i) => (
+                      <div
+                        key={i}
+                        className={
+                          "basis-full ml-6 rounded-md border-l-4 px-2.5 py-1.5 text-[13px] " +
+                          (v.muc === "chan" ? "border-destructive bg-destructive/5" : "border-warning bg-warning/10")
+                        }
+                      >
+                        {v.noi_dung}
+                      </div>
+                    ))}
                 </li>
               );
             })}

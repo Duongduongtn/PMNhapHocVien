@@ -253,6 +253,9 @@ def kiem_tra_khoa(
         x = xe_master.get(bs)
         if x is None:
             continue
+        if not x.get("active", True):
+            out.append(_vd(CHAN, "xe_ngung_trong_khoa", 3, f"xe-{bs}", bs,
+                           "Xe đã ngừng hoạt động nhưng còn trong danh sách xe của khóa."))
         hang_xe = khoa.get("hang_xe")
         if hang_xe and x.get("hang") and x["hang"] not in XE_HOP_HANG.get(hang_xe, {hang_xe}):
             out.append(_vd(CANH_BAO, "xe_lech_hang", 3, f"xe-{bs}", bs,

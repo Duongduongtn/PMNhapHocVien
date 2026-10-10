@@ -218,3 +218,9 @@ def test_lech_hang_gv_mot_lan_va_xe_b11_chap_nhan_xe_b1():
     assert "xe_lech_hang" not in ma_loi(ok, r.CANH_BAO)
     sai = chay([_th()], [_gh("75032101", "93C-1")], xe_khoa=("93C-1",), khoa=khoa)          # xe C1 vào khóa B11
     assert "xe_lech_hang" in ma_loi(sai, r.CANH_BAO)
+
+
+def test_xe_ngung_trong_danh_sach_xe_khoa_bi_chan_du_chua_ghep():
+    v = chay(xe_khoa=("93C-9",), xes=[xe("93C-9", active=False)])
+    assert "xe_ngung_trong_khoa" in ma_loi(v)
+    assert "xe_ngung_trong_khoa" not in ma_loi(chay(xe_khoa=("93C-1",)))

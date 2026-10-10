@@ -980,7 +980,7 @@
 
 #### [PCG-04] Kiểm tra 3 mức, bản nháp và ghi vào CDB
 
-**Trạng thái:** 🔄 In Progress — đang build task 85→87 (backend luật + đọc + ghi) rồi 90 (UI bản nháp/ghi), từ 10/10/2026
+**Trạng thái:** 🔄 In Progress — backend (task 85-87) + thanh bản nháp/hộp ghi (task 90) xong 10/10/2026; còn: băng tóm tắt đầu bước, bấm lỗi → cuộn + nháy, lỗi ngay dưới ô ở bước ②/③ (task 91-95); "hai người cùng sửa" chờ chốt
 **Story:** Là nhân viên cơ sở, tôi muốn mọi thay đổi nằm trong bản nháp, được kiểm chặt theo luật và chỉ ghi vào CDB sau khi tôi xem lại, để không ghi nhầm vào dữ liệu thật.
 
 **Done khi:**

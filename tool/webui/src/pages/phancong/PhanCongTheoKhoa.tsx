@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import BuocGiaoVien from "./BuocGiaoVien";
+import GhiBanNhap from "./GhiBanNhap";
 import { Icon } from "../../components/Icon";
 import { useConfigDrawer } from "../../lib/configDrawer";
 import { ymdToVN } from "../../lib/format";
@@ -13,6 +14,7 @@ import {
   type BanNhapPC,
   type GiaoVienPC,
   type MonPC,
+  type GhiPCKetQua,
   type HienTrangPC,
   type KhoaPC,
   type KiemTraPC,
@@ -36,7 +38,7 @@ const MUC: Record<MucVanDe, { nhan: string; lop: string }> = {
   thong_tin: { nhan: "Thông tin", lop: "border-l-primary bg-primary/5" },
 };
 
-function banTuHienTrang(h: HienTrangPC): BanNhapPC {
+function banTuHienTrang(h: Omit<HienTrangPC, "khoa">): BanNhapPC {
   return {
     gv_khoa: h.gv_khoa.map((g) => g.ma),
     pc: h.pc.map((p) => ({ ...p })),
@@ -58,6 +60,7 @@ export default function PhanCongTheoKhoa() {
   const [maKh, setMaKh] = useState<string | null>(null);
   const [hien, setHien] = useState<HienTrangPC | null>(null);
   const [ban, setBan] = useState<BanNhapPC | null>(null);
+  const [goc, setGoc] = useState<BanNhapPC | null>(null); // đúng như CDB lúc tải/ghi gần nhất
   const [danhMuc, setDanhMuc] = useState<GiaoVienPC[]>([]);
   const [mon, setMon] = useState<MonPC[]>([]);
   const [loiTai, setLoiTai] = useState<string | null>(null);
@@ -97,6 +100,7 @@ export default function PhanCongTheoKhoa() {
     setMaKh(k.ma_kh);
     setHien(null);
     setBan(null);
+    setGoc(null);
     setKt(null);
     setBuoc(1);
     setLoiTai(null);
@@ -111,6 +115,7 @@ export default function PhanCongTheoKhoa() {
       setMon(mh);
       setHien(h);
       setBan(banTuHienTrang(h));
+      setGoc(banTuHienTrang(h));
     } catch (e) {
       setLoiTai((e as Error).message);
     } finally {
@@ -133,6 +138,14 @@ export default function PhanCongTheoKhoa() {
   }, [ban, maKh, targetKey]);
 
   const khoa = hien?.khoa ?? null;
+
+  function sauKhiGhi(r: GhiPCKetQua) {
+    // Làm tươi bản nháp + mốc theo CDB sau khi ghi (cả khi lỗi giữa chừng — tránh ghi trùng dòng đã ghi).
+    if (r.hien_trang) {
+      setBan(banTuHienTrang(r.hien_trang));
+      setGoc(banTuHienTrang(r.hien_trang));
+    }
+  }
   const nhom = useMemo(() => {
     const r: Record<MucVanDe, VanDePC[]> = { chan: [], canh_bao: [], thong_tin: [] };
     for (const v of kt?.vande ?? []) (r[v.muc] ?? r.thong_tin).push(v);
@@ -262,6 +275,7 @@ export default function PhanCongTheoKhoa() {
                 mon={mon}
                 ban={ban}
                 setBan={(f) => setBan((b) => (b ? f(b) : b))}
+                vande={kt?.vande ?? []}
               />
             ) : (
               <div className="rounded-lg border border-border bg-card p-5">
@@ -316,6 +330,20 @@ export default function PhanCongTheoKhoa() {
             )}
           </aside>
         </div>
+      )}
+
+      {khoa && ban && goc && targetKey && (
+        <GhiBanNhap
+          khoa={khoa}
+          goc={goc}
+          ban={ban}
+          canhBao={nhom.canh_bao}
+          coChan={!kt || kt.co_chan}
+          dangKiem={ktBusy}
+          targetKey={targetKey}
+          onHuy={() => { setBan({ ...goc, pc: goc.pc.map((p) => ({ ...p })), ghep: goc.ghep.map((g) => ({ ...g })) }); }}
+          onDaGhi={sauKhiGhi}
+        />
       )}
     </div>
   );
