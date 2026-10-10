@@ -944,7 +944,7 @@
 
 #### [PCG-02] Phân công dạy: môn + thời gian (bước ②, kèm hàng loạt)
 
-**Trạng thái:** ⏳ Todo
+**Trạng thái:** 🔄 In Progress — task 91 (phân công từng GV) xong 10/10/2026; còn hàng loạt (task 92)
 **Story:** Là nhân viên cơ sở, tôi muốn ghi mỗi giáo viên dạy môn nào từ lúc nào đến lúc nào, để khóa có lịch phân công đúng và không bị trùng với khóa khác.
 
 **Done khi:**
