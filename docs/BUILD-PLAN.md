@@ -2,7 +2,7 @@
 
 > File do `/kehoach` sinh. `/tieptheo` đọc file này để biết làm gì tiếp theo.
 > **Thứ tự code** nằm ở đây. **Yêu cầu và trạng thái story** nằm ở `docs/PRD.md`.
-> Cập nhật lần cuối: 08/10/2026 (v20 — Phase 8 NAP-01 #51 "Bỏ khỏi hàng đợi" dòng chờ/lỗi + tombstone, task 81-82. Trước đó v19 — THU-06 chỉ OCR 5 trường (CHANGES #50); v18 — Phase 7 THU-06 task 79-80)
+> Cập nhật lần cuối: 10/10/2026 (v21 — KQD-05 mở rộng "Sửa sau gửi" #53, task 83-84. Trước đó v20 — Phase 8 NAP-01 #51 "Bỏ khỏi hàng đợi" dòng chờ/lỗi + tombstone, task 81-82. Trước đó v19 — THU-06 chỉ OCR 5 trường (CHANGES #50); v18 — Phase 7 THU-06 task 79-80)
 
 ## Quyết định về thứ tự
 
@@ -276,10 +276,13 @@
 | 76 | **KQD-05 (1/2) backend**: `POST /local/ketqua/mo-khoa` — cổng B-1 (`EXISTS TRANS_CLI_HangDoiGui WHERE KieuDuLieu='KET_QUA_DAO_TAO' AND NoiGui=@MaCSDT AND TrangThai='0'`, lọc `NoiGui` không parse tên file) → còn gói chưa gửi thì xóa từng gói qua `usp_TRANS_CLI_HangDoiGui_Delete` + **lùi MỌI HV `12` của CƠ SỞ (mọi khóa)** 1 `UPDATE` tham số hóa `WHERE MaCSDT=@MaCSDT AND TT_XuLy='12' AND KetLuanCSDT IS NOT NULL` (CASE 1→'09'/0→'10', `NgaySua=GETDATE()`; HV 12 kết luận NULL → bỏ qua + cảnh báo) + ghi `GiaiTrinh` nếu UI gửi; hết gói chưa gửi → **409** kèm danh sách gói đã gửi (M1). Ngoại lệ DUY NHẤT gỡ chặn `12`; `13` tuyệt đối không. +`GET /mo-khoa` cổng B-1 cho UI. `routers/ketqua.py` | `KQD-05 (1/2)` | M | 71 | 1 | [x] |
 | 77 | **KQD-05 (2/2) UI**: nút "Mở khóa để sửa" ở **CẢ 2 tab** (dòng 🔒 HV `12` ở KQD-02 + tab KQD-03) + modal 2 ca bám mock `ui-mock/theodoiketxuat.html` — ca mở được (xóa gói + báo "toàn bộ HV của cơ sở N người · M khóa") / ca khóa cứng M1 (liệt kê gói đã gửi + "không xác định HV nằm gói nào") + ô lý do → `GiaiTrinh`. Chạy `impeccable`+`ui-ux-pro-max` | `KQD-05 (2/2)` | M | 76,73,74 | 1 | [x] |
 | 78 | **KQD-06** sửa lẻ / xóa điểm đã lưu (HV chưa kết xuất 09/10): **sửa lẻ** — `ket_qua_hon_hop` ghi lại 1/vài môn, các môn không sửa **GIỮ điểm quy đổi đã lưu** (truyền lại quy đổi /10, KHÔNG tính ngược ra gốc để tránh lệch làm tròn); Lưu không bắt đủ 5 ô + **xóa điểm** `POST /local/ketqua/xoa-diem` đưa HV về `TT_XuLy='03'` + NULL 5 `DiemKQ*` + 3 cờ (`KQLyThuyet`/`KQThucHanh`/`KetLuanCSDT`) + `SoGiayCNTN` bằng **UPDATE trực tiếp tham số hóa** (SP `_CapNhat` chỉ đặt 09/10, không lùi 03 — verify 07/10); chỉ 09/10 (**409** nếu 12/13/14/90). UI `CapNhatKQDT.tsx`: Lưu nhận sửa lẻ + nút "Xóa điểm" có xác nhận. +4 unit test (340 pytest). `routers/ketqua.py` + `ketqua_quydoi.py` | `KQD-06` | M | 72,73 | 1 | [x] |
+| 83 | **KQD-05 mở rộng (1/2) backend "sửa sau gửi"** (CHANGES #53): `POST /local/ketqua/mo-sua-sau-gui` (body `ma_dk[]` ≤200 + `ly_do` ≤1000) — còn gói chưa gửi → **409** `con_goi_chua_gui`; ghi nhật ký sqlite `sua_sau_gui` (điểm trước · lý do · người · giờ) **TRƯỚC**; rồi UPDATE tham số hóa từng `MaDK` lùi `12`→09/10 theo `KetLuanCSDT`, guard `TT_XuLy='12' AND KetLuanCSDT IS NOT NULL`, `13`→409, ghi `GiaiTrinh`, **không xóa gói**; `GET /local/ketqua/sua-sau-gui` (nhật ký ∩ HV chưa về `12`, tự đánh đã-kết-xuất-lại). Tái dùng `_SQL_GOI_KQDT` (task 76) + mẫu `xoa_diem` (SELECT trước, không tin `rowcount`); +unit test guard/409/nhật-ký-trước. `routers/ketqua.py` + module sqlite nhật ký | `KQD-05 (+1/2)` | M | 76,78 | 1+2 | [x] |
+| 84 | **KQD-05 mở rộng (2/2) UI "sửa sau gửi"**: lưới KQD-02 — ô tích HV `12` + chip xám "Đã gửi Sở" + thanh "Mở sửa điểm" + hộp xác nhận (danh sách HV+điểm, cảnh báo, lý do bắt buộc, tích "sẽ kết xuất lại ngay") + chip cam "Sửa sau gửi — chưa kết xuất lại" + băng cam đầu khóa; tab KQD-03 — khối đỏ "chờ kết xuất lại" (HV·khóa·người·lúc mở·lý do·điểm trước→sau); sửa `MoKhoaModal` ca "gói đã gửi hết" dẫn sang lối này thay khóa cứng M1. Chạy `impeccable`+`ui-ux-pro-max`. `CapNhatKQDT.tsx`, `TheoDoiKetXuat.tsx`, `MoKhoaModal.tsx`, `lib/api.ts` | `KQD-05 (+2/2)` | M | 83,77,73,74 | 1 | [x] |
 
 > KQD-02 cắt 2 task (72/73) cùng trỏ 1 story → PRD `KQD-02` chỉ ✅ khi xong cả 2. Tái dùng SP đã verify 07/10 trên `GPLX_CDB_CSDT` (biên bản `tdd-review-07-10-2026.md`): SP ghi 18 tham số, SP không bảo vệ `12`, cột `GiaiTrinh nvarchar(1000)` ghi ngoài SP.
 > KQD-05 cắt 2 task (76/77) cùng trỏ 1 story → PRD `KQD-05` chỉ ✅ khi xong cả 2. Thao tác **mức CƠ SỞ** (user chốt phương án A sau /reviewtdd 07/10 — DB không nối HV↔gói nên xóa gói buộc quét cả CSĐT; biên bản `tdd-review-07-10-2026-kqd05.md`, TDD §11D.7, decisions §19). Ghi/xóa thật ở CDB → **nghiệm thu máy CSDT**.
 > KQD-06 (task 78) **đã code trước khi ghi sổ** (user chốt phương án A gộp 1 story 07/10): sửa lẻ **giữ quy-đổi môn cũ** + xóa điểm reset `03` bằng **UPDATE trực tiếp** (SP không lùi 03 được) — chỉ áp HV `09/10`. TDD §11D.8, CHANGES #48. Ghi/xóa thật ở CDB → **nghiệm thu máy CSDT**.
+> KQD-05 mở rộng #53 (task 83/84): **"Sửa sau gửi" chọn từng HV** thay khóa cứng M1 khi cơ sở hết gói chưa gửi; PRD `KQD-05` chỉ ✅ khi xong **cả 4 task (76, 77, 83, 84)**. Không sinh/ký XML (file KQĐT ký số bằng khóa phần mềm CDB). TDD §11D.7b, decisions §21. Ghi thật → **nghiệm thu máy CSDT**.
 
 ### ✅ Checkpoint 16 — sau task 71-78 (module KQD)
 - [ ] Chọn 1 khóa đã BC1 → lưới HV đúng 4 trạng thái; khóa chưa BC1 không hiện trong gợi ý; khóa rỗng → lưới rỗng có thông báo.
@@ -293,6 +296,15 @@
 - [ ] **KQD-06 xóa điểm:** nút "Xóa điểm" dòng HV `09/10` → xác nhận → HV về `03` + sạch 5 điểm/3 cờ/`SoGiayCNTN`, rời lọc "Đã cập nhật"; HV `12/13/14/90` → **không có nút / 409** (không đụng).
 - [ ] Playwright desktop (1280/1440) workspace KQĐT + form sửa + **modal mở khóa 2 ca** — 0 tràn.
 - [ ] **Ghi thật/đối chiếu phần mềm CDB → nghiệm thu ở máy CSDT** (máy dev CDB toàn khóa đã BC1/DKKH; nhất quán cách TCB/QLY "⚠️ chờ verify máy CSDT").
+
+### ✅ Checkpoint 19 — sau task 83-84 (KQD-05 sửa sau gửi, CHANGES #53)
+- [ ] Còn gói chưa gửi → "Mở sửa điểm" **tắt**, chỉ dùng "Mở khóa" cũ (409 `con_goi_chua_gui` nếu gọi thẳng API).
+- [ ] Hết gói chưa gửi → tích 2 HV `12` → xác nhận (lý do + tích) → **chỉ 2 HV đó** về 09/10, **gói không bị xóa**, `GiaiTrinh` có lý do, nhật ký ghi điểm trước.
+- [ ] Sau mở: sửa 1 môn → Lưu (ô trống giữ quy đổi cũ); chip cam + băng cam hiện; khối đỏ KQD-03 đủ cột.
+- [ ] HV `13` → không có ô tích / 409; HV `12` `KetLuanCSDT` NULL → bỏ qua, không ép '10'; HV đã về `12` (kết xuất lại) → dòng biến khỏi khối đỏ.
+- [ ] **Mức 2** unit test: guard `12`/`KetLuanCSDT`, 409 còn gói chưa gửi, nhật ký ghi trước UPDATE.
+- [ ] Playwright 1280/1440 lưới + hộp xác nhận + khối đỏ — 0 tràn.
+- [ ] **Ghi thật → nghiệm thu máy CSDT** (HV `12` khóa B01-K40); hỏi hỗ trợ CDB/Sở việc nhận 2 bản KQĐT cùng HV.
 
 ## Phase 7 — Lối nhập OCR dự phòng (THU-06)
 
@@ -343,6 +355,7 @@
 - Task 1, 3, 12, 13 — dựng khung, chạm cấu trúc nền của cả app.
 - Task 5 — bảng phụ trên DB đích.
 - Task 9, 14, 15 — cơ chế lõi (SP import / auth / hàng đợi), nhiều task dựa vào.
+- Task 83 → 84 — tuần tự, cùng đụng `routers/ketqua.py` + `CapNhatKQDT.tsx`/`MoKhoaModal.tsx`.
 
 ## Chờ chốt (chưa lên lịch code)
 
@@ -365,6 +378,8 @@
 | Xã chia không map được | Trung bình | Fallback popup chọn tay `DM_DVHC` (task 7) |
 | rembg xóa phông xấu (tóc/viền) | Trung bình | Cho giữ ảnh gốc/chỉnh tay (task 8) |
 | Đồng hồ máy DB sai giờ | Trung bình | So giờ trước go-live (Checkpoint 5) |
+| HV đang mở "sửa sau gửi" mà Sở trả 13/14 → SP tiếp nhận chỉ nhận HV `12` nên HV kẹt (task 83/84) | Cao | Cảnh báo + tích cam kết + khối đỏ nhắc; kết xuất lại ngay bằng phần mềm CDB |
+| Sở nhận 2 bản KQĐT cho cùng HV (bản đã gửi + kết xuất lại) — chưa rõ Sở xử lý (task 83/84) | Trung bình | Hỏi hỗ trợ CDB/Sở trước khi dùng thật; nghiệm thu máy CSDT |
 | Sửa server VPS đang chạy prod (task 41/42/44) làm gãy luồng thu thập đang live | Cao | Deploy giờ thấp điểm + verify login/gửi/kéo ngay sau deploy (Checkpoint 8); đổi thêm endpoint, không đổi endpoint cũ |
 
 ## Nguồn đối chiếu
@@ -374,12 +389,13 @@
 - **Số story trong PRD khi cập nhật:** 44 (thêm `THU-06` từ CHANGES #49; `KQD-06` #48; `KQD-05` #45; trước đó `KQD-01/02/03/04` #42; `DGT-01/02/03/04` #38/#39; `TCB-01/02/03/04` #35; `HTG-07` #34; `SYNC-01/02/03` #33; chưa tính NICE `QLY-04`, `THU-03`)
 - **Mã story đã đưa vào kế hoạch:** `HTG-01`, `HTG-02`, `HTG-03`, `HTG-07`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `THU-06`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `SYNC-01`, `SYNC-02`, `SYNC-03`, `TCB-01`, `TCB-02`, `TCB-03`, `TCB-04`, `DGT-01`, `DGT-02`, `DGT-03`, `DGT-04`, `KQD-01`, `KQD-02`, `KQD-03`, `KQD-04`, `KQD-05`, `KQD-06`
 - **Mã story chưa đưa vào:** `QLY-04`, `THU-03` (NICE, chưa đủ chi tiết) · **`HTG-04/05/06`** (thêm ở CHANGES #18, đã code thẳng — chưa có task trong plan; cần `/kehoach` bổ sung riêng nếu muốn khớp sổ)
-- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 08/10/2026 (#51)
+- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 10/10/2026 (#53)
 
 ## Changelog
 
 | Ngày | Thay đổi |
 |---|---|
+| 10/10/2026 | v21 — bổ sung (CHANGES #53, PRD v4.2, TDD v6.3): thêm **KQD-05 mở rộng "Sửa sau gửi" chọn từng HV** vào cuối Phase 6 — task **83** backend (`POST /mo-sua-sau-gui` + `GET /sua-sau-gui` + nhật ký sqlite `sua_sau_gui`, lùi đúng HV chọn, không xóa gói, `13` 409) + task **84** UI (ô tích + hộp xác nhận + chip/băng cam + khối đỏ KQD-03 + sửa MoKhoaModal) + Checkpoint 19. Thay khóa cứng M1 (decisions §21). Không story mới, giữ 44. 84 task. |
 | 08/10/2026 | v20 — bổ sung (CHANGES #51, sau /reviewtdd → TDD v6.1): thêm **Phase 8 NAP-01 "Bỏ khỏi hàng đợi" dòng chờ/lỗi + tombstone** — task **81** backend (bảng `keo_ve_bo_qua` + migrate + lọc trong `keo_ve_upsert` + endpoint `POST /local/nap/bo-qua` xử mọi trạng thái/idempotent/trần 1000 + **GỠ `DELETE /local/keo-ve/:uuid`** của task 38) + task **82** UI (chọn nhiều + nút bỏ cho dòng ⚪/🔴 + xác nhận 2 bước + chuyển DELETE→POST) + Checkpoint 18. Chỉ đụng `staging.sqlite`, KHÔNG đụng VPS/DB. Mở rộng NAP-01, **không story mới, giữ 44**. Sau code → đóng gói lại exe. 82 task. |
 | 07/10/2026 | v19 — sửa (CHANGES #50, /capnhat — phát hiện khi build task 79): THU-06 OCR **chỉ đọc 5 trường mặt trước** (bỏ *ngày cấp* — in ở mặt sau, không chụp; nhân viên nhập tay, user chốt A). Sửa mô tả task 79 + Checkpoint 17 (mức 2: 5 trường + ngày cấp luôn trống). Task 79 đã code đúng (5 trường). Không đổi số task. 80 task. |
 | 07/10/2026 | v18 — bổ sung (CHANGES #49, sau /reviewtdd §6.7 + /tdd): thêm **Phase 7 Lối nhập OCR dự phòng (THU-06)** — task **79** nền OCR `lib/ocr.ts` (Tesseract.js client + dữ liệu `vie`, downscale ≤~1600px, tách 6 trường regex theo nhãn, mốc fail CCCD 12 số, hủy ảnh sau đọc, +unit test) + task **80** lối vào "Chụp ảnh thẻ (tự đọc)" + luồng UI (spinner/hủy, màn xác nhận dùng chung không auto-submit, lưu qua luồng gửi sẵn có) + Checkpoint 17. **Thuần webapp**, không đụng tool/VPS; engine chốt Tesseract.js client-side (rào PII, TDD §6.7 v5.8). +1 story THU-06. 80 task. |

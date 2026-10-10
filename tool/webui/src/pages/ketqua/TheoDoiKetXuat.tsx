@@ -2,11 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { Icon } from "../../components/Icon";
 import { useConfigDrawer } from "../../lib/configDrawer";
 import MoKhoaModal, { type MoKhoaKetQuaUI } from "./MoKhoaModal";
+import { monDaDoi, nhanKetLuan } from "./diemFmt";
 import {
   getSyncTargets,
   dsKhoaKQD,
   dsHocVienKQD,
   moKhoaTrangThai,
+  dsSuaSauGui,
+  type SuaSauGuiMuc,
   type KhoaKQD,
   type HocVienKQD,
   type MoKhoaTrangThai,
@@ -52,6 +55,7 @@ export default function TheoDoiKetXuat() {
   const [err, setErr] = useState("");
   const [moKhoaMo, setMoKhoaMo] = useState(false); // KQD-05: modal mở khóa (lối từ tab này)
   const [toast, setToast] = useState("");
+  const [suaSau, setSuaSau] = useState<SuaSauGuiMuc[]>([]); // KQD-05 #53: sửa sau gửi, chờ kết xuất lại
 
   // Chọn CSDL đích (như CapNhatKQDT)
   useEffect(() => {
@@ -80,6 +84,9 @@ export default function TheoDoiKetXuat() {
     moKhoaTrangThai(targetKey)
       .then((g) => { if (!huy) setGoi(g); })
       .catch(() => { if (!huy) setGoiErr(true); }); // không chặn tab, nhưng báo ở panel gói
+    dsSuaSauGui(targetKey)
+      .then((d) => { if (!huy) setSuaSau(d); })
+      .catch(() => { if (!huy) setSuaSau([]); }); // khối nhắc, lỗi thì thôi — không chặn tab
     return () => { huy = true; };
   }, [targetKey]);
 
@@ -106,6 +113,7 @@ export default function TheoDoiKetXuat() {
       dsKhoaKQD("", targetKey).then(setKhoaList).catch(() => {});
       setGoiErr(false);
       moKhoaTrangThai(targetKey).then(setGoi).catch(() => setGoiErr(true));
+      dsSuaSauGui(targetKey).then(setSuaSau).catch(() => {});
     }
     if (khoa) void taiHv(khoa, hvLoc);
   }
@@ -142,6 +150,7 @@ export default function TheoDoiKetXuat() {
         <div className="ml-auto flex items-center gap-3 text-[12px] text-muted-foreground tabular-nums">
           <span>Khóa có kết quả: <b className="text-foreground">{soKhoaCoKetQua}</b></span>
           <span>Gói chờ gửi: <b className={goiChua.length > 0 ? "text-warning" : "text-foreground"}>{goiChua.length}</b></span>
+          <span>Sửa sau gửi chờ kết xuất lại: <b className={suaSau.length > 0 ? "text-destructive" : "text-foreground"}>{suaSau.length}</b></span>
         </div>
       </div>
 
@@ -183,6 +192,56 @@ export default function TheoDoiKetXuat() {
         {/* Phải: chi tiết khóa */}
         <div className="flex-1 min-w-0 overflow-auto p-4">
           {err && <div className="mb-3 text-[13px] text-destructive">{err}</div>}
+
+          {/* KQD-05 #53 — khối đỏ: HV đã mở "sửa sau gửi", chờ kết xuất lại. Tự biến mất khi HV về 12. */}
+          {suaSau.length > 0 && (
+            <div className="mb-4 rounded-lg border border-destructive/50 bg-destructive/5">
+              <div className="px-3 py-2 border-b border-destructive/30 flex items-center gap-2">
+                <Icon name="warn" className="w-4 h-4 text-destructive shrink-0" />
+                <div className="text-[13px] font-bold text-destructive">Sửa sau gửi — chờ kết xuất lại ({suaSau.length.toLocaleString("vi-VN")})</div>
+                <div className="ml-auto text-[11.5px] text-muted-foreground">Kết xuất lại ở phần mềm CDB; dòng tự biến mất khi học viên về "Đã kết xuất".</div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-[12.5px]">
+                  <thead className="text-muted-foreground">
+                    <tr className="text-left">
+                      <th className="font-semibold px-3 py-1.5">Học viên</th>
+                      <th className="font-semibold px-2 py-1.5">Khóa</th>
+                      <th className="font-semibold px-2 py-1.5">Người mở · lúc mở</th>
+                      <th className="font-semibold px-2 py-1.5">Lý do</th>
+                      <th className="font-semibold px-2 py-1.5">Điểm trước → sau</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {suaSau.map((m) => {
+                      const doi = monDaDoi(m.diem_truoc, m.diem_hien);
+                      const klDoi = (m.diem_truoc.ket_luan ?? null) !== m.diem_hien.ket_luan;
+                      const tenKhoa = khoaList?.find((k) => k.ma_kh === m.ma_kh)?.ten_kh;
+                      return (
+                        <tr key={m.id} className="border-t border-destructive/20 align-top">
+                          <td className="px-3 py-2 font-medium">{m.ho_ten}<div className="text-[11px] font-normal text-muted-foreground font-mono">{m.ma_dk}</div></td>
+                          <td className="px-2 py-2">{tenKhoa ?? m.ma_kh ?? "—"}{tenKhoa && <div className="text-[11px] text-muted-foreground tabular-nums">{m.ma_kh}</div>}</td>
+                          <td className="px-2 py-2 whitespace-nowrap">{m.nguoi ?? "—"}<div className="text-[11px] text-muted-foreground tabular-nums">{m.luc_mo ?? "—"}</div></td>
+                          <td className="px-2 py-2 max-w-[260px]"><span className="line-clamp-2" title={m.ly_do}>{m.ly_do}</span></td>
+                          <td className="px-2 py-2">
+                            {doi.length === 0 && !klDoi ? (
+                              <span className="text-muted-foreground">Chưa sửa gì</span>
+                            ) : (
+                              <div className="space-y-0.5 tabular-nums">
+                                {doi.map((d) => <div key={d.nhan}>{d.nhan}: {d.truoc} → <b>{d.sau}</b></div>)}
+                                {klDoi && <div>Kết luận: {nhanKetLuan(m.diem_truoc.ket_luan)} → <b>{nhanKetLuan(m.diem_hien.ket_luan)}</b></div>}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {!khoa ? (
             <div className="text-[13px] text-muted-foreground max-w-xl rounded-lg border border-dashed border-border bg-card p-8 text-center">Chọn một khóa bên trái để xem tiến độ kết xuất.</div>
           ) : (

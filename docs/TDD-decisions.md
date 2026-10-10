@@ -179,6 +179,7 @@
 - **Đã chốt (07/10/2026):**
   - **B-1 (cổng):** cho mở khóa HV `TT_XuLy=12` để sửa điểm **chỉ khi CSĐT còn gói `KET_QUA_DAO_TAO` chưa gửi** (`NoiGui=<mã CSĐT>` + `TrangThai='0'`). Gói đã gửi hết → **khóa cứng**.
   - **B-1a (hành vi, mức CƠ SỞ — chốt phương án A sau /reviewtdd 07/10):** mở khóa = xóa (các) gói chưa gửi qua `usp_TRANS_CLI_HangDoiGui_Delete` + lùi **MỌI HV `12` của CƠ SỞ (mọi khóa)** về 09/10 (`UPDATE` tham số hóa, guard `KetLuanCSDT IS NOT NULL` — HV `12` không kết luận thì bỏ qua + cảnh báo, không ép '10' oan). Không mổ xẻ 1 HV. Sửa xong **kết xuất lại ở PM CDB cũ**.
+  - **Đã từng chốt — "gói đã gửi hết → khóa cứng": bị thay ngày 10/10/2026 bởi §21** (sửa sau gửi chọn từng HV có xác nhận). B-1/B-1a bên dưới vẫn hiệu lực khi còn gói chưa gửi.
   - **M1 (thông báo khi khóa cứng):** chỉ nói **mức đợt** — liệt kê gói đã gửi + "không xác định được HV nằm gói nào". KHÔNG đoán gói cụ thể.
   - **Nút ở CẢ 2 tab** (Cập nhật KQĐT dòng 🔒 + Theo dõi kết xuất). `13` khóa tuyệt đối.
 - **Vì sao:**
@@ -202,3 +203,17 @@
 - **Phạm vi:** app web (THU-06); không đụng tool/VPS luồng ghi. Vẫn qua màn xác nhận + luồng gửi dùng chung (idempotent UUID, nháp offline).
 - **Quan hệ BUG-14 (cập nhật 07/10 sau probe):** QR iPhone xác định **không khả thi bằng engine web** — probe offline ảnh thẻ thật (zxing-cpp + pyzbar + OpenCV + xoay/cắt/Otsu/phóng 3×) fail mọi engine; fix "quét toàn khung" (`c7d350a`) không cứu được. → **Giao hẳn lối iPhone cho OCR (THU-06), KHÔNG đầu tư thêm QR iPhone** (BUGS.md #14 → ⏳ vá bằng THU-06). User chốt A, 07/10. *(Đảo câu cũ "song song vẫn cải thiện QR iPhone — không thay nhau": bằng chứng probe cho thấy QR iPhone là ngõ cụt, OCR thay hẳn.)*
 - **Nguồn:** user 07/10/2026; PRD THU-06; CHANGES #49; BUG-14 (probe giải mã QR ảnh thật).
+
+## 21. Sửa điểm sau khi gói đã gửi Sở — chọn từng HV, có xác nhận (10/10/2026, verify DB)
+
+- **Đã chốt (10/10/2026, user):** khi cơ sở **hết gói chưa gửi** (HV `12` đã nằm trong gói đã gửi Sở), **vẫn cho sửa/bổ sung điểm** — chỉ cần hộp xác nhận. **Mở theo từng HV được chọn** (không cả cơ sở). Hộp xác nhận bắt buộc: lý do ≤1.000 ký tự + tích "sẽ kết xuất lại ngay bằng phần mềm CDB". HV mở sửa mang chip cam + khối đỏ "chờ kết xuất lại" ở tab Theo dõi kết xuất đến khi HV về lại `12`.
+- **Đã từng chốt — thay thế:** §19 "gói đã gửi hết → khóa cứng, chờ Sở từ chối (14) rồi giải trình (90)" và phương án (A) §19 "cho mở mọi HV 12 kể cả gói đã gửi (linh hoạt, dễ lệch Sở)" từng bị loại. User chọn lại (A) sau khi nghe hậu quả bên dưới.
+- **Lối nào dùng khi nào:** còn gói chưa gửi → **"Mở khóa" §19** (xóa gói chưa gửi để không gửi điểm cũ); hết gói chưa gửi → **"Sửa sau gửi" §21**. Hai lối loại trừ nhau theo cùng một điều kiện (có/không gói `TrangThai='0'`).
+- **Vì sao chọn từng HV (không cả cơ sở):** lùi cả cơ sở buộc kết xuất lại hàng loạt HV không liên quan; ở lối này không xóa gói nên không còn lý do phải lùi hàng loạt (lý do của B-1a §19 chỉ do việc xóa gói).
+- **Hậu quả đã chấp nhận (verify DB 10/10):**
+  - `usp_CSDT_PheDuyetKQDT_TiepNhan` chỉ nhận HV `TT_XuLy='12'` (`RAISERROR` nếu không) → Sở trả 13/14 lúc HV đang mở-sửa → HV kẹt. Giảm nhẹ: cảnh báo trước + khối đỏ nhắc + tích cam kết.
+  - Sở có thể nhận 2 bản KQĐT cho 1 HV (bản đã gửi + bản kết xuất lại) — chưa xác minh Sở xử lý ra sao → hỏi hỗ trợ CDB/Sở.
+  - DB không nối HV↔gói nên không biết HV nằm gói nào; vì thế không chặn theo gói.
+- **Không làm — tự kết xuất XML:** file KQĐT (`FPT.GPLX.XML.dll`) là XML có chữ ký số RSA bằng khóa của phần mềm CDB. Tự ký = dùng lại khóa/giả mạo phần mềm chính thức; khóa nằm lộ trong DLL là lỗ hổng của nhà cung cấp, dự án không dùng và không chép. Muốn làm cần Cục/FPT cấp chứng thư riêng hoặc tài liệu nộp file chính thức. Kết xuất giữ ở phần mềm CDB.
+- **Phạm vi:** chỉ tool máy CSDT (ghi CDB đích + sqlite nhật ký phía tool). Không đụng app web/VPS. `13` khóa tuyệt đối.
+- **Nguồn:** user 10/10/2026 (qua trao đổi + chốt UI 4 phần); PRD KQD-05; TDD §11D.7b; CHANGES #53; probe DB live 10/10.

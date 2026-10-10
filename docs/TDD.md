@@ -537,6 +537,27 @@ Chụp / tải ảnh mặt trước CCCD
 
 ---
 
+### 6.8 Loạt UX form xác nhận trên desktop (THU-01/THU-02, CHANGES #52)
+
+> **Phục vụ:** `THU-01`, `THU-02` (dùng chung màn xác nhận/sửa). Thuần client `Quet.tsx` (+ `ODate.tsx`, `Icon.tsx`, `lib/qr.ts`, `lib/dvhc.ts`, `data/dvhc-2025.json`). **KHÔNG đổi endpoint/schema VPS, KHÔNG đổi payload gửi.**
+
+Mười cải tiến nhập liệu nhanh + rõ trạng thái, áp cho form dùng chung ở cả 3 lối vào (QR / nhập tay / OCR):
+
+1. **Nới khung desktop** `max-w-2xl → max-w-3xl` (672→768px) — lưới 2 cột đỡ chật, vùng nội dung desktop (~890px sau sidebar) không còn phí.
+2. **Sắp lại ô** theo cụm thông tin trên thẻ: hàng 1 **Số CCCD + Ngày cấp** (user muốn gần nhau); Họ tên và Nơi thường trú chiếm trọn bề ngang; hàng 3 Ngày sinh + Giới tính. Thứ tự DOM = thứ tự nhảy phím mũi tên.
+3. **Số CCCD**: lọc còn chữ số + cắt tối đa **12**; bộ đếm `n/12` ở nhãn (xanh khi đủ) + viền xanh + ✓.
+4. **Họ và tên tự in hoa** khi gõ (`.toUpperCase()`, giữ dấu) — khớp cột `HoVaTenIn` DB đích.
+5. **Giới tính = nút gạt Nam/Nữ** thay `<select>` (1 bấm xong, không xổ dropdown rê chuột); ô chọn có ✓.
+6. **Nơi thường trú gợi ý Tỉnh/Xã** (phương án A — nhập tự do + gợi ý, **không ép chọn**): khớp **không dấu** theo đoạn sau dấu phẩy cuối (dùng `boDau` như §6.4), danh sách hiện dưới ô, chọn thì thay đoạn cuối bằng `Phường X, Tỉnh Y`; chuẩn hóa khoảng trắng khi rời ô. **Nguồn dữ liệu: file tĩnh nhúng `webapp/src/data/dvhc-2025.json`** (34 tỉnh + 3.321 xã/phường, đơn vị hành chính 2 cấp 2025, nguồn `thanglequoc/vietnamese-provinces-database` lấy từ GSO) — **nạp lười bằng dynamic import** (chunk riêng ~59KB/gzip 16KB, không vào bundle chính). *Khác hẳn §3.3 — đó là SQLite `DM_DVHC` CỤC BỘ của tool để sinh mã nạp; đây chỉ là gợi ý gõ ở app web, không sinh mã.*
+7. **Phím mũi tên nhảy giữa các ô**: Lên/Trái = ô trước, Xuống/Phải = ô sau (Trái/Phải chỉ nhảy khi con trỏ ở đầu/cuối chữ, còn lại di con trỏ như thường); ở ô Giới tính Trái/Phải đổi Nam/Nữ; ở ô địa chỉ khi danh sách gợi ý mở thì mũi tên chọn trong danh sách (chặn `stopPropagation`, không nhảy ô). Xử lý tập trung ở `onKeyDown` cấp form, các ô gắn `data-nav`.
+8. **Icon nhỏ ở nhãn** từng ô (idCard/user/cake/users/mapPin/calendar) cho dễ nhận.
+9. **Trạng thái ✓/đỏ từng ô** sau khi rời ô (đang gõ không báo đỏ) + dòng tóm tắt **"Còn thiếu…/Đã đủ, sẵn sàng lưu"** trên nút lưu. Ô không bắt buộc (Ngày cấp) im lặng khi trống.
+10. **Tự suy Giới tính + Năm sinh từ số CCCD** (`suyTuCccd` trong `lib/qr.ts`): chữ số thứ 4 mã hóa thế kỷ+giới tính, 2 số kế là năm sinh. Chỉ **gợi ý mặc định** khi gõ CCCD tay (giới tính đặt theo CCCD; năm sinh chỉ điền khi ô còn trống — không đè ngày đầy đủ từ QR), **sửa đè được**.
+
+*Vì sao thuần client: đây là lớp trình bày/nhập liệu, không đổi dữ liệu gửi lên — mọi ràng buộc lưu trữ (12 số, độ dài cột) vẫn kiểm ở `kiemFields` như cũ; validate từng ô chỉ là tín hiệu thị giác thêm.*
+
+---
+
 ## 7. Hàng đợi thu thập & vòng đời bản ghi (VPS)
 
 > **Phục vụ:** `HTG-02`, `NAP-01`
@@ -1265,7 +1286,7 @@ Mở exe
 
 > **Phục vụ:** DGT-01/02/03/04. Không chạm nghiệp vụ Nạp/Sync/TCB — thuần đóng gói + khởi chạy + vòng đời phiên của tool. Quyết định kỹ thuật: TDD-decisions §16.
 
-## 11D. Cập nhật kết quả đào tạo (tool — workspace riêng) — KQD-01..05 (CHANGES #42, #45)
+## 11D. Cập nhật kết quả đào tạo (tool — workspace riêng) — KQD-01..06 (CHANGES #42, #45, #53)
 
 > Ghi **CSDL đích** `GPLX_CDB_CSDT` (bảng `NguoiLX_HoSo`) như SYNC/TCB. Chỉ nhập KQĐT (`TT_XuLy` 03→09/10), **không** kết xuất XML. Schema đã probe: `docs/DB-GPLX_CDB_CSDT.md` §5. Quyết định kỹ thuật: TDD-decisions §17.
 
@@ -1350,7 +1371,7 @@ DB **không có** trigger/computed/constraint tính 3 cờ (verify 06/10: 0 trig
 `SoGiayCNTN` = `MaDK + '-' + MaHangMoi` (verify 100% mẫu thật, vd `75032-20260803-000001-B`), tự sinh khi Đạt. `NgayRaQDTN`, `TGBatDau`, `TGKetThuc` điền sẵn từ ngày khóa (`KhoaHoc.NgayKG/NgayBG/NgayThi`), cho sửa.
 
 ### 11D.6 API (tool, đề xuất — chốt khi code)
-`GET /local/ketqua/khoa?q=` (gợi ý khóa đã BC1, kèm đếm HV 5 nhóm trạng thái gồm **`ketxuat`=12**) · `GET /local/ketqua/hoc-vien?ma_kh&trang_thai&q` (lưới; `trang_thai` nhận cả `ketxuat` (12) cho KQD-03) · `POST /local/ketqua/cap-nhat` (1 HV: điểm gốc + hạng + cờ chương trình → app quy đổi → ghi `GiaiTrinh` trước (nếu có) → gọi SP) · **`GET /local/ketqua/mo-khoa`** (KQD-05/03 — cổng B-1 **chỉ đọc**: trả `mo_duoc` + `goi_chua_gui`/`goi_da_gui` (mỗi gói: id·ten_file·ngay_tao·kich_thuoc) + `so_hv_mo`/`so_hv_bo_qua`/`so_khoa`; panel gói KQD-03 + modal mở khóa KQD-05 dùng chung) · `POST /local/ketqua/mo-khoa` (KQD-05, §11D.7) · `POST /local/ketqua/xoa-diem` (KQD-06, §11D.8 — reset HV 09/10 về chưa có điểm; sửa lẻ dùng lại `/cap-nhat` với quy-đổi môn cũ). **KQD-03 "Theo dõi kết xuất" KHÔNG có endpoint `ket-xuat` riêng** (chốt khi code): tiến độ khóa ghép từ `/khoa` (đếm sẵn), panel gói từ `GET /mo-khoa` (CSĐT-wide, tải 1 lần), lưới HV từ `/hoc-vien?trang_thai=ketxuat|capnhat` — tránh thừa endpoint + khỏi nhồi danh sách gói vào mỗi lần chọn khóa. Tất cả gác session + `target_key` như §11B. **Combobox khóa:** debounce ~300ms + giới hạn ~20 gợi ý, chỉ đếm HV-theo-trạng-thái cho khóa thực sự hiển thị (tránh aggregate nặng mỗi phím gõ).
+`GET /local/ketqua/khoa?q=` (gợi ý khóa đã BC1, kèm đếm HV 5 nhóm trạng thái gồm **`ketxuat`=12**) · `GET /local/ketqua/hoc-vien?ma_kh&trang_thai&q` (lưới; `trang_thai` nhận cả `ketxuat` (12) cho KQD-03) · `POST /local/ketqua/cap-nhat` (1 HV: điểm gốc + hạng + cờ chương trình → app quy đổi → ghi `GiaiTrinh` trước (nếu có) → gọi SP) · **`GET /local/ketqua/mo-khoa`** (KQD-05/03 — cổng B-1 **chỉ đọc**: trả `mo_duoc` + `goi_chua_gui`/`goi_da_gui` (mỗi gói: id·ten_file·ngay_tao·kich_thuoc) + `so_hv_mo`/`so_hv_bo_qua`/`so_khoa`; panel gói KQD-03 + modal mở khóa KQD-05 dùng chung) · `POST /local/ketqua/mo-khoa` (KQD-05, §11D.7) · `POST /local/ketqua/xoa-diem` (KQD-06, §11D.8 — reset HV 09/10 về chưa có điểm; sửa lẻ dùng lại `/cap-nhat` với quy-đổi môn cũ) · **`POST /local/ketqua/mo-sua-sau-gui`** (KQD-05 #53, §11D.7b — body `ma_dk[]` + `ly_do`; lùi đúng các HV được chọn, không xóa gói) · **`GET /local/ketqua/sua-sau-gui`** (khối đỏ KQD-03: nhật ký ∩ HV chưa về `12`). **KQD-03 "Theo dõi kết xuất" KHÔNG có endpoint `ket-xuat` riêng** (chốt khi code): tiến độ khóa ghép từ `/khoa` (đếm sẵn), panel gói từ `GET /mo-khoa` (CSĐT-wide, tải 1 lần), lưới HV từ `/hoc-vien?trang_thai=ketxuat|capnhat` — tránh thừa endpoint + khỏi nhồi danh sách gói vào mỗi lần chọn khóa. Tất cả gác session + `target_key` như §11B. **Combobox khóa:** debounce ~300ms + giới hạn ~20 gợi ý, chỉ đếm HV-theo-trạng-thái cho khóa thực sự hiển thị (tránh aggregate nặng mỗi phím gõ).
 
 ### 11D.7 Mở khóa để sửa sau kết xuất (KQD-05) — gỡ chặn `12` có kiểm soát
 > Nghiệp vụ + lý do (DB không nối HV↔gói): TDD-decisions §19. Verify DB live 07/10/2026 trên `GPLX_CDB_CSDT`.
@@ -1363,6 +1384,20 @@ DB **không có** trigger/computed/constraint tính 3 cờ (verify 06/10: 0 trig
   4. Trả số HV đã mở + số khóa ảnh hưởng + số HV bỏ qua + số gói đã xóa.
 - **Sau khi mở:** HV về 09/10 → sửa điểm bình thường qua KQD-02 → nhân viên **kết xuất lại ở PM CDB cũ** (tool không sinh XML).
 - **Bất biến:** chỉ mở `12`; `13` tuyệt đối không; thao tác **mức CƠ SỞ** (không mổ xẻ 1 HV, không giới hạn 1 khóa — vì không biết HV/khóa nằm gói nào). Modal **phải nói rõ "mở khóa toàn bộ HV đã kết xuất chưa gửi của cơ sở (N người · M khóa)"**, không chỉ HV/khóa đang xem. Nút "Mở khóa" hiện ở cả màn KQD-02 (dòng 🔒) và KQD-03.
+
+### 11D.7b Sửa sau khi đã gửi Sở — chọn từng HV (KQD-05 mở rộng, CHANGES #53)
+> Lý do + phương án: TDD-decisions §21. Verify DB 10/10/2026: `usp_CSDT_PheDuyetKQDT_TiepNhan` có `SELECT … WHERE MaDK=@MaDK AND TT_XuLy='12'`, không thấy thì `RAISERROR` → phản hồi Sở chỉ khớp HV đang `12`. Gói KQĐT 75032 hiện cả 2 `TrangThai='1'`.
+
+- **Điều kiện bật (UI + backend kiểm lại):** cơ sở **không còn** gói `KET_QUA_DAO_TAO` `NoiGui=@MaCSDT` `TrangThai='0'` (dùng lại `_SQL_GOI_KQDT`). Còn gói chưa gửi → 409 `con_goi_chua_gui`, chỉ dùng lối mở khóa §11D.7 (xóa gói chưa gửi để không mang điểm cũ).
+- **`POST /local/ketqua/mo-sua-sau-gui`** body `{ ma_dk: string[] (1..200), ly_do: string (1..1000) }`:
+  1. Kiểm điều kiện bật. Mỗi `ma_dk` SELECT `TT_XuLy, KetLuanCSDT, Diem*…` — không tìm thấy → bỏ qua kèm lý do; `13` → **409**; không phải `12` → bỏ qua.
+  2. **Ghi nhật ký TRƯỚC** (sqlite phía tool, bảng `sua_sau_gui`: `ma_dk, ma_kh, ho_ten, diem_truoc_json, ly_do, nguoi, luc_mo, trang_thai` `cho_kx`/`da_kx`) — nếu ghi lỗi thì chưa đụng DB đích.
+  3. **UPDATE tham số hóa theo từng `MaDK`:** `SET TT_XuLy = CASE WHEN KetLuanCSDT=1 THEN '09' WHEN KetLuanCSDT=0 THEN '10' END, GiaiTrinh=@ly_do, NgaySua=GETDATE() WHERE MaDK=@MaDK AND TT_XuLy='12' AND KetLuanCSDT IS NOT NULL`. KHÔNG gọi SP `_CapNhat`, KHÔNG xóa gói. Không dựa `rowcount` (SELECT lại trạng thái để báo kết quả từng HV — như `xoa_diem`).
+  4. Trả `{mo: [...], bo_qua: [{ma_dk, ly_do}]}`.
+- **`GET /local/ketqua/sua-sau-gui`:** đọc nhật ký `trang_thai='cho_kx'`, JOIN trạng thái hiện tại từ DB đích; HV đã về `12` → tự đánh `da_kx` (dòng biến khỏi khối đỏ). Trả kèm điểm hiện tại để UI hiện "trước→sau".
+- **Sửa/bổ sung điểm:** dùng lại `/cap-nhat` (HV đã về 09/10; ô trống giữ quy đổi cũ nhờ `giu_quydoi` KQD-06). Không đổi gì ở `/cap-nhat`.
+- **Bất biến:** chỉ HV được chọn; `13` không bao giờ; KHÔNG sinh/ký XML (file KQĐT ký số RSA bằng khóa phần mềm CDB — tool không có và không được dùng khóa đó); mọi SQL tham số hóa; lý do ≤1000 (như `GiaiTrinh nvarchar(1000)`).
+- **Rủi ro biết trước:** Sở trả 13/14 cho HV đang mở-sửa → SP tiếp nhận báo lỗi, HV kẹt (xử lý bằng cảnh báo + khối đỏ nhắc, không chặn). HV mở sửa mà không sửa gì rồi kết xuất lại → Sở nhận 2 bản (hỏi hỗ trợ CDB).
 
 ### 11D.8 Sửa lẻ / xóa điểm đã lưu (KQD-06) — chỉ HV chưa kết xuất (09/10)
 > Phát sinh sau khi dùng thử KQD-02 (CHANGES #48). Verify DB 07/10: không có SP reset KQĐT; cột `DiemKQ*` (float) + 3 cờ bit + `SoGiayCNTN` nullable; `TT_XuLy` NOT NULL (set `'03'` được).
@@ -1516,7 +1551,9 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 ## Changelog
 
 | Ngày | Version | Thay đổi |
-|---|---|---|
+| --- | --- | --- |
+| 10/10/2026 | 6.3 | **KQD-05 mở rộng "Sửa sau gửi" chọn từng HV** (CHANGES #53): §11D.7b mới — điều kiện bật (hết gói chưa gửi), `POST /mo-sua-sau-gui` (lùi đúng HV được chọn, không xóa gói, nhật ký sqlite `sua_sau_gui` ghi trước) + `GET /sua-sau-gui` (khối đỏ KQD-03); §11D.6 +2 endpoint; decisions §21 (đổi quyết định M1 khóa cứng §19). Verify DB 10/10: SP tiếp nhận phản hồi Sở chỉ nhận `TT_XuLy='12'`. Cần /reviewtdd (API + bảng sqlite mới). |
+| 08/10/2026 | 6.2 | **Loạt UX form xác nhận desktop** (CHANGES #52, THU-01/THU-02): §6.8 mới — 10 cải tiến nhập liệu thuần client `Quet.tsx` (nới khung 3xl; sắp lại ô CCCD+ngày cấp cùng hàng; chặn/đếm 12 số; in hoa tên; nút gạt Nam/Nữ; **gợi ý Nơi thường trú từ file tĩnh `data/dvhc-2025.json` 34 tỉnh+3.321 xã 2 cấp 2025, nạp lười, khớp không dấu, không ép chọn**; phím mũi tên nhảy ô; icon nhãn; trạng thái ✓/đỏ + dòng "còn thiếu"; tự suy giới tính/năm sinh từ CCCD `suyTuCccd`). KHÔNG đổi endpoint/schema/payload — ràng buộc lưu trữ vẫn ở `kiemFields`. Khác §3.3 (SQLite `DM_DVHC` của tool sinh mã). Code+build+34 test pass, commit `5087ceb`. |
 | 08/10/2026 | 6.1 | **Sửa sau /reviewtdd #51** (biên bản `tdd-review-08-10-2026.md`): §4+§7.2 — **GỠ endpoint `DELETE /local/keo-ve/:uuid`**, gộp mọi "Bỏ khỏi hàng đợi" (1 dòng lẫn nhiều dòng, mọi trạng thái) về **1 đường `POST /local/nap/bo-qua`** (tránh đường xóa-không-tombstone; UI phải chuyển DELETE→POST). §9.3b — thêm **pseudo-logic endpoint** (tra `keo_ve_trang_thai` từng uuid → tombstone cho `cho`/`loi`/`None`, KHÔNG cho `xong`) + **lý do QLY-08** (ghi tombstone cho `xong` sẽ chặn vĩnh viễn đường "Gỡ về chờ nạp") + lô rỗng no-op + trần ≤1000 uuid + tham số hóa `uuid` + ghi nhận tombstone không tự dọn. |
 | 08/10/2026 | 6.0 | **Bỏ dòng CHỜ/LỖI khỏi hàng đợi + nhớ "bỏ qua"** (CHANGES #51, NAP-01): §7.2 mở rộng "Bỏ khỏi hàng đợi" cho dòng `cho`/`loi` (trước guard `409` chỉ `xong`); §9.3b mới — bảng tombstone `keo_ve_bo_qua(uuid PK, ly_do, created_at)` trong `staging.sqlite`, `keo_ve_upsert` lọc bỏ uuid đã bỏ qua trước khi upsert → kéo lại không mang về; §4 +endpoint `POST /local/nap/bo-qua` (bỏ nhiều một lượt, tombstone + `keo_ve_xoa` + `nhap_xoa`, idempotent); vòng đời nháp §9.3a +nhánh bỏ-qua. Chỉ đụng `staging.sqlite`, KHÔNG đụng VPS/DB đích. Dọn ca "hồ sơ đã xóa app web nhưng tool kéo về từ trước còn sót" mà đồng bộ-xóa theo mốc (§11.7) bỏ lọt. Cần /reviewtdd (API + Data Model mới). |
 | 07/10/2026 | 5.4 | **+KQD-06 Sửa lẻ / xóa điểm đã lưu** (CHANGES #48): §11D.8 mới — chỉ HV `TT_XuLy` 09/10; **sửa lẻ** gom 5 quy-đổi (môn sửa từ gốc + môn giữ lấy `DiemKQ*` đã lưu, không tính ngược gốc) → `_CapNhat`; **xóa điểm** `POST /xoa-diem` UPDATE trực tiếp NULL 5 điểm+3 cờ+`SoGiayCNTN` + `TT_XuLy='03'` (SP không reset được — verify DB 07/10); §11D.6 +endpoint `xoa-diem`. Cần /reviewtdd (API + nghiệp vụ mới). |

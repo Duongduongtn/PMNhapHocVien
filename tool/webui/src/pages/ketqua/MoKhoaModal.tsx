@@ -4,7 +4,8 @@ import { moKhoaTrangThai, moKhoa, type MoKhoaTrangThai, type GoiHangDoi } from "
 
 // KQD-05 (task 77) — modal "Mở khóa để sửa điểm sau kết xuất", MỨC CƠ SỞ. Bám ui-mock/theodoiketxuat.html.
 // Dùng chung cho cả tab Cập nhật KQĐT (KQD-02) và Theo dõi kết xuất (KQD-03).
-// 2 ca theo cổng B-1: mở được (còn gói chưa gửi) / khóa cứng M1 (gói đã gửi hết).
+// 2 ca theo cổng B-1: mở được (còn gói chưa gửi) / gói đã gửi hết → KHÔNG khóa cứng nữa (CHANGES #53):
+// dẫn sang lối "Sửa sau gửi" chọn từng HV ở tab Cập nhật KQĐT (SuaSauGuiModal).
 // Thao tác CSĐT-wide: xóa mọi gói chưa gửi + lùi MỌI HV 12 của cơ sở về 09/10.
 
 export interface MoKhoaKetQuaUI {
@@ -103,18 +104,23 @@ export default function MoKhoaModal({
               </div>
             </>
           ) : (
-            // ── Ca KHÓA CỨNG M1: gói đã gửi hết ──
+            // ── Ca GÓI ĐÃ GỬI HẾT: không xóa được gói → lối "Sửa sau gửi" chọn từng HV (#53) ──
             <>
-              <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2.5">
-                <div className="flex items-center gap-1.5 font-semibold text-destructive text-[12.5px] mb-1"><Icon name="warn" className="w-4 h-4" /> Không mở khóa được — kết quả đã gửi Sở</div>
-                <div className="text-[12.5px] text-foreground">Mọi gói kết quả của cơ sở <b>đã truyền đi Sở</b>, không thu hồi được từ máy cơ sở. Sửa ở đây sẽ làm <b>lệch</b> với bản Sở đang giữ.</div>
+              <div className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2.5">
+                <div className="flex items-center gap-1.5 font-semibold text-warning text-[12.5px] mb-1"><Icon name="warn" className="w-4 h-4" /> Kết quả đã gửi Sở — không xóa được gói</div>
+                <div className="text-[12.5px] text-foreground">Mọi gói kết quả của cơ sở <b>đã truyền đi Sở</b>, không thu hồi được từ máy cơ sở. Bạn <b>vẫn sửa/bổ sung điểm được từng học viên</b>:</div>
+                <ol className="list-decimal pl-5 mt-1.5 space-y-0.5 text-[12.5px] text-foreground">
+                  <li>Vào tab <b>Cập nhật kết quả đào tạo</b>, chọn khóa.</li>
+                  <li>Tích chọn học viên <b>đã gửi Sở</b> cần sửa rồi bấm <b>Mở sửa điểm</b> (nhập lý do + xác nhận).</li>
+                  <li>Sửa điểm xong thì <b>kết xuất lại ngay</b> ở phần mềm CDB để gửi bản mới.</li>
+                </ol>
                 {tt.goi_da_gui.length > 0 && (
                   <div className="mt-2 space-y-1.5">
                     <div className="text-[11.5px] font-semibold text-success">Đã gửi ({tt.goi_da_gui.length})</div>
                     {tt.goi_da_gui.map((g) => <GoiRow key={g.id} g={g} da={true} />)}
                   </div>
                 )}
-                <div className="text-[11.5px] text-muted-foreground mt-2">Hệ thống <b>không xác định được HV nằm cụ thể gói nào</b> — danh sách HV ở trong file nén, không lưu trong CSDL. Lối sửa: chờ Sở <b>từ chối</b> (14) rồi <b>giải trình</b> (90).</div>
+                <div className="text-[11.5px] text-muted-foreground mt-2">Hệ thống <b>không xác định được HV nằm cụ thể gói nào</b> — danh sách HV ở trong file nén, không lưu trong CSDL. Học viên Sở đã duyệt (13) thì không sửa được.</div>
               </div>
             </>
           )}

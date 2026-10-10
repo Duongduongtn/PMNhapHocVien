@@ -1093,3 +1093,61 @@ export const moKhoa = async (
   if (r.status === 409) throw new Error("khoa_cung");
   return json<MoKhoaKetQua>(r);
 };
+
+// ── KQD-05 mở rộng (task 83/84, CHANGES #53): "Sửa sau khi đã gửi Sở" — chọn từng HV ──
+// Chỉ dùng khi cơ sở HẾT gói chưa gửi (còn gói chưa gửi → moKhoa ở trên). KHÔNG xóa gói.
+export interface SuaSauGuiKetQua {
+  ok: boolean;
+  so_mo: number;
+  mo: { ma_dk: string; ho_ten: string; tt_moi: string }[];
+  bo_qua: { ma_dk: string; ly_do: string }[];
+}
+// Lỗi nghiệp vụ 409: loi = 'con_goi_chua_gui' | 'co_hv_13' (kèm thong_bao tiếng Việt).
+export class SuaSauGuiLoi extends Error {
+  loi: string;
+  constructor(loi: string, thongBao: string) {
+    super(thongBao);
+    this.loi = loi;
+  }
+}
+export const moSuaSauGui = async (
+  body: { ma_dk: string[]; ly_do: string },
+  targetKey?: string,
+): Promise<SuaSauGuiKetQua> => {
+  const r = await fetch(`${BASE}/local/ketqua/mo-sua-sau-gui?${qs({ target_key: targetKey })}`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(body),
+  });
+  if (r.status === 409) {
+    const d = (await r.json().catch(() => null))?.detail;
+    throw new SuaSauGuiLoi(d?.loi ?? "xung_dot", d?.thong_bao ?? "Không mở sửa được (trạng thái đã đổi).");
+  }
+  return json<SuaSauGuiKetQua>(r);
+};
+
+export interface SuaSauGuiDiem {
+  ly_thuyet: number | null;
+  mo_phong: number | null;
+  hinh: number | null;
+  tien_lui: number | null;
+  duong: number | null;
+  ket_luan: "dat" | "khong_dat" | null;
+}
+export interface SuaSauGuiMuc {
+  id: number;
+  ma_dk: string;
+  ma_kh: string | null;
+  ho_ten: string;
+  nguoi: string | null;
+  luc_mo: string | null; // dd/mm/yyyy HH:mm
+  ly_do: string;
+  tt_xuly: string | null;
+  diem_truoc: Partial<SuaSauGuiDiem>;
+  diem_hien: SuaSauGuiDiem;
+}
+// HV đã mở sửa sau gửi mà chưa kết xuất lại (server tự dọn HV đã về 12).
+export const dsSuaSauGui = (targetKey?: string) =>
+  fetch(`${BASE}/local/ketqua/sua-sau-gui?${qs({ target_key: targetKey })}`, { headers: authHeaders() }).then(
+    json<SuaSauGuiMuc[]>,
+  );

@@ -4,6 +4,7 @@ import { PhanTrang } from "../../components/PhanTrang";
 import { useConfigDrawer } from "../../lib/configDrawer";
 import { boDau } from "../../lib/format";
 import MoKhoaModal, { type MoKhoaKetQuaUI } from "./MoKhoaModal";
+import SuaSauGuiModal from "./SuaSauGuiModal";
 import { hintDiem } from "./diemHint";
 import {
   getSyncTargets,
@@ -14,6 +15,11 @@ import {
   getGiaiTrinhKQD,
   capNhatKQD,
   xoaDiemKQD,
+  moKhoaTrangThai,
+  dsSuaSauGui,
+  type MoKhoaTrangThai,
+  type SuaSauGuiMuc,
+  type SuaSauGuiKetQua,
   type KhoaKQD,
   type HocVienKQD,
   type TrangThaiKQD,
@@ -164,6 +170,11 @@ export default function CapNhatKQDT() {
   const [moKhoaMo, setMoKhoaMo] = useState(false); // KQD-05: modal mở khóa (lối từ dòng 🔒 HV 12)
   const [gonKhoa, setGonKhoa] = useState(false); // thu gọn khung chọn khóa → xem được nhiều HV hơn
   const [xacNhanXoa, setXacNhanXoa] = useState(false); // KQD-06: bước xác nhận xóa điểm trong drawer
+  // KQD-05 mở rộng (#53) — "sửa sau gửi": chỉ khi cơ sở HẾT gói chưa gửi; chọn từng HV 12.
+  const [goi, setGoi] = useState<MoKhoaTrangThai | null>(null);
+  const [chon, setChon] = useState<Set<string>>(new Set());
+  const [suaMo, setSuaMo] = useState(false);
+  const [choKx, setChoKx] = useState<SuaSauGuiMuc[]>([]); // HV đã mở sửa sau gửi, chưa kết xuất lại
 
   useEffect(() => {
     let huy = false;
@@ -201,10 +212,19 @@ export default function CapNhatKQDT() {
     } finally { setLoadingHv(false); }
   }
 
+  // KQD-05 #53: đọc gói hàng đợi của cơ sở (cổng) + danh sách "sửa sau gửi chưa kết xuất lại".
+  // Lỗi → coi như chưa biết (goi=null): lưới giữ lối "Mở khóa" cũ, không chặn nhập điểm.
+  function taiGoiVaChoKx() {
+    if (!targetKey) return;
+    moKhoaTrangThai(targetKey).then(setGoi).catch(() => setGoi(null));
+    dsSuaSauGui(targetKey).then(setChoKx).catch(() => setChoKx([]));
+  }
+
   function chonKhoa(k: KhoaKQD) {
     setKhoa(k); setMoGoiY(false); setQ(`${k.ten_kh} · ${k.ma_kh}`);
-    setLoc("all"); setQHv(""); setTrang(0); setNhap({});
+    setLoc("all"); setQHv(""); setTrang(0); setNhap({}); setChon(new Set());
     void taiHoSo(k, "all");
+    taiGoiVaChoKx();
     getChuongTrinhKQD(k.ma_kh).then((r) => setCt(r.ct)).catch(() => setCt("cu"));
   }
   function chonLoc(l: TrangThaiKQD) { setLoc(l); setTrang(0); if (khoa) void taiHoSo(khoa, l); }
@@ -214,6 +234,19 @@ export default function CapNhatKQDT() {
     setMoKhoaMo(false);
     setToast(`Đã mở khóa ${r.so_hv_mo} HV (${r.so_khoa} khóa) + xóa ${r.so_goi_xoa} gói chưa gửi${r.so_hv_bo_qua > 0 ? ` · bỏ qua ${r.so_hv_bo_qua} HV chưa có kết luận` : ""}. Giờ sửa điểm bình thường rồi kết xuất lại ở phần mềm CDB.`);
     if (khoa) void taiHoSo(khoa, loc);
+    taiGoiVaChoKx();
+  }
+
+  // KQD-05 #53: sau khi mở sửa sau gửi → HV được chọn về 09/10 → làm tươi lưới + khối nhắc.
+  function sauSuaSauGui(r: SuaSauGuiKetQua) {
+    setSuaMo(false); setChon(new Set());
+    const boQua = r.bo_qua.length;
+    setToast(`Đã mở sửa ${r.so_mo} học viên${boQua > 0 ? ` · bỏ qua ${boQua} (${r.bo_qua[0].ly_do})` : ""}. Sửa điểm rồi KẾT XUẤT LẠI ở phần mềm CDB để gửi bản mới.`);
+    if (khoa) void taiHoSo(khoa, loc);
+    taiGoiVaChoKx();
+  }
+  function bangChon(ma: string, bat: boolean) {
+    setChon((cur) => { const c = new Set(cur); if (bat) c.add(ma); else c.delete(ma); return c; });
   }
 
   async function doiCt(v: ChuongTrinh) {
@@ -310,6 +343,14 @@ export default function CapNhatKQDT() {
   }, [hoSo, qHv]);
   const trenTrang = hoSoLoc ? hoSoLoc.slice(trang * coTrang, (trang + 1) * coTrang) : [];
 
+  // KQD-05 #53 — chỉ khi cơ sở đã biết là HẾT gói chưa gửi mới cho tích chọn HV 12.
+  const hetGoiChuaGui = goi != null && !goi.mo_duoc;
+  const choKxTheoDk = useMemo(() => new Map(choKx.map((c) => [c.ma_dk, c])), [choKx]);
+  const soChoKxKhoa = khoa ? choKx.filter((c) => c.ma_kh === khoa.ma_kh).length : 0;
+  const hvChon = (hoSo ?? []).filter((h) => chon.has(h.ma_dk) && h.tt_xuly === "12");
+  const chonDuoc = trenTrang.filter((h) => h.tt_xuly === "12").map((h) => h.ma_dk);
+  const chonHetTrang = hetGoiChuaGui && chonDuoc.length > 0 && chonDuoc.every((m) => chon.has(m));
+
   if (chuaChonDich) {
     return (
       <div className="p-6">
@@ -393,6 +434,13 @@ export default function CapNhatKQDT() {
         </div>
       )}
 
+      {khoa && soChoKxKhoa > 0 && (
+        <div className="shrink-0 px-4 py-1.5 bg-warning/10 border-b border-warning/40 text-[12.5px] text-warning flex items-start gap-2">
+          <Icon name="warn" className="w-4 h-4 mt-0.5 shrink-0" />
+          <span><b>{soChoKxKhoa.toLocaleString("vi-VN")} học viên</b> đã sửa sau khi gửi Sở, <b>chưa kết xuất lại</b> — mở phần mềm CDB để kết xuất. Để lâu, nếu Sở trả kết quả thì học viên sẽ bị kẹt.</span>
+        </div>
+      )}
+
       <div className="flex-1 min-h-0 p-4 flex flex-col">
         {!khoa ? (
           <div className="text-[13px] text-muted-foreground max-w-xl rounded-lg border border-dashed border-border bg-card p-8 text-center">Chọn một khóa học ở trên để xem/nhập kết quả học viên.</div>
@@ -405,10 +453,16 @@ export default function CapNhatKQDT() {
         ) : (
           <>
             <div className="rounded-lg border border-border bg-card overflow-auto flex-1 min-h-0">
-              <table className="w-full table-fixed text-[13px] border-collapse min-w-[1180px]">
+              <table className="w-full table-fixed text-[13px] border-collapse min-w-[1208px]">
                 <thead className="sticky top-0 z-10">
                   <tr className="bg-kq text-white text-left">
-                    <th className="font-semibold px-2 py-1.5 w-10 text-center">STT</th>
+                    <th className="font-semibold px-2 py-1.5 w-10 text-center">
+                      {hetGoiChuaGui && chonDuoc.length > 0 ? (
+                        <input type="checkbox" checked={chonHetTrang} aria-label="Chọn tất cả học viên đã gửi Sở ở trang này"
+                          title="Chọn tất cả học viên đã gửi Sở ở trang này"
+                          onChange={(e) => setChon((cur) => { const c = new Set(cur); chonDuoc.forEach((m) => (e.target.checked ? c.add(m) : c.delete(m))); return c; })} />
+                      ) : "STT"}
+                    </th>
                     <th className="font-semibold px-2 py-1.5 w-[200px]">Họ và tên</th>
                     <th className="font-semibold px-2 py-1.5 w-[116px]">Số CCCD</th>
                     <th className="font-semibold px-2 py-1.5 w-12 text-center">Hạng</th>
@@ -417,7 +471,7 @@ export default function CapNhatKQDT() {
                     ))}
                     <th className="font-semibold px-1 py-1.5 w-[62px] text-center">Giờ đường</th>
                     <th className="font-semibold px-1 py-1.5 w-[66px] text-center">Km đường</th>
-                    <th className="font-semibold px-2 py-1.5 w-[104px] text-center">Kết luận</th>
+                    <th className="font-semibold px-2 py-1.5 w-[132px] text-center">Kết luận</th>
                     <th className="font-semibold px-2 py-1.5 w-[150px] text-center">Lưu · Chi tiết</th>
                     <th className="w-full" aria-hidden></th>
                   </tr>
@@ -434,7 +488,11 @@ export default function CapNhatKQDT() {
                       // dòng chỉ-đọc (đã kết xuất/hoàn thành) — hiện điểm đã lưu
                       return (
                         <tr key={h.ma_dk} className="border-b border-border/80 bg-muted/20 text-muted-foreground align-top">
-                          <td className="px-2 py-2 text-center tabular-nums">{stt}</td>
+                          <td className="px-2 py-2 text-center tabular-nums">
+                            {hetGoiChuaGui && h.tt_xuly === "12"
+                              ? <input type="checkbox" checked={chon.has(h.ma_dk)} onChange={(e) => bangChon(h.ma_dk, e.target.checked)} aria-label={`Chọn ${h.ho_ten}`} />
+                              : stt}
+                          </td>
                           <td className="px-2 py-2 font-medium truncate" title={h.ho_ten}>{h.ho_ten}<div className="text-[11px] tabular-nums">{h.ngay_sinh}</div></td>
                           <td className="px-2 py-2 font-mono text-[12px]">{h.so_cccd}</td>
                           <td className="px-2 py-2 text-center">{h.hang ?? "—"}</td>
@@ -442,8 +500,12 @@ export default function CapNhatKQDT() {
                           <td className="px-1 py-2 text-center">—</td>
                           <td className="px-1 py-2 text-center">—</td>
                           <td className="px-2 py-2 text-center">{h.ket_luan === "dat" ? <span className="text-[11px] font-semibold text-success">Đạt</span> : h.ket_luan === "khong_dat" ? <span className="text-[11px] font-semibold text-destructive">Không đạt</span> : "—"}</td>
-                          <td className="px-2 py-2 text-center"><span className="text-[12px]">🔒 chỉ xem</span><div className="mt-0.5">{ttBadge(h.tt_xuly)}</div></td>
-                          <td className="px-2 py-2 text-center">{h.tt_xuly === "12" && (
+                          <td className="px-2 py-2 text-center"><span className="text-[12px]">🔒 chỉ xem</span><div className="mt-0.5">
+                            {hetGoiChuaGui && h.tt_xuly === "12"
+                              ? <span className="inline-block text-[11px] font-semibold border rounded-full px-2 py-0.5 whitespace-nowrap text-muted-foreground bg-muted border-border">Đã gửi Sở</span>
+                              : ttBadge(h.tt_xuly)}
+                          </div></td>
+                          <td className="px-2 py-2 text-center">{h.tt_xuly === "12" && !hetGoiChuaGui && (
                             <button onClick={() => setMoKhoaMo(true)} className="inline-flex items-center gap-1 h-7 px-2 rounded-md border border-kq/50 text-kq text-[11.5px] font-medium hover:bg-kq-soft whitespace-nowrap" title="Mở khóa để sửa điểm (thao tác toàn cơ sở)">
                               <Icon name="clock" className="w-3.5 h-3.5" /> Mở khóa
                             </button>
@@ -491,6 +553,9 @@ export default function CapNhatKQDT() {
                           ) : t.dat ? <span className="text-[12px] font-bold text-success bg-success/10 border border-success/50 rounded-full px-2.5 py-0.5">✓ ĐẠT</span>
                             : <span className="text-[12px] font-bold text-destructive bg-destructive/10 border border-destructive/50 rounded-full px-2.5 py-0.5">✗ Không đạt</span>}
                           {suaLai && <div className="mt-1">{ttBadge(h.tt_xuly)}</div>}
+                          {choKxTheoDk.has(h.ma_dk) && (
+                            <div className="mt-1"><span title={`Mở sửa ${choKxTheoDk.get(h.ma_dk)?.luc_mo ?? ""} — ${choKxTheoDk.get(h.ma_dk)?.ly_do ?? ""}`} className="inline-block text-[10.5px] leading-tight font-semibold border rounded-md px-1.5 py-0.5 text-warning bg-warning/10 border-warning/50">Sửa sau gửi — chưa kết xuất lại</span></div>
+                          )}
                         </td>
                         <td className="px-2 py-2 align-top">
                           <div className="flex items-center justify-center gap-1.5">
@@ -508,6 +573,18 @@ export default function CapNhatKQDT() {
                 </tbody>
               </table>
             </div>
+            {hetGoiChuaGui && hvChon.length > 0 && (
+              <div className="shrink-0 mt-2 rounded-lg border border-kq-border bg-kq-soft px-3 py-2 flex items-center gap-3 text-[13px]">
+                <span>Đã chọn <b className="tabular-nums">{hvChon.length.toLocaleString("vi-VN")}</b> học viên đã gửi Sở</span>
+                <button onClick={() => setChon(new Set())} className="text-[12px] text-muted-foreground hover:text-foreground underline">Bỏ chọn</button>
+                <button onClick={() => setSuaMo(true)} className="ml-auto h-8 px-4 rounded-lg bg-kq text-white font-semibold text-[13px] hover:brightness-110 inline-flex items-center gap-1.5">
+                  <Icon name="clock" className="w-4 h-4" /> Mở sửa điểm
+                </button>
+              </div>
+            )}
+            {hetGoiChuaGui && hvChon.length === 0 && trenTrang.some((h) => h.tt_xuly === "12") && (
+              <p className="text-[12px] text-muted-foreground mt-2">Học viên <b className="text-foreground">đã gửi Sở</b>: tích chọn rồi bấm <b className="text-foreground">Mở sửa điểm</b> để sửa/bổ sung điểm (phải kết xuất lại sau đó).</p>
+            )}
             {hoSoLoc && <PhanTrang total={hoSoLoc.length} trang={trang} coTrang={coTrang} onTrang={setTrang} onCoTrang={(c) => { setCoTrang(c); setTrang(0); }} cacCo={[50, 20, 100]} />}
             <p className="text-[12px] text-muted-foreground mt-2">Ngưỡng đạt từng môn = <b className="text-foreground">5,0</b> (xét trên điểm chưa làm tròn). Giờ sân · km sân · số giấy HTKH · ngày cấp → trong <b>Chi tiết</b> mỗi dòng.</p>
           </>
@@ -587,6 +664,16 @@ export default function CapNhatKQDT() {
 
       {moKhoaMo && (
         <MoKhoaModal targetKey={targetKey ?? undefined} maKh={khoa?.ma_kh ?? null} onClose={() => setMoKhoaMo(false)} onDone={sauMoKhoa} />
+      )}
+
+      {suaMo && (
+        <SuaSauGuiModal
+          targetKey={targetKey ?? undefined}
+          hv={hvChon}
+          onClose={() => setSuaMo(false)}
+          onDone={sauSuaSauGui}
+          onGoiDoi={() => { taiGoiVaChoKx(); setChon(new Set()); }}
+        />
       )}
     </div>
   );

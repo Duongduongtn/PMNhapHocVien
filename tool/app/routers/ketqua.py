@@ -12,12 +12,13 @@ Mount kèm `require_session` ở main.py (collector không có session cục b�
 """
 from __future__ import annotations
 
+import json
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from app import config_store, ketqua_quydoi, sync_helpers
+from app import config_store, ketqua_quydoi, sua_sau_gui, sync_helpers
 from app.db import sqlserver_conn_dich, ConfigChuaDay
 from app.routers.hoso import ngay_sinh_hien
 from app.routers.sync import _db_dich, _loi_db
@@ -543,8 +544,8 @@ def mo_khoa(body: MoKhoaIn, target_key: str | None = None) -> dict:
                 da = [_goi_row(r) for r in goi if (r["TrangThai"] or "").strip() == "1"]
                 raise HTTPException(status_code=409, detail={
                     "loi": "da_gui_het",
-                    "thong_bao": "Mọi gói kết quả của cơ sở đã gửi đi Sở — không mở khóa được. "
-                                 "Chờ Sở từ chối (14) rồi giải trình (90).",
+                    "thong_bao": "Mọi gói kết quả của cơ sở đã gửi đi Sở — không xóa gói để mở khóa được. "
+                                 "Dùng \"Sửa sau gửi\": tích chọn từng học viên ở tab Cập nhật KQĐT rồi bấm Mở sửa điểm.",
                     "goi_da_gui": da,
                 })
             # Đếm trước khi lùi (sau khi lùi, nhóm có-kết-luận về 09/10 nên đếm lại = 0).
@@ -577,3 +578,203 @@ def mo_khoa(body: MoKhoaIn, target_key: str | None = None) -> dict:
         "so_hv_bo_qua": so_hv_bo_qua,  # HV 12 KetLuanCSDT NULL → bỏ qua (cảnh báo)
         "so_khoa": so_khoa,            # số khóa có HV được lùi
     }
+
+
+# ── KQD-05 mở rộng (task 83, CHANGES #53): "Sửa sau gửi" — chọn từng HV, KHÔNG xóa gói ──
+# Dùng khi cơ sở HẾT gói chưa gửi (còn gói chưa gửi → lối mở khóa ở trên, xóa gói để không
+# gửi điểm cũ). Phản hồi Sở (usp_CSDT_PheDuyetKQDT_TiepNhan) chỉ nhận HV đang '12' → HV mở
+# sửa phải được kết xuất lại sớm; khối đỏ ở KQD-03 nhắc việc đó. TDD §11D.7b · decisions §21.
+
+class MoSuaSauGuiIn(BaseModel):
+    ma_dk: list[str] = Field(..., min_length=1, max_length=sua_sau_gui.SO_HV_TOI_DA)
+    ly_do: str          # kiểm rỗng / ≤1000 SAU khi strip (xem handler)
+
+
+_SQL_HV_SSG = (
+    "SELECT B.MaDK, B.MaKhoaHoc, B.TT_XuLy, B.KetLuanCSDT, A.HoVaTen, "
+    "B.DiemKQLyThuyet, B.DiemKQMoPhong, B.DiemKQHinh, B.DiemKQTienLui, B.DiemKQThucHanh "
+    "FROM dbo.NguoiLX_HoSo B JOIN dbo.NguoiLX A ON A.MaDK = B.MaDK "
+    "WHERE B.MaCSDT = %s AND B.MaDK IN ({ph})"
+)
+
+# Lùi ĐÚNG 1 HV theo MaDK (không theo cơ sở như _SQL_LUI_HV12). Guard '12' + có kết luận.
+_SQL_LUI_MOT_HV = (
+    "UPDATE dbo.NguoiLX_HoSo "
+    "SET TT_XuLy = CASE WHEN KetLuanCSDT = 1 THEN '09' WHEN KetLuanCSDT = 0 THEN '10' END, "
+    "GiaiTrinh = %s, NgaySua = GETDATE() "
+    "WHERE MaDK = %s AND MaCSDT = %s AND TT_XuLy = '12' AND KetLuanCSDT IS NOT NULL"
+)
+
+_SQL_TT_HIEN_TAI = "SELECT MaDK, TT_XuLy FROM dbo.NguoiLX_HoSo WHERE MaCSDT = %s AND MaDK IN ({ph})"
+
+
+def _chunks(xs: list, n: int = 200):
+    for i in range(0, len(xs), n):
+        yield xs[i:i + n]
+
+
+def _tt_hien_tai(cur, ma: str, ma_dks: list[str]) -> dict[str, str]:
+    """{MaDK: TT_XuLy} hiện tại ở đích — SELECT lại thay vì tin rowcount (pymssql có thể -1)."""
+    out: dict[str, str] = {}
+    for ch in _chunks(ma_dks):
+        cur.execute(_SQL_TT_HIEN_TAI.format(ph=", ".join(["%s"] * len(ch))), (ma, *ch))
+        for r in cur.fetchall():
+            out[str(r["MaDK"]).strip()] = (r["TT_XuLy"] or "").strip()
+    return out
+
+
+@router.post("/mo-sua-sau-gui")
+def mo_sua_sau_gui(body: MoSuaSauGuiIn, target_key: str | None = None,
+                   phien: Phien = Depends(require_session)) -> dict:
+    """KQD-05 #53: mở sửa điểm cho các HV `12` được chọn khi gói đã gửi Sở (KHÔNG xóa gói).
+
+    Thứ tự an toàn: (1) cổng — còn gói chưa gửi → 409 `con_goi_chua_gui`; (2) có HV `13` →
+    409 `co_hv_13` (không đổi gì); (3) ghi nhật ký sqlite TRƯỚC (lỗi → chưa đụng DB đích);
+    (4) UPDATE từng MaDK; (5) SELECT lại để biết HV nào thật sự lùi, dòng nhật ký HV không
+    lùi được → 'huy'. HV `12` thiếu kết luận → bỏ qua, không ép '10'."""
+    ly_do = body.ly_do.strip()
+    if not ly_do:
+        raise HTTPException(status_code=400, detail="Cần nhập lý do sửa sau khi đã gửi Sở.")
+    if len(ly_do) > sua_sau_gui.LY_DO_TOI_DA:
+        raise HTTPException(status_code=400, detail=f"Lý do tối đa {sua_sau_gui.LY_DO_TOI_DA} ký tự.")
+    ma_dks = list(dict.fromkeys(m.strip() for m in body.ma_dk if m and m.strip()))
+    if not ma_dks:
+        raise HTTPException(status_code=400, detail="Chưa chọn học viên nào.")
+    db = _db_dich(target_key)
+    mo: list[dict] = []
+    bo_qua: list[dict] = []
+    try:
+        with sqlserver_conn_dich(db, autocommit=True) as conn:
+            ma = _ma_csdt_hoac_loi(conn)
+            cur = conn.cursor(as_dict=True)
+            # 1) Cổng: còn gói chưa gửi → dùng "Mở khóa" (xóa gói chưa gửi), không dùng lối này.
+            cur.execute(_SQL_GOI_KQDT, (ma,))
+            chua = [r for r in cur.fetchall() if (r["TrangThai"] or "").strip() == "0"]
+            if chua:
+                raise HTTPException(status_code=409, detail={
+                    "loi": "con_goi_chua_gui",
+                    "thong_bao": "Cơ sở còn gói kết quả chưa gửi Sở — dùng \"Mở khóa để sửa\" "
+                                 "(xóa gói chưa gửi) thay vì sửa sau gửi.",
+                    "goi_chua_gui": [_goi_row(r) for r in chua],
+                })
+            # 2) Đọc HV được chọn (ràng MaCSDT) rồi phân loại.
+            rows: list[dict] = []
+            for ch in _chunks(ma_dks):
+                cur.execute(_SQL_HV_SSG.format(ph=", ".join(["%s"] * len(ch))), (ma, *ch))
+                rows.extend(cur.fetchall())
+            pl = sua_sau_gui.phan_loai(rows, ma_dks)
+            if pl["bi_13"]:
+                raise HTTPException(status_code=409, detail={
+                    "loi": "co_hv_13",
+                    "thong_bao": "Có học viên đã hoàn thành (13, Sở đã duyệt) — không mở sửa được. "
+                                 "Bỏ họ khỏi lựa chọn rồi thử lại.",
+                    "ma_dk": pl["bi_13"],
+                })
+            bo_qua = list(pl["bo_qua"])
+            hop_le = pl["hop_le"]
+            if hop_le:
+                # 3) Nhật ký TRƯỚC — lỗi thì chưa đụng DB đích.
+                try:
+                    ids = sua_sau_gui.ghi(hop_le, ly_do, phien.username)
+                except Exception:  # noqa: BLE001
+                    raise HTTPException(
+                        status_code=500,
+                        detail="Không ghi được nhật ký sửa sau gửi — chưa đổi gì ở CSDL đích.",
+                    )
+                ma_hl = [str(r["MaDK"]).strip() for r in hop_le]
+                try:
+                    # 4) UPDATE từng HV.
+                    for r in hop_le:
+                        cur.execute(_SQL_LUI_MOT_HV, (ly_do, str(r["MaDK"]).strip(), ma))
+                finally:
+                    # 5) Đối chiếu thật: HV nào đã về 09/10; không lùi được → hủy dòng nhật ký.
+                    tt_moi = _tt_hien_tai(cur, ma, ma_hl)
+                    huy: list[int] = []
+                    for r in hop_le:
+                        ma_dk = str(r["MaDK"]).strip()
+                        tt = tt_moi.get(ma_dk)
+                        if tt in ("09", "10"):
+                            mo.append({"ma_dk": ma_dk, "ho_ten": (r.get("HoVaTen") or "").strip(), "tt_moi": tt})
+                        else:
+                            huy.append(ids[ma_dk])
+                            bo_qua.append({"ma_dk": ma_dk, "ly_do": "Trạng thái đổi giữa chừng — chưa mở được, thử lại."})
+                    sua_sau_gui.doi_trang_thai(huy, sua_sau_gui.HUY)
+    except HTTPException:
+        raise
+    except ConfigChuaDay as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail="Không mở sửa được — kiểm kết nối rồi thử lại.")
+    return {"ok": True, "so_mo": len(mo), "mo": mo, "bo_qua": bo_qua}
+
+
+def _luc_hien(iso: str | None) -> str | None:
+    """'2026-10-10T14:05:00' → '10/10/2026 14:05' (hiển thị VN)."""
+    try:
+        return datetime.fromisoformat(iso).strftime("%d/%m/%Y %H:%M") if iso else None
+    except ValueError:
+        return iso
+
+
+@router.get("/sua-sau-gui")
+def ds_sua_sau_gui(target_key: str | None = None) -> list[dict]:
+    """KQD-03 khối đỏ: HV đã mở "sửa sau gửi" mà chưa kết xuất lại (nhật ký ∩ trạng thái hiện tại).
+
+    HV đã về `12` (hoặc xa hơn 13/14/90) → phần mềm CDB đã kết xuất lại → đánh 'da_kx', rời
+    khối đỏ. HV không còn trong CSDL → 'huy'. Chỉ đọc CDB đích; ghi duy nhất vào nhật ký."""
+    cho = sua_sau_gui.cho_kx()
+    if not cho:
+        return []
+    db = _db_dich(target_key)
+    ma_dks = list(dict.fromkeys(c["ma_dk"] for c in cho))
+    hien: dict[str, dict] = {}
+    try:
+        with sqlserver_conn_dich(db) as conn:
+            ma = _ma_csdt_hoac_loi(conn)
+            cur = conn.cursor(as_dict=True)
+            for ch in _chunks(ma_dks):
+                cur.execute(_SQL_HV_SSG.format(ph=", ".join(["%s"] * len(ch))), (ma, *ch))
+                for r in cur.fetchall():
+                    hien[str(r["MaDK"]).strip()] = r
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001
+        raise _loi_db(e)
+    da_kx: list[int] = []
+    huy: list[int] = []
+    out: list[dict] = []
+    for c in cho:
+        r = hien.get(c["ma_dk"])
+        if r is None:
+            huy.append(c["id"])
+            continue
+        tt = (r["TT_XuLy"] or "").strip()
+        if tt in sua_sau_gui.TT_DA_KX:
+            da_kx.append(c["id"])
+            continue
+        try:
+            truoc = json.loads(c["diem_truoc_json"] or "{}")
+        except ValueError:
+            truoc = {}
+        out.append({
+            "id": c["id"],
+            "ma_dk": c["ma_dk"],
+            "ma_kh": c["ma_kh"],
+            "ho_ten": c["ho_ten"],
+            "nguoi": c["nguoi"],
+            "luc_mo": _luc_hien(c["luc_mo"]),
+            "ly_do": c["ly_do"],
+            "tt_xuly": tt or None,
+            "diem_truoc": truoc,
+            "diem_hien": {
+                "ly_thuyet": _diem(r["DiemKQLyThuyet"]),
+                "mo_phong": _diem(r["DiemKQMoPhong"]),
+                "hinh": _diem(r["DiemKQHinh"]),
+                "tien_lui": _diem(r["DiemKQTienLui"]),
+                "duong": _diem(r["DiemKQThucHanh"]),
+                "ket_luan": _ket_luan(r["KetLuanCSDT"]),
+            },
+        })
+    sua_sau_gui.doi_trang_thai(da_kx, sua_sau_gui.DA_KX)
+    sua_sau_gui.doi_trang_thai(huy, sua_sau_gui.HUY)
+    return out
