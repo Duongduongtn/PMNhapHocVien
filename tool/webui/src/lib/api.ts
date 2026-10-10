@@ -1294,3 +1294,21 @@ export const goiYGhepXe = (maKh: string, ban: BanNhapPC, targetKey?: string) =>
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ ma_kh: maKh, ...ban }),
   }).then(json<{ goi_y: GoiYGhepXe[] }>);
+
+export interface RaSoatKhoaPC {
+  ma_kh: string;
+  ten_kh: string;
+  hang_dt: string;
+  kg: string;
+  bg: string;
+  da_dkkh: boolean;
+  gv_ds: number;
+  gv_chua_pc: number;
+  pc_ngoai_ds: number;
+  xe_ds: number;
+  xe_chua_ghep: number;
+  ghep_ngoai_ds: number;
+  can_xu_ly: boolean;
+}
+export const raSoatPC = (targetKey?: string) =>
+  fetch(`${BASE}/local/phancong/ra-soat?${qs({ target_key: targetKey })}`, { headers: authHeaders() }).then(json<RaSoatKhoaPC[]>);

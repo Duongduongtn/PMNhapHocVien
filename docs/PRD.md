@@ -998,7 +998,7 @@
 
 #### [PCG-05] Rà soát khóa (tab thứ 2)
 
-**Trạng thái:** ⏳ Todo
+**Trạng thái:** ✅ Done — chỉ đọc; kiểm với dữ liệu giả (chưa chạy trên CDB thật)
 **Story:** Là nhân viên cơ sở, tôi muốn thấy khóa nào đang làm dở hoặc lệch giữa danh sách và phân công, để xử lý đúng khóa cần.
 
 **Done khi:**

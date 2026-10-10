@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from fastapi import Depends
 
 from app import phancong_nhat_ky as nhat_ky
+from app import phancong_rasoat as rasoat
 from app import phancong_service as svc
 from app.db import ConfigChuaDay, sqlserver_conn_dich
 from app.routers.sync import _db_dich, _loi_db
@@ -139,6 +140,21 @@ def kiem_tra(body: BanNhapIn, target_key: str | None = None) -> dict:
             return svc.kiem_tra(conn, _csdt(conn), body.ma_kh, body.model_dump())
     except KeyError:
         raise HTTPException(status_code=404, detail="Không tìm thấy khóa học ở CSDL đích.")
+    except HTTPException:
+        raise
+    except ConfigChuaDay as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:  # noqa: BLE001
+        raise _loi_db(e)
+
+
+@router.get("/ra-soat")
+def ra_soat(target_key: str | None = None) -> list[dict]:
+    """PCG-05 — bảng rà soát mọi khóa của CSĐT (chỉ đọc)."""
+    db = _db_dich(target_key)
+    try:
+        with sqlserver_conn_dich(db) as conn:
+            return rasoat.ra_soat(conn, _csdt(conn))
     except HTTPException:
         raise
     except ConfigChuaDay as e:

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import BuocGiaoVien from "./BuocGiaoVien";
 import BuocPhanCong from "./BuocPhanCong";
 import BuocXe from "./BuocXe";
@@ -53,6 +54,7 @@ function banTuHienTrang(h: Omit<HienTrangPC, "khoa">): BanNhapPC {
 
 export default function PhanCongTheoKhoa() {
   const { open: openConfig } = useConfigDrawer();
+  const [params, setParams] = useSearchParams();
   const [targetKey, setTargetKey] = useState<string | null>(null);
   const [targetLoi, setTargetLoi] = useState<string | null>(null);
 
@@ -134,6 +136,22 @@ export default function PhanCongTheoKhoa() {
       setDangTai(false);
     }
   }
+
+  // Mở sẵn khóa từ liên kết (?khoa=<mã>) — dùng khi bấm một dòng ở tab "Rà soát khóa".
+  const khoaTuLienKet = params.get("khoa");
+  useEffect(() => {
+    if (!targetKey || !khoaTuLienKet) return;
+    let huy = false;
+    dsKhoaPC(khoaTuLienKet, targetKey)
+      .then((d) => {
+        const k = d.find((x) => x.ma_kh === khoaTuLienKet);
+        if (k && !huy) void chonKhoa(k);
+      })
+      .catch(() => {})
+      .finally(() => { if (!huy) setParams({}, { replace: true }); });
+    return () => { huy = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetKey, khoaTuLienKet]);
 
   // Kiểm tra sống: mỗi lần bản nháp đổi → hỏi server sau 250ms; bỏ kết quả trả về muộn.
   useEffect(() => {
