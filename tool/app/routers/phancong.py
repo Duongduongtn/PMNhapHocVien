@@ -147,6 +147,23 @@ def kiem_tra(body: BanNhapIn, target_key: str | None = None) -> dict:
         raise _loi_db(e)
 
 
+@router.post("/goi-y-ghep-xe")
+def goi_y_ghep_xe(body: BanNhapIn, target_key: str | None = None) -> dict:
+    """Gợi ý xe cho GV thực hành chưa có xe (xem trước — KHÔNG ghi gì)."""
+    db = _db_dich(target_key)
+    try:
+        with sqlserver_conn_dich(db) as conn:
+            return svc.goi_y_ghep_xe(conn, _csdt(conn), body.ma_kh, body.model_dump())
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Không tìm thấy khóa học ở CSDL đích.")
+    except HTTPException:
+        raise
+    except ConfigChuaDay as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:  # noqa: BLE001
+        raise _loi_db(e)
+
+
 class GhiIn(BanNhapIn):
     da_xem_canh_bao: bool = False
     xac_nhan_csdl_that: bool = False

@@ -210,3 +210,49 @@ def test_ha_muc_du_lieu_cu_chi_ap_cho_dong_giu_nguyen():
     # sửa dòng cũ (đổi ngày) → hết được hạ mức
     pc2 = [{**pc[0], "den": "2026-12-19T00:00"}]
     assert svc.ha_muc_du_lieu_cu([v[2]], hien, ["A"], pc2, [], ghep)[0]["muc"] == "chan"
+
+
+# ── PCG-03 (2/2) — gợi ý ghép xe ──
+def test_goi_y_ghep_xe_chon_xe_hop_le_uu_tien_dung_hang_va_khong_ghi(auth_headers, monkeypatch):
+    db = _Db(xe=[
+        {"BienSoXe": "93C-0", "HangGPLXXe": "C1", "NgayHHGPXTL": datetime(2026, 11, 30),   # hết hạn trước bế giảng → loại
+         "NgayHHGCNKD": datetime(2027, 6, 30), "TrangThai": 1},
+        {"BienSoXe": "93C-1", "HangGPLXXe": "B1", "NgayHHGPXTL": datetime(2027, 6, 30),    # lệch hạng khóa C1 → cảnh báo
+         "NgayHHGCNKD": datetime(2027, 6, 30), "TrangThai": 1},
+        {"BienSoXe": "93C-2", "HangGPLXXe": "C1", "NgayHHGPXTL": datetime(2027, 6, 30),    # đúng hạng → được chọn
+         "NgayHHGCNKD": datetime(2027, 6, 30), "TrangThai": 1},
+    ])
+    _patch(monkeypatch, db)
+    body = _nhap(xe_khoa=["93C-0", "93C-1", "93C-2"], ghep=[])
+    r = client.post("/local/phancong/goi-y-ghep-xe", headers=auth_headers, json=body)
+    assert r.status_code == 200, r.text
+    g = r.json()["goi_y"]
+    assert len(g) == 1 and g[0]["ma"] == "75032101" and g[0]["xe"] == "93C-2" and g[0]["canh_bao"] == []
+    assert g[0]["tu"] == "2026-10-15T00:00" and g[0]["den"] == "2026-12-20T00:00"
+    assert not any(s.lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE", "EXEC")) for s, _ in db.log)
+
+
+def test_goi_y_ghep_xe_het_xe_hop_le_tra_ly_do(auth_headers, monkeypatch):
+    db = _Db(xe=[{"BienSoXe": "93C-1", "HangGPLXXe": "C1", "NgayHHGPXTL": datetime(2026, 11, 30),
+                  "NgayHHGCNKD": datetime(2027, 6, 30), "TrangThai": 1}])
+    _patch(monkeypatch, db)
+    j = client.post("/local/phancong/goi-y-ghep-xe", headers=auth_headers, json=_nhap(ghep=[])).json()
+    assert j["goi_y"][0]["xe"] == "" and "không có xe" in j["goi_y"][0]["ly_do"].lower()
+
+
+def test_goi_y_ghep_xe_bo_qua_gv_da_co_xe_va_moi_xe_mot_gv(auth_headers, monkeypatch):
+    db = _Db(gv=[
+        {"MaGV": "75032101", "HoTenDem": "Trần Văn", "TenGV": "An", "LoaiHinh_DaoTao": "TH", "TrangThai": 1,
+         "HangGPLX": "C1", "CacHangGPLXDuocDT": "B, C1"},
+        {"MaGV": "75032102", "HoTenDem": "Lê Văn", "TenGV": "Bình", "LoaiHinh_DaoTao": "TH", "TrangThai": 1,
+         "HangGPLX": "C1", "CacHangGPLXDuocDT": "B, C1"},
+    ])
+    _patch(monkeypatch, db)
+    pc2 = {"id": 2, "ma": "75032102", "mon": [6], "tu": "2026-10-15T00:00", "den": "2026-12-20T00:00"}
+    base = _nhap(gv_khoa=["75032101", "75032102"], ghep=[])
+    base["pc"].append(pc2)
+    j = client.post("/local/phancong/goi-y-ghep-xe", headers=auth_headers, json=base).json()["goi_y"]
+    assert [x["xe"] for x in j] == ["93C-1", ""]          # chỉ 1 xe → GV thứ hai không có xe
+    base["ghep"] = [{"ma": "75032101", "xe": "93C-1", "tu": "2026-10-15T00:00", "den": "2026-12-20T00:00"}]
+    j2 = client.post("/local/phancong/goi-y-ghep-xe", headers=auth_headers, json=base).json()["goi_y"]
+    assert [x["ma"] for x in j2] == ["75032102"] and j2[0]["xe"] == ""    # GV 1 đã có xe → bỏ qua; xe 93C-1 đã dùng

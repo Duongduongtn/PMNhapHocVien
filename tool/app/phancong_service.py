@@ -267,10 +267,8 @@ def ha_muc_du_lieu_cu(vande: list[dict], hien: dict, gv_khoa: list[str], pc: lis
     return out
 
 
-def kiem_tra(conn, ma: str, ma_kh: str, ban_nhap: dict, hom_nay: str | None = None) -> dict:
-    """Chạy toàn bộ luật cho bản nháp `ban_nhap` {gv_khoa, pc, xe_khoa, ghep} của khóa `ma_kh`.
-
-    Không ghi gì. Trả {vande, tom_tat, co_chan}. Server là nguồn luật duy nhất (UI chỉ hiển thị)."""
+def _ngu_canh(conn, ma: str, ma_kh: str, ban_nhap: dict) -> dict:
+    """Nạp mọi thứ luật cần cho bản nháp `ban_nhap` (dùng chung cho kiểm tra + gợi ý ghép xe)."""
     kh = doc_khoa(conn, ma, ma_kh)
     if kh is None:
         raise KeyError("khong_thay_khoa")
@@ -288,12 +286,63 @@ def kiem_tra(conn, ma: str, ma_kh: str, ban_nhap: dict, hom_nay: str | None = No
     ban_gv, ban_xe = ban_khac(conn, ma_kh, gv_ids, xe_ids)
     khoa_luat = {"ma": kh["ma_kh"], "kg": kh["kg"], "bg": kh["bg"], "hang_nhom": kh["hang_nhom"],
                  "hang_xe": kh["hang_xe"], "da_dkkh": kh["da_dkkh"]}
+    return {"mons": mons, "gv_khoa": gv_khoa, "pc": pc, "xe_khoa": xe_khoa, "ghep": ghep, "gvm": gvm,
+            "xem": xem, "ban_gv": ban_gv, "ban_xe": ban_xe, "khoa_luat": khoa_luat,
+            "ten_mon": {m["id"]: m["ten"] for m in mons}}
+
+
+def kiem_tra(conn, ma: str, ma_kh: str, ban_nhap: dict, hom_nay: str | None = None) -> dict:
+    """Chạy toàn bộ luật cho bản nháp `ban_nhap` {gv_khoa, pc, xe_khoa, ghep} của khóa `ma_kh`.
+
+    Không ghi gì. Trả {vande, tom_tat, co_chan}. Server là nguồn luật duy nhất (UI chỉ hiển thị)."""
+    c = _ngu_canh(conn, ma, ma_kh, ban_nhap)
     vande = rules.kiem_tra_khoa(
-        khoa_luat, gvm, xem, gv_khoa, pc, xe_khoa, ghep, ban_gv, ban_xe,
-        hom_nay or date.today().isoformat(), {m["id"]: m["ten"] for m in mons},
+        c["khoa_luat"], c["gvm"], c["xem"], c["gv_khoa"], c["pc"], c["xe_khoa"], c["ghep"], c["ban_gv"], c["ban_xe"],
+        hom_nay or date.today().isoformat(), c["ten_mon"],
     )
-    vande = ha_muc_du_lieu_cu(vande, hien_trang(conn, ma_kh, mons), gv_khoa, pc, xe_khoa, ghep)
+    vande = ha_muc_du_lieu_cu(vande, hien_trang(conn, ma_kh, c["mons"]), c["gv_khoa"], c["pc"], c["xe_khoa"], c["ghep"])
     return {"vande": vande, "tom_tat": rules.tom_tat(vande), "co_chan": rules.co_chan(vande)}
+
+
+def goi_y_ghep_xe(conn, ma: str, ma_kh: str, ban_nhap: dict, hom_nay: str | None = None) -> dict:
+    """Gợi ý xe cho các GV có phân công Thực hành lái xe mà chưa có xe. KHÔNG ghi.
+
+    Mỗi GV một xe, mỗi xe một GV; chỉ xe đã thuộc khóa; loại xe bị ⛔ theo luật; ưu tiên xe ít cảnh báo
+    nhất (đúng hạng, không chạy khóa khác). GV không có xe hợp lệ → xe="" kèm lý do."""
+    c = _ngu_canh(conn, ma, ma_kh, ban_nhap)
+    hom_nay = hom_nay or date.today().isoformat()
+    da_ghep_gv = {m["ma"] for m in c["ghep"] if m["xe"]}
+    xe_dung = {m["xe"] for m in c["ghep"] if m["xe"]}
+    ghep = list(c["ghep"])
+    out: list[dict] = []
+    for g in c["gv_khoa"]:
+        th = [p for p in c["pc"] if p["ma"] == g and rules.MON_THUC_HANH in p["mon"] and p["tu"] and p["den"]]
+        if g in da_ghep_gv or not th:
+            continue
+        tu, den = min(p["tu"] for p in th), max(p["den"] for p in th)
+        ten = (c["gvm"].get(g) or {}).get("ten") or g
+        tot: tuple[int, str, list[str]] | None = None
+        for bs in c["xe_khoa"]:
+            if bs in xe_dung:
+                continue
+            thu = ghep + [{"ma": g, "xe": bs, "tu": tu, "den": den}]
+            vd = rules.kiem_tra_khoa(c["khoa_luat"], c["gvm"], c["xem"], c["gv_khoa"], c["pc"], c["xe_khoa"], thu,
+                                     c["ban_gv"], c["ban_xe"], hom_nay, c["ten_mon"])
+            lien_quan = [v for v in vd if v["ref"] in (f"gh-{g}", f"xe-{bs}")]
+            if any(v["muc"] == rules.CHAN for v in lien_quan):
+                continue
+            cb = [v["noi_dung"] for v in lien_quan if v["muc"] == rules.CANH_BAO]
+            if tot is None or (len(cb), bs) < (tot[0], tot[1]):
+                tot = (len(cb), bs, cb)
+        if tot is None:
+            out.append({"ma": g, "ten": ten, "xe": "", "tu": iso_dt(tu), "den": iso_dt(den), "canh_bao": [],
+                        "ly_do": "Không có xe nào trong khóa còn trống và hợp lệ cho khoảng ngày này."})
+        else:
+            xe_dung.add(tot[1])
+            ghep.append({"ma": g, "xe": tot[1], "tu": tu, "den": den})
+            out.append({"ma": g, "ten": ten, "xe": tot[1], "tu": iso_dt(tu), "den": iso_dt(den),
+                        "canh_bao": tot[2], "ly_do": ""})
+    return {"goi_y": out}
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -380,12 +429,16 @@ def _exec(sp: str, params: dict) -> tuple[str, tuple]:
     return ("EXEC dbo." + sp + " " + ", ".join(f"@{c}=%s" for c in cols), tuple(params[c] for c in cols))
 
 
+DIA_DIEM_MAC_DINH = "tại trung tâm Thành Đạt và trên đường"
+
+
 def dia_diem_mac_dinh(conn) -> str:
     cur = conn.cursor(as_dict=True)
     cur.execute("SELECT TOP 1 DiaDiem FROM dbo.KhoaHoc_XeTap WHERE IsKhoaHocXeTap = 0 AND DiaDiem IS NOT NULL "
                 "GROUP BY DiaDiem ORDER BY COUNT(*) DESC")
     r = cur.fetchone()
-    return (r["DiaDiem"] or "").strip() if r else ""
+    # Địa điểm phổ biến nhất của cơ sở; CDB chưa có dòng nào thì dùng mặc định theo PRD (PCG-03).
+    return (r["DiaDiem"] or "").strip() if r and r["DiaDiem"] else DIA_DIEM_MAC_DINH
 
 
 def fmt_range(d: dict) -> str:

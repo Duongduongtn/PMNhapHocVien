@@ -1,4 +1,4 @@
-"""PCG-04 (1/4) + PCG-02 (edge cases) — task 85: luật thuần `phancong_rules` (không DB).
+"""PCG-04 (1/4) + PCG-02 + PCG-03 (edge cases) — task 85: luật thuần `phancong_rules` (không DB).
 
 Khóa các bất biến của luật CDB đã verify 10/10/2026: datetime nửa mở (chạm đầu mút không
 trùng, cùng ngày khác giờ được), phạm vi khóa (bd > 00:00 KG, kt < 23:59:59 BG), trùng so cả
@@ -224,3 +224,9 @@ def test_xe_ngung_trong_danh_sach_xe_khoa_bi_chan_du_chua_ghep():
     v = chay(xe_khoa=("93C-9",), xes=[xe("93C-9", active=False)])
     assert "xe_ngung_trong_khoa" in ma_loi(v)
     assert "xe_ngung_trong_khoa" not in ma_loi(chay(xe_khoa=("93C-1",)))
+
+
+def test_xe_dang_chay_khoa_khac_chua_be_giang_chi_canh_bao():
+    ban = {"93C-1": [{"khoa": "C1-K14", "tu": "2026-08-26T00:00", "den": "2026-09-20T00:00", "bg": "2099-12-30"}]}
+    v = chay([_th()], [_gh("75032101", "93C-1")], xe_khoa=("93C-1",), ban_xe=ban)
+    assert "xe_dang_khoa_khac" in ma_loi(v, r.CANH_BAO) and r.CHAN not in {i["muc"] for i in v}

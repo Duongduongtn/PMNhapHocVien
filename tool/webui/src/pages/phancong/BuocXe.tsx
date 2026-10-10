@@ -1,7 +1,7 @@
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Icon } from "../../components/Icon";
 import { ymdToVN } from "../../lib/format";
-import type { BanNhapPC, GhepDong, GiaoVienPC, KhoaPC, VanDePC, XePC } from "../../lib/api";
+import { goiYGhepXe, kiemTraPC, type BanNhapPC, type GhepDong, type GiaoVienPC, type GoiYGhepXe, type KhoaPC, type VanDePC, type XePC } from "../../lib/api";
 import { HuyHieu } from "./BuocGiaoVien";
 
 // PCG-03 (1/2) — Bước ③ chọn xe vào khóa + ghép 1 GV – 1 xe theo khoảng ngày. Bám ui-mock/phancong.html.
@@ -59,7 +59,7 @@ const lopMuc = (m: string) =>
   m === "chan" ? "border-destructive bg-destructive/5" : m === "canh_bao" ? "border-warning bg-warning/10" : "border-primary bg-primary/5";
 
 export default function BuocXe({
-  khoa, danhMuc, xeDm, ban, setBan, vande,
+  khoa, danhMuc, xeDm, ban, setBan, vande, targetKey,
 }: {
   khoa: KhoaPC;
   danhMuc: GiaoVienPC[];
@@ -67,6 +67,7 @@ export default function BuocXe({
   ban: BanNhapPC;
   setBan: (f: (b: BanNhapPC) => BanNhapPC) => void;
   vande: VanDePC[];
+  targetKey: string;
 }) {
   const theoXe = useMemo(() => new Map(xeDm.map((x) => [x.bs, x])), [xeDm]);
   const theoGv = useMemo(() => new Map(danhMuc.map((g) => [g.ma, g])), [danhMuc]);
@@ -74,6 +75,9 @@ export default function BuocXe({
   const [q, setQ] = useState("");
   const [doiXe, setDoiXe] = useState<{ ma: string; xe: string } | null>(null);
   const [goXe, setGoXe] = useState<string | null>(null);
+  const [goiY, setGoiY] = useState<{ dong: (GoiYGhepXe & { on: boolean })[] } | "tai" | { loi: string } | null>(null);
+  const [kiemGoiY, setKiemGoiY] = useState<VanDePC[]>([]);
+  const [busyGoiY, setBusyGoiY] = useState(false);
   const dem = useRef(0);
 
   const ghepCua = (ma: string) => ban.ghep.find((m) => m.ma === ma);
@@ -118,6 +122,40 @@ export default function BuocXe({
       ghep: kemGhep ? b.ghep.filter((m) => m.xe !== bs) : b.ghep,
     }));
   }
+
+  const chuaXe = dsGv.filter((ma) => !ghepCua(ma)?.xe && ban.pc.some((p) => p.ma === ma && p.mon.includes(MON_TH)));
+
+  async function moGoiY() {
+    setGoiY("tai");
+    try {
+      const r = await goiYGhepXe(khoa.ma_kh, ban, targetKey);
+      setGoiY({ dong: r.goi_y.map((g) => ({ ...g, on: !!g.xe })) });
+    } catch (e) {
+      setGoiY({ loi: (e as Error).message });
+    }
+  }
+  function suaGoiY(i: number, f: Partial<GoiYGhepXe & { on: boolean }>) {
+    setGoiY((g) => (g && typeof g === "object" && "dong" in g ? { dong: g.dong.map((d, k) => (k === i ? { ...d, ...f } : d)) } : g));
+  }
+  const dongGoiY = goiY && typeof goiY === "object" && "dong" in goiY ? goiY.dong : null;
+  const khoaGoiY = JSON.stringify(dongGoiY?.map((d) => [d.ma, d.xe, d.on]) ?? null);
+  useEffect(() => {
+    if (!dongGoiY) { setKiemGoiY([]); return; }
+    const chon = dongGoiY.filter((d) => d.xe);
+    if (chon.length === 0) { setKiemGoiY([]); return; }
+    let huy = false;
+    setBusyGoiY(true);
+    const h = setTimeout(() => {
+      const them: GhepDong[] = chon.map((d) => ({ id: `g-${d.ma}`, ma: d.ma, xe: d.xe, tu: d.tu, den: d.den, dia_diem: "" }));
+      kiemTraPC(khoa.ma_kh, { ...ban, ghep: [...ban.ghep, ...them] }, targetKey)
+        .then((r) => { if (!huy) setKiemGoiY(r.vande); })
+        .catch(() => { if (!huy) setKiemGoiY([]); })
+        .finally(() => { if (!huy) setBusyGoiY(false); });
+    }, 250);
+    return () => { huy = true; clearTimeout(h); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [khoaGoiY]);
+  const xeCoDinh = new Set(ban.ghep.filter((m) => m.xe).map((m) => m.xe));
 
   const pool = xeDm.filter(
     (x) => !ban.xe_khoa.includes(x.bs) && (x.bs.toLowerCase().includes(q.toLowerCase()) || x.hang.toLowerCase().includes(q.toLowerCase())),
@@ -168,8 +206,17 @@ export default function BuocXe({
         ))}
       </div>
 
-      <div className="mb-2 text-[13.5px] text-muted-foreground">
-        Mỗi <b className="text-foreground">giáo viên thực hành</b> ghép <b className="text-foreground">1 xe</b>. Địa điểm mặc định: <i>{DIA_DIEM_GOI_Y}</i>.
+      <div className="mb-2 flex items-center gap-2">
+        <div className="text-[13.5px] text-muted-foreground">
+          Mỗi <b className="text-foreground">giáo viên thực hành</b> ghép <b className="text-foreground">1 xe</b>. Địa điểm mặc định: <i>{DIA_DIEM_GOI_Y}</i>.
+        </div>
+        <button
+          disabled={chuaXe.length === 0 || ban.xe_khoa.length === 0}
+          onClick={moGoiY}
+          className="ml-auto h-9 px-3 rounded-lg border border-pc-border text-pc text-[13px] font-semibold hover:bg-pc-soft disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+        >
+          Gợi ý ghép xe ({chuaXe.length} GV)
+        </button>
       </div>
 
       <div className="rounded-lg border border-border bg-card divide-y divide-border/60">
@@ -243,6 +290,85 @@ export default function BuocXe({
           );
         })}
       </div>
+
+      {goiY && (
+        <Hop
+          tieuDe="Gợi ý ghép xe — xem và duyệt từng dòng"
+          rong="max-w-[720px]"
+          dong={() => setGoiY(null)}
+          chan={<>
+            <button onClick={() => setGoiY(null)} className="h-9 px-4 rounded-md border border-border text-[13px]">Hủy</button>
+            {(() => {
+              const ok = (dongGoiY ?? []).filter((d) => d.on && d.xe && !kiemGoiY.some((v) => v.ref === `gh-${d.ma}` && v.muc === "chan"));
+              return (
+                <button
+                  disabled={ok.length === 0 || busyGoiY}
+                  onClick={() => {
+                    const moi: GhepDong[] = ok.map((d) => ({ id: `n${Date.now().toString(36)}${++dem.current}`, ma: d.ma, xe: d.xe, tu: d.tu, den: d.den, dia_diem: "" }));
+                    setBan((b) => ({ ...b, ghep: [...b.ghep.filter((m) => !moi.some((x) => x.ma === m.ma)), ...moi] }));
+                    setGoiY(null);
+                  }}
+                  className="h-9 px-4 rounded-md bg-pc text-white text-[13px] font-semibold disabled:opacity-40"
+                >
+                  Áp {ok.length} gợi ý vào bản nháp
+                </button>
+              );
+            })()}
+          </>}
+        >
+          <div className="rounded-md border-l-4 border-primary bg-primary/5 px-3 py-2 text-[13px]">
+            Gợi ý theo xe còn trống, đã thuộc khóa, hợp giấy phép và ưu tiên đúng hạng. Chưa ghi gì cho tới khi bạn bấm “Áp”.
+          </div>
+          {goiY === "tai" && <div className="text-[13px] text-muted-foreground flex items-center gap-2"><Icon name="refresh" className="w-4 h-4 animate-spin" /> Đang tìm xe phù hợp…</div>}
+          {typeof goiY === "object" && "loi" in goiY && <div className="text-[13px] text-destructive">{goiY.loi}</div>}
+          {dongGoiY && (
+            <ul className="rounded-lg border border-border divide-y divide-border/60 max-h-80 overflow-auto">
+              {dongGoiY.length === 0 && <li className="px-3 py-6 text-center text-[13px] text-muted-foreground">Không có GV nào cần ghép.</li>}
+              {dongGoiY.map((d, i) => {
+                const vs = kiemGoiY.filter((v) => v.ref === `gh-${d.ma}` && v.muc !== "thong_tin");
+                const chan = vs.some((v) => v.muc === "chan");
+                const dungBoiDong = new Set(dongGoiY.filter((_, k) => k !== i).map((x) => x.xe).filter(Boolean));
+                return (
+                  <li key={d.ma} className="px-3 py-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <input
+                        type="checkbox"
+                        aria-label={`Dùng gợi ý cho ${d.ten}`}
+                        checked={d.on && !!d.xe && !chan}
+                        disabled={!d.xe || chan}
+                        onChange={(e) => suaGoiY(i, { on: e.target.checked })}
+                      />
+                      <span className="text-[13.5px] font-medium w-[170px] truncate">{d.ten}</span>
+                      <select
+                        aria-label={`Xe gợi ý cho ${d.ten}`}
+                        value={d.xe}
+                        onChange={(e) => suaGoiY(i, { xe: e.target.value, on: !!e.target.value })}
+                        className="h-9 w-[200px] rounded-md border border-border bg-background px-2 text-sm"
+                      >
+                        <option value="">— không gợi ý được —</option>
+                        {ban.xe_khoa.filter((bs) => !xeCoDinh.has(bs) && !dungBoiDong.has(bs)).map((bs) => (
+                          <option key={bs} value={bs}>{bs}</option>
+                        ))}
+                        {d.xe && !ban.xe_khoa.includes(d.xe) ? <option value={d.xe}>{d.xe}</option> : null}
+                      </select>
+                      <span className="ml-auto text-[12px] text-muted-foreground tabular-nums">
+                        {ymdToVN(dP(d.tu))} → {ymdToVN(dP(d.den))}
+                      </span>
+                    </div>
+                    {!d.xe && d.ly_do && <div className="mt-1 ml-7 text-[12.5px] text-muted-foreground">{d.ly_do}</div>}
+                    {d.canh_bao.filter(() => d.xe && vs.length === 0).map((c, k) => (
+                      <div key={k} className={`mt-1 ml-7 rounded-md border-l-4 px-2.5 py-1.5 text-[13px] ${lopMuc("canh_bao")}`}>{c}</div>
+                    ))}
+                    {vs.map((v, k) => (
+                      <div key={k} className={`mt-1 ml-7 rounded-md border-l-4 px-2.5 py-1.5 text-[13px] ${lopMuc(v.muc)}`}>{v.noi_dung}</div>
+                    ))}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Hop>
+      )}
 
       {poolMo && (
         <Hop

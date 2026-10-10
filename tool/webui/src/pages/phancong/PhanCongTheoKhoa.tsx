@@ -301,7 +301,7 @@ export default function PhanCongTheoKhoa() {
                 thStart={thStart}
                 setThStart={setThStart}
               />
-            ) : buoc === 3 ? (
+            ) : buoc === 3 && targetKey ? (
               <BuocXe
                 khoa={khoa}
                 danhMuc={danhMuc}
@@ -309,6 +309,7 @@ export default function PhanCongTheoKhoa() {
                 ban={ban}
                 setBan={(f) => setBan((b) => (b ? f(b) : b))}
                 vande={kt?.vande ?? []}
+                targetKey={targetKey}
               />
             ) : (
               <div className="rounded-lg border border-border bg-card p-5">

@@ -1278,3 +1278,19 @@ export const ghiPC = async (
   }
   return json<GhiPCKetQua>(r);
 };
+
+export interface GoiYGhepXe {
+  ma: string;
+  ten: string;
+  xe: string; // "" = không có xe hợp lệ
+  tu: string;
+  den: string;
+  canh_bao: string[];
+  ly_do: string;
+}
+export const goiYGhepXe = (maKh: string, ban: BanNhapPC, targetKey?: string) =>
+  fetch(`${BASE}/local/phancong/goi-y-ghep-xe?${qs({ target_key: targetKey })}`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ ma_kh: maKh, ...ban }),
+  }).then(json<{ goi_y: GoiYGhepXe[] }>);

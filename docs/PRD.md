@@ -964,7 +964,7 @@
 
 #### [PCG-03] Chọn xe vào khóa và ghép xe cho giáo viên thực hành (bước ③)
 
-**Trạng thái:** 🔄 In Progress — task 93 (chọn xe + ghép xe) xong 10/10/2026; còn "Gợi ý ghép xe" (task 94)
+**Trạng thái:** ✅ Done — chọn xe + ghép xe + gợi ý ghép xe, bản nháp ở trình duyệt; ghi CDB thuộc PCG-04. Kiểm với API giả (chưa chạy trên CDB thật)
 **Story:** Là nhân viên cơ sở, tôi muốn chọn xe tập lái dùng cho khóa và ghép mỗi giáo viên thực hành với một xe theo khoảng ngày, để khóa có xe–GV rõ ràng và không dùng nhầm xe hết hạn hoặc đang chạy khóa khác.
 
 **Done khi:**
