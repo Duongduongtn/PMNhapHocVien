@@ -350,6 +350,9 @@ export default function BuocPhanCong({
         </div>
       )}
 
+      <p className="mb-2 text-[12.5px] text-muted-foreground">
+        Mỗi giáo viên có thể có <b>nhiều phân công</b> (khác môn hoặc khác ngày): bấm <b>+</b> để thêm một phân công nữa, bấm biểu tượng bút trên phân công để sửa. Mọi thay đổi chỉ nằm trên màn hình cho tới khi bạn bấm <b>Ghi vào CDB</b>.
+      </p>
       <div className="flex items-center gap-3 mb-2 text-[12.5px] text-muted-foreground flex-wrap">
         <span className="inline-flex items-center gap-1.5"><span className="inline-block w-3.5 h-3.5 rounded border-2 border-pc bg-pc-soft" /> Thực hành lái xe</span>
         <span className="inline-flex items-center gap-1.5"><span className="inline-block w-3.5 h-3.5 rounded border-2 border-border" /> Môn lý thuyết khác</span>
@@ -382,9 +385,15 @@ export default function BuocPhanCong({
                 {trong && (
                   <button
                     onClick={() => moSoan(undefined, ma)}
-                    className="mt-2 h-9 px-3 rounded-lg border border-pc-border text-pc text-[13px] font-semibold hover:bg-pc-soft"
+                    title={ps.length ? "Mỗi giáo viên có thể có nhiều phân công (khác môn / khác ngày). Muốn sửa phân công cũ: bấm biểu tượng bút trên phân công đó." : ""}
+                    className={
+                      "mt-2 h-9 px-3 rounded-lg border text-[13px] font-semibold " +
+                      (ps.length
+                        ? "border-border text-muted-foreground hover:bg-muted"
+                        : "border-pc-border text-pc hover:bg-pc-soft")
+                    }
                   >
-                    + Phân công
+                    {ps.length ? "+ Thêm phân công khác" : "+ Phân công"}
                   </button>
                 )}
               </div>
@@ -436,7 +445,7 @@ export default function BuocPhanCong({
               </span>
               <button onClick={() => setSoan(null)} className="h-9 px-4 rounded-md border border-border text-[13px]">Hủy</button>
               <button disabled={khongLuu} onClick={luu} className="h-9 px-4 rounded-md bg-pc text-white text-[13px] font-semibold disabled:opacity-40">
-                {soan.batch ? `Tạo ${okLo.length} phân công` : "Lưu vào bản nháp"}
+                {soan.batch ? `Tạo ${okLo.length} phân công` : "Áp dụng (chưa ghi vào CDB)"}
               </button>
             </>}
           >

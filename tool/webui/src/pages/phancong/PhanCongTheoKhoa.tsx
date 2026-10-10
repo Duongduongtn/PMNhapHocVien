@@ -43,6 +43,23 @@ const MUC: Record<MucVanDe, { nhan: string; lop: string }> = {
   thong_tin: { nhan: "Thông tin", lop: "border-l-primary bg-primary/5" },
 };
 
+// Bản nháp tự giữ trên MÁY NÀY (localStorage) theo (CSDL đích, khóa) — chỉ để khỏi mất khi F5/đóng tab.
+// KHÔNG ghi gì vào CDB. Chỉ khôi phục khi mốc "goc" còn khớp CDB hiện tại (CDB chưa bị đổi).
+interface BanNhapLuu { goc: BanNhapPC; ban: BanNhapPC; luc: string }
+const khoaLuu = (targetKey: string, maKh: string) => `pcg.nhap.${targetKey}.${maKh}`;
+function docNhapLuu(targetKey: string, maKh: string): BanNhapLuu | null {
+  try {
+    const t = localStorage.getItem(khoaLuu(targetKey, maKh));
+    return t ? (JSON.parse(t) as BanNhapLuu) : null;
+  } catch { return null; }
+}
+function ghiNhapLuu(targetKey: string, maKh: string, v: BanNhapLuu | null) {
+  try {
+    if (v) localStorage.setItem(khoaLuu(targetKey, maKh), JSON.stringify(v));
+    else localStorage.removeItem(khoaLuu(targetKey, maKh));
+  } catch { /* trình duyệt chặn lưu → bỏ qua, vẫn dùng bình thường */ }
+}
+
 function banTuHienTrang(h: Omit<HienTrangPC, "khoa">): BanNhapPC {
   return {
     gv_khoa: h.gv_khoa.map((g) => g.ma),
@@ -68,6 +85,7 @@ export default function PhanCongTheoKhoa() {
   const [ban, setBan] = useState<BanNhapPC | null>(null);
   const [thStart, setThStart] = useState(""); // ngày bắt đầu thực hành của khóa — tự nhập, không gợi ý
   const [goc, setGoc] = useState<BanNhapPC | null>(null); // đúng như CDB lúc tải/ghi gần nhất
+  const [khoiPhuc, setKhoiPhuc] = useState<BanNhapLuu | null>(null); // bản nháp cũ trên máy, chờ user chọn
   const [danhMuc, setDanhMuc] = useState<GiaoVienPC[]>([]);
   const [mon, setMon] = useState<MonPC[]>([]);
   const [xeDm, setXeDm] = useState<XePC[]>([]);
@@ -109,6 +127,7 @@ export default function PhanCongTheoKhoa() {
     setHien(null);
     setBan(null);
     setGoc(null);
+    setKhoiPhuc(null);
     setThStart("");
     setKt(null);
     setBuoc(1);
@@ -125,8 +144,16 @@ export default function PhanCongTheoKhoa() {
       setDanhMuc(gv.giao_vien);
       setMon(mh);
       setHien(h);
+      const g0 = banTuHienTrang(h);
       setBan(banTuHienTrang(h));
-      setGoc(banTuHienTrang(h));
+      setGoc(g0);
+      // Có bản nháp cũ trên máy và CDB chưa đổi kể từ lúc đó → hỏi khôi phục; CDB đã đổi → bỏ.
+      const luu = docNhapLuu(targetKey, k.ma_kh);
+      if (luu && JSON.stringify(luu.goc) === JSON.stringify(g0) && JSON.stringify(luu.ban) !== JSON.stringify(g0)) {
+        setKhoiPhuc(luu);
+      } else if (luu) {
+        ghiNhapLuu(targetKey, k.ma_kh, null);
+      }
       // Khóa đã có phân công Thực hành trong CDB → hiện ngày thật (sớm nhất); chưa có thì để trống.
       const dauTh = h.pc.filter((x) => x.mon.includes(6)).map((x) => x.tu.slice(0, 10)).sort()[0];
       setThStart(dauTh ?? "");
@@ -152,6 +179,13 @@ export default function PhanCongTheoKhoa() {
     return () => { huy = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetKey, khoaTuLienKet]);
+
+  // Tự giữ bản nháp trên máy mỗi khi khác CDB (chờ user chọn khôi phục/bỏ thì chưa ghi đè bản cũ).
+  useEffect(() => {
+    if (!targetKey || !maKh || !ban || !goc || khoiPhuc) return;
+    if (JSON.stringify(ban) === JSON.stringify(goc)) ghiNhapLuu(targetKey, maKh, null);
+    else ghiNhapLuu(targetKey, maKh, { goc, ban, luc: new Date().toISOString() });
+  }, [ban, goc, maKh, targetKey, khoiPhuc]);
 
   // Kiểm tra sống: mỗi lần bản nháp đổi → hỏi server sau 250ms; bỏ kết quả trả về muộn.
   useEffect(() => {
@@ -290,6 +324,29 @@ export default function PhanCongTheoKhoa() {
         <div className="flex-1 min-h-0 flex">
           {/* Cột làm việc */}
           <div className="flex-1 min-w-0 overflow-auto p-5">
+            {khoiPhuc && (
+              <div className="mb-4 rounded-lg border-2 border-pc bg-pc-soft px-4 py-3 flex items-center gap-3 flex-wrap">
+                <div className="text-[13.5px]">
+                  <b>Có thay đổi chưa ghi vào CDB</b> được giữ lại trên máy này lúc{" "}
+                  {new Date(khoiPhuc.luc).toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit", year: "numeric" })}.
+                  Bạn muốn làm tiếp hay bỏ?
+                </div>
+                <div className="ml-auto flex gap-2">
+                  <button
+                    onClick={() => { setBan(khoiPhuc.ban); setKhoiPhuc(null); }}
+                    className="h-9 px-3 rounded-lg bg-pc text-white text-[13px] font-semibold"
+                  >
+                    Làm tiếp
+                  </button>
+                  <button
+                    onClick={() => { if (targetKey && maKh) ghiNhapLuu(targetKey, maKh, null); setKhoiPhuc(null); }}
+                    className="h-9 px-3 rounded-lg border border-border bg-white text-[13px]"
+                  >
+                    Bỏ, dùng dữ liệu CDB
+                  </button>
+                </div>
+              </div>
+            )}
             <ol className="flex flex-wrap gap-2 mb-4">
               {BUOC.map((b) => {
                 const dang = b.so === buoc;
@@ -315,6 +372,10 @@ export default function PhanCongTheoKhoa() {
 
             <div className="rounded-md border border-pc-border bg-pc-soft px-4 py-3 text-[13.5px] mb-4">
               <b>Bước {buoc}.</b> {BUOC[buoc - 1].huongDan}
+              <div className="mt-1.5 text-[12.5px] text-muted-foreground">
+                Cách làm: ① Chọn GV → ② Phân công → ③ Xe &amp; ghép xe → <b>Xem các thay đổi</b> → <b>Ghi vào CDB</b>.
+                Mọi thao tác chỉ nằm trên màn hình, <b>CDB chỉ đổi khi bạn bấm “Ghi vào CDB”</b> và xác nhận.
+              </div>
             </div>
 
             {dauTien && (
@@ -439,6 +500,8 @@ export default function PhanCongTheoKhoa() {
           targetKey={targetKey}
           onHuy={() => { setBan({ ...goc, pc: goc.pc.map((p) => ({ ...p })), ghep: goc.ghep.map((g) => ({ ...g })) }); }}
           onDaGhi={sauKhiGhi}
+          tenGv={(ma) => danhMuc.find((g) => g.ma === ma)?.ten ?? ma}
+          tenMon={(ids) => ids.map((i) => mon.find((m) => m.id === i)?.ten ?? `môn ${i}`).join(" + ") || "chưa chọn môn"}
         />
       )}
     </div>

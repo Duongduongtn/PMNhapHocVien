@@ -54,6 +54,88 @@ export function tinhDiff(goc: BanNhapPC, ban: BanNhapPC): DiffPC {
   return d;
 }
 
+export interface DongThayDoi {
+  dau: "+" | "~" | "−";
+  nhom: string;
+  noiDung: string;
+}
+
+const dP = (s: string) => (s || "").slice(0, 10);
+const tP = (s: string) => (s || "").slice(11, 16) || "00:00";
+const ngayVN = (ymd: string) => (ymd ? `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}` : "?");
+function khoangVN(tu: string, den: string): string {
+  const coGio = tP(tu) !== "00:00" || tP(den) !== "00:00";
+  if (!coGio) return `${ngayVN(dP(tu))} → ${ngayVN(dP(den))}`;
+  if (dP(tu) === dP(den)) return `${ngayVN(dP(tu))} ${tP(tu)} → ${tP(den)}`;
+  return `${ngayVN(dP(tu))} ${tP(tu)} → ${ngayVN(dP(den))} ${tP(den)}`;
+}
+
+/** Liệt kê TỪNG thay đổi của bản nháp so với CDB (để người dùng xem lại trước khi ghi). */
+export function moTaThayDoi(
+  goc: BanNhapPC, ban: BanNhapPC, tenGv: (ma: string) => string, tenMon: (ids: number[]) => string,
+): DongThayDoi[] {
+  const out: DongThayDoi[] = [];
+  const gvG = new Set(goc.gv_khoa), gvB = new Set(ban.gv_khoa);
+  for (const m of ban.gv_khoa) if (!gvG.has(m)) out.push({ dau: "+", nhom: "Giáo viên của khóa", noiDung: `Thêm ${tenGv(m)}` });
+  for (const m of goc.gv_khoa) if (!gvB.has(m)) out.push({ dau: "−", nhom: "Giáo viên của khóa", noiDung: `Gỡ ${tenGv(m)}` });
+  const pcG = new Map(goc.pc.map((p) => [idCdb(p.id), p]));
+  const thay = new Set<number>();
+  for (const p of ban.pc) {
+    const i = idCdb(p.id);
+    const o = i !== null ? pcG.get(i) : undefined;
+    const mo_ta = `${tenGv(p.ma)} — ${tenMon(p.mon)}, ${khoangVN(p.tu, p.den)}`;
+    if (!o) out.push({ dau: "+", nhom: "Phân công dạy", noiDung: mo_ta });
+    else {
+      thay.add(i as number);
+      if (o.ma !== p.ma || o.tu !== p.tu || o.den !== p.den || [...o.mon].sort().join() !== [...p.mon].sort().join()) {
+        out.push({ dau: "~", nhom: "Phân công dạy", noiDung: `${tenGv(p.ma)}: ${tenMon(o.mon)}, ${khoangVN(o.tu, o.den)} → ${tenMon(p.mon)}, ${khoangVN(p.tu, p.den)}` });
+      }
+    }
+  }
+  for (const o of goc.pc) if (!thay.has(idCdb(o.id) as number)) out.push({ dau: "−", nhom: "Phân công dạy", noiDung: `Xóa ${tenGv(o.ma)} — ${tenMon(o.mon)}, ${khoangVN(o.tu, o.den)}` });
+  const xG = new Set(goc.xe_khoa), xB = new Set(ban.xe_khoa);
+  for (const b of ban.xe_khoa) if (!xG.has(b)) out.push({ dau: "+", nhom: "Xe của khóa", noiDung: `Thêm xe ${b}` });
+  for (const b of goc.xe_khoa) if (!xB.has(b)) out.push({ dau: "−", nhom: "Xe của khóa", noiDung: `Gỡ xe ${b}` });
+  const ghG = new Map(goc.ghep.map((m) => [idCdb(m.id), m]));
+  const daGh = new Set<number>();
+  for (const m of ban.ghep) {
+    if (!m.xe) continue;
+    const i = idCdb(m.id);
+    const o = i !== null ? ghG.get(i) : undefined;
+    if (!o) out.push({ dau: "+", nhom: "Ghép xe", noiDung: `Xe ${m.xe} → ${tenGv(m.ma)}, ${khoangVN(m.tu, m.den)}` });
+    else {
+      daGh.add(i as number);
+      if (o.ma !== m.ma || o.xe !== m.xe || o.tu !== m.tu || o.den !== m.den) {
+        out.push({ dau: "~", nhom: "Ghép xe", noiDung: `${tenGv(m.ma)}: xe ${o.xe}, ${khoangVN(o.tu, o.den)} → xe ${m.xe}, ${khoangVN(m.tu, m.den)}` });
+      }
+    }
+  }
+  for (const o of goc.ghep) if (!daGh.has(idCdb(o.id) as number)) out.push({ dau: "−", nhom: "Ghép xe", noiDung: `Bỏ ghép xe ${o.xe} → ${tenGv(o.ma)}` });
+  return out;
+}
+
+function DanhSachThayDoi({ ds }: { ds: DongThayDoi[] }) {
+  if (ds.length === 0) return <div className="text-[13px] text-muted-foreground">Chưa có thay đổi nào.</div>;
+  const nhom = [...new Set(ds.map((d) => d.nhom))];
+  return (
+    <div className="space-y-2.5">
+      {nhom.map((n) => (
+        <div key={n}>
+          <div className="text-[12px] font-bold uppercase tracking-wide text-muted-foreground mb-1">{n}</div>
+          <ul className="space-y-1">
+            {ds.filter((d) => d.nhom === n).map((d, i) => (
+              <li key={i} className="flex gap-2 text-[13.5px]">
+                <span className={"w-5 shrink-0 text-center font-bold " + (d.dau === "+" ? "text-success" : d.dau === "−" ? "text-destructive" : "text-warning")}>{d.dau}</span>
+                <span>{d.noiDung}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function Hop({ tieuDe, children, chan, dong, rong = "max-w-[660px]" }: { tieuDe: string; children: ReactNode; chan: ReactNode; dong?: () => void; rong?: string }) {
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true" aria-label={tieuDe}>
@@ -87,7 +169,7 @@ function Dong({ dau, nhan, n, sp }: { dau: "+" | "~" | "−"; nhan: string; n: n
 }
 
 export default function GhiBanNhap({
-  khoa, goc, ban, canhBao, coChan, dangKiem, targetKey, onHuy, onDaGhi,
+  khoa, goc, ban, canhBao, coChan, dangKiem, targetKey, onHuy, onDaGhi, tenGv, tenMon,
 }: {
   khoa: KhoaPC;
   goc: BanNhapPC;
@@ -98,9 +180,12 @@ export default function GhiBanNhap({
   targetKey: string;
   onHuy: () => void;
   onDaGhi: (kq: GhiPCKetQua) => void;
+  tenGv: (ma: string) => string;
+  tenMon: (ids: number[]) => string;
 }) {
   const d = tinhDiff(goc, ban);
-  const [hop, setHop] = useState<"huy" | "ghi" | "ketqua" | null>(null);
+  const [hop, setHop] = useState<"huy" | "ghi" | "ketqua" | "chitiet" | null>(null);
+  const chiTiet = moTaThayDoi(goc, ban, tenGv, tenMon);
   const [tichThat, setTichThat] = useState(false);
   const [tichCanhBao, setTichCanhBao] = useState(false);
   const [dangGhi, setDangGhi] = useState(false);
@@ -141,7 +226,7 @@ export default function GhiBanNhap({
           <>
             <span className="w-2.5 h-2.5 rounded-full bg-pc" />
             <div className="text-[13.5px]">
-              <b>Bản nháp chưa ghi:</b> {d.tong} thay đổi
+              <b>Chưa ghi vào CDB:</b> {d.tong} thay đổi
               <span className="text-muted-foreground">
                 {" "}· thêm {d.gvThem + d.pcThem + d.xeThem + d.ghThem} · sửa {d.pcSua + d.ghSua} · xóa {d.gvGo + d.pcXoa + d.xeGo + d.ghXoa}
               </span>
@@ -154,6 +239,13 @@ export default function GhiBanNhap({
           </div>
         )}
         <div className="ml-auto flex items-center gap-2">
+          <button
+            disabled={d.tong === 0}
+            onClick={() => setHop("chitiet")}
+            className="h-10 px-4 rounded-lg border border-pc-border text-pc text-[13px] font-semibold hover:bg-pc-soft disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Xem các thay đổi
+          </button>
           <button
             disabled={d.tong === 0}
             onClick={() => setHop("huy")}
@@ -172,17 +264,40 @@ export default function GhiBanNhap({
         </div>
       </div>
 
+      {hop === "chitiet" && (
+        <Hop
+          tieuDe={`Các thay đổi chưa ghi vào CDB (${d.tong})`}
+          dong={() => setHop(null)}
+          chan={<>
+            <button onClick={() => setHop(null)} className="h-9 px-4 rounded-md border border-border text-[13px]">Đóng</button>
+            <button
+              disabled={khoaNut}
+              onClick={mo}
+              title={lyDoKhoa}
+              className="h-9 px-4 rounded-md bg-pc text-white text-[13px] font-semibold disabled:opacity-40"
+            >
+              Ghi vào CDB…
+            </button>
+          </>}
+        >
+          <p className="text-[12.5px] text-muted-foreground">
+            Đây là các thay đổi bạn đã làm trên màn hình nhưng <b>chưa nằm trong CDB</b>. Chỉ khi bấm “Ghi vào CDB” và xác nhận thì CDB mới đổi.
+          </p>
+          <DanhSachThayDoi ds={chiTiet} />
+        </Hop>
+      )}
+
       {hop === "huy" && (
         <Hop
           tieuDe="Hủy toàn bộ thay đổi chưa ghi?"
           rong="max-w-[460px]"
           dong={() => setHop(null)}
           chan={<>
-            <button onClick={() => setHop(null)} className="h-9 px-4 rounded-md border border-border text-[13px]">Giữ bản nháp</button>
+            <button onClick={() => setHop(null)} className="h-9 px-4 rounded-md border border-border text-[13px]">Giữ các thay đổi</button>
             <button onClick={() => { onHuy(); setHop(null); }} className="h-9 px-4 rounded-md bg-destructive text-white text-[13px] font-semibold">Hủy thay đổi</button>
           </>}
         >
-          <p>Bản nháp có <b>{d.tong}</b> thay đổi. Hủy sẽ đưa khóa về đúng như đang có trong CDB. Không thể hoàn tác.</p>
+          <p>Có <b>{d.tong}</b> thay đổi chưa ghi. Hủy sẽ đưa khóa về đúng như đang có trong CDB (CDB không bị ảnh hưởng). Không thể hoàn tác.</p>
         </Hop>
       )}
 
@@ -215,6 +330,11 @@ export default function GhiBanNhap({
             <Dong dau="−" nhan="Gỡ xe khỏi khóa" n={d.xeGo} sp="usp_LSD_KhoaHoc_Xetap_Delete (theo MaLichSD)" />
             <Dong dau="−" nhan="Xóa ghép xe" n={d.ghXoa} sp="usp_LSD_KhoaHoc_Xetap_Delete" />
           </div>
+
+          <details className="rounded-lg border border-border px-3 py-2">
+            <summary className="cursor-pointer text-[13px] font-semibold">Xem chi tiết từng thay đổi ({chiTiet.length})</summary>
+            <div className="mt-2 max-h-48 overflow-auto"><DanhSachThayDoi ds={chiTiet} /></div>
+          </details>
 
           {canhBao.length > 0 && (
             <div className="rounded-lg border-2 border-warning/60 bg-warning/10 px-3 py-2.5">
@@ -281,7 +401,7 @@ export default function GhiBanNhap({
                 <div className="font-semibold text-destructive mb-1">Chưa ghi ({kq.chua_ghi.length})</div>
                 <ul className="list-disc pl-5 text-[13px] max-h-32 overflow-auto">{kq.chua_ghi.map((x, i) => <li key={i}>{x.mo_ta}</li>)}</ul>
               </div>
-              <p className="text-[13px] text-muted-foreground">Bản nháp đã được làm tươi theo đúng CDB hiện tại (để không ghi trùng dòng đã ghi). Hãy làm lại các thay đổi chưa ghi ở trên.</p>
+              <p className="text-[13px] text-muted-foreground">Màn hình đã được làm tươi theo đúng CDB hiện tại (để không ghi trùng dòng đã ghi). Hãy làm lại các thay đổi chưa ghi ở trên.</p>
             </>
           )}
         </Hop>
