@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { HvUngVien } from "./tnbc2Api";
-import { demDaChon, gomTheoKhoaGoc, khopTim } from "./tnbcUngVien";
+import { demDaChon, gomTheoKhoaGoc, khopTim, trichMaTuVanBan } from "./tnbcUngVien";
 
 // TNB-04 — bước ②: tìm không dấu, gom thi lại theo khóa gốc.
 const hv = (ma_dk: string, ten: string, cmt: string, ma_kh: string, bg: string): HvUngVien => ({
@@ -34,5 +34,25 @@ describe("TNB-04 — bước ② chọn học viên", () => {
   it("đếm số đã chọn trong một nhóm", () => {
     expect(demDaChon(ds, new Set(["C-1", "C-3", "C-9"]))).toBe(2);
     expect(demDaChon([], new Set(["C-1"]))).toBe(0);
+  });
+
+  it("trích mã từ văn bản dán: bỏ dòng trống và dòng trùng, giữ thứ tự", () => {
+    expect(trichMaTuVanBan("079203011111\r\n\n079203022222\n079203011111\n  C-0003  \n")).toEqual([
+      "079203011111",
+      "079203022222",
+      "C-0003",
+    ]);
+  });
+
+  it("dòng nhiều cột (dán cả tên + CMT): lấy ô trông như CMT, không có thì lấy ô đầu", () => {
+    expect(trichMaTuVanBan("Nguyễn Thị Hoà\t079203011111\t01/05/1990\nTrần Văn Bình\tC-0002\n")).toEqual([
+      "079203011111",
+      "Trần Văn Bình",
+    ]);
+  });
+
+  it("không phân biệt hoa thường khi loại trùng; văn bản rỗng → mảng rỗng", () => {
+    expect(trichMaTuVanBan("c-0001\nC-0001\n")).toEqual(["c-0001"]);
+    expect(trichMaTuVanBan("  \n\n")).toEqual([]);
   });
 });

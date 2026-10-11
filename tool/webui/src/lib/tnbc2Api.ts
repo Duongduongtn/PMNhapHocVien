@@ -272,8 +272,19 @@ export const ungVienBc2 = (maKh: string, maBc2 = "", thiLaiThang?: number, lamTu
   goi<UngVienResp>("GET", "/bc2/ung-vien", {
     query: { ma_kh: maKh, ma_bc2: maBc2, thi_lai_thang: thiLaiThang, lam_tuoi: lamTuoi },
   });
+export interface KhopDanhSachResp {
+  ma_kh: string;
+  tong_dong: number;
+  so_khop: number;
+  /** HV khớp VÀ thuộc nhóm Sẵn sàng/Thi lại — được tích. */
+  khop: (HvUngVien & { dong: string })[];
+  /** Khớp người nhưng không đưa được (nhóm khác / đang ở BC2 mở khác…) kèm lý do. */
+  khong_dua_duoc: { dong: string; ma_dk: string; ten: string; cmt: string; ma_ly_do: string; ly_do: string; goi_y_xu_ly?: string | null }[];
+  /** Dòng không khớp ai (sai số / không có trong cơ sở). */
+  khong_khop: string[];
+}
 export const khopDanhSach = (maKh: string, maBc2: string, dong: string[]) =>
-  goi("POST", "/bc2/khop-danh-sach", { body: { ma_kh: maKh, ma_bc2: maBc2, dong } });
+  goi<KhopDanhSachResp>("POST", "/bc2/khop-danh-sach", { body: { ma_kh: maKh, ma_bc2: maBc2, dong } });
 export interface GoiYSoResp {
   ma_kh: string;
   ten_kh: string;

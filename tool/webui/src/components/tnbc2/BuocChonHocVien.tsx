@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import ChuGiaiTrangThai from "../ChuGiaiTrangThai";
+import DanDanhSachBuoc2 from "./DanDanhSachBuoc2";
 import VirtualList from "./VirtualList";
 import { soVN } from "../../lib/format";
 import { ungVienBc2, type HvUngVien, type LoaiHang, type UngVienResp } from "../../lib/tnbc2Api";
 import { demDaChon, gomTheoKhoaGoc, khopTim } from "../../lib/tnbcUngVien";
 
 // TNB-04 — bước ②: chọn học viên. Bốn nhóm trong một màn: Sẵn sàng (tích sẵn) · Thi lại (không tích sẵn, gom theo
-// khóa gốc, ngưỡng tháng) · Cần xem · Không đưa được. Bám ui-mock/tnbc2.html `wizChon`. Dán danh sách CMT và xử lý
-// ngoại lệ ngay trên dòng thuộc lượt tiếp theo (task 110b); hiện chỉ nêu hướng xử lý bằng chữ.
+// khóa gốc, ngưỡng tháng) · Cần xem · Không đưa được. Bám ui-mock/tnbc2.html `wizChon`. "Dán danh sách CMT" (task 116);
+// xử lý ngoại lệ ngay trên dòng thuộc task 117 (hiện chỉ nêu hướng xử lý bằng chữ).
 
 const CAO_DONG = 36;
 const LUOI = "grid grid-cols-[32px_minmax(150px,1.6fr)_96px_140px_minmax(160px,1.4fr)] items-center gap-2 px-3";
@@ -96,6 +97,7 @@ export default function BuocChonHocVien({
   const [lamTuoi, setLamTuoi] = useState(0);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [q, setQ] = useState("");
+  const [dan, setDan] = useState(false);
   const [moRong, setMoRong] = useState<Record<string, boolean>>({});
   const khoiTao = useRef("");
 
@@ -175,6 +177,7 @@ export default function BuocChonHocVien({
           <input aria-label="Tìm học viên" className="field-input" style={{ width: 240 }} value={q}
             placeholder="Tìm tên / số CMT (Enter để tích)" onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && q.trim()) doi([...san, ...thiLai], true); }} />
+          <button type="button" className={nutNho} onClick={() => setDan(true)}>Dán danh sách CMT</button>
           <button type="button" className={nutNho} onClick={() => setSel(new Set())}>Bỏ chọn tất cả</button>
           <button type="button" className={nutNho} onClick={() => setLamTuoi((n) => n + 1)}>Làm tươi</button>
           <ChuGiaiTrangThai />
@@ -322,6 +325,17 @@ export default function BuocChonHocVien({
           Tiếp tục → Xác nhận ({soVN(tong)} học viên)
         </button>
       </div>
+      {dan && (
+        <DanDanhSachBuoc2
+          maKh={maKh}
+          maBc2={maBc2}
+          onDong={() => setDan(false)}
+          onTich={(dsMaDk) => {
+            setSel((cu) => new Set([...cu, ...dsMaDk]));
+            setDan(false);
+          }}
+        />
+      )}
     </div>
   );
 }

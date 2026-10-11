@@ -29,6 +29,9 @@ interface Mo {
   goiYLan?: number;
   dsExtra?: Record<string, unknown>[];
   xoaKieu?: "409" | "abort";
+  /** Task 116: body các lần POST /bc2/khop-danh-sach và kiểu trả lời. */
+  khop?: { ma_kh: string; ma_bc2: string; dong: string[] }[];
+  khopKieu?: "ok" | "loi_400";
 }
 
 const KHOA = [
@@ -190,6 +193,25 @@ async function giaBackend(page: Page, mo: Mo) {
         ? [{ ma_dk: "T-0001", ma: "trang_thai_cu_la_11", noi_dung: "Trạng thái cũ đang là 'Đã vào BC2' — gỡ ra sẽ không về đúng" }]
         : [],
       loi: null } });
+  });
+  await page.route("**/local/tnbc2/bc2/khop-danh-sach", async (r) => {
+    const b = r.request().postDataJSON();
+    (mo.khop ??= []).push(b);
+    if (mo.khopKieu === "loi_400") {
+      return r.fulfill({ status: 400, json: { detail: { ma: "dong_qua_dai", noi_dung: "Có dòng dài quá 40 ký tự" } } });
+    }
+    const tatCa = [...SAN.slice(0, mo.soSan ?? SAN.length), ...THI, ...XEM, ...KHONG];
+    const khop: unknown[] = [], khongDua: unknown[] = [], khongKhop: string[] = [];
+    const da = new Set<string>();
+    for (const d of b.dong as string[]) {
+      const hv = tatCa.find((h) => h.ma_dk.toLowerCase() === d.toLowerCase()) ?? tatCa.find((h) => h.cmt === d);
+      if (!hv) { khongKhop.push(d); continue; }
+      if (da.has(hv.ma_dk)) continue;
+      da.add(hv.ma_dk);
+      if (hv.nhom === "san_sang" || hv.nhom === "thi_lai") khop.push({ dong: d, ...hv });
+      else khongDua.push({ dong: d, ma_dk: hv.ma_dk, ten: hv.ten, cmt: hv.cmt, ma_ly_do: hv.ma_ly_do, ly_do: hv.ly_do, goi_y_xu_ly: hv.goi_y_xu_ly });
+    }
+    await r.fulfill({ json: { ma_kh: b.ma_kh, tong_dong: b.dong.length, so_khop: khop.length, khop, khong_dua_duoc: khongDua, khong_khop: khongKhop } });
   });
   await page.route("**/local/tnbc2/bc2/ung-vien?**", async (r) => {
     const u = new URL(r.request().url());
@@ -920,5 +942,80 @@ test.describe("TNB-03 → TNB-04 → TNB-05 — Checkpoint 26: lập BC2 và xem
     await expect(hop.getByText(/kiểm BC2 đã xóa chưa rồi thử lại/)).toBeVisible();
     await expect(hop.getByText(/Đã xóa BC2 số/)).toHaveCount(0);
     await expect(hop.getByRole("button", { name: "Xóa BC2", exact: true })).toBeEnabled();
+  });
+});
+
+test.describe("TNB-04 — bước ②: Dán danh sách CMT / mã đăng ký (Checkpoint 26/28)", () => {
+  async function vaoBuoc2(page: Page, mo: Mo) {
+    await giaBackend(page, mo);
+    await page.goto("/tot-nghiep-bc2/bao-cao-2");
+    await page.getByRole("button", { name: "Lập BC2 mới" }).click();
+    await page.getByTestId("khoa-K001").getByRole("button", { name: "Chọn khóa này →" }).click();
+    await expect(page.getByTestId("dai-tom-tat")).toBeVisible();
+    await page.getByRole("button", { name: "Bỏ chọn tất cả" }).click();
+  }
+
+  test("dán 5 dòng: tích đúng người khớp, báo dòng không khớp và người khớp nhưng chưa đưa vào được kèm lý do", async ({ page }) => {
+    const mo: Mo = { cacLanGoi: [], ungVien: [] };
+    await vaoBuoc2(page, mo);
+    await page.getByRole("button", { name: "Dán danh sách CMT" }).click();
+    const hop = page.getByRole("dialog", { name: "Dán danh sách CMT" });
+    await hop.getByRole("textbox").fill("S-0005\nS-0006\nT-0003\nKHONG-CO-AI\nX-0001\nS-0005\n");   // có dòng trùng
+    await expect(hop.getByText("5 dòng (đã bỏ dòng trống và dòng trùng).")).toBeVisible();
+    await hop.getByRole("button", { name: "Đối chiếu" }).click();
+    await expect(hop.getByText(/Khớp 3 \/ 5 dòng/)).toBeVisible();
+    await expect(hop.getByText("1 dòng không khớp ai")).toBeVisible();
+    await expect(hop.locator("li", { hasText: "KHONG-CO-AI" })).toBeVisible();
+    await expect(hop.getByText("1 người khớp nhưng chưa đưa vào được")).toBeVisible();
+    await expect(hop.getByText(/Chưa tốt nghiệp — cần có giấy chứng nhận trước/)).toBeVisible();
+    if (process.env.CHUP_ANH) {
+      for (const w of [800, 1280, 1440]) {
+        await page.setViewportSize({ width: w, height: 800 });
+        await page.screenshot({ path: `${process.env.CHUP_ANH}/${w}-dan-danh-sach.png` });
+      }
+    }
+    await hop.getByRole("button", { name: "Tích 3 học viên" }).click();
+    await expect(page.getByTestId("dai-tom-tat")).toContainText("2");
+    await expect(page.getByTestId("dai-tom-tat")).toContainText("+ 1");
+    await expect(page.getByTestId("dai-tom-tat")).toContainText("= 3");
+    expect(mo.khop![0].dong).toEqual(["S-0005", "S-0006", "T-0003", "KHONG-CO-AI", "X-0001"]);   // đã bỏ trùng
+    expect(mo.khop![0].ma_kh).toBe("K001");
+  });
+
+  test("dòng nhiều cột (tên + CMT) lấy đúng ô CMT", async ({ page }) => {
+    const mo: Mo = { cacLanGoi: [], ungVien: [] };
+    await vaoBuoc2(page, mo);
+    await page.getByRole("button", { name: "Dán danh sách CMT" }).click();
+    const hop = page.getByRole("dialog", { name: "Dán danh sách CMT" });
+    await hop.getByRole("textbox").fill("Học Viên 0010\t079200000010\t01/05/1990");
+    await hop.getByRole("button", { name: "Đối chiếu" }).click();
+    await expect(hop.getByText(/Khớp 1 \/ 1 dòng/)).toBeVisible();
+    expect(mo.khop![0].dong).toEqual(["079200000010"]);
+  });
+
+  test("quá 5.000 dòng hoặc dòng quá dài: khóa nút Đối chiếu, không gửi gì", async ({ page }) => {
+    const mo: Mo = { cacLanGoi: [], ungVien: [] };
+    await vaoBuoc2(page, mo);
+    await page.getByRole("button", { name: "Dán danh sách CMT" }).click();
+    const hop = page.getByRole("dialog", { name: "Dán danh sách CMT" });
+    await hop.getByRole("textbox").fill(Array.from({ length: 5001 }, (_, i) => `M-${i}`).join("\n"));
+    await expect(hop.getByText(/tối đa 5\.000/)).toBeVisible();
+    await expect(hop.getByRole("button", { name: "Đối chiếu" })).toBeDisabled();
+    await hop.getByRole("textbox").fill("x".repeat(41));
+    await expect(hop.getByText(/dài quá 40 ký tự/)).toBeVisible();
+    await expect(hop.getByRole("button", { name: "Đối chiếu" })).toBeDisabled();
+    expect(mo.khop ?? []).toHaveLength(0);
+  });
+
+  test("server từ chối (400): hiện lý do, không tích gì; sửa văn bản thì xóa kết quả cũ", async ({ page }) => {
+    const mo: Mo = { cacLanGoi: [], ungVien: [], khopKieu: "loi_400" };
+    await vaoBuoc2(page, mo);
+    await page.getByRole("button", { name: "Dán danh sách CMT" }).click();
+    const hop = page.getByRole("dialog", { name: "Dán danh sách CMT" });
+    await hop.getByRole("textbox").fill("S-0005");
+    await hop.getByRole("button", { name: "Đối chiếu" }).click();
+    await expect(hop.getByText(/Có dòng dài quá 40 ký tự/)).toBeVisible();
+    await hop.getByRole("button", { name: "Đóng" }).click();
+    await expect(page.getByTestId("dai-tom-tat")).toContainText("= 0");
   });
 });
