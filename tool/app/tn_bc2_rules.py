@@ -444,6 +444,12 @@ def phan_tich_dong_tn(hv: dict, so_giay: str | None, chung: dict | None, ctx: di
         elif k == khoa_so_giay(giay_cu) and k in (ctx.get("so_giay_khac") or set()):
             thong_tin.append(_vd_tn(THONG_TIN, "trung_co_san", "Số giấy này vốn đã trùng với học viên khác từ trước"))
 
+    # dữ liệu bất thường: 03/09 mà đã gắn MaBC2 — SP sẽ đổi 03→09 trong khi báo cáo đã lập → không ghi
+    if da_bc2 and tt in (TT_HOC_XONG, TT_TOT_NGHIEP):
+        chan.append(_vd_tn(CHAN, "trang_thai_bc2_bat_thuong",
+                           f"Học viên đang \"{ten_trang_thai(tt, 'oto')}\" nhưng lại gắn BC2 {_s(hv.get('ma_bc2'))} — "
+                           "dữ liệu bất thường, xử lý ở phần mềm cũ"))
+
     # kết quả dự kiến
     ket_qua = KQ_BO_QUA
     if da_bc2:

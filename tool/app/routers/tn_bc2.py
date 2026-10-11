@@ -275,6 +275,36 @@ def xem_lai_tot_nghiep(body: XemLaiTnIn):
         raise _loi(e)
 
 
+class GhiTnIn(BaseModel):
+    lo_id: str = Field(min_length=1, max_length=80)          # client sinh mỗi lần xác nhận (uuid)
+    ma_kh: str = Field(min_length=1, max_length=30)
+    dong: list[DongTnIn] = Field(default_factory=list, max_length=20000)
+    chung: ChungTnIn = Field(default_factory=ChungTnIn)
+    da_xem_canh_bao: bool = False
+    xac_nhan_csdl_that: bool = False
+
+
+@router.post("/tot-nghiep/ghi")
+def ghi_tot_nghiep(body: GhiTnIn, phien: Phien = Depends(require_session)):
+    """GHI tốt nghiệp ô tô theo lô: kiểm nhanh đồng bộ (4xx/409 ngay) rồi chạy nền theo `lo_id`;
+    theo dõi bằng `GET /bc2/lo/{lo_id}`. Cùng `lo_id` gọi lại → không chạy lần hai (dở dang → "Làm tiếp")."""
+    _cau_xac_nhan(body.xac_nhan_csdl_that)
+    try:
+        _kiem_lo_id(body.lo_id)
+        dong = [d.model_dump() for d in body.dong]
+        chung = body.chung.model_dump()
+        if not svc.trang_thai_lo(body.lo_id):
+            with sqlserver_cursor() as cur:
+                svc.kiem_truoc_ghi_tn(cur, body.ma_kh, dong, chung, body.da_xem_canh_bao)
+        return svc.khoi_chay(
+            body.lo_id, svc.ghi_tot_nghiep,
+            dict(lo_id=body.lo_id, ma_kh=body.ma_kh, dong=dong, chung=chung, nguoi=phien.username,
+                 da_xem_canh_bao=body.da_xem_canh_bao),
+            sqlserver_conn)
+    except Exception as e:  # noqa: BLE001
+        raise _loi(e)
+
+
 # ── Xem / gỡ / xóa BC2 (task 100). Đặt CUỐI file: `{ma:path}` sẽ nuốt `/goi-y-so`, `/ung-vien`, `/lo/…`
 #    nếu khai báo trước các route cố định. Số BC2 có dấu `/` nên dùng `:path`. ──
 @router.get("/bc2/{ma:path}")

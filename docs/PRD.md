@@ -1097,7 +1097,7 @@
 
 #### [TNB-01] Cập nhật tốt nghiệp ô tô theo lô
 
-**Trạng thái:** 🔄 In Progress — 1/3 task xong (101 backend đọc + xem lại, chỉ SELECT); còn 102 ghi, 107 UI
+**Trạng thái:** 🔄 In Progress — 2/3 task xong (101 backend đọc + xem lại, 102 backend ghi; kiểm bằng kết nối giả, chưa ghi thật); còn 107 UI
 **Story:** Là nhân viên cơ sở, tôi muốn nhập sổ tốt nghiệp, quyết định và số giấy chứng nhận tốt nghiệp (CNTN) cho cả một khóa ô tô trong một lượt, để học viên được ghi nhận "Đạt tốt nghiệp" và đủ điều kiện vào BC2.
 
 **Done khi:**

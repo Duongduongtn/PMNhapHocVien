@@ -392,6 +392,20 @@ def _loi_trung_so(e: Exception) -> bool:
     return "2627" in t or "PRIMARY KEY" in t.upper() or "duplicate key" in t.lower()
 
 
+def _luu_loi_lo(lo_id: str, trang_thai: str, loi: dict) -> dict | None:
+    """Ghi lỗi của một lần chạy vào lô. Nếu LẦN CHẠY TRƯỚC của cùng `lo_id` đã ghi được một phần
+    (`da_them`/`da_go`/`da_ghi`) thì GIỮ danh sách đó (chỉ thêm `loi_lan_cuoi`) — "Làm tiếp" bị 409 không được
+    làm mất thông tin đã/chưa ghi. Trả kết quả đã gộp nếu có ghi từ trước, ngược lại None."""
+    cu = (nhat_ky.lo_lay(lo_id) or {}).get("ket_qua") or {}
+    if any(cu.get(k) for k in ("da_them", "da_go", "da_ghi")):
+        gop = {**cu, "loi_lan_cuoi": loi}
+        nhat_ky.lo_cap_nhat(lo_id, trang_thai="loi_giua_chung", ket_qua=gop)
+        return gop
+    nhat_ky.lo_cap_nhat(lo_id, trang_thai=trang_thai, ket_qua={"loi": loi.get("noi_dung") or loi.get("loi") or ""}
+                        if "loi_nghiep_vu" not in loi else loi)
+    return None
+
+
 _Q_HV_LAI = ("SELECT h.MaDK, h.SoHoSo, h.TT_XuLy, h.TT_XuLy_Old, h.MaBC2, h.HangGPLX, h.SoGiayCNTN, h.MaKhoaHoc, "
              "k.TenKH, k.NgayBG FROM NguoiLX_HoSo h JOIN KhoaHoc k ON k.MaKH = h.MaKhoaHoc WHERE h.MaDK IN ({ph})")
 _Q_HV_MOT = "SELECT TT_XuLy, TT_XuLy_Old, MaBC2, SoHoSo FROM NguoiLX_HoSo WHERE MaDK = %s"
@@ -574,7 +588,7 @@ def lap_bc2(conn, *, lo_id: str, ma_kh: str, ma_bc2: str = "", so_bao_cao: str =
         except Exception as e:  # noqa: BLE001 — đóng nhật ký rồi ném tiếp
             loi = getattr(e, "noi_dung", None) or str(e)
             nhat_ky.ket_thuc(nk, "that_bai", {"loi": loi[:200]})
-            nhat_ky.lo_cap_nhat(lo_id, trang_thai="that_bai", ket_qua={"loi": loi[:200]})
+            _luu_loi_lo(lo_id, "that_bai", {"loi": loi[:200]})
             raise
 
 
@@ -795,11 +809,16 @@ def khoi_chay(lo_id: str, ham: Callable[..., dict], cac_doi_so: dict, cho_ket_no
         except LoiNghiepVu as e:
             job["loi_nghiep_vu"] = {"ma": e.ma, "noi_dung": e.noi_dung, **(e.du_lieu or {})}
             job["trang_thai"] = "that_bai"
-            nhat_ky.lo_cap_nhat(lo_id, trang_thai="that_bai", ket_qua={"loi_nghiep_vu": job["loi_nghiep_vu"]})
+            gop = _luu_loi_lo(lo_id, "that_bai", {"loi_nghiep_vu": job["loi_nghiep_vu"]})
+            if gop is not None:          # lần trước đã ghi một phần → giữ danh sách đã ghi cho GET /bc2/lo/{id}
+                job["ket_qua"] = {k: v for k, v in gop.items() if k != "lo_id"}
+                job["trang_thai"] = "loi_giua_chung"
         except Exception as e:  # noqa: BLE001
             job["loi_nghiep_vu"] = {"ma": "loi_he_thong", "noi_dung": str(e)[:200]}
             job["trang_thai"] = "loi_giua_chung"
-            nhat_ky.lo_cap_nhat(lo_id, trang_thai="loi_giua_chung", ket_qua={"loi_nghiep_vu": job["loi_nghiep_vu"]})
+            gop = _luu_loi_lo(lo_id, "loi_giua_chung", {"loi_nghiep_vu": job["loi_nghiep_vu"]})
+            if gop is not None:
+                job["ket_qua"] = {k: v for k, v in gop.items() if k != "lo_id"}
 
     if dong_bo:
         _chay()
@@ -1162,47 +1181,50 @@ def hv_tot_nghiep(cur, ma_kh: str, q: str = "", trang_thai: str = "", hom_nay: s
             "hoc_vien": out}
 
 
-def xem_lai_tot_nghiep(cur, ma_kh: str, dong: list[dict], chung: dict | None = None,
-                       hom_nay: str | None = None) -> dict:
-    """CHẠY THỬ ghi tốt nghiệp (không ghi): kết quả dự kiến từng dòng, trùng số giấy trong lô và trong DB,
-    khoảng số, cảnh báo. `dong` = [{ma_dk, so_giay}]; `chung` = sổ/QĐ/ngày điền chung."""
-    hom_nay = hom_nay or hom_nay_iso()
-    khoa = _khoa_oto_hoac_loi(cur, ma_kh)
-    ds = []
-    seen = set()
+def _chuan_dong_tn(dong: list[dict]) -> list[dict]:
+    ds, seen = [], {}
     for d in dong:
         ma = _s(d.get("ma_dk"))
-        if ma and ma not in seen:
-            seen.add(ma)
-            ds.append({"ma_dk": ma, "so_giay": _s(d.get("so_giay"))})
+        if not ma:
+            continue
+        giay = _s(d.get("so_giay"))
+        if ma in seen:
+            if seen[ma] != giay:
+                raise LoiNghiepVu("dong_trung_hoc_vien",
+                                  f"Học viên {ma} xuất hiện hai lần với số giấy khác nhau — chỉ giữ một dòng", 400)
+            continue
+        seen[ma] = giay
+        ds.append({"ma_dk": ma, "so_giay": giay})
     vde = rules.kiem_danh_sach_dan([d["ma_dk"] for d in ds])
     if vde:
         raise LoiNghiepVu(vde[0]["ma"], vde[0]["noi_dung"], 400)
     if not ds:
         raise LoiNghiepVu("khong_co_hoc_vien", "Chưa chọn học viên nào", 400)
+    return ds
+
+
+def _phan_tich_lo(cur, ma_kh: str, khoa: dict, ds: list[dict], chung: dict | None, hom_nay: str) -> tuple[list[dict], dict]:
+    """Đọc lại HV + số giấy đang thuộc HV khác rồi chạy `phan_tich_dong_tn` cho cả lô. Dùng chung cho
+    CHẠY THỬ (`xem_lai_tot_nghiep`) và GHI (`ghi_tot_nghiep`) → hai bên luôn cùng một luật."""
     hvs: dict[str, dict] = {}
     for khoi in _chia([d["ma_dk"] for d in ds], _KHOI_IN):
         cur.execute(_Q_HV_TN_IN.format(ph=",".join(["%s"] * len(khoi))), tuple(khoi))
         for r in cur.fetchall():
             h = _hv_tn(r)
             hvs[h["ma_dk"]] = {**h, "bg": khoa["bg"]}
-    # trùng trong lô (khóa so sánh đã bỏ `|`, không phân biệt hoa/thường)
     dem_lo: dict[str, int] = {}
     for d in ds:
         if d["so_giay"]:
             k = rules.khoa_so_giay(d["so_giay"])
             dem_lo[k] = dem_lo.get(k, 0) + 1
     trung_lo = {k for k, n in dem_lo.items() if n > 1}
-    # trùng trong DB: số giấy đang thuộc HV KHÁC (loại trừ chính HV đó)
-    khoa_giay = sorted({k for k in dem_lo})
     giu: dict[str, set[str]] = {}
-    for khoi in _chia(khoa_giay, _KHOI_IN):
+    for khoi in _chia(sorted(dem_lo), _KHOI_IN):
         cur.execute(_Q_SO_GIAY_TRUNG.format(ph=",".join(["%s"] * len(khoi))), tuple(khoi))
         for r in cur.fetchall():
             giu.setdefault(rules.khoa_so_giay(r["SoGiayCNTN"]), set()).add(_s(r["MaDK"]))
-    ket_qua, dem = [], {}
-    so_trong_lo: list[int] = []
-    tien_to = ""
+    khoa_cu = bool(khoa["bg"]) and khoa["bg"] < moc_cua_so_khoa(hom_nay)
+    out = []
     for d in ds:
         hv = hvs.get(d["ma_dk"])
         if hv is None:
@@ -1218,25 +1240,188 @@ def xem_lai_tot_nghiep(cur, ma_kh: str, dong: list[dict], chung: dict | None = N
             khac = {k} if k and (giu.get(k, set()) - {d["ma_dk"]}) else set()
             kq = rules.phan_tich_dong_tn(hv, d["so_giay"], chung, {"hom_nay": hom_nay, "so_giay_khac": khac,
                                                                     "trung_lo": trung_lo})
-            kq["khoa_cu"] = bool(khoa["bg"]) and khoa["bg"] < moc_cua_so_khoa(hom_nay)
-            if kq["khoa_cu"]:
+            kq["khoa_cu"] = khoa_cu
+            if khoa_cu:
                 kq["canh_bao"].append({"muc": rules.CANH_BAO, "ma": "khoa_cu", "noi_dung": "Học viên của khóa cũ"})
-            t = rules.tach_so_giay(d["so_giay"])
-            if t and kq["ghi_duoc"]:
-                tien_to = tien_to or t[0]
-                if t[0] == tien_to:
-                    so_trong_lo.append(t[1])
-        ket_qua.append(kq)
-        dem[kq["ket_qua"]] = dem.get(kq["ket_qua"], 0) + 1
-    canh_bao_chung: dict[str, dict] = {}
+        out.append(kq)
+    return out, hvs
+
+
+def _tong_hop_canh_bao(ket_qua: list[dict]) -> list[dict]:
+    gop: dict[str, dict] = {}
     for kq in ket_qua:
         for w in kq["canh_bao"]:
-            c = canh_bao_chung.setdefault(w["ma"], {"ma": w["ma"], "noi_dung": w["noi_dung"], "so_dong": 0})
+            c = gop.setdefault(w["ma"], {"ma": w["ma"], "noi_dung": w["noi_dung"], "so_dong": 0})
             c["so_dong"] += 1
+    return list(gop.values())
+
+
+def xem_lai_tot_nghiep(cur, ma_kh: str, dong: list[dict], chung: dict | None = None,
+                       hom_nay: str | None = None) -> dict:
+    """CHẠY THỬ ghi tốt nghiệp (không ghi): kết quả dự kiến từng dòng, trùng số giấy trong lô và trong DB,
+    khoảng số, cảnh báo. `dong` = [{ma_dk, so_giay}]; `chung` = sổ/QĐ/ngày điền chung."""
+    hom_nay = hom_nay or hom_nay_iso()
+    khoa = _khoa_oto_hoac_loi(cur, ma_kh)
+    ds = _chuan_dong_tn(dong)
+    ket_qua, _hvs = _phan_tich_lo(cur, ma_kh, khoa, ds, chung, hom_nay)
+    dem: dict[str, int] = {}
+    so_trong_lo: list[int] = []
+    tien_to = ""
+    for d, kq in zip(ds, ket_qua):
+        dem[kq["ket_qua"]] = dem.get(kq["ket_qua"], 0) + 1
+        t = rules.tach_so_giay(d["so_giay"])
+        if t and kq["ghi_duoc"]:
+            tien_to = tien_to or t[0]
+            if t[0] == tien_to:
+                so_trong_lo.append(t[1])
     return {
         "ma_kh": ma_kh, "ghi_duoc_khoa": bool(khoa["bg"]) and khoa["bg"] <= hom_nay, "tong": len(ds), "dem": dem,
         "khoang_so": ({"tien_to": tien_to, "tu": min(so_trong_lo), "den": max(so_trong_lo),
                        "so_luong": len(so_trong_lo)} if so_trong_lo else None),
         "co_chan": any(kq["ket_qua"] == rules.KQ_CHAN for kq in ket_qua),
-        "canh_bao": list(canh_bao_chung.values()), "dong": ket_qua,
+        "canh_bao": _tong_hop_canh_bao(ket_qua), "dong": ket_qua,
     }
+
+
+def _chon_dong_ghi(ds: list[dict], ket_qua: list[dict], da_xem_canh_bao: bool) -> tuple[list[tuple[dict, dict]], list[dict]]:
+    """Từ kết quả phân tích: (các dòng GHI ĐƯỢC, các dòng bỏ qua kèm lý do). Cảnh báo chưa xác nhận → 409
+    (không ghi gì); không có dòng nào ghi được → 409."""
+    ghi, bo_qua = [], []
+    for d, kq in zip(ds, ket_qua):
+        if kq["ghi_duoc"]:
+            ghi.append((d, kq))
+        else:
+            ly = (kq["chan"][0] if kq["chan"] else (kq["thong_tin"][0] if kq["thong_tin"] else {}))
+            bo_qua.append({"ma_dk": d["ma_dk"], "ma_ly_do": ly.get("ma", kq["ket_qua"]),
+                           "ly_do": ly.get("noi_dung", "Không có gì để ghi")})
+    if not ghi:
+        raise LoiNghiepVu("khong_co_dong_hop_le", "Không có dòng nào ghi được — xem lý do từng dòng", 409,
+                          {"bo_qua": bo_qua})
+    canh_bao = _tong_hop_canh_bao([kq for _d, kq in ghi])
+    if canh_bao and not da_xem_canh_bao:
+        raise LoiNghiepVu("can_xac_nhan_canh_bao", canh_bao[0]["noi_dung"], 409, {"canh_bao": canh_bao})
+    return ghi, bo_qua
+
+
+def kiem_truoc_ghi_tn(cur, ma_kh: str, dong: list[dict], chung: dict | None, da_xem_canh_bao: bool,
+                      hom_nay: str | None = None) -> None:
+    """Kiểm nhanh ĐỒNG BỘ (router gọi trước khi chạy nền): khóa ô tô + đã bế giảng, ít nhất một dòng ghi
+    được, cảnh báo đã xác nhận. Không ghi."""
+    hom_nay = hom_nay or hom_nay_iso()
+    khoa = _khoa_oto_hoac_loi(cur, ma_kh)
+    if not khoa["bg"] or khoa["bg"] > hom_nay:
+        raise LoiNghiepVu("khoa_chua_be_giang", "Khóa chưa bế giảng — chỉ xem, không ghi được", 409)
+    ds = _chuan_dong_tn(dong)
+    ket_qua, _ = _phan_tich_lo(cur, ma_kh, khoa, ds, chung, hom_nay)
+    _chon_dong_ghi(ds, ket_qua, da_xem_canh_bao)
+
+
+def _ngay_dt(iso: str | None) -> datetime | None:
+    return datetime.strptime(iso, "%Y-%m-%d") if iso else None
+
+
+def ghi_tot_nghiep(conn, *, lo_id: str, ma_kh: str, dong: list[dict], chung: dict | None, nguoi: str,
+                   da_xem_canh_bao: bool = False, hom_nay: str | None = None,
+                   bao_tien_do: Callable[[int, int], None] | None = None) -> dict:
+    """GHI tốt nghiệp ô tô theo lô (TNB-01): `usp_NguoiLX_HoSo_Update_CNTN` từng HV trong khóa ghi chung.
+
+    Trong khóa: đọc lại + chạy lại CÙNG luật của chạy thử → dòng bị chặn bỏ qua kèm lý do → từng HV: đọc lại
+    SÁT trước SP, SP với giá trị hiệu lực (số giấy rỗng truyền `''`, KHÔNG `NULL` — `LEN(NULL)` làm SP rẽ sang
+    nhánh hủy 09→03), ghi nhật ký NGAY sau SP, đọc lại sau SP chỉ để cảnh báo. Cùng `lo_id` chạy lại = "Làm
+    tiếp": HV đã ghi không bị gọi lại SP. Lỗi DB giữa chừng → trả đã/chưa ghi."""
+    hom_nay = hom_nay or hom_nay_iso()
+    ds = _chuan_dong_tn(dong)
+    with khoa_ghi(conn) as cur:
+        khoa = _khoa_oto_hoac_loi(cur, ma_kh)
+        if not khoa["bg"] or khoa["bg"] > hom_nay:
+            raise LoiNghiepVu("khoa_chua_be_giang", "Khóa chưa bế giảng — chỉ xem, không ghi được", 409)
+        nhat_ky.lo_bat_dau(lo_id, nguoi, nhat_ky.LO_TOT_NGHIEP, ma_kh, "", len(ds))
+        nk = nhat_ky.bat_dau(nguoi, nhat_ky.TOT_NGHIEP, ma_kh, "", len(ds), f"Tốt nghiệp {len(ds)} HV",
+                             {"ma_dk": [d["ma_dk"] for d in ds]}, lo_id=lo_id)
+        try:
+            return _ghi_tn_trong_khoa(cur, nk=nk, lo_id=lo_id, ma_kh=ma_kh, khoa=khoa, ds=ds, chung=chung,
+                                      da_xem_canh_bao=da_xem_canh_bao, hom_nay=hom_nay, bao_tien_do=bao_tien_do)
+        except Exception as e:  # noqa: BLE001 — đóng nhật ký rồi ném tiếp
+            loi = getattr(e, "noi_dung", None) or str(e)
+            nhat_ky.ket_thuc(nk, "that_bai", {"loi": loi[:200]})
+            _luu_loi_lo(lo_id, "that_bai", {"loi": loi[:200]})
+            raise
+
+
+def _ghi_tn_trong_khoa(cur, *, nk, lo_id, ma_kh, khoa, ds, chung, da_xem_canh_bao, hom_nay, bao_tien_do) -> dict:
+    da_ghi_truoc = {h["ma_dk"] for h in nhat_ky.lo_hv(lo_id) if h["ket_qua"] == "da_ghi"}   # "Làm tiếp"
+    moi = [d for d in ds if d["ma_dk"] not in da_ghi_truoc]
+    ket_qua, _hvs = _phan_tich_lo(cur, ma_kh, khoa, moi, chung, hom_nay) if moi else ([], {})
+    if moi:
+        ghi, bo_qua = _chon_dong_ghi(moi, ket_qua, da_xem_canh_bao)
+    else:
+        ghi, bo_qua = [], []
+    for b in bo_qua:
+        nhat_ky.lo_ghi_hv(lo_id, b["ma_dk"], "bo_qua", b["ma_ly_do"])
+    da_ghi, chua_ghi, canh_bao, loi = [], [], [], None
+    for idx, (d, kq) in enumerate(ghi):
+        ma_dk = d["ma_dk"]
+        hl = kq["hieu_luc"]
+        try:
+            cur.execute(_Q_HV_TN_IN.format(ph="%s"), (ma_dk,))
+            dong_hv = cur.fetchone()
+            hien = _hv_tn(dong_hv) if dong_hv else None
+            truoc = _hvs.get(ma_dk)
+            if (hien is None or truoc is None or hien["tt"] != truoc["tt"] or hien["ma_bc2"] != truoc["ma_bc2"]
+                    or hien["so_giay"] != truoc["so_giay"]):
+                bo_qua.append({"ma_dk": ma_dk, "ma_ly_do": "doi_giua_chung",
+                               "ly_do": "Phần mềm cũ vừa đổi học viên này — không ghi đè"})
+                nhat_ky.lo_ghi_hv(lo_id, ma_dk, "bo_qua", "doi_giua_chung")
+                continue
+            if hl["so_giay"]:   # sát trước SP: số giấy vừa bị người khác dùng?
+                k = rules.khoa_so_giay(hl["so_giay"])
+                cur.execute(_Q_SO_GIAY_TRUNG.format(ph="%s"), (k,))
+                nguoi_giu = {_s(r["MaDK"]) for r in cur.fetchall()
+                             if rules.khoa_so_giay(r["SoGiayCNTN"]) == k} - {ma_dk}
+                if nguoi_giu and k != rules.khoa_so_giay(hien["so_giay"]):
+                    bo_qua.append({"ma_dk": ma_dk, "ma_ly_do": "trung_db",
+                                   "ly_do": f"Số giấy {hl['so_giay']} vừa được dùng cho học viên khác"})
+                    nhat_ky.lo_ghi_hv(lo_id, ma_dk, "bo_qua", "trung_db")
+                    continue
+            cur.execute("EXEC usp_NguoiLX_HoSo_Update_CNTN %s,%s,%s,%s,%s,%s,%s,%s",
+                        (ma_dk, hien["so_ho_so"], hl["so_so_tn"], _ngay_dt(hl["ngay_vao_so"]), hl["so_quyet_dinh"],
+                         _ngay_dt(hl["ngay_ra_qd"]), hl["so_giay"] or "", _ngay_dt(hl["ngay_in"])))
+            da_ghi.append({"ma_dk": ma_dk, "ket_qua": kq["ket_qua"]})
+            try:
+                nhat_ky.lo_ghi_hv(lo_id, ma_dk, "da_ghi", kq["ket_qua"])  # GHI NGAY sau SP thành công
+            except Exception:  # noqa: BLE001 — SP đã chạy: vẫn là "đã ghi", chỉ cảnh báo nhật ký
+                canh_bao.append({"ma_dk": ma_dk, "ma": "khong_ghi_duoc_nhat_ky",
+                                 "noi_dung": "Đã ghi nhưng chưa lưu được nhật ký cho học viên này"})
+            try:   # đọc lại SAU SP chỉ để cảnh báo
+                cur.execute(_Q_HV_TN_IN.format(ph="%s"), (ma_dk,))
+                sau = _hv_tn(cur.fetchone() or {"MaDK": ma_dk})
+                mong_doi = "09" if kq["ket_qua"] in (rules.KQ_LEN_09, rules.KQ_GIU_09) else hien["tt"]
+                if (sau["tt"] != mong_doi or sau["so_giay"] != (hl["so_giay"] or "")
+                        or sau["so_so_tn"] != hl["so_so_tn"] or sau["so_quyet_dinh"] != hl["so_quyet_dinh"]):
+                    canh_bao.append({"ma_dk": ma_dk, "ma": "khong_khop_sau_ghi",
+                                     "noi_dung": "Sau khi ghi, dữ liệu học viên không như mong đợi — kiểm lại"})
+            except Exception:  # noqa: BLE001
+                canh_bao.append({"ma_dk": ma_dk, "ma": "khong_doc_lai_duoc",
+                                 "noi_dung": "Đã ghi nhưng chưa đọc lại được học viên này — kiểm lại"})
+        except Exception as e:  # noqa: BLE001 — lỗi DB: dừng, báo đã/chưa ghi
+            loi = {"ma_dk": ma_dk, "noi_dung": str(e)[:200]}
+            chua_ghi = [x[0]["ma_dk"] for x in ghi[idx:]]
+            for m in chua_ghi:
+                nhat_ky.lo_ghi_hv(lo_id, m, "chua_ghi", "loi_db")
+            break
+        finally:
+            if bao_tien_do:
+                bao_tien_do(idx + 1, len(ghi))
+    bo_cache()
+    trang_thai = "loi_giua_chung" if loi else "xong"
+    dem: dict[str, int] = {}
+    for g in da_ghi:
+        dem[g["ket_qua"]] = dem.get(g["ket_qua"], 0) + 1
+    kq_tong = {"lo_id": lo_id, "ma_kh": ma_kh, "tong": len(ds), "da_ghi": da_ghi,
+               "da_ghi_truoc": sorted(da_ghi_truoc, key=[d["ma_dk"] for d in ds].index),
+               "bo_qua": bo_qua, "chua_ghi": chua_ghi, "canh_bao": canh_bao, "dem": dem, "loi": loi,
+               "trang_thai": trang_thai}
+    nhat_ky.lo_cap_nhat(lo_id, trang_thai=trang_thai, ket_qua={k: v for k, v in kq_tong.items() if k != "lo_id"},
+                        luc_xong=datetime.now().isoformat(timespec="seconds"))
+    nhat_ky.ket_thuc(nk, trang_thai, {"da_ghi": len(da_ghi), "bo_qua": len(bo_qua), "chua_ghi": len(chua_ghi)})
+    return kq_tong

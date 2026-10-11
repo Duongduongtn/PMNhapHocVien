@@ -50,6 +50,7 @@ _DDL_LO_HV = (
 
 LO_LAP = "lap"
 LO_HOAN_TAC = "hoan_tac"
+LO_TOT_NGHIEP = "tot_nghiep"  # ghi tốt nghiệp ô tô (không có BC2)
 LO_GO = "go"                  # gỡ HV thủ công (khác hoàn tác lô; không phải "lần thêm" nên không che lô thêm)
 
 
