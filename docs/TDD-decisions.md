@@ -283,3 +283,11 @@
   - **Xóa BC2 đếm theo `MaBC2` (mọi `TT_XuLy`):** `usp_BaoCaoII_Delete` chỉ xóa đúng dòng BC2, không kiểm HV, không có FK từ HV — đây là cơ chế sinh 91 HV `MaBC2` mồ côi đang có.
   - **BC1 suy từ khóa:** 454 khóa có BC1, 0 khóa có hơn 1 BC1 → luồng 3 bước không cần bước chọn BC1.
   - **Cần `/capnhat` PRD:** TNB-04 (nhóm "Cần xem" còn ghi "đang ở BC2 khác sẽ bị chuyển") và TNB-03 ("chọn BC1 (bắt buộc)"); kiểm lại mockup `ui-mock/tnbc2.html`.
+- **Cập nhật 11/10/2026 (backend task 96–105, CHANGES #63 — ghi lại thiết kế thực tế):**
+  - **Số sổ/QĐ/ngày một bộ chung cho cả lượt ghi** (user chốt): vì sao — một khóa hầu như dùng một sổ; ô riêng từng HV làm bảng rộng và dễ nhập lệch; cần sổ khác thì ghi theo nhóm. Đã cân nhắc: (A) chung cả lô ← chọn · (B) sửa riêng từng HV.
+  - **Trùng số giấy chỉ chặn khi ĐỔI sang số đang thuộc HV khác:** DB có 463 số trùng của PM cũ (chỉ 2 thuộc 2026); chặn mọi số trùng sẽ khóa oan các HV cũ. Hai luật đi kèm không có trong tài liệu gốc: (B) HV chưa tới bước tốt nghiệp bị chặn, (C) cấp số giấy cần cả số sổ và số QĐ (PM cũ có đủ 6 trường ở 90/90 HV `09`).
+  - **Gỡ tay HV `TT_XuLy_Old='11'` bị chặn** (user chốt, khớp hoàn tác): gỡ ra HV kẹt `11` không BC2, Cứu trạng thái cũng chặn nguồn `11`. Đã cân nhắc: (A) chặn ← chọn · (B) cảnh báo + xác nhận.
+  - **Hoàn tác cứu dùng trạng thái cũ trong nhật ký tool** thay vì `TT_XuLy_Old` của DB: SP `UpdateTTXLy` ghi đè cột đó mỗi lần chuyển. Đánh đổi: mất sqlite thì mất hoàn tác.
+  - **BC2 đã đóng không xóa ở tool** (kể cả khi 0 HV): PRD "BC2 đã đóng chỉ xem"; 440/455 BC2 đã đóng đều còn HV.
+  - **Cứu HV khóa chưa bế giảng vẫn cho:** PRD chỉ nói tool không "giải quyết" ca đó; giao diện phải nói rõ HV chưa hiện.
+  - **Route `{ma:path}`:** số BC2 có dấu `/`; `%2F` bị giải mã trước khi khớp route. Các route cố định phải đứng trước.
