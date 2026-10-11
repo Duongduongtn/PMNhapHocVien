@@ -396,11 +396,62 @@ export const hoanTacLoThem = (ma: string, loId: string) =>
   goi<LoTn>("POST", `${duongBc2(ma)}/hoan-tac`, { body: { lo_id: loId, xac_nhan_csdl_that: true } });
 
 // ── Cứu trạng thái ──
-export const timHvCuu = (q: string, loai: LoaiHang | "" = "") => goi("GET", "/cuu/tim", { query: { q, loai } });
+export interface DichCuu {
+  /** `09` | `14` | `17` | `18` */
+  ma: string;
+  ten: string;
+  cho_phep: boolean;
+  ly_do: string;
+}
+export interface HvCuu {
+  ma_dk: string;
+  so_ho_so: string;
+  ten: string;
+  ngay_sinh: string; // dd/mm/yyyy
+  cmt: string;
+  hang: string;
+  tt: string;
+  ma_bc2: string;
+  ma_kh: string;
+  so_giay: string;
+  ten_kh: string;
+  bg: string;
+  loai: LoaiHang;
+  khac_loai: boolean;
+  ten_trang_thai: string;
+  /** Vì sao HV không có trong danh sách ứng viên. `ma === "dang_hien"` = thực ra đang có trong danh sách. */
+  khong_hien: { ma: string; noi_dung: string; goi_y_xu_ly?: string | null; nhom?: string };
+  dich: DichCuu[];
+  cuu_duoc: boolean;
+}
+export interface TimCuuResp {
+  q: string;
+  loai: string;
+  tong_khop: number;
+  hien_toi_da: number;
+  hoc_vien: HvCuu[];
+}
+export interface KetQuaCuu {
+  lo_id: string;
+  ma_dk: string;
+  tt_cu: string;
+  tt_moi: string;
+  ten_trang_thai_cu?: string;
+  ten_trang_thai_moi: string;
+  ly_do?: string;
+  canh_bao: { ma: string; noi_dung: string }[];
+  trang_thai: string;
+  da_ton_tai?: boolean;
+  lo_goc?: string;
+}
+export const timHvCuu = (q: string, loai: LoaiHang | "" = "") =>
+  goi<TimCuuResp>("GET", "/cuu/tim", { query: { q, loai } });
 export const cuuChuyen = (loId: string, maDk: string, dich: string, lyDo: string, loai: LoaiHang | "" = "") =>
-  goi("POST", "/cuu/chuyen", { body: { lo_id: loId, ma_dk: maDk, dich, ly_do: lyDo, loai, xac_nhan_csdl_that: true } });
+  goi<KetQuaCuu>("POST", "/cuu/chuyen", {
+    body: { lo_id: loId, ma_dk: maDk, dich, ly_do: lyDo, loai, xac_nhan_csdl_that: true },
+  });
 export const cuuHoanTac = (loIdCuu: string, loId: string) =>
-  goi("POST", "/cuu/hoan-tac", { body: { lo_id_cuu: loIdCuu, lo_id: loId, xac_nhan_csdl_that: true } });
+  goi<KetQuaCuu>("POST", "/cuu/hoan-tac", { body: { lo_id_cuu: loIdCuu, lo_id: loId, xac_nhan_csdl_that: true } });
 
 // ── Danh sách + nhật ký (chỉ đọc) ──
 export const dsBc1 = (loai: LoaiHang | "" = "") => goi("GET", "/bc1", { query: { loai } });
