@@ -1127,6 +1127,8 @@
 
 **Edge cases:** HV bị PM cũ đưa vào BC2 giữa lúc đang mở hộp → đọc lại trước khi ghi, bỏ qua kèm lý do · hủy mà `TT_XuLy` đã khác `09` → SP không đổi trạng thái, tool báo "HV không còn ở 09".
 
+> **Ghi nhận khi dựng UI (v4.8, CHANGES #64 — tài liệu đi theo code, không đổi yêu cầu):** cho **tích lẫn** HV chưa tốt nghiệp và đã tốt nghiệp trong cùng lượt Xem lại → Ghi (user chốt; hộp xem lại nêu rõ từng nhóm). Nút "Hủy tốt nghiệp" chỉ bật khi **mọi** HV đã chọn đều "Đã tốt nghiệp" và chưa vào BC2. "Chọn tất cả" chỉ chọn nhóm chưa tốt nghiệp (đang lọc "Đã tốt nghiệp" thì chọn nhóm đó) để bộ sổ điền chung không đè nhầm sổ của HV đã tốt nghiệp. Hộp Hủy báo lỗi đỏ (không báo "Đã hủy 0") khi lô thất bại hoặc đứt giữa chừng, có "Làm tiếp".
+
 > Nguồn: user 11/10/2026 · định nghĩa SP verify DB · TDD §11F.2
 
 #### [TNB-03] Tạo BC2 (ô tô / mô tô)
@@ -1143,6 +1145,8 @@
 - ❌ Không tạo BC2 không có BC1; không tạo BC1; không nút "Đóng BC2".
 
 **Edge cases:** số BC2 trùng → chặn · BC1 đã có BC2 mô tô → cảnh báo "khóa này đã có BC2 số …" · mất kết nối giữa chừng → kiểm lại BC2 đã tạo chưa trước khi thử lại (tránh tạo đôi).
+
+> **Ghi nhận khi dựng UI (v4.8, CHANGES #64 — tài liệu đi theo code, không đổi yêu cầu):** form hiện **số BC1 · ngày BC1 · số học sinh** của khóa (backend đọc thêm `BaoCaoI.NgayBaoCao`); **ngày báo cáo là bắt buộc**; mất kết nối hoặc lỗi máy chủ khi tạo → "Gửi lại" mang `thu_lai` để không tạo đôi BC2; số gợi ý của mô tô trùng chính BC2 đã có của khóa nên nhân viên phải đổi số mới tạo được (kèm cảnh báo "khóa này đã có BC2 số …").
 
 > Nguồn: user 11/10/2026 · 7 BC2 mô tô gần nhất (tổng = `SoHocSinh` BC1) · TDD §11F.3
 
@@ -1167,6 +1171,8 @@
 
 **Edge cases:** HV khóa chưa bế giảng → không hiện, kèm giải thích (xem TNB-06) · BC2 do PM cũ tạo → thấy ngay như BC2 tạo ở tool · BC2 đã đóng giữa lúc đang thêm → báo, không ghi · HV đang ở BC2 đang mở khác → không đưa được, kèm "gỡ khỏi BC2 số … trước" (không tự chuyển giữa hai BC2) · mô tô: HV tồn là luồng chính (BC2 `861/26-TTTĐ` có 74 HV tồn của 11 khóa).
 
+> **Ghi nhận khi dựng UI (v4.8, CHANGES #64 — tài liệu đi theo code, không đổi yêu cầu):** bước ③ **chốt số/ngày/ghi chú ở lần gửi đầu** — "Làm tiếp" luôn gửi đúng nội dung đã xác nhận dù số gợi ý nhảy (lỗi do kiểm thử Checkpoint 26 phát hiện); bước ② **tự làm tươi khi quay lại cửa sổ** (bỏ qua nếu vừa tải < 15 giây); thanh tiến độ từ 200 HV; lối vào "+ Thêm học viên" ở dòng BC2 đang mở trong danh sách BC2; Enter ở ô tìm rỗng không tích gì. **Hạn chế đã biết:** F5 giữa lúc ghi mất mã lô nên không "Làm tiếp" được (lô vẫn chạy nền; xem kết quả ở danh sách BC2 / Nhật ký). **Chưa quyết (ghi nhận, không phải yêu cầu):** nhóm riêng "đã ở BC2 này" cho HV vừa thêm vào chính BC2 đang xem (hiện xếp "Không đưa được"); sau Làm tươi HV vừa xử lý xong có được tích sẵn hay không (hiện không).
+
 > Nguồn: user 11/10/2026 · `usp_NguoiLX_HoSo_ThemHS_BC2` + `usp_NguoiLX_Update_ThemHSBC2` · TDD §11F.4
 
 #### [TNB-05] Bỏ học viên khỏi BC2
@@ -1185,6 +1191,8 @@
 
 **Edge cases:** HV bị PM cũ đổi trạng thái giữa lúc chọn → đọc lại, bỏ qua kèm lý do · `TT_XuLy_Old` rỗng → cảnh báo trước khi gỡ (sẽ về giá trị rỗng) · `TT_XuLy_Old` cũng là "Đã vào BC2" → **không gỡ được** (xử lý ở phần mềm cũ).
 
+> **Ghi nhận khi dựng UI (v4.8, CHANGES #64 — tài liệu đi theo code, không đổi yêu cầu):** hộp Gỡ và Hoàn tác báo **lỗi đỏ** khi lô thất bại hoặc đứt giữa chừng (không báo "Đã gỡ 0"), Hoàn tác có "Làm tiếp"; cảnh báo `TT_XuLy_Old` rỗng xuất hiện sau lúc mở màn (409) vẫn có ô tích để xác nhận; nút Hoàn tác luôn bật khi BC2 đang mở (chỉ nhật ký phía máy chủ biết còn lô nào) — nếu không có lô thì hộp báo lý do.
+
 > Nguồn: user 11/10/2026 · SP gỡ verify DB · TDD §11F.4
 
 #### [TNB-06] Chuyển trạng thái học viên (cứu HV không tìm thấy)
@@ -1201,6 +1209,8 @@
 
 **Edge cases:** SP đặt `Transfer_flag=0` (hiện toàn bộ HV đã bằng 0) · HV khác hạng với loại đang chọn → không đổi, báo lý do · HV `09` mà không có số giấy → chặn đích 09.
 
+> **Ghi nhận khi dựng UI (v4.8, CHANGES #64 — tài liệu đi theo code, không đổi yêu cầu):** hộp xem lại "cũ → mới" có mục thu gọn **"dành cho IT"** nêu `usp_NguoiLX_HoSo_UpdateTTXLy`; HV của khóa chưa bế giảng vẫn chuyển được nhưng có ghi chú "không làm học viên hiện vào danh sách BC2"; **gửi lại sau khi tool bị ngắt giữa lúc cứu** (SP đã chạy, lô chưa đóng) được hoàn tất từ nhật ký thay vì bị từ chối — vẫn Hoàn tác được.
+
 > Nguồn: user 11/10/2026 · `usp_NguoiLX_HoSo_UpdateTTXLy` · TDD §11F.5
 
 #### [TNB-07] Danh sách BC2 và nhật ký thao tác
@@ -1209,9 +1219,11 @@
 **Story:** Là nhân viên cơ sở, tôi muốn xem các BC2 hiện có và biết ai đã làm gì trong tool.
 
 **Done khi:**
-- ⬜ Bảng BC2 theo tab **Ô tô / Mô tô**, lọc **đang mở / đã đóng**: số báo cáo · ngày · BC1 · khóa · **Tổng ghi** · **HV thực tế** (đánh dấu lệch) · người tạo. Bấm một dòng → chi tiết (TNB-04/05).
+- ⬜ Bảng BC2 theo **loại hạng (Ô tô / Mô tô — nút chọn chung ở đầu màn Báo cáo 2)**, lọc **đang mở / đã đóng**: số báo cáo · ngày · BC1 · khóa · **Tổng ghi** · **HV thực tế** (đánh dấu lệch) · người tạo. Bấm một dòng → chi tiết (TNB-04/05).
 - ⬜ **Nhật ký thao tác phía tool:** ai · lúc nào · loại (tốt nghiệp / tạo BC2 / thêm / gỡ / cứu trạng thái) · số HV · kết quả đã/chưa ghi.
 - ❌ Chỉ đọc; không sửa/xóa BC2 ở màn này.
+
+> **Ghi nhận khi dựng UI (v4.8, CHANGES #64 — tài liệu đi theo code, không đổi yêu cầu):** tab Nhật ký lưu và hiển thị **số lượng + mã thao tác, không có họ tên/CMT học viên** (ghi chú ở cuối màn); danh sách BC2 đánh dấu "lệch" chỉ là thông tin (PM cũ không đếm lại; HV thi lại chuyển sang BC2 khác).
 
 > Nguồn: user 11/10/2026 · `usp_BaoCaoII_Search`, `usp_BaoCaoI_SelectAll` · TDD §11F.6
 
@@ -1360,3 +1372,4 @@
 | 11/10/2026 | v4.5 — **TNB: thiết kế lại luồng thêm HV vào BC2** (CHANGES #61, phản hồi mockup v1): 3 bước một nút làm xong, 4 nhóm HV (Sẵn sàng/Thi lại/Cần xem/Không đưa được), HV thi lại không tích sẵn + nút "Thêm HV thi lại 12 tháng", dán danh sách CMT, xử lý ngoại lệ tại chỗ, hoàn tác lần thêm vừa rồi; giao diện dùng tên trạng thái nghiệp vụ + chú giải, không lộ mã/SP. Số story giữ 56. | BA/PM |
 | 11/10/2026 | v4.6 — **TNB đồng bộ PRD với TDD §11F v6.8 sau /reviewtdd** (CHANGES #62): TNB-04 bỏ "HV đang ở BC2 khác sẽ bị chuyển" → nhóm "Không đưa được" kèm "gỡ khỏi BC2 đó trước" (SP không trả HV đang `11`; chuyển làm HV kẹt `11` không BC2); Thi lại tính cả cùng khóa; ô tô `09` cần có số giấy; TNB-03 BC1 suy từ khóa, khóa chưa có BC1 hiện mờ; TNB-05 sửa dòng "từng ở BC2 cũ". Số story giữ 56. | BA/PM |
 | 11/10/2026 | v4.7 — **TNB ghi lại hành vi thực tế sau backend task 96–105** (CHANGES #63, không đổi yêu cầu, không đổi mã/trạng thái): TNB-01 trùng số giấy chỉ chặn khi đổi sang số của HV khác + bộ sổ/QĐ/ngày chung cho cả lượt; TNB-05 xóa BC2 chỉ khi còn mở, gỡ tay HV `Old='11'` bị chặn; TNB-06 hoàn tác dựa nhật ký tool. Số story giữ 56. | BA/PM |
+| 11/10/2026 | v4.8 — **TNB ghi lại hành vi thực tế khi dựng UI task 106-115** (CHANGES #64, không đổi yêu cầu, trạng thái story giữ nguyên vì code đã chạy đúng điều được ghi): TNB-02 tích lẫn + luật nút Hủy/Chọn tất cả · TNB-03 hiện ngày BC1, ngày bắt buộc, Gửi lại `thu_lai` · TNB-04 chốt payload bước ③, tự làm tươi, hạn chế F5 + 2 điểm chưa quyết · TNB-05 lỗi lô · TNB-06 mục IT, khóa chưa bế giảng, hoàn tất lô dở · TNB-07 "chọn loại hạng" thay "tab", nhật ký không PII. Số story giữ 56. | BA/PM |

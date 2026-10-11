@@ -291,3 +291,8 @@
   - **BC2 đã đóng không xóa ở tool** (kể cả khi 0 HV): PRD "BC2 đã đóng chỉ xem"; 440/455 BC2 đã đóng đều còn HV.
   - **Cứu HV khóa chưa bế giảng vẫn cho:** PRD chỉ nói tool không "giải quyết" ca đó; giao diện phải nói rõ HV chưa hiện.
   - **Route `{ma:path}`:** số BC2 có dấu `/`; `%2F` bị giải mã trước khi khớp route. Các route cố định phải đứng trước.
+- **Cập nhật 11/10/2026 (UI task 106-115, CHANGES #64):**
+  - **Tích lẫn chưa/đã tốt nghiệp** trong một lượt ghi (user chốt A): một luồng "Xem lại → Ghi", server đã xử từng dòng; đổi lại "Chọn tất cả" chỉ chọn nhóm chưa tốt nghiệp. Đã cân nhắc: (A) tích lẫn ← chọn · (B) tách hai chế độ.
+  - **"Làm tiếp" gửi đúng nội dung đã xác nhận** (payload chốt ở lần gửi đầu): vì form mount lại có thể đổi số gợi ý → tạo BC2 thứ hai. Phát hiện bởi E2E Checkpoint 26.
+  - **Hoàn tất lô cứu dở từ nhật ký** (user chốt A): tool ngắt giữa lúc cứu không để HV mất nút Hoàn tác. Đã cân nhắc: (A) sửa backend ← chọn · (B) để nhân viên tự làm tươi/kiểm tra.
+  - **Chưa chốt (để ngỏ):** nhóm "đã ở BC2 này"; khôi phục lô sau F5; giữ/tích sẵn lựa chọn sau Làm tươi.
