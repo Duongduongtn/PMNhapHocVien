@@ -196,8 +196,37 @@ export const huyTotNghiep = (loId: string, maKh: string, dsMaDk: string[]) =>
   goi<LoTn>("POST", "/tot-nghiep/huy", { body: { lo_id: loId, ma_kh: maKh, ds_ma_dk: dsMaDk, xac_nhan_csdl_that: true } });
 
 // ── Báo cáo 2: lập + thêm HV ──
+export interface Bc2CuaKhoa {
+  ma: string;
+  /** 0 = đang mở, 1 = đã đóng. */
+  trang_thai: number;
+  tong_ghi: number | null;
+}
+export interface KhoaSanSang {
+  ma_kh: string;
+  ten_kh: string;
+  ngay_bg: string;
+  khoa_cu: boolean;
+  co_bc1: boolean;
+  so_bc1: string;
+  bc2_cua_khoa: Bc2CuaKhoa[];
+  san_sang: number;
+  can_xem: number;
+  /** HV thi lại trong ngưỡng tháng (như nhau cho mọi khóa — thi lại tính bất kể khóa). */
+  thi_lai: number;
+  thi_lai_cua_khoa: number;
+}
+export interface KhoaSanSangResp {
+  loai: LoaiHang;
+  hom_nay: string;
+  thi_lai_thang: number;
+  thi_lai_tat_ca: number;
+  khoa: KhoaSanSang[];
+}
 export const khoaSanSang = (loai: LoaiHang, cu = false, thiLaiThang?: number, lamTuoi = false) =>
-  goi("GET", "/bc2/khoa-san-sang", { query: { loai, cu, thi_lai_thang: thiLaiThang, lam_tuoi: lamTuoi } });
+  goi<KhoaSanSangResp>("GET", "/bc2/khoa-san-sang", {
+    query: { loai, cu, thi_lai_thang: thiLaiThang, lam_tuoi: lamTuoi },
+  });
 export const ungVienBc2 = (maKh: string, maBc2 = "", thiLaiThang?: number, lamTuoi = false) =>
   goi("GET", "/bc2/ung-vien", { query: { ma_kh: maKh, ma_bc2: maBc2, thi_lai_thang: thiLaiThang, lam_tuoi: lamTuoi } });
 export const khopDanhSach = (maKh: string, maBc2: string, dong: string[]) =>
