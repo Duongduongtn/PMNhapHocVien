@@ -1,0 +1,139 @@
+// Gọi API Tốt nghiệp & Báo cáo 2 (TNB) — /local/tnbc2/*, TDD §11F.6. Ghi DB Nạp GPLX_CSDT.
+// Mọi lệnh GHI cần `xac_nhan_csdl_that: true` (cổng chống bấm nhầm). Số BC2 có dấu `/`
+// nên luôn `encodeURIComponent` khi ghép vào đường dẫn.
+import { BASE, authHeaders } from "./api";
+
+export type LoaiHang = "oto" | "moto";
+/** Dữ liệu trả về: kiểu cụ thể được tinh chỉnh ở từng màn dùng nó (task 107–115). */
+export type DuLieu = Record<string, unknown>;
+
+/** Lỗi nghiệp vụ của server: `detail = {ma, noi_dung, ...}` (409 kèm `canh_bao[]`, `bo_qua[]`, `chan[]`…). */
+export class LoiTnbc2 extends Error {
+  ma: string;
+  http: number;
+  duLieu: DuLieu;
+  constructor(ma: string, noiDung: string, http: number, duLieu: DuLieu = {}) {
+    super(noiDung);
+    this.ma = ma;
+    this.http = http;
+    this.duLieu = duLieu;
+  }
+}
+
+type Query = Record<string, string | number | boolean | undefined>;
+
+function qs(q?: Query): string {
+  const p = new URLSearchParams();
+  for (const [k, v] of Object.entries(q ?? {})) if (v !== undefined && v !== "") p.set(k, String(v));
+  const s = p.toString();
+  return s ? `?${s}` : "";
+}
+
+async function goi<T = DuLieu>(
+  method: string,
+  duongDan: string,
+  tuyChon: { query?: Query; body?: unknown } = {},
+): Promise<T> {
+  const coBody = tuyChon.body !== undefined;
+  const r = await fetch(`${BASE}/local/tnbc2${duongDan}${qs(tuyChon.query)}`, {
+    method,
+    headers: authHeaders(coBody ? { "Content-Type": "application/json" } : undefined),
+    body: coBody ? JSON.stringify(tuyChon.body) : undefined,
+  });
+  if (!r.ok) {
+    const d = await r.json().catch(() => null);
+    const detail = d?.detail;
+    if (detail && typeof detail === "object" && !Array.isArray(detail)) {
+      const { ma, noi_dung, ...conLai } = detail as DuLieu & { ma?: string; noi_dung?: string };
+      throw new LoiTnbc2(String(ma ?? "loi"), String(noi_dung ?? `${r.status} ${r.statusText}`), r.status, conLai);
+    }
+    // 422 của pydantic: detail là mảng; hoặc lỗi 5xx không có JSON
+    throw new LoiTnbc2("loi_he_thong", typeof detail === "string" ? detail : `${r.status} ${r.statusText}`, r.status);
+  }
+  return r.json() as Promise<T>;
+}
+
+/** Mã lô do client sinh mỗi lần xác nhận (8–64 ký tự chữ/số/gạch) — cùng `lo_id` gửi lại = không chạy đôi. */
+export function taoLoId(): string {
+  const u =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  return u.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 64);
+}
+
+// ── Tốt nghiệp (ô tô) ──
+export interface DongTn { ma_dk: string; so_giay: string }
+export interface ChungTn {
+  so_so_tn: string;
+  ngay_vao_so: string;
+  so_quyet_dinh: string;
+  ngay_ra_qd: string;
+  ngay_in: string;
+}
+
+export const dsKhoaTotNghiep = (cu = false) => goi("GET", "/khoa", { query: { loai: "oto", cu } });
+export const dsHvTotNghiep = (maKh: string, q = "", trangThai = "") =>
+  goi("GET", "/tot-nghiep/hv", { query: { ma_kh: maKh, q, trang_thai: trangThai } });
+export const xemLaiTotNghiep = (maKh: string, dong: DongTn[], chung: ChungTn) =>
+  goi("POST", "/tot-nghiep/xem-lai", { body: { ma_kh: maKh, dong, chung } });
+export const ghiTotNghiep = (loId: string, maKh: string, dong: DongTn[], chung: ChungTn, daXemCanhBao: boolean) =>
+  goi("POST", "/tot-nghiep/ghi", {
+    body: { lo_id: loId, ma_kh: maKh, dong, chung, da_xem_canh_bao: daXemCanhBao, xac_nhan_csdl_that: true },
+  });
+export const huyTotNghiep = (loId: string, maKh: string, dsMaDk: string[]) =>
+  goi("POST", "/tot-nghiep/huy", { body: { lo_id: loId, ma_kh: maKh, ds_ma_dk: dsMaDk, xac_nhan_csdl_that: true } });
+
+// ── Báo cáo 2: lập + thêm HV ──
+export const khoaSanSang = (loai: LoaiHang, cu = false, thiLaiThang?: number, lamTuoi = false) =>
+  goi("GET", "/bc2/khoa-san-sang", { query: { loai, cu, thi_lai_thang: thiLaiThang, lam_tuoi: lamTuoi } });
+export const ungVienBc2 = (maKh: string, maBc2 = "", thiLaiThang?: number, lamTuoi = false) =>
+  goi("GET", "/bc2/ung-vien", { query: { ma_kh: maKh, ma_bc2: maBc2, thi_lai_thang: thiLaiThang, lam_tuoi: lamTuoi } });
+export const khopDanhSach = (maKh: string, maBc2: string, dong: string[]) =>
+  goi("POST", "/bc2/khop-danh-sach", { body: { ma_kh: maKh, ma_bc2: maBc2, dong } });
+export const goiYSoBc2 = (maKh: string) => goi("GET", "/bc2/goi-y-so", { query: { ma_kh: maKh } });
+export const taoBc2 = (b: {
+  ma_kh: string;
+  so_bao_cao: string;
+  ngay_bao_cao: string;
+  ghi_chu: string;
+  da_xem_canh_bao: boolean;
+  thu_lai?: boolean;
+}) => goi("POST", "/bc2", { body: { ...b, xac_nhan_csdl_that: true } });
+export const lapBc2 = (b: {
+  lo_id: string;
+  ma_kh: string;
+  ma_bc2: string;
+  so_bao_cao: string;
+  ngay_bao_cao: string;
+  ghi_chu: string;
+  ds_ma_dk: string[];
+  da_xem_canh_bao: boolean;
+}) => goi("POST", "/bc2/lap", { body: { ...b, xac_nhan_csdl_that: true } });
+/** Tiến độ DÙNG CHUNG cho mọi lô chạy nền (lập, gỡ, hoàn tác, ghi/hủy tốt nghiệp). */
+export const tienDoLo = (loId: string) => goi("GET", `/bc2/lo/${encodeURIComponent(loId)}`);
+
+// ── Báo cáo 2: xem / gỡ / xóa / hoàn tác ──
+const duongBc2 = (ma: string) => `/bc2/${encodeURIComponent(ma)}`;
+export const chiTietBc2 = (ma: string) => goi("GET", duongBc2(ma));
+export const goHvKhoiBc2 = (ma: string, loId: string, dsMaDk: string[], daXemCanhBao: boolean) =>
+  goi("POST", `${duongBc2(ma)}/go`, {
+    body: { lo_id: loId, ds_ma_dk: dsMaDk, da_xem_canh_bao: daXemCanhBao, xac_nhan_csdl_that: true },
+  });
+export const xoaBc2 = (ma: string) => goi("DELETE", duongBc2(ma), { query: { xac_nhan_csdl_that: true } });
+export const hoanTacLoThem = (ma: string, loId: string) =>
+  goi("POST", `${duongBc2(ma)}/hoan-tac`, { body: { lo_id: loId, xac_nhan_csdl_that: true } });
+
+// ── Cứu trạng thái ──
+export const timHvCuu = (q: string, loai: LoaiHang | "" = "") => goi("GET", "/cuu/tim", { query: { q, loai } });
+export const cuuChuyen = (loId: string, maDk: string, dich: string, lyDo: string, loai: LoaiHang | "" = "") =>
+  goi("POST", "/cuu/chuyen", { body: { lo_id: loId, ma_dk: maDk, dich, ly_do: lyDo, loai, xac_nhan_csdl_that: true } });
+export const cuuHoanTac = (loIdCuu: string, loId: string) =>
+  goi("POST", "/cuu/hoan-tac", { body: { lo_id_cuu: loIdCuu, lo_id: loId, xac_nhan_csdl_that: true } });
+
+// ── Danh sách + nhật ký (chỉ đọc) ──
+export const dsBc1 = (loai: LoaiHang | "" = "") => goi("GET", "/bc1", { query: { loai } });
+export const dsBc2 = (loai: LoaiHang | "" = "", dong: "mo" | "dong" | "" = "") =>
+  goi("GET", "/bc2", { query: { loai, dong } });
+export const dsNhatKy = (loai = "", maBc2 = "", gioiHan = 100) =>
+  goi("GET", "/nhat-ky", { query: { loai, ma_bc2: maBc2, gioi_han: gioiHan } });

@@ -39,6 +39,13 @@ const ACCENT = {
     ring: "focus-visible:ring-pc",
     chip: "text-pc bg-pc-soft",
   },
+  tn: {
+    activeItem: "bg-tn-soft text-tn",
+    rail: "bg-tn",
+    subActive: "bg-tn-soft text-tn",
+    ring: "focus-visible:ring-tn",
+    chip: "text-tn bg-tn-soft",
+  },
 } as const;
 
 export default function ToolLayout() {
@@ -53,7 +60,7 @@ export default function ToolLayout() {
   // Fetch khi mở phân hệ ghi DB đích; nối lỗi → connected=false (banner tự nhắc chưa kết nối).
   const [dbInfo, setDbInfo] = useState<DbDichInfo | null>(null);
   useEffect(() => {
-    if (!active.db || !coToken()) {
+    if (!active.db || active.dbNap || !coToken()) {
       setDbInfo(null);
       return;
     }
@@ -213,10 +220,19 @@ export default function ToolLayout() {
             <div className="shrink-0 flex items-center gap-2 px-4 py-1.5 text-[12.5px] bg-warning/10 border-b border-warning/30 text-warning">
               <Icon name="warn" className="w-4 h-4 shrink-0" />
               <span>
-                Phân hệ <b>{active.label}</b> ghi vào <b>CSDL đích: {active.db}</b>
-                {dbInfo?.host && <> · máy <b>{dbInfo.host}</b></>}
-                {dbInfo?.ma_csdt && <> · CSĐT <b>{dbInfo.ma_csdt}</b></>}
-                {" "}— ghi thẳng vào hồ sơ thật.
+                {active.dbNap ? (
+                  <>
+                    Phân hệ <b>{active.label}</b> ghi vào <b>CSDL: DB Nạp ({active.db})</b> — dùng chung với phần mềm
+                    cũ, ghi thẳng vào hồ sơ thật.
+                  </>
+                ) : (
+                  <>
+                    Phân hệ <b>{active.label}</b> ghi vào <b>CSDL đích: {active.db}</b>
+                    {dbInfo?.host && <> · máy <b>{dbInfo.host}</b></>}
+                    {dbInfo?.ma_csdt && <> · CSĐT <b>{dbInfo.ma_csdt}</b></>}
+                    {" "}— ghi thẳng vào hồ sơ thật.
+                  </>
+                )}
               </span>
               {/* Chip trạng thái: đang nối DB đích nào (user yêu cầu) */}
               {dbInfo && (

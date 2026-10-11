@@ -1,6 +1,6 @@
 // Gọi API tool chạy localhost. Dev: webui 3011 ↔ backend 8000 (khác origin).
 // Khi đóng gói .exe, webui static do chính FastAPI phục vụ → cùng origin (BASE rỗng).
-const BASE = import.meta.env.DEV ? "http://localhost:8000" : "";
+export const BASE = import.meta.env.DEV ? "http://localhost:8000" : "";
 
 // Session token cục bộ (HTG-01③) — lưu localStorage để F5/tải lại trang không văng
 // ra đăng nhập (server session không có TTL, sống tới khi backend restart).
@@ -23,7 +23,7 @@ export const datToken = (t: string | null) => {
 };
 export const coToken = () => _token !== null;
 // Header kèm Bearer cho endpoint /local/* nghiệp vụ (config/auth được miễn — A1).
-function authHeaders(extra?: Record<string, string>): Record<string, string> {
+export function authHeaders(extra?: Record<string, string>): Record<string, string> {
   const h: Record<string, string> = { ...(extra || {}) };
   if (_token) h.Authorization = `Bearer ${_token}`;
   return h;

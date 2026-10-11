@@ -2,7 +2,7 @@
 // (không sửa khung ToolLayout). Mỗi phân hệ có sub-nav riêng, màu nhấn, và
 // CSDL mà nó ghi vào (banner nhắc để tránh thao tác nhầm giữa các phân hệ).
 
-export type Accent = "primary" | "sync" | "kq" | "pc";
+export type Accent = "primary" | "sync" | "kq" | "pc" | "tn";
 
 export interface SubNav {
   to: string;
@@ -19,6 +19,8 @@ export interface ModuleDef {
   base: string;
   /** Tên CSDL phân hệ ghi vào — hiện ở banner nhắc. Bỏ trống nếu không ghi DB. */
   db?: string;
+  /** true = `db` là DB Nạp (GPLX_CSDT) của máy CSĐT, không phải CSDL đích (CDB) — banner không gọi `db-dich-info`. */
+  dbNap?: boolean;
   subnav: SubNav[];
   /** Phân hệ dự kiến, chưa dựng — hiện mờ, không bấm được. */
   comingSoon?: boolean;
@@ -72,6 +74,21 @@ export const MODULES: ModuleDef[] = [
     subnav: [
       { to: "/phan-cong/theo-khoa", label: "Phân công theo khóa", icon: "calendar" },
       { to: "/phan-cong/ra-soat", label: "Rà soát khóa", icon: "search" },
+    ],
+  },
+  {
+    id: "tnbc2",
+    label: "Tốt nghiệp & BC2",
+    icon: "file",
+    accent: "tn",
+    base: "/tot-nghiep-bc2",
+    db: "GPLX_CSDT",
+    dbNap: true,
+    subnav: [
+      { to: "/tot-nghiep-bc2/tot-nghiep", label: "Tốt nghiệp (ô tô)", icon: "check" },
+      { to: "/tot-nghiep-bc2/bao-cao-2", label: "Báo cáo 2", icon: "file" },
+      { to: "/tot-nghiep-bc2/cuu-trang-thai", label: "Học viên không tìm thấy", icon: "search" },
+      { to: "/tot-nghiep-bc2/nhat-ky", label: "Nhật ký", icon: "clock" },
     ],
   },
 ];

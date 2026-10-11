@@ -31,6 +31,10 @@ export default {
         pc: "hsl(330 62% 44%)",
         "pc-soft": "hsl(330 70% 97%)",
         "pc-border": "hsl(330 50% 84%)",
+        // Tông nhấn phân hệ Tốt nghiệp & Báo cáo 2 (cam đất) — theo ui-mock/tnbc2.html
+        tn: "hsl(24 82% 40%)",
+        "tn-soft": "hsl(24 90% 96%)",
+        "tn-border": "hsl(24 70% 74%)",
       },
       borderRadius: { lg: "0.625rem", md: "0.5rem", sm: "0.375rem" },
     },

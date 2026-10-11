@@ -12,6 +12,10 @@ import CapNhatKQDT from "./pages/ketqua/CapNhatKQDT";
 import TheoDoiKetXuat from "./pages/ketqua/TheoDoiKetXuat";
 import PhanCongTheoKhoa from "./pages/phancong/PhanCongTheoKhoa";
 import RaSoatKhoa from "./pages/phancong/RaSoatKhoa";
+import TotNghiep from "./pages/tnbc2/TotNghiep";
+import BaoCao2 from "./pages/tnbc2/BaoCao2";
+import CuuTrangThai from "./pages/tnbc2/CuuTrangThai";
+import NhatKy from "./pages/tnbc2/NhatKy";
 import { ToolAuthProvider, useToolAuth } from "./auth/ToolAuth";
 import type { ReactNode } from "react";
 
@@ -50,6 +54,13 @@ export default function App() {
           <Route path="phan-cong" element={<Navigate to="/phan-cong/theo-khoa" replace />} />
           <Route path="phan-cong/theo-khoa" element={<CoBaoVe><PhanCongTheoKhoa /></CoBaoVe>} />
           <Route path="phan-cong/ra-soat" element={<CoBaoVe><RaSoatKhoa /></CoBaoVe>} />
+
+          {/* Phân hệ Tốt nghiệp & Báo cáo 2 (TNB) — phân hệ #5, ghi DB Nạp */}
+          <Route path="tot-nghiep-bc2" element={<Navigate to="/tot-nghiep-bc2/tot-nghiep" replace />} />
+          <Route path="tot-nghiep-bc2/tot-nghiep" element={<CoBaoVe><TotNghiep /></CoBaoVe>} />
+          <Route path="tot-nghiep-bc2/bao-cao-2" element={<CoBaoVe><BaoCao2 /></CoBaoVe>} />
+          <Route path="tot-nghiep-bc2/cuu-trang-thai" element={<CoBaoVe><CuuTrangThai /></CoBaoVe>} />
+          <Route path="tot-nghiep-bc2/nhat-ky" element={<CoBaoVe><NhatKy /></CoBaoVe>} />
         </Route>
       </Routes>
     </ToolAuthProvider>
