@@ -15,6 +15,8 @@ Hình dạng dữ liệu vào (dict, key viết thường):
 from __future__ import annotations
 
 import re
+import unicodedata
+from datetime import datetime
 from typing import Any, Iterable
 
 # ── Mức vấn đề (cùng quy ước phancong_rules) ──
@@ -314,3 +316,171 @@ def kiem_danh_sach_dan(dong: Iterable[str] | None) -> list[dict]:
 
 def co_chan(vde: Iterable[dict]) -> bool:
     return any(v.get("muc") == CHAN for v in vde)
+
+
+# ══════════════ Tốt nghiệp ô tô (TNB-01/02, task 101) ══════════════
+TT_VAO_BC2_TRO_DI = ("11", "12", "13", "14", "16", "17", "18", "19")
+_MAU_SO_GIAY = re.compile(r"^([A-Za-z0-9]+)\|(\d+)$")
+
+# kết quả dự kiến của một dòng ghi tốt nghiệp
+KQ_LEN_09 = "se_len_09"                    # 03 + có số giấy → 09
+KQ_LUU_SO_TRUOC = "luu_so_truoc"           # 03, chưa có số giấy → chỉ ghi sổ/quyết định, ở lại 03
+KQ_GIU_09 = "giu_09_sua_thong_tin"         # 09 + số giấy → sửa thông tin, giữ 09
+KQ_DA_VAO_BC2 = "khong_doi_trang_thai_da_vao_bc2"   # ≥ 11, số giấy lần đầu → ghi số giấy, KHÔNG đổi trạng thái
+KQ_KHONG_DOI = "khong_doi"                 # nhập y hệt hiện trạng
+KQ_BO_QUA = "bo_qua"
+KQ_CHAN = "chan"
+KQ_GHI_DUOC = (KQ_LEN_09, KQ_LUU_SO_TRUOC, KQ_GIU_09, KQ_DA_VAO_BC2)
+
+
+def bo_dau(s: str | None) -> str:
+    """Chuẩn hóa để tìm không dấu: bỏ dấu, `đ→d`, chữ thường."""
+    t = unicodedata.normalize("NFD", _s(s))
+    t = "".join(c for c in t if unicodedata.category(c) != "Mn")
+    return t.replace("đ", "d").replace("Đ", "D").casefold()
+
+
+def khoa_so_giay(s: str | None) -> str:
+    """Khóa so sánh số giấy CNTN: bỏ `|` và khoảng trắng, không phân biệt hoa/thường
+    (SP `ThemHS_BC2` trả số giấy đã bỏ `|`; DB lưu `N1|7282`)."""
+    return re.sub(r"[|\s]", "", _s(s)).casefold()
+
+
+def tach_so_giay(s: str | None) -> tuple[str, int] | None:
+    """`N1|7282` → ('N1', 7282); không đúng dạng → None."""
+    m = _MAU_SO_GIAY.match(_s(s))
+    return (m.group(1), int(m.group(2))) if m else None
+
+
+def so_giay_ke_tiep(cac_so: Iterable[tuple[str, str]]) -> str:
+    """Số giấy gợi ý kế tiếp từ các cặp (số giấy, ngày in ISO): lấy tiền tố của số in GẦN NHẤT rồi
+    `MAX + 1` trong cùng tiền tố (dữ liệu 11/10/2026: dãy `N1|<n>` chung toàn cơ sở, không đánh lại
+    theo năm/khóa; lớn nhất `N1|7328` → `N1|7329`). Không có dữ liệu → ''."""
+    ds = [(tach_so_giay(so), ngay) for so, ngay in cac_so]
+    ds = [(t, ngay) for t, ngay in ds if t]
+    if not ds:
+        return ""
+    tien_to = max(ds, key=lambda x: (x[1] or "", x[0][1]))[0][0]
+    cao = max(t[1] for t, _n in ds if t[0] == tien_to)
+    return f"{tien_to}|{cao + 1}"
+
+
+def trang_thai_tot_nghiep(tt: str | None, ma_bc2: str | None = "") -> str:
+    """`chua_tot_nghiep` (03) · `da_tot_nghiep` (09) · `da_vao_bc2` (≥ 11 hoặc có MaBC2) · `khac`."""
+    t = _s(tt)
+    if t in TT_VAO_BC2_TRO_DI or _s(ma_bc2):
+        return "da_vao_bc2"
+    return {TT_HOC_XONG: "chua_tot_nghiep", TT_TOT_NGHIEP: "da_tot_nghiep"}.get(t, "khac")
+
+
+def chuan_ngay(s: str | None) -> str | None:
+    """'2026-09-30' hoặc '30/09/2026' → '2026-09-30'; rỗng → ''; sai → None."""
+    t = _s(s)
+    if not t:
+        return ""
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
+        try:
+            return datetime.strptime(t[:10], fmt).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+    return None
+
+
+def _vd_tn(muc: str, ma: str, noi_dung: str) -> dict:
+    return {"muc": muc, "ma": ma, "noi_dung": noi_dung}
+
+
+def phan_tich_dong_tn(hv: dict, so_giay: str | None, chung: dict | None, ctx: dict) -> dict:
+    """Phân tích MỘT dòng ghi tốt nghiệp (chạy thử, không ghi) — TDD §11F.2/§11F.7, PRD TNB-01/02.
+
+    hv   = {ma_dk, hang, ma_kh, tt, ma_bc2, bg, so_giay, so_so_tn, ngay_vao_so, so_quyet_dinh, ngay_ra_qd, ngay_in}
+    chung= {so_so_tn, ngay_vao_so, so_quyet_dinh, ngay_ra_qd, ngay_in} — giá trị điền chung ('' = giữ của HV)
+    ctx  = {hom_nay, so_giay_khac: set[khoa_so_giay đang thuộc HV KHÁC], trung_lo: set[khoa_so_giay trùng trong lô]}
+    Trả {ket_qua, ghi_duoc, hieu_luc, chan[], canh_bao[], thong_tin[]}.
+    """
+    chung = chung or {}
+    chan: list[dict] = []
+    canh_bao: list[dict] = []
+    thong_tin: list[dict] = []
+    tt = _s(hv.get("tt"))
+    da_bc2 = tt in TT_VAO_BC2_TRO_DI or bool(_s(hv.get("ma_bc2")))
+    giay_cu = _s(hv.get("so_giay"))
+    giay = _s(so_giay)
+
+    def hieu_luc(k: str, kieu: str = "s") -> str:
+        v = _s(chung.get(k))
+        return v if v else _s(hv.get(k))
+
+    # ngày: điền chung ghi đè; sai định dạng → chặn
+    ngay: dict[str, str] = {}
+    for k in ("ngay_vao_so", "ngay_ra_qd", "ngay_in"):
+        raw = hieu_luc(k)
+        iso = chuan_ngay(raw)
+        if iso is None:
+            chan.append(_vd_tn(CHAN, "ngay_khong_hop_le", f"Ngày không hợp lệ ({k})"))
+            iso = ""
+        ngay[k] = iso
+    hl = {"so_so_tn": hieu_luc("so_so_tn"), "so_quyet_dinh": hieu_luc("so_quyet_dinh"), "so_giay": giay, **ngay}
+
+    # luật chung
+    if loai_hang(hv.get("hang")) != "oto":
+        chan.append(_vd_tn(CHAN, "sai_loai", "Mô tô không có bước tốt nghiệp"))
+    bg = _s(hv.get("bg"))
+    if not bg or bg > _s(ctx.get("hom_nay")):
+        chan.append(_vd_tn(CHAN, "khoa_chua_be_giang", "Khóa chưa bế giảng — chỉ xem, không ghi được"))
+    if tt not in (TT_HOC_XONG, TT_TOT_NGHIEP) and not da_bc2:
+        chan.append(_vd_tn(CHAN, "trang_thai_khong_hop_le",
+                           f"Học viên đang ở \"{ten_trang_thai(tt, 'oto')}\" — chưa tới bước tốt nghiệp"))
+    for truong, gia_tri in (("so_giay_cntn", giay), ("so_so_tn", hl["so_so_tn"]), ("so_quyet_dinh", hl["so_quyet_dinh"])):
+        chan += [_vd_tn(CHAN, v["ma"], f"{truong}: {v['noi_dung']}") for v in kiem_do_dai(truong, gia_tri)]
+
+    # trùng số giấy: chỉ khi ĐỔI sang số đang thuộc HV khác (DB còn 463 số trùng cũ — không chặn oan)
+    if giay:
+        k = khoa_so_giay(giay)
+        if k in (ctx.get("trung_lo") or set()):
+            chan.append(_vd_tn(CHAN, "trung_trong_lo", f"Số giấy {giay} bị trùng trong danh sách đang nhập"))
+        if k != khoa_so_giay(giay_cu) and k in (ctx.get("so_giay_khac") or set()):
+            chan.append(_vd_tn(CHAN, "trung_db", f"Số giấy {giay} đã thuộc học viên khác"))
+        elif k == khoa_so_giay(giay_cu) and k in (ctx.get("so_giay_khac") or set()):
+            thong_tin.append(_vd_tn(THONG_TIN, "trung_co_san", "Số giấy này vốn đã trùng với học viên khác từ trước"))
+
+    # kết quả dự kiến
+    ket_qua = KQ_BO_QUA
+    if da_bc2:
+        if giay_cu:
+            if giay == giay_cu and all(hl[k] == _s(hv.get(k)) or not hl[k] for k in ("so_so_tn", "so_quyet_dinh")):
+                ket_qua = KQ_KHONG_DOI
+            else:
+                chan.append(_vd_tn(CHAN, "da_vao_bc2_khong_sua", "Học viên đã vào BC2 — phải gỡ khỏi BC2 trước khi sửa"))
+        elif giay:
+            ket_qua = KQ_DA_VAO_BC2
+            canh_bao.append(_vd_tn(CANH_BAO, "bao_cao_da_lap_khong_doi_theo",
+                                   "Học viên đã vào báo cáo: ghi số giấy nhưng trạng thái và báo cáo đã lập không đổi theo"))
+        else:
+            thong_tin.append(_vd_tn(THONG_TIN, "khong_co_gi_de_ghi", "Không có số giấy để ghi"))
+    elif tt == TT_HOC_XONG:
+        if giay:
+            if not hl["so_so_tn"] or not hl["so_quyet_dinh"]:
+                chan.append(_vd_tn(CHAN, "thieu_so_so_hoac_quyet_dinh",
+                                   "Cấp số giấy cần có số sổ tốt nghiệp và số quyết định"))
+            else:
+                ket_qua = KQ_LEN_09
+        elif hl["so_so_tn"] or hl["so_quyet_dinh"]:
+            ket_qua = KQ_LUU_SO_TRUOC
+        else:
+            thong_tin.append(_vd_tn(THONG_TIN, "khong_co_gi_de_ghi", "Chưa có số sổ/quyết định/số giấy để ghi"))
+    elif tt == TT_TOT_NGHIEP:
+        if giay:
+            same = (giay == giay_cu and all(hl[k] == _s(hv.get(k)) for k in ("so_so_tn", "so_quyet_dinh"))
+                    and all(ngay[k] == (chuan_ngay(hv.get(k)) or "") for k in ngay))
+            ket_qua = KQ_KHONG_DOI if same else KQ_GIU_09
+        else:
+            thong_tin.append(_vd_tn(THONG_TIN, "dung_huy_tot_nghiep",
+                                    "Muốn bỏ tốt nghiệp thì dùng \"Hủy tốt nghiệp\", không để trống số giấy ở đây"))
+
+    if giay and not ngay["ngay_in"]:
+        canh_bao.append(_vd_tn(CANH_BAO, "thieu_ngay_in", "Chưa có ngày in giấy chứng nhận"))
+    if chan:
+        ket_qua = KQ_CHAN
+    return {"ma_dk": _s(hv.get("ma_dk")), "ket_qua": ket_qua, "ghi_duoc": ket_qua in KQ_GHI_DUOC,
+            "hieu_luc": hl, "chan": chan, "canh_bao": canh_bao, "thong_tin": thong_tin}

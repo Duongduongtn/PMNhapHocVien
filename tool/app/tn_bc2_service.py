@@ -1033,3 +1033,210 @@ def xoa_bc2(conn, ma_bc2: str, nguoi: str) -> dict:
             raise RuntimeError("Xóa BC2 không thấy hiệu lực — kiểm lại ở danh sách BC2")
         nhat_ky.ket_thuc(nk, "xong", {"ma_bc2": dang_db})
         return {"ma_bc2": dang_db, "da_xoa": True}
+
+
+# ══════════════ Tốt nghiệp ô tô — ĐỌC + XEM LẠI (TNB-01, task 101) ══════════════
+_Q_KHOA_TN = ("SELECT k.MaKH, k.TenKH, k.HangGPLX, k.NgayKG, k.NgayBG, COUNT(h.MaDK) AS tong, "
+              "SUM(CASE WHEN h.TT_XuLy = '03' AND ISNULL(h.MaBC2,'') = '' THEN 1 ELSE 0 END) AS c03, "
+              "SUM(CASE WHEN h.TT_XuLy = '09' AND ISNULL(h.MaBC2,'') = '' THEN 1 ELSE 0 END) AS c09, "
+              "SUM(CASE WHEN h.TT_XuLy IN ('11','12','13','14','16','17','18','19') OR ISNULL(h.MaBC2,'') <> '' "
+              "THEN 1 ELSE 0 END) AS c_bc2 "
+              "FROM KhoaHoc k LEFT JOIN NguoiLX_HoSo h ON h.MaKhoaHoc = k.MaKH "
+              "GROUP BY k.MaKH, k.TenKH, k.HangGPLX, k.NgayKG, k.NgayBG")
+_COT_TN = ("h.MaDK, h.SoHoSo, n.HoVaTen, n.NgaySinh, n.SoCMT, h.HangGPLX, h.TT_XuLy, h.MaBC2, h.MaKhoaHoc, "
+           "h.SoGiayCNTN, h.SoSoTN, h.NgayVaoSoTN, h.SoQuyetDinhTN, h.NgayRaQDTN, h.NgayInGiayTN, h.SoCCN")
+_Q_HV_TN_KHOA = (f"SELECT {_COT_TN} FROM NguoiLX_HoSo h LEFT JOIN NguoiLX n ON n.MaDK = h.MaDK "
+                 "WHERE h.MaKhoaHoc = %s ORDER BY n.TenNLX, n.HoDemNLX")
+_Q_HV_TN_IN = (f"SELECT {_COT_TN} FROM NguoiLX_HoSo h LEFT JOIN NguoiLX n ON n.MaDK = h.MaDK "
+               "WHERE h.MaDK IN ({ph})")
+_Q_SO_GIAY_MOI_NHAT = ("SELECT TOP 1 SoGiayCNTN, NgayInGiayTN FROM NguoiLX_HoSo WHERE SoGiayCNTN LIKE '%|%' "
+                       "ORDER BY NgayInGiayTN DESC")
+_Q_SO_GIAY_THEO_TIEN_TO = "SELECT SoGiayCNTN, NgayInGiayTN FROM NguoiLX_HoSo WHERE SoGiayCNTN LIKE %s"
+_Q_SO_GIAY_TRUNG = ("SELECT MaDK, SoGiayCNTN FROM NguoiLX_HoSo "
+                    "WHERE REPLACE(ISNULL(SoGiayCNTN,''), '|', '') IN ({ph})")
+
+
+def _hv_tn(r: dict) -> dict:
+    return {
+        "ma_dk": _s(r["MaDK"]), "so_ho_so": _s(r.get("SoHoSo")), "ten": _s(r.get("HoVaTen")),
+        "ngay_sinh": _ngay_sinh_vn(r.get("NgaySinh")), "cmt": _s(r.get("SoCMT")), "hang": _s(r.get("HangGPLX")),
+        "tt": _s(r.get("TT_XuLy")), "ma_bc2": _s(r.get("MaBC2")), "ma_kh": _s(r.get("MaKhoaHoc")),
+        "so_giay": _s(r.get("SoGiayCNTN")), "so_so_tn": _s(r.get("SoSoTN")),
+        "ngay_vao_so": _ngay_iso(r.get("NgayVaoSoTN")), "so_quyet_dinh": _s(r.get("SoQuyetDinhTN")),
+        "ngay_ra_qd": _ngay_iso(r.get("NgayRaQDTN")), "ngay_in": _ngay_iso(r.get("NgayInGiayTN")),
+        "so_ccn": _s(r.get("SoCCN")),
+    }
+
+
+def so_giay_ke_tiep_db(cur) -> str:
+    """Số giấy gợi ý kế tiếp (dãy chung toàn cơ sở): tiền tố của số in gần nhất, MAX + 1."""
+    cur.execute(_Q_SO_GIAY_MOI_NHAT)
+    r = cur.fetchone()
+    if not r:
+        return ""
+    t = rules.tach_so_giay(r.get("SoGiayCNTN"))
+    if not t:
+        return ""
+    cur.execute(_Q_SO_GIAY_THEO_TIEN_TO, (t[0] + "|%",))
+    return rules.so_giay_ke_tiep((_s(x["SoGiayCNTN"]), _ngay_iso(x.get("NgayInGiayTN"))) for x in cur.fetchall())
+
+
+def khoa_tot_nghiep(cur, loai: str = "oto", cu: bool = False, hom_nay: str | None = None) -> dict:
+    """Danh sách khóa cho màn Tốt nghiệp: mặc định đã bế giảng từ "hôm nay − 1 tháng − 1 năm"; `cu` = mọi khóa.
+    Khóa chưa bế giảng vẫn hiện nhưng `ghi_duoc=False` (chỉ xem)."""
+    hom_nay = hom_nay or hom_nay_iso()
+    moc = moc_cua_so_khoa(hom_nay)
+    cur.execute(_Q_KHOA_TN)
+    out = []
+    for r in cur.fetchall():
+        bg = _ngay_iso(r.get("NgayBG"))
+        if rules.loai_hang(r.get("HangGPLX")) != loai or not bg:
+            continue
+        if not cu and bg < moc:
+            continue
+        out.append({"ma_kh": _s(r["MaKH"]), "ten_kh": _s(r["TenKH"]), "hang": _s(r.get("HangGPLX")),
+                    "ngay_kg": _ngay_iso(r.get("NgayKG")), "ngay_bg": bg, "ghi_duoc": bg <= hom_nay,
+                    "khoa_cu": bg < moc, "tong": int(r.get("tong") or 0), "chua_tot_nghiep": int(r.get("c03") or 0),
+                    "da_tot_nghiep": int(r.get("c09") or 0), "da_vao_bc2": int(r.get("c_bc2") or 0)})
+    out.sort(key=lambda x: x["ngay_bg"], reverse=True)
+    return {"loai": loai, "hom_nay": hom_nay, "moc_cua_so": moc, "khoa": out,
+            "so_giay_ke_tiep": so_giay_ke_tiep_db(cur)}
+
+
+def _khoa_oto_hoac_loi(cur, ma_kh: str) -> dict:
+    khoa = loai_cua_khoa(cur, ma_kh)
+    if khoa["loai"] != "oto":
+        raise LoiNghiepVu("chi_o_to", "Mô tô không có bước tốt nghiệp — chỉ khóa ô tô mới cập nhật tốt nghiệp", 400)
+    return khoa
+
+
+def hv_tot_nghiep(cur, ma_kh: str, q: str = "", trang_thai: str = "", hom_nay: str | None = None) -> dict:
+    """HV ô tô của một khóa kèm sổ/quyết định/số giấy. `q`: tên không dấu / CMT / mã đăng ký.
+    `trang_thai`: `chua_tot_nghiep` | `da_tot_nghiep` | `da_vao_bc2` | '' (tất cả)."""
+    hom_nay = hom_nay or hom_nay_iso()
+    khoa = _khoa_oto_hoac_loi(cur, ma_kh)
+    moc = moc_cua_so_khoa(hom_nay)
+    cur.execute(_Q_HV_TN_KHOA, (ma_kh,))
+    tat_ca = [_hv_tn(r) for r in cur.fetchall()]
+    tat_ca = [h for h in tat_ca if rules.loai_hang(h["hang"]) == "oto"]
+    ghi_duoc = bool(khoa["bg"]) and khoa["bg"] <= hom_nay
+    khoa_cu = bool(khoa["bg"]) and khoa["bg"] < moc
+    tim = rules.bo_dau(q)
+    cmt_q = _s(q)
+    out = []
+    for h in tat_ca:
+        ts = rules.trang_thai_tot_nghiep(h["tt"], h["ma_bc2"])
+        if trang_thai and ts != trang_thai:
+            continue
+        if tim and not (tim in rules.bo_dau(h["ten"]) or cmt_q in h["cmt"] or cmt_q.casefold() in h["ma_dk"].casefold()):
+            continue
+        ly = ""
+        if not ghi_duoc:
+            ly = "Khóa chưa bế giảng — chỉ xem"
+        elif ts == "khac":
+            ly = f"Đang ở \"{rules.ten_trang_thai(h['tt'], 'oto')}\" — chưa tới bước tốt nghiệp"
+        out.append({**h, "trang_thai_tn": ts, "ten_trang_thai": rules.ten_trang_thai(h["tt"], "oto"),
+                    "khoa_cu": khoa_cu, "sua_duoc": not ly and ts in ("chua_tot_nghiep", "da_tot_nghiep", "da_vao_bc2"),
+                    "ly_do_khoa": ly})
+    # điền sẵn: bộ sổ/QĐ/ngày phổ biến nhất của chính khóa (HV nào đã có sổ)
+    dem: dict[tuple, int] = {}
+    ngay_in_theo: dict[tuple, dict[str, int]] = {}
+    for h in tat_ca:
+        if h["so_so_tn"]:
+            k = (h["so_so_tn"], h["ngay_vao_so"], h["so_quyet_dinh"], h["ngay_ra_qd"])
+            dem[k] = dem.get(k, 0) + 1
+            if h["ngay_in"]:
+                n = ngay_in_theo.setdefault(k, {})
+                n[h["ngay_in"]] = n.get(h["ngay_in"], 0) + 1
+    so_chung = None
+    if dem:
+        k = max(dem, key=dem.get)
+        ni = ngay_in_theo.get(k) or {}
+        so_chung = {"so_so_tn": k[0], "ngay_vao_so": k[1], "so_quyet_dinh": k[2], "ngay_ra_qd": k[3],
+                    "ngay_in": max(ni, key=ni.get) if ni else "", "so_hv": dem[k]}
+    return {"ma_kh": ma_kh, "ten_kh": khoa["ten_kh"], "ngay_bg": khoa["bg"], "ghi_duoc": ghi_duoc, "khoa_cu": khoa_cu,
+            "so_chung": so_chung, "so_giay_ke_tiep": so_giay_ke_tiep_db(cur), "tong": len(tat_ca),
+            "dem": {"chua_tot_nghiep": sum(1 for h in tat_ca if h["tt"] == "03" and not h["ma_bc2"]),
+                    "da_tot_nghiep": sum(1 for h in tat_ca if h["tt"] == "09" and not h["ma_bc2"]),
+                    "da_vao_bc2": sum(1 for h in tat_ca if rules.trang_thai_tot_nghiep(h["tt"], h["ma_bc2"]) == "da_vao_bc2")},
+            "hoc_vien": out}
+
+
+def xem_lai_tot_nghiep(cur, ma_kh: str, dong: list[dict], chung: dict | None = None,
+                       hom_nay: str | None = None) -> dict:
+    """CHẠY THỬ ghi tốt nghiệp (không ghi): kết quả dự kiến từng dòng, trùng số giấy trong lô và trong DB,
+    khoảng số, cảnh báo. `dong` = [{ma_dk, so_giay}]; `chung` = sổ/QĐ/ngày điền chung."""
+    hom_nay = hom_nay or hom_nay_iso()
+    khoa = _khoa_oto_hoac_loi(cur, ma_kh)
+    ds = []
+    seen = set()
+    for d in dong:
+        ma = _s(d.get("ma_dk"))
+        if ma and ma not in seen:
+            seen.add(ma)
+            ds.append({"ma_dk": ma, "so_giay": _s(d.get("so_giay"))})
+    vde = rules.kiem_danh_sach_dan([d["ma_dk"] for d in ds])
+    if vde:
+        raise LoiNghiepVu(vde[0]["ma"], vde[0]["noi_dung"], 400)
+    if not ds:
+        raise LoiNghiepVu("khong_co_hoc_vien", "Chưa chọn học viên nào", 400)
+    hvs: dict[str, dict] = {}
+    for khoi in _chia([d["ma_dk"] for d in ds], _KHOI_IN):
+        cur.execute(_Q_HV_TN_IN.format(ph=",".join(["%s"] * len(khoi))), tuple(khoi))
+        for r in cur.fetchall():
+            h = _hv_tn(r)
+            hvs[h["ma_dk"]] = {**h, "bg": khoa["bg"]}
+    # trùng trong lô (khóa so sánh đã bỏ `|`, không phân biệt hoa/thường)
+    dem_lo: dict[str, int] = {}
+    for d in ds:
+        if d["so_giay"]:
+            k = rules.khoa_so_giay(d["so_giay"])
+            dem_lo[k] = dem_lo.get(k, 0) + 1
+    trung_lo = {k for k, n in dem_lo.items() if n > 1}
+    # trùng trong DB: số giấy đang thuộc HV KHÁC (loại trừ chính HV đó)
+    khoa_giay = sorted({k for k in dem_lo})
+    giu: dict[str, set[str]] = {}
+    for khoi in _chia(khoa_giay, _KHOI_IN):
+        cur.execute(_Q_SO_GIAY_TRUNG.format(ph=",".join(["%s"] * len(khoi))), tuple(khoi))
+        for r in cur.fetchall():
+            giu.setdefault(rules.khoa_so_giay(r["SoGiayCNTN"]), set()).add(_s(r["MaDK"]))
+    ket_qua, dem = [], {}
+    so_trong_lo: list[int] = []
+    tien_to = ""
+    for d in ds:
+        hv = hvs.get(d["ma_dk"])
+        if hv is None:
+            kq = {"ma_dk": d["ma_dk"], "ket_qua": rules.KQ_CHAN, "ghi_duoc": False, "hieu_luc": {},
+                  "chan": [{"muc": rules.CHAN, "ma": "hv_khong_ton_tai", "noi_dung": "Không còn học viên này"}],
+                  "canh_bao": [], "thong_tin": []}
+        elif hv["ma_kh"] != ma_kh:
+            kq = {"ma_dk": d["ma_dk"], "ket_qua": rules.KQ_CHAN, "ghi_duoc": False, "hieu_luc": {},
+                  "chan": [{"muc": rules.CHAN, "ma": "khac_khoa", "noi_dung": "Học viên không thuộc khóa đang chọn"}],
+                  "canh_bao": [], "thong_tin": []}
+        else:
+            k = rules.khoa_so_giay(d["so_giay"]) if d["so_giay"] else ""
+            khac = {k} if k and (giu.get(k, set()) - {d["ma_dk"]}) else set()
+            kq = rules.phan_tich_dong_tn(hv, d["so_giay"], chung, {"hom_nay": hom_nay, "so_giay_khac": khac,
+                                                                    "trung_lo": trung_lo})
+            kq["khoa_cu"] = bool(khoa["bg"]) and khoa["bg"] < moc_cua_so_khoa(hom_nay)
+            if kq["khoa_cu"]:
+                kq["canh_bao"].append({"muc": rules.CANH_BAO, "ma": "khoa_cu", "noi_dung": "Học viên của khóa cũ"})
+            t = rules.tach_so_giay(d["so_giay"])
+            if t and kq["ghi_duoc"]:
+                tien_to = tien_to or t[0]
+                if t[0] == tien_to:
+                    so_trong_lo.append(t[1])
+        ket_qua.append(kq)
+        dem[kq["ket_qua"]] = dem.get(kq["ket_qua"], 0) + 1
+    canh_bao_chung: dict[str, dict] = {}
+    for kq in ket_qua:
+        for w in kq["canh_bao"]:
+            c = canh_bao_chung.setdefault(w["ma"], {"ma": w["ma"], "noi_dung": w["noi_dung"], "so_dong": 0})
+            c["so_dong"] += 1
+    return {
+        "ma_kh": ma_kh, "ghi_duoc_khoa": bool(khoa["bg"]) and khoa["bg"] <= hom_nay, "tong": len(ds), "dem": dem,
+        "khoang_so": ({"tien_to": tien_to, "tu": min(so_trong_lo), "den": max(so_trong_lo),
+                       "so_luong": len(so_trong_lo)} if so_trong_lo else None),
+        "co_chan": any(kq["ket_qua"] == rules.KQ_CHAN for kq in ket_qua),
+        "canh_bao": list(canh_bao_chung.values()), "dong": ket_qua,
+    }

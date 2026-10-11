@@ -218,6 +218,63 @@ def hoan_tac(ma: str, body: HoanTacIn, phien: Phien = Depends(require_session)):
         raise _loi(e)
 
 
+# ── Tốt nghiệp ô tô: đọc + xem lại (TNB-01, task 101). Đường cố định, đặt TRƯỚC `/bc2/{ma:path}`. ──
+@router.get("/khoa")
+def khoa_tot_nghiep(loai: str = Query("oto", pattern="^(moto|oto)$"),
+                    cu: bool = Query(False, description="Hiện cả khóa bế giảng trước mốc 'hôm nay − 1 tháng − 1 năm'")):
+    """Khóa cho màn Tốt nghiệp + số giấy kế tiếp gợi ý. Mô tô không có bước tốt nghiệp nên chỉ `oto`."""
+    try:
+        if loai != "oto":
+            raise svc.LoiNghiepVu("chi_o_to", "Mô tô không có bước tốt nghiệp", 400)
+        with sqlserver_cursor() as cur:
+            return svc.khoa_tot_nghiep(cur, loai, cu)
+    except Exception as e:  # noqa: BLE001
+        raise _loi(e)
+
+
+@router.get("/tot-nghiep/hv")
+def hv_tot_nghiep(ma_kh: str = Query(..., min_length=1, max_length=30), q: str = Query("", max_length=100),
+                  trang_thai: str = Query("", pattern="^(|chua_tot_nghiep|da_tot_nghiep|da_vao_bc2)$")):
+    """HV ô tô của khóa kèm sổ/quyết định/số giấy; tìm không dấu theo tên, CMT, mã đăng ký."""
+    try:
+        with sqlserver_cursor() as cur:
+            return svc.hv_tot_nghiep(cur, ma_kh, q, trang_thai)
+    except Exception as e:  # noqa: BLE001
+        raise _loi(e)
+
+
+class DongTnIn(BaseModel):
+    # Trần pydantic chỉ để chống rác; giới hạn nghiệp vụ (số giấy ≤ 20…) do luật báo `vuot_do_dai` kèm lý do (không 422)
+    ma_dk: str = Field(min_length=1, max_length=200)
+    so_giay: str = Field(default="", max_length=500)    # rỗng = chưa cấp
+
+
+class ChungTnIn(BaseModel):
+    so_so_tn: str = Field(default="", max_length=500)
+    ngay_vao_so: str = Field(default="", max_length=40)
+    so_quyet_dinh: str = Field(default="", max_length=500)
+    ngay_ra_qd: str = Field(default="", max_length=40)
+    ngay_in: str = Field(default="", max_length=40)
+
+
+class XemLaiTnIn(BaseModel):
+    ma_kh: str = Field(min_length=1, max_length=30)
+    dong: list[DongTnIn] = Field(default_factory=list, max_length=20000)
+    chung: ChungTnIn = Field(default_factory=ChungTnIn)
+
+
+@router.post("/tot-nghiep/xem-lai")
+def xem_lai_tot_nghiep(body: XemLaiTnIn):
+    """CHẠY THỬ (không ghi, không cần cổng xác nhận): kết quả dự kiến từng dòng, trùng số giấy trong lô/DB,
+    khoảng số, cảnh báo — dùng cho "kiểm trùng ngay khi gõ" và hộp "Xem lại"."""
+    try:
+        with sqlserver_cursor() as cur:
+            return svc.xem_lai_tot_nghiep(cur, body.ma_kh, [d.model_dump() for d in body.dong],
+                                          body.chung.model_dump())
+    except Exception as e:  # noqa: BLE001
+        raise _loi(e)
+
+
 # ── Xem / gỡ / xóa BC2 (task 100). Đặt CUỐI file: `{ma:path}` sẽ nuốt `/goi-y-so`, `/ung-vien`, `/lo/…`
 #    nếu khai báo trước các route cố định. Số BC2 có dấu `/` nên dùng `:path`. ──
 @router.get("/bc2/{ma:path}")
