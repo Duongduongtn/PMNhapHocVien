@@ -258,7 +258,7 @@ export interface UngVienResp {
   hom_nay: string;
   thi_lai_thang: number;
   ma_bc2: string;
-  bc1: { ma_bci: string; so_bao_cao: string; so_hoc_sinh: number } | null;
+  bc1: { ma_bci: string; so_bao_cao: string; so_hoc_sinh: number; ngay_bao_cao: string } | null;
   bc2_cua_khoa: Bc2CuaKhoa[];
   nhom: Record<NhomUngVien, HvUngVien[]>;
   dem: { san_sang: number; thi_lai: number; thi_lai_trong_nguong: number; can_xem: number; khong_duoc: number };
@@ -276,7 +276,7 @@ export interface GoiYSoResp {
   nam: number;
   so: string;
   co_bc1: boolean;
-  bc1: { ma_bci: string; so_bao_cao: string; so_hoc_sinh: number } | null;
+  bc1: { ma_bci: string; so_bao_cao: string; so_hoc_sinh: number; ngay_bao_cao: string } | null;
   bc2_cua_khoa: Bc2CuaKhoa[];
   trung: boolean;
 }

@@ -25,7 +25,7 @@ CACHE_GIAY = 30
 TOI_DA_KHONG_DUOC = 500          # trần số dòng "Không đưa được" của khóa chọn, trả về một lần
 _KHOI_IN = 900                   # pymssql: tối đa ~2100 tham số → chia khối
 
-_Q_BC1 = "SELECT MaBCI, MaKH, MaCSDT, SoBaoCao, SoHocSinh FROM BaoCaoI"
+_Q_BC1 = "SELECT MaBCI, MaKH, MaCSDT, SoBaoCao, NgayBaoCao, SoHocSinh FROM BaoCaoI"
 _Q_BC2 = "SELECT MaBCII, MaBCI, SoBaoCao, TrangThai, TongSoThiSinh FROM BaoCaoII"
 _Q_KHOA = "SELECT MaKH, TenKH, HangGPLX, NgayBG FROM KhoaHoc"
 _Q_HANG_KHOA = "SELECT MaKH, TenKH, HangGPLX, NgayBG FROM KhoaHoc WHERE MaKH = %s"
@@ -104,7 +104,8 @@ def doc_bc(cur) -> tuple[dict, dict, dict, dict]:
     """Đọc BC1 + BC2 hiện có: (bc1_theo_khoa, bc2_map, bc2_bci, bc2_theo_bc1). Không cache."""
     cur.execute(_Q_BC1)
     bc1_theo_khoa = {_s(r["MaKH"]): {"ma_bci": _s(r["MaBCI"]), "ma_csdt": _s(r.get("MaCSDT")),
-                                     "so_bao_cao": _s(r["SoBaoCao"]), "so_hoc_sinh": r.get("SoHocSinh")}
+                                     "so_bao_cao": _s(r["SoBaoCao"]), "so_hoc_sinh": r.get("SoHocSinh"),
+                                     "ngay_bao_cao": _ngay_iso(r.get("NgayBaoCao"))}
                      for r in cur.fetchall()}
     cur.execute(_Q_BC2)
     bc2_map: dict[str, int] = {}
@@ -285,7 +286,8 @@ def ung_vien(tap: dict, khoa_chon: dict, ma_bc2: str = "", thi_lai_thang: int = 
     return {
         "ma_kh": ma_kh, "ten_kh": khoa_chon["ten_kh"], "loai": loai, "hom_nay": tap["hom_nay"],
         "thi_lai_thang": thi_lai_thang, "ma_bc2": ma_bc2,
-        "bc1": ({"ma_bci": bc1["ma_bci"], "so_bao_cao": bc1["so_bao_cao"], "so_hoc_sinh": bc1["so_hoc_sinh"]}
+        "bc1": ({"ma_bci": bc1["ma_bci"], "so_bao_cao": bc1["so_bao_cao"], "so_hoc_sinh": bc1["so_hoc_sinh"],
+                 "ngay_bao_cao": bc1.get("ngay_bao_cao", "")}
                 if bc1 else None),
         "bc2_cua_khoa": tap["bc2_theo_bc1"].get(bc1["ma_bci"], []) if bc1 else [],
         "nhom": nhom,
@@ -384,7 +386,8 @@ def goi_y_so(cur, ma_kh: str, hom_nay: str | None = None) -> dict:
     return {
         "ma_kh": ma_kh, "ten_kh": khoa["ten_kh"], "loai": khoa["loai"], "nam": int(hom_nay[:4]), "so": so,
         "co_bc1": bc1 is not None,
-        "bc1": ({"ma_bci": bc1["ma_bci"], "so_bao_cao": bc1["so_bao_cao"], "so_hoc_sinh": bc1["so_hoc_sinh"]}
+        "bc1": ({"ma_bci": bc1["ma_bci"], "so_bao_cao": bc1["so_bao_cao"], "so_hoc_sinh": bc1["so_hoc_sinh"],
+                 "ngay_bao_cao": bc1.get("ngay_bao_cao", "")}
                 if bc1 else None),
         "bc2_cua_khoa": bc2_theo_bc1.get(bc1["ma_bci"], []) if bc1 else [],
         "trung": rules.khoa_so_bc2(so) in {rules.khoa_so_bc2(m) for m in bc2_map} if so else False,

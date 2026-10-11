@@ -87,7 +87,10 @@ export default function FormBc2({
           <input id="bc2-bc1" className="field-input font-mono" disabled
             value={goiY.bc1 ? goiY.bc1.so_bao_cao : "(chưa có BC1)"} readOnly />
           {goiY.bc1 && (
-            <div className="text-[11.5px] text-muted-foreground mt-0.5">{goiY.bc1.so_hoc_sinh ?? 0} học sinh ghi trong BC1</div>
+            <div className="text-[11.5px] text-muted-foreground mt-0.5">
+              {goiY.bc1.ngay_bao_cao ? `ngày ${goiY.bc1.ngay_bao_cao.split("-").reverse().join("/")} · ` : ""}
+              {goiY.bc1.so_hoc_sinh ?? 0} học sinh
+            </div>
           )}
         </div>
       </div>

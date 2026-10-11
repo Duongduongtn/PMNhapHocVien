@@ -64,7 +64,7 @@ async function giaBackend(page: Page, mo: Mo) {
           bc1: { ma_bci: "BCI-9", so_bao_cao: "A1A2870/26-TTTĐ", so_hoc_sinh: 74 },
           bc2_cua_khoa: [{ ma: "861/26-TTTĐ", trang_thai: 0, tong_ghi: 74 }], trung: false }
       : { ma_kh: "K001", ten_kh: "Khóa B2-01/2026", loai: "oto", nam: 2026, so: "81/2026", co_bc1: true,
-          bc1: { ma_bci: "BCI-1", so_bao_cao: "112/BCI/2026", so_hoc_sinh: 150 }, bc2_cua_khoa: [], trung: false } });
+          bc1: { ma_bci: "BCI-1", so_bao_cao: "112/BCI/2026", so_hoc_sinh: 150, ngay_bao_cao: "2026-09-30" }, bc2_cua_khoa: [], trung: false } });
   });
   await page.route(/\/local\/tnbc2\/bc2(\?.*)?$/, async (r) => {
     const req = r.request();
@@ -249,6 +249,7 @@ test.describe("TNB-03 — Tạo BC2 rỗng (form)", () => {
     await expect(page.getByLabel("Số BC2 (= mã báo cáo)")).toHaveValue("81/2026");
     await expect(page.getByLabel("BC1 của khóa")).toHaveValue("112/BCI/2026");
     await expect(page.getByLabel("BC1 của khóa")).toBeDisabled();
+    await expect(page.getByText("ngày 30/09/2026 · 150 học sinh")).toBeVisible();   // PRD: hiện số BC1, ngày, số HV
     if (process.env.CHUP_ANH) {
       for (const w of [800, 1280, 1440]) {
         await page.setViewportSize({ width: w, height: 800 });

@@ -66,7 +66,7 @@ class FakeConn:
         self.bc1 = [
             {"MaBCI": "857/26-TTTÐ", "MaKH": KHOA_OTO, "MaCSDT": "70004", "SoBaoCao": "857/26-TTTĐ", "SoHocSinh": 150},
             {"MaBCI": "A1A2870/26-TTTÐ", "MaKH": KHOA_MOTO, "MaCSDT": "70004", "SoBaoCao": "A1A2870/26-TTTĐ",
-             "SoHocSinh": 150},
+             "NgayBaoCao": "2026-09-30", "SoHocSinh": 150},
         ]
         self.bc2 = [dict(b) for b in bc2] or [
             {"MaBCII": "79/2026", "MaBCI": "852/26-TTTÐ", "SoBaoCao": "79/2026", "TrangThai": False, "TongSoThiSinh": 25},
@@ -295,6 +295,13 @@ def test_goi_y_so_oto_va_moto():
     assert gm["so"] == "870/26-TTTĐ" and gm["loai"] == "moto" and gm["bc1"]["so_hoc_sinh"] == 150
     gk = svc.goi_y_so(cur, KHOA_KHONG_BC1, HOM_NAY)
     assert gk["co_bc1"] is False and gk["bc1"] is None
+
+
+def test_goi_y_so_tra_ngay_bao_cao_cua_bc1_de_giao_dien_hien_thi():
+    """PRD TNB-03: hiện số BC1, ngày, số HV. BC1 thiếu ngày thì để rỗng (không vỡ)."""
+    cur = FakeConn().cursor()
+    assert svc.goi_y_so(cur, KHOA_MOTO, HOM_NAY)["bc1"]["ngay_bao_cao"] == "2026-09-30"
+    assert svc.goi_y_so(cur, KHOA_OTO, HOM_NAY)["bc1"]["ngay_bao_cao"] == ""
 
 
 def test_goi_y_so_moto_trung_so_da_co_va_bc2_cua_khoa():
