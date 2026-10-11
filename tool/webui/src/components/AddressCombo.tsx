@@ -181,13 +181,13 @@ export default function AddressCombo({ diaChiGoc, onChon }: { diaChiGoc?: string
         <button
           onClick={chuyenDoi}
           disabled={busy || !cuTinh || !cuXa}
-          className="inline-flex items-center gap-2 h-9 px-4 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:brightness-110 transition-all disabled:opacity-60"
+          className="inline-flex items-center gap-2 h-9 px-4 rounded-lg bg-primary text-primary-foreground font-semibold text-sm whitespace-nowrap hover:brightness-110 transition-all disabled:opacity-60"
         >
           <Icon name="refresh" className={"w-4 h-4" + (busy ? " animate-spin" : "")} /> Chuyển đổi sang xã mới
         </button>
         <button
           onClick={moChonTay}
-          className="inline-flex items-center gap-2 h-9 px-3 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors"
+          className="inline-flex items-center gap-2 h-9 px-3 rounded-lg border border-border text-sm font-medium whitespace-nowrap hover:bg-muted transition-colors"
         >
           Chọn tay
         </button>

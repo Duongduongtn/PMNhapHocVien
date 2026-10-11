@@ -811,7 +811,7 @@ export default function NapHoSo() {
                 </div>
                 <>
                   <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
-                    <div className={rong ? "grid grid-cols-[170px_minmax(0,1fr)] gap-3 items-start" : "space-y-3"}>
+                    <div className="grid grid-cols-[148px_minmax(0,1fr)] gap-3 items-start">
                     {/* Ảnh chân dung — LÊN ĐẦU, thu gọn, căn giữa (task 46 polish); NAP-04 + ảnh gốc (task 45) */}
                     <div className="rounded-lg border border-border bg-card p-3">
                       <div className="aspect-[3/4] w-[104px] mx-auto rounded-lg bg-white border border-input flex items-center justify-center relative overflow-hidden shadow-sm">
@@ -839,14 +839,14 @@ export default function NapHoSo() {
                       <div className="flex justify-center mt-2">
                         <button
                           onClick={() => setAnhOpen(true)}
-                          className="h-8 px-3 rounded-lg bg-primary text-primary-foreground text-[13px] font-semibold hover:brightness-110 transition-colors shadow-sm inline-flex items-center gap-1.5"
+                          title="Mở trình chỉnh ảnh chân dung (crop 3:4, nền trắng, xuất .jp2)"
+                          className="btn btn-primary btn-row h-auto min-h-8 py-1.5 whitespace-normal text-center leading-tight"
                         >
-                          <Icon name="camera" className="w-4 h-4" /> Sửa ảnh
+                          <Icon name="camera" className="w-4 h-4 shrink-0" /> Sửa ảnh chân dung
                         </button>
                       </div>
                     </div>
 
-                    <div className="space-y-3 min-w-0">
                     {/* Tóm tắt học viên */}
                     <div className="rounded-md bg-secondary/70 border border-border px-2.5 py-2 text-[12px] leading-relaxed">
                       <div className="font-bold text-[14px]">{(selRow.ho_ten || "").toUpperCase() || "(chưa có tên)"}</div>
@@ -862,8 +862,8 @@ export default function NapHoSo() {
                       )}
                     </div>
 
-                    {/* NAP-03: map địa chỉ nơi thường trú */}
-                    <div>
+                    {/* NAP-03: map địa chỉ nơi thường trú — chiếm cả bề ngang để nút đủ chữ */}
+                    <div className="col-span-2">
                       <label className="field-label mb-1 block">
                         Nơi thường trú <span className="text-destructive">*</span>{" "}
                         <span className="text-muted-foreground font-normal">(map/chọn tay để lấy đúng mã DVHC)</span>
@@ -886,7 +886,6 @@ export default function NapHoSo() {
                       />
                     </div>
 
-                    </div>
                     </div>
 
                     {/* Ngày cấp + Nơi cấp căn cước — điền sẵn từ hồ sơ VPS, operator sửa được (CHANGES #43) */}
@@ -980,7 +979,8 @@ export default function NapHoSo() {
                       ) : (
                         <button
                           onClick={() => setXacNhanXoaNhap(true)}
-                          className="w-full h-8 rounded-lg border border-border text-muted-foreground text-[12px] font-medium inline-flex items-center justify-center gap-1.5 hover:text-destructive hover:border-destructive/40 hover:bg-destructive/5 transition-colors"
+                          title="Xóa nháp đã chuẩn bị (địa chỉ, ảnh, giấy tờ) của học viên này"
+                          className="w-full h-9 rounded-lg border border-border text-muted-foreground text-[13px] font-semibold whitespace-nowrap inline-flex items-center justify-center gap-1.5 hover:text-destructive hover:border-destructive/40 hover:bg-destructive/5 transition-colors"
                         >
                           <Icon name="x" className="w-3.5 h-3.5" /> Xóa nháp
                         </button>
@@ -989,7 +989,8 @@ export default function NapHoSo() {
                     <button
                       onClick={() => { void chayNapLo([selRow]); }}
                       disabled={napBusy || !rowSanSang(selRow) || !khoa}
-                      className="w-full btn btn-primary"
+                      title="Nạp riêng học viên này vào khóa đích"
+                      className="w-full btn btn-primary h-auto min-h-9 py-2 whitespace-normal text-center leading-tight"
                     >
                       <Icon name={napBusy ? "refresh" : "plus"} className={"w-4 h-4" + (napBusy ? " animate-spin" : "")} />
                       {selRow.trang_thai === "xong"
@@ -997,7 +998,7 @@ export default function NapHoSo() {
                         : !layNhap(selRow.uuid).diaChi
                           ? "Map địa chỉ để nạp"
                           : khoa
-                            ? `Nạp vào ${khoa.ten_kh} (${khoa.ma_kh})`
+                            ? `Nạp học viên này vào khóa ${khoa.ma_kh} — ${khoa.ten_kh}`
                             : "Chọn khóa để nạp"}
                     </button>
                   </div>
@@ -1077,7 +1078,7 @@ export default function NapHoSo() {
 
           {/* Chia đôi: DANH SÁCH gọn (≈40%) | NGĂN CHUẨN BỊ luôn mở (≈60%). Màn hẹp: chỉ danh sách + ngăn phủ. */}
           <div className="p-4 flex flex-col gap-3 h-[calc(100svh-9.5rem)] min-h-0">
-            <div className={"flex-1 min-h-0 grid gap-4 grid-rows-[minmax(0,1fr)] " + (rong ? "grid-cols-[2fr_3fr]" : "grid-cols-1")}>
+            <div className={"flex-1 min-h-0 grid gap-4 grid-rows-[minmax(0,1fr)] " + (rong ? "grid-cols-[1fr_1fr]" : "grid-cols-1")}>
               {/* ── Trái: danh sách ── */}
               <div className="list-frame flex flex-col min-h-0 min-w-0">
                 <div className="px-3 py-2.5 flex items-center gap-2 border-b border-border shrink-0">

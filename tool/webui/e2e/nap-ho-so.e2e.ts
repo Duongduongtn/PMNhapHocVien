@@ -187,4 +187,26 @@ test.describe("NAP-01 — màn Nạp chia đôi (danh sách | ngăn Chuẩn bị
     await page.getByLabel("Đóng (lưu nháp)").click();
     await expect(page.getByText("Chuẩn bị hồ sơ")).toHaveCount(0);
   });
+
+  test("khung trái ≈50% / ngăn phải ≈50%, tên nút chức năng ở ngăn phải hiện đủ chữ (1280 và 1440)", async ({ page }) => {
+    const mo = taoMo();
+    await vao(page, mo);
+    await page.getByTestId("hv-u01").click();
+    await expect(ngan(page).getByText("NGUYỄN THỊ HOÀ")).toBeVisible();
+    for (const w of [1280, 1440]) {
+      await page.setViewportSize({ width: w, height: 820 });
+      const [trai, phai] = await ngan(page).evaluate((el) => [
+        (el.previousElementSibling as HTMLElement).getBoundingClientRect().width,
+        el.getBoundingClientRect().width,
+      ]);
+      expect(Math.abs(trai / (trai + phai) - 0.5)).toBeLessThan(0.03);
+      for (const ten of ["Sửa ảnh chân dung", "Chuyển đổi sang xã mới", "Chọn tay", "Xóa nháp", /Nạp học viên này vào khóa K001/]) {
+        const nut = ngan(page).getByRole("button", { name: ten });
+        await expect(nut).toBeVisible();
+        const bi = await nut.evaluate((el) => el.scrollWidth > el.clientWidth + 1);
+        expect(bi, `nút ${String(ten)} bị cắt chữ ở ${w}px`).toBe(false);
+      }
+      if (process.env.CHUP_ANH) await page.screenshot({ path: `${process.env.CHUP_ANH}/${w}-nap-50-50.png` });
+    }
+  });
 });
