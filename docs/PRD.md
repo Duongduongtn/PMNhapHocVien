@@ -1189,7 +1189,7 @@
 
 #### [TNB-06] Chuyển trạng thái học viên (cứu HV không tìm thấy)
 
-**Trạng thái:** ⚠️ Partial — 2/2 task xong (104 backend, 114 UI tab "Học viên không tìm thấy"); mức 1 pass bằng kết nối giả + Playwright giả backend, **chưa ghi thật DB Nạp** (nghiệm thu máy CSDT, Checkpoint 27); **còn hở:** gửi lại sau mất kết nối khi lần trước đã chuyển xong → máy chủ từ chối (UI đã báo kiểm tra), cần chốt cách xử lý ở backend
+**Trạng thái:** ⚠️ Partial — 2/2 task xong (104 backend, 114 UI tab "Học viên không tìm thấy"); mức 1 pass bằng kết nối giả + Playwright giả backend, **chưa ghi thật DB Nạp** (nghiệm thu máy CSDT, Checkpoint 27); gửi lại sau mất kết nối khi lần trước đã chuyển xong được hoàn tất từ nhật ký (vẫn Hoàn tác được)
 **Story:** Là nhân viên cơ sở, khi một học viên đã tốt nghiệp hoặc vắng/rớt sát hạch không hiện trong danh sách để thêm vào BC2, tôi muốn đưa trạng thái của họ về đúng nhóm chờ lập BC2.
 
 **Done khi:**

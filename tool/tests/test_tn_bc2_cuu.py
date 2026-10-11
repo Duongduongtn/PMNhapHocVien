@@ -201,6 +201,41 @@ def test_cuu_idempotent_theo_lo_id_va_lo_id_khac_chay_lai_luat():
     assert k1["lo_id"] == "lo-cuu-0001"
 
 
+def test_gui_lai_sau_khi_tool_bi_ngat_giua_luc_cuu_hoan_tat_tu_nhat_ky_va_van_hoan_tac_duoc():
+    """Tool chết SAU khi SP chạy nhưng TRƯỚC khi đóng lô: gửi lại cùng lo_id không bị `khong_doi`, lô được hoàn tất
+    từ nhật ký (tt_cu ghi trước SP) nên nút Hoàn tác vẫn dùng được."""
+    c = Conn(hv=du_lieu())
+    cuu(c, "C-0001", "17")
+    nk.lo_cap_nhat("lo-cuu-0001", trang_thai="dang_chay", ket_qua={})                 # giả lập: lô chưa kịp đóng
+    k = cuu(c, "C-0001", "17")
+    assert k["da_ton_tai"] is True and k["tt_cu"] == "03" and k["tt_moi"] == "17"
+    assert [w["ma"] for w in k["canh_bao"]] == ["hoan_tat_tu_lan_truoc"]
+    assert len(c.sp_cuu) == 1                                                        # KHÔNG gọi SP lần hai
+    assert nk.lo_lay("lo-cuu-0001")["trang_thai"] == "xong"
+    ht = svc.cuu_hoan_tac(c, lo_id_cuu="lo-cuu-0001", lo_id="lo-ht-0001", nguoi="thu1")
+    assert ht["tt_moi"] == "03" and hv_cua(c, "C-0001")["TT_XuLy"] == "03"
+
+
+def test_gui_lai_lo_do_khi_sp_chua_chay_thi_chay_binh_thuong_mot_lan():
+    c = Conn(hv=du_lieu())
+    c.loi_sp.add("C-0001")
+    with pytest.raises(RuntimeError):
+        cuu(c, "C-0001", "17")                                                        # SP lỗi: HV vẫn 03
+    nk.lo_cap_nhat("lo-cuu-0001", trang_thai="dang_chay")                             # lô còn dở
+    c.loi_sp.clear()
+    k = cuu(c, "C-0001", "17")
+    assert k["da_ton_tai"] is False and k["canh_bao"] == [] and hv_cua(c, "C-0001")["TT_XuLy"] == "17"
+
+
+def test_lo_dang_chay_cua_thao_tac_khac_khong_bi_hoan_tat_nham():
+    c = Conn(hv=du_lieu())
+    cuu(c, "C-0001", "17")
+    nk.lo_cap_nhat("lo-cuu-0001", trang_thai="dang_chay", ket_qua={})
+    with pytest.raises(svc.LoiNghiepVu):                                              # đích khác với lần ghi trong nhật ký
+        cuu(c, "C-0001", "18")
+    assert len(c.sp_cuu) == 1
+
+
 def test_cuu_loi_db_khong_danh_dau_xong():
     c = Conn(hv=du_lieu())
     c.loi_sp.add("C-0001")

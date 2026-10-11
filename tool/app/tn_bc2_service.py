@@ -1637,6 +1637,33 @@ def _doc_hv_cuu_mot(cur, ma_dk: str) -> dict | None:
     return _hv_tn(r) if r else None
 
 
+def _hoan_tat_cuu_do(cur, lo_cu: dict | None, hv: dict, *, lo_id: str, ma_dk: str, dich: str, ly_do: str) -> dict | None:
+    """Gửi lại cùng `lo_id` sau khi tool bị ngắt GIỮA lúc cứu: lô còn `dang_chay` nhưng SP đã chạy xong (HV đang
+    đúng ở `dich`). Hoàn tất lô từ NHẬT KÝ (ghi trước SP: có `tt_cu`) thay vì từ chối `khong_doi` — để nhân viên
+    vẫn có nút Hoàn tác. Trả None nếu không phải ca đó (SP chưa chạy → chạy bình thường)."""
+    if lo_cu is None or lo_cu["trang_thai"] != "dang_chay" or lo_cu["loai"] != nhat_ky.LO_CUU:
+        return None
+    nk_cu = nhat_ky.theo_lo_id(lo_id, nhat_ky.CUU)
+    ct = (nk_cu or {}).get("chi_tiet") or {}
+    tt_cu = _s(ct.get("tt_cu"))
+    if ct.get("ma_dk") != ma_dk or _s(ct.get("tt_moi")) != dich or not tt_cu or tt_cu == dich or hv["tt"] != dich:
+        return None
+    loai_hv = rules.loai_hang(hv["hang"])
+    kq = {"ma_dk": ma_dk, "tt_cu": tt_cu, "tt_moi": dich, "ten_trang_thai_cu": rules.ten_trang_thai(tt_cu, loai_hv),
+          "ten_trang_thai_moi": rules.ten_trang_thai(dich, loai_hv), "ly_do": ly_do,
+          "canh_bao": [{"ma": "hoan_tat_tu_lan_truoc",
+                        "noi_dung": "Lần gửi trước đã chuyển xong nhưng chưa kịp ghi nhận — đã hoàn tất theo nhật ký"}],
+          "trang_thai": "xong"}
+    try:
+        nhat_ky.lo_ghi_hv(lo_id, ma_dk, "da_cuu", f"{tt_cu}>{dich}")
+        nhat_ky.lo_cap_nhat(lo_id, trang_thai="xong", ket_qua=kq, luc_xong=datetime.now().isoformat(timespec="seconds"))
+        nhat_ky.ket_thuc(nk_cu["id"], "xong", {"tt_cu": tt_cu, "tt_moi": dich, "hoan_tat": True})
+    except Exception:  # noqa: BLE001 — chỉ là ghi nhận; HV đã đúng trạng thái đích
+        kq["canh_bao"].append({"ma": "khong_ghi_duoc_nhat_ky",
+                               "noi_dung": "Đã chuyển nhưng chưa lưu được nhật ký — ghi lại thủ công nếu cần hoàn tác"})
+    return {**kq, "lo_id": lo_id, "da_ton_tai": True}
+
+
 def cuu_chuyen(conn, *, lo_id: str, ma_dk: str, dich: str, ly_do: str, loai: str, nguoi: str) -> dict:
     """Chuyển `TT_XuLy` MỘT HV (cứu HV không tìm thấy khi lập BC2) bằng `usp_NguoiLX_HoSo_UpdateTTXLy`.
 
@@ -1654,6 +1681,9 @@ def cuu_chuyen(conn, *, lo_id: str, ma_dk: str, dich: str, ly_do: str, loai: str
         hv = _doc_hv_cuu_mot(cur, ma_dk)
         if hv is None:
             raise LoiNghiepVu("hv_khong_ton_tai", f"Không có học viên {ma_dk}", 404)
+        hoan_tat = _hoan_tat_cuu_do(cur, cu, hv, lo_id=lo_id, ma_dk=ma_dk, dich=dich, ly_do=ly_do)
+        if hoan_tat is not None:
+            return hoan_tat
         vde = rules.kiem_cuu(hv, dich, loai or rules.loai_hang(hv["hang"]), ly_do)
         if vde:
             raise LoiNghiepVu("khong_cuu_duoc", vde[0]["noi_dung"], 409, {"chan": vde})

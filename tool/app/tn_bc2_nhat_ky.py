@@ -130,6 +130,26 @@ def gan_day(loai: str | None = None, ma_bc2: str | None = None, gioi_han: int = 
         conn.close()
 
 
+def theo_lo_id(lo_id: str, loai: str | None = None, db_path: Path | None = None) -> dict | None:
+    """Dòng nhật ký GẦN NHẤT của một `lo_id` (kèm `chi_tiet`). Dùng để hoàn tất một lô dở: tool bị ngắt SAU khi SP
+    đã chạy nhưng TRƯỚC khi đóng lô, nhật ký (ghi trước SP) vẫn giữ trạng thái cũ/mới cần để hoàn tác."""
+    conn = _ket_noi(db_path)
+    try:
+        sql, args = "SELECT * FROM tnbc2_nhat_ky WHERE lo_id = ?", [lo_id]
+        if loai:
+            sql += " AND loai = ?"
+            args.append(loai)
+        r = conn.execute(sql + " ORDER BY id DESC LIMIT 1", args).fetchone()
+        if r is None:
+            return None
+        d = dict(r)
+        d["chi_tiet"] = json.loads(d.pop("chi_tiet_json") or "{}")
+        d["ket_qua"] = json.loads(d.pop("ket_qua_json") or "{}")
+        return d
+    finally:
+        conn.close()
+
+
 # ── Lô thao tác (thêm HV / hoàn tác): nguồn của "Làm tiếp", tiến độ sau khi tool khởi động lại và Hoàn tác ──
 def lo_bat_dau(lo_id: str, nguoi: str, loai: str, ma_kh: str = "", ma_bc2: str = "", tong: int = 0,
                lo_goc: str = "", db_path: Path | None = None) -> bool:
