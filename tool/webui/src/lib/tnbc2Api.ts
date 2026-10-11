@@ -72,17 +72,126 @@ export interface ChungTn {
   ngay_in: string;
 }
 
-export const dsKhoaTotNghiep = (cu = false) => goi("GET", "/khoa", { query: { loai: "oto", cu } });
+export interface KhoaTn {
+  ma_kh: string;
+  ten_kh: string;
+  hang: string;
+  ngay_kg: string | null;
+  ngay_bg: string;
+  ghi_duoc: boolean;
+  khoa_cu: boolean;
+  tong: number;
+  chua_tot_nghiep: number;
+  da_tot_nghiep: number;
+  da_vao_bc2: number;
+}
+export interface KhoaTnResp {
+  loai: string;
+  hom_nay: string;
+  moc_cua_so: string;
+  khoa: KhoaTn[];
+  so_giay_ke_tiep: string;
+}
+
+export type TrangThaiTn = "chua_tot_nghiep" | "da_tot_nghiep" | "da_vao_bc2" | "khac";
+export interface HvTn {
+  ma_dk: string;
+  ten: string;
+  ngay_sinh: string; // dd/mm/yyyy
+  cmt: string;
+  hang: string;
+  tt: string;
+  ma_bc2: string;
+  ma_kh: string;
+  so_giay: string;
+  so_so_tn: string;
+  ngay_vao_so: string;
+  so_quyet_dinh: string;
+  ngay_ra_qd: string;
+  ngay_in: string;
+  trang_thai_tn: TrangThaiTn;
+  ten_trang_thai: string;
+  khoa_cu: boolean;
+  sua_duoc: boolean;
+  ly_do_khoa: string;
+}
+export interface SoChungTn extends ChungTn {
+  so_hv: number;
+}
+export interface HvTnResp {
+  ma_kh: string;
+  ten_kh: string;
+  ngay_bg: string;
+  ghi_duoc: boolean;
+  khoa_cu: boolean;
+  so_chung: SoChungTn | null;
+  so_giay_ke_tiep: string;
+  tong: number;
+  dem: { chua_tot_nghiep: number; da_tot_nghiep: number; da_vao_bc2: number };
+  hoc_vien: HvTn[];
+}
+
+export interface VanDeTn {
+  muc: string;
+  ma: string;
+  noi_dung: string;
+}
+export type KetQuaDongTn =
+  | "se_len_09"
+  | "luu_so_truoc"
+  | "giu_09_sua_thong_tin"
+  | "khong_doi_trang_thai_da_vao_bc2"
+  | "khong_doi"
+  | "bo_qua"
+  | "chan";
+export interface DongXemLaiTn {
+  ma_dk: string;
+  ket_qua: KetQuaDongTn | string;
+  ghi_duoc: boolean;
+  chan: VanDeTn[];
+  canh_bao: VanDeTn[];
+  thong_tin: VanDeTn[];
+}
+export interface XemLaiTnResp {
+  ma_kh: string;
+  ghi_duoc_khoa: boolean;
+  tong: number;
+  dem: Record<string, number>;
+  khoang_so: { tien_to: string; tu: number; den: number; so_luong: number } | null;
+  co_chan: boolean;
+  canh_bao: { ma: string; noi_dung: string; so_dong: number }[];
+  dong: DongXemLaiTn[];
+}
+
+/** Tiến độ / kết quả của một lô (dùng chung `GET /bc2/lo/{lo_id}`). Trường kết quả chỉ có khi `xong`. */
+export interface LoTn {
+  lo_id: string;
+  trang_thai: "dang_chay" | "xong" | "loi_giua_chung" | "that_bai" | string;
+  xu_ly?: number;
+  tong: number;
+  xong: boolean;
+  bi_gian_doan?: boolean;
+  da_ghi?: { ma_dk: string; ket_qua: string }[];
+  da_ghi_truoc?: string[];
+  bo_qua?: { ma_dk: string; ma_ly_do: string; ly_do: string }[];
+  chua_ghi?: string[];
+  canh_bao?: { ma_dk?: string; ma: string; noi_dung: string }[];
+  dem?: Record<string, number>;
+  loi?: { ma_dk: string; noi_dung: string } | null;
+  loi_nghiep_vu?: { ma: string; noi_dung: string };
+}
+
+export const dsKhoaTotNghiep = (cu = false) => goi<KhoaTnResp>("GET", "/khoa", { query: { loai: "oto", cu } });
 export const dsHvTotNghiep = (maKh: string, q = "", trangThai = "") =>
-  goi("GET", "/tot-nghiep/hv", { query: { ma_kh: maKh, q, trang_thai: trangThai } });
+  goi<HvTnResp>("GET", "/tot-nghiep/hv", { query: { ma_kh: maKh, q, trang_thai: trangThai } });
 export const xemLaiTotNghiep = (maKh: string, dong: DongTn[], chung: ChungTn) =>
-  goi("POST", "/tot-nghiep/xem-lai", { body: { ma_kh: maKh, dong, chung } });
+  goi<XemLaiTnResp>("POST", "/tot-nghiep/xem-lai", { body: { ma_kh: maKh, dong, chung } });
 export const ghiTotNghiep = (loId: string, maKh: string, dong: DongTn[], chung: ChungTn, daXemCanhBao: boolean) =>
-  goi("POST", "/tot-nghiep/ghi", {
+  goi<LoTn>("POST", "/tot-nghiep/ghi", {
     body: { lo_id: loId, ma_kh: maKh, dong, chung, da_xem_canh_bao: daXemCanhBao, xac_nhan_csdl_that: true },
   });
 export const huyTotNghiep = (loId: string, maKh: string, dsMaDk: string[]) =>
-  goi("POST", "/tot-nghiep/huy", { body: { lo_id: loId, ma_kh: maKh, ds_ma_dk: dsMaDk, xac_nhan_csdl_that: true } });
+  goi<LoTn>("POST", "/tot-nghiep/huy", { body: { lo_id: loId, ma_kh: maKh, ds_ma_dk: dsMaDk, xac_nhan_csdl_that: true } });
 
 // ── Báo cáo 2: lập + thêm HV ──
 export const khoaSanSang = (loai: LoaiHang, cu = false, thiLaiThang?: number, lamTuoi = false) =>
@@ -111,7 +220,7 @@ export const lapBc2 = (b: {
   da_xem_canh_bao: boolean;
 }) => goi("POST", "/bc2/lap", { body: { ...b, xac_nhan_csdl_that: true } });
 /** Tiến độ DÙNG CHUNG cho mọi lô chạy nền (lập, gỡ, hoàn tác, ghi/hủy tốt nghiệp). */
-export const tienDoLo = (loId: string) => goi("GET", `/bc2/lo/${encodeURIComponent(loId)}`);
+export const tienDoLo = (loId: string) => goi<LoTn>("GET", `/bc2/lo/${encodeURIComponent(loId)}`);
 
 // ── Báo cáo 2: xem / gỡ / xóa / hoàn tác ──
 const duongBc2 = (ma: string) => `/bc2/${encodeURIComponent(ma)}`;
