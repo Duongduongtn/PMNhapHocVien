@@ -36,6 +36,22 @@ _DDL = (
 )
 
 
+_DDL_LO = (
+    "CREATE TABLE IF NOT EXISTS tnbc2_lo ("
+    "lo_id TEXT PRIMARY KEY, luc TEXT NOT NULL, nguoi TEXT, loai TEXT NOT NULL, ma_kh TEXT, ma_bc2 TEXT, "
+    "lo_goc TEXT, tong INTEGER, trang_thai TEXT NOT NULL DEFAULT 'dang_chay', hoan_tac_boi TEXT, "
+    "ket_qua_json TEXT, luc_xong TEXT)"
+)
+_DDL_LO_HV = (
+    "CREATE TABLE IF NOT EXISTS tnbc2_lo_hv ("
+    "lo_id TEXT NOT NULL, ma_dk TEXT NOT NULL, ket_qua TEXT NOT NULL, ma_ly_do TEXT, luc TEXT, "
+    "PRIMARY KEY (lo_id, ma_dk))"
+)
+
+LO_LAP = "lap"
+LO_HOAN_TAC = "hoan_tac"
+
+
 def _loc_pii(v: Any) -> Any:
     """Bỏ mọi khóa mang họ tên / CMT / ngày sinh (đệ quy) — nhật ký chỉ cần `ma_dk` và số lượng."""
     if isinstance(v, dict):
@@ -51,6 +67,8 @@ def _ket_noi(db_path: Path | None = None) -> sqlite3.Connection:
     conn = sqlite3.connect(str(p))
     conn.row_factory = sqlite3.Row
     conn.execute(_DDL)
+    conn.execute(_DDL_LO)
+    conn.execute(_DDL_LO_HV)
     return conn
 
 
@@ -105,3 +123,90 @@ def gan_day(loai: str | None = None, ma_bc2: str | None = None, gioi_han: int = 
         return out
     finally:
         conn.close()
+
+
+# ── Lô thao tác (thêm HV / hoàn tác): nguồn của "Làm tiếp", tiến độ sau khi tool khởi động lại và Hoàn tác ──
+def lo_bat_dau(lo_id: str, nguoi: str, loai: str, ma_kh: str = "", ma_bc2: str = "", tong: int = 0,
+               lo_goc: str = "", db_path: Path | None = None) -> bool:
+    """Tạo lô nếu chưa có (idempotent theo `lo_id`). True = tạo mới; False = đã có từ trước."""
+    conn = _ket_noi(db_path)
+    try:
+        cur = conn.execute(
+            "INSERT OR IGNORE INTO tnbc2_lo (lo_id, luc, nguoi, loai, ma_kh, ma_bc2, lo_goc, tong, trang_thai) "
+            "VALUES (?,?,?,?,?,?,?,?, 'dang_chay')",
+            (lo_id, datetime.now().isoformat(timespec="seconds"), nguoi, loai, ma_kh, ma_bc2, lo_goc, tong))
+        conn.commit()
+        return cur.rowcount == 1
+    finally:
+        conn.close()
+
+
+def lo_cap_nhat(lo_id: str, db_path: Path | None = None, **truong: Any) -> None:
+    """Cập nhật các cột của lô: ma_bc2, tong, trang_thai, hoan_tac_boi, ket_qua (dict), luc_xong."""
+    cot = {"ma_bc2", "tong", "trang_thai", "hoan_tac_boi", "luc_xong"}
+    sets, args = [], []
+    for k, v in truong.items():
+        if k == "ket_qua":
+            sets.append("ket_qua_json = ?")
+            args.append(json.dumps(_loc_pii(v or {}), ensure_ascii=False))
+        elif k in cot:
+            sets.append(f"{k} = ?")
+            args.append(v)
+        else:
+            raise KeyError(k)
+    if not sets:
+        return
+    conn = _ket_noi(db_path)
+    try:
+        conn.execute(f"UPDATE tnbc2_lo SET {', '.join(sets)} WHERE lo_id = ?", (*args, lo_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def lo_ghi_hv(lo_id: str, ma_dk: str, ket_qua: str, ma_ly_do: str = "", db_path: Path | None = None) -> None:
+    """Ghi NGAY một học viên của lô (`da_them` / `da_co_tu_truoc` / `bo_qua` / `loi` / `da_go`)."""
+    conn = _ket_noi(db_path)
+    try:
+        conn.execute(
+            "INSERT OR REPLACE INTO tnbc2_lo_hv (lo_id, ma_dk, ket_qua, ma_ly_do, luc) VALUES (?,?,?,?,?)",
+            (lo_id, ma_dk, ket_qua, ma_ly_do, datetime.now().isoformat(timespec="seconds")))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def lo_lay(lo_id: str, db_path: Path | None = None) -> dict | None:
+    conn = _ket_noi(db_path)
+    try:
+        r = conn.execute("SELECT * FROM tnbc2_lo WHERE lo_id = ?", (lo_id,)).fetchone()
+        if r is None:
+            return None
+        d = dict(r)
+        d["ket_qua"] = json.loads(d.pop("ket_qua_json") or "{}")
+        return d
+    finally:
+        conn.close()
+
+
+def lo_hv(lo_id: str, db_path: Path | None = None) -> list[dict]:
+    conn = _ket_noi(db_path)
+    try:
+        return [dict(r) for r in conn.execute(
+            "SELECT ma_dk, ket_qua, ma_ly_do, luc FROM tnbc2_lo_hv WHERE lo_id = ? ORDER BY rowid", (lo_id,))]
+    finally:
+        conn.close()
+
+
+def lo_lap_gan_nhat_cua_bc2(ma_bc2: str, db_path: Path | None = None) -> dict | None:
+    """Lô THÊM HV gần nhất của một BC2 mà ĐÃ THÊM ít nhất một HV (nguồn của "Hoàn tác lần vừa rồi";
+    lô không thêm được ai không phải "lần thêm" nên không che mất lô thật trước đó)."""
+    conn = _ket_noi(db_path)
+    try:
+        r = conn.execute(
+            "SELECT lo_id FROM tnbc2_lo WHERE ma_bc2 = ? AND loai = ? AND EXISTS "
+            "(SELECT 1 FROM tnbc2_lo_hv h WHERE h.lo_id = tnbc2_lo.lo_id AND h.ket_qua = 'da_them') "
+            "ORDER BY luc DESC, rowid DESC LIMIT 1", (ma_bc2, LO_LAP)).fetchone()
+    finally:
+        conn.close()
+    return lo_lay(r["lo_id"], db_path) if r else None

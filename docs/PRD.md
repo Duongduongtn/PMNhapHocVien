@@ -1148,7 +1148,7 @@
 
 #### [TNB-04] Thêm học viên vào BC2
 
-**Trạng thái:** 🔄 In Progress — 2/6 task xong (96 luật thuần, 97 backend đọc ứng viên); còn 99 ghi lô, 109/110/112 UI
+**Trạng thái:** 🔄 In Progress — 3/6 task xong (96 luật thuần, 97 backend đọc ứng viên, 99 backend lập + thêm HV + hoàn tác, kiểm bằng kết nối giả, chưa ghi thật); còn 109/110/112 UI
 **Story:** Là nhân viên cơ sở, tôi muốn đưa đúng các học viên đủ điều kiện (kể cả HV rớt/vắng từ khóa cũ) vào một BC2 đang mở.
 
 **Done khi:**
