@@ -17,14 +17,20 @@ export default function BaoCao2() {
   const [thongBao, setThongBao] = useState("");
   const [rong, setRong] = useState(false);
   const [xem, setXem] = useState<string | null>(null);
+  // Từ bước ② nhảy sang xem một BC2 (để gỡ học viên): giữ wizard để "Quay lại" trở về đúng bước.
+  const [veWiz, setVeWiz] = useState<TrangThaiWizard | null>(null);
 
   if (xem) {
     return (
       <XemBc2
         maBc2={xem}
-        onVe={() => setXem(null)}
+        onVe={() => {
+          setXem(null);
+          if (veWiz) { setWiz(veWiz); setVeWiz(null); }
+        }}
         onThem={(ct) => {
           setXem(null);
+          setVeWiz(null);
           setThongBao(`Thêm học viên vào BC2 ${ct.ma_bc2}.`);
           setWiz({ loai: ct.loai === "moto" ? "moto" : "oto", buoc: 2, maKh: ct.ma_kh, tenKh: ct.ten_kh, maBc2: ct.ma_bc2,
             dsMaDk: [], nSan: 0, nThi: 0, tenHv: {} });
@@ -71,6 +77,7 @@ export default function BaoCao2() {
             loai={wiz.loai}
             onDoiKhoa={() => { setThongBao(""); setWiz({ ...wiz, buoc: 1 }); }}
             onTiep={(chon) => setWiz({ ...wiz, buoc: 3, ...chon })}
+            onXemBc2={(ma) => { setVeWiz(wiz); setWiz(null); setXem(ma); }}
           />
         )}
         {wiz.buoc === 3 && (

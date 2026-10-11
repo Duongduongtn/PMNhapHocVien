@@ -2,22 +2,23 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import ChuGiaiTrangThai from "../ChuGiaiTrangThai";
 import DanDanhSachBuoc2 from "./DanDanhSachBuoc2";
 import VirtualList from "./VirtualList";
+import { CapNhatTotNghiepTaiCho, CuuTrangThaiTaiCho } from "./XuLyNgoaiLeTaiCho";
 import { soVN } from "../../lib/format";
 import { ungVienBc2, type HvUngVien, type LoaiHang, type UngVienResp } from "../../lib/tnbc2Api";
 import { demDaChon, gomTheoKhoaGoc, khopTim } from "../../lib/tnbcUngVien";
 
 // TNB-04 — bước ②: chọn học viên. Bốn nhóm trong một màn: Sẵn sàng (tích sẵn) · Thi lại (không tích sẵn, gom theo
 // khóa gốc, ngưỡng tháng) · Cần xem · Không đưa được. Bám ui-mock/tnbc2.html `wizChon`. "Dán danh sách CMT" (task 116);
-// xử lý ngoại lệ ngay trên dòng thuộc task 117 (hiện chỉ nêu hướng xử lý bằng chữ).
+// xử lý ngoại lệ ngay trên dòng (task 117): Cập nhật tốt nghiệp / Cứu trạng thái / Xem BC2 chứa học viên.
 
 const CAO_DONG = 36;
 const LUOI = "grid grid-cols-[32px_minmax(150px,1.6fr)_96px_140px_minmax(160px,1.4fr)] items-center gap-2 px-3";
 const dmy = (iso: string) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "");
 
 const GOI_Y: Record<string, string> = {
-  cap_nhat_tot_nghiep: "Cập nhật tốt nghiệp ở tab \"Tốt nghiệp (ô tô)\" rồi quay lại",
-  cuu_trang_thai: "Đưa về đúng trạng thái ở tab \"Học viên không tìm thấy\" rồi quay lại",
-  go_khoi_bc2: "Gỡ khỏi BC2 đó trước (tab Báo cáo 2)",
+  cap_nhat_tot_nghiep: "Chưa có giấy chứng nhận — cập nhật tốt nghiệp ngay tại đây",
+  cuu_trang_thai: "Trạng thái chưa đúng — cứu trạng thái ngay tại đây",
+  go_khoi_bc2: "Đang nằm trong BC2 khác — xem BC2 đó để gỡ trước",
 };
 
 function Dong({ h, tich, doiTich, khoa }: { h: HvUngVien; tich?: boolean; doiTich?: (b: boolean) => void; khoa?: boolean }) {
@@ -40,6 +41,20 @@ function Dong({ h, tich, doiTich, khoa }: { h: HvUngVien; tich?: boolean; doiTic
             <span className="ml-1 text-[10px] opacity-70">{h.tt}</span>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+// Dòng ngoại lệ: một dòng thông tin + một dòng hướng xử lý kèm nút làm ngay (không đẩy nút vào ô lý do hẹp).
+function DongCoHuong({ h, khoa, hanhDong }: { h: HvUngVien; khoa?: boolean; hanhDong: React.ReactNode }) {
+  const huong = h.goi_y_xu_ly ? GOI_Y[h.goi_y_xu_ly] : "";
+  return (
+    <div className="h-full flex flex-col">
+      <div className="h-9 shrink-0"><Dong h={h} khoa={khoa} /></div>
+      <div className="flex-1 min-h-0 flex items-center gap-2 pl-[44px] pr-3 border-b border-border text-[11.5px] text-muted-foreground">
+        {huong && <span className="truncate min-w-0" title={huong}>→ {huong}</span>}
+        {hanhDong && <span className="ml-auto shrink-0">{hanhDong}</span>}
       </div>
     </div>
   );
@@ -82,6 +97,7 @@ export default function BuocChonHocVien({
   loai,
   onDoiKhoa,
   onTiep,
+  onXemBc2,
 }: {
   maKh: string;
   tenKh: string;
@@ -89,6 +105,8 @@ export default function BuocChonHocVien({
   loai: LoaiHang;
   onDoiKhoa: () => void;
   onTiep: (chon: { dsMaDk: string[]; nSan: number; nThi: number; tenHv: Record<string, string> }) => void;
+  /** Học viên đang nằm trong một BC2 khác/chính BC2 này: nhảy sang xem để gỡ. */
+  onXemBc2: (maBc2: string) => void;
 }) {
   const [data, setData] = useState<UngVienResp | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
@@ -99,7 +117,9 @@ export default function BuocChonHocVien({
   const [q, setQ] = useState("");
   const [dan, setDan] = useState(false);
   const [moRong, setMoRong] = useState<Record<string, boolean>>({});
+  const [xuLy, setXuLy] = useState<{ kieu: "giay" | "cuu"; h: HvUngVien } | null>(null);
   const khoiTao = useRef("");
+  const choTich = useRef<Set<string>>(new Set());   // học viên vừa xử lý xong: tích sẵn nếu sau làm tươi đã vào Sẵn sàng/Thi lại
 
   // Quay lại cửa sổ (sau khi xử lý ở phần mềm cũ) → làm tươi danh sách; bỏ qua nếu vừa tải < 15 giây.
   const lanTai = useRef(Date.now());
@@ -132,6 +152,9 @@ export default function BuocChonHocVien({
         } else {
           setSel((s) => new Set([...s].filter((ma) => duoc.has(ma))));   // làm tươi: bỏ người không còn đưa được
         }
+        const vuaXong = [...choTich.current].filter((ma) => duoc.has(ma));
+        if (vuaXong.length) setSel((s) => new Set([...s, ...vuaXong]));
+        choTich.current.clear();
       })
       .catch((e: unknown) => {
         if (!huy) { setData(null); setLoi(e instanceof Error ? e.message : "Không tải được danh sách học viên"); }
@@ -152,6 +175,28 @@ export default function BuocChonHocVien({
   const doi = (ds: HvUngVien[], bat: boolean) =>
     setSel((s) => { const n = new Set(s); ds.forEach((h) => (bat ? n.add(h.ma_dk) : n.delete(h.ma_dk))); return n; });
   const doiMot = (h: HvUngVien, bat: boolean) => doi([h], bat);
+
+  function xongXuLy(maDk: string) {
+    choTich.current.add(maDk);
+    setXuLy(null);
+    setLamTuoi((n) => n + 1);
+  }
+
+  const nutHanhDong = (h: HvUngVien) => {
+    if (h.goi_y_xu_ly === "cap_nhat_tot_nghiep" && loai === "oto") {
+      return <button type="button" className={`${nutNho} shrink-0`} aria-label={`Cập nhật tốt nghiệp cho ${h.ten}`}
+        onClick={() => setXuLy({ kieu: "giay", h })}>Cập nhật tốt nghiệp</button>;
+    }
+    if (h.goi_y_xu_ly === "cuu_trang_thai") {
+      return <button type="button" className={`${nutNho} shrink-0`} aria-label={`Cứu trạng thái cho ${h.ten}`}
+        onClick={() => setXuLy({ kieu: "cuu", h })}>Cứu trạng thái</button>;
+    }
+    if (h.goi_y_xu_ly === "go_khoi_bc2" && h.ma_bc2) {
+      return <button type="button" className={`${nutNho} shrink-0`} aria-label={`Xem BC2 ${h.ma_bc2} chứa ${h.ten}`}
+        onClick={() => onXemBc2(h.ma_bc2)}>Xem BC2 {h.ma_bc2}</button>;
+    }
+    return null;
+  };
 
   function chotThang() {
     const v = Math.max(1, Math.min(120, Math.round(Number(thangNhap) || 0)));
@@ -265,15 +310,8 @@ export default function BuocChonHocVien({
             {canXem.length > 0 && (
               <Nhom bieuTuong="⚠️" tieuDe={`Cần xem — ${soVN(data.nhom.can_xem.length)} học viên`}
                 moTa="Chưa đủ điều kiện vào BC2. Xử lý xong rồi bấm Làm tươi.">
-                <VirtualList label="Cần xem" items={canXem} rowHeight={CAO_DONG + 14} maxHeight={260} keyOf={(h) => h.ma_dk}
-                  render={(h) => (
-                    <div className="h-full">
-                      <Dong h={h} />
-                      {h.goi_y_xu_ly && GOI_Y[h.goi_y_xu_ly] && (
-                        <div className="px-3 -mt-1 text-[11.5px] text-muted-foreground pl-[44px]">→ {GOI_Y[h.goi_y_xu_ly]}</div>
-                      )}
-                    </div>
-                  )} />
+                <VirtualList label="Cần xem" items={canXem} rowHeight={CAO_DONG + 30} maxHeight={280} keyOf={(h) => h.ma_dk}
+                  render={(h) => <DongCoHuong h={h} hanhDong={nutHanhDong(h)} />} />
               </Nhom>
             )}
 
@@ -288,16 +326,9 @@ export default function BuocChonHocVien({
               {khong.length === 0 ? (
                 <div className="text-center text-[13px] text-muted-foreground py-6">Không có.</div>
               ) : (
-                <VirtualList label="Không đưa được" items={khong} rowHeight={CAO_DONG + 14} maxHeight={280}
+                <VirtualList label="Không đưa được" items={khong} rowHeight={CAO_DONG + 30} maxHeight={300}
                   keyOf={(h) => h.ma_dk}
-                  render={(h) => (
-                    <div className="h-full">
-                      <Dong h={h} khoa />
-                      {h.goi_y_xu_ly && GOI_Y[h.goi_y_xu_ly] && (
-                        <div className="px-3 -mt-1 text-[11.5px] text-muted-foreground pl-[44px]">→ {GOI_Y[h.goi_y_xu_ly]}</div>
-                      )}
-                    </div>
-                  )} />
+                  render={(h) => <DongCoHuong h={h} khoa hanhDong={nutHanhDong(h)} />} />
               )}
             </details>
           </>
@@ -325,6 +356,12 @@ export default function BuocChonHocVien({
           Tiếp tục → Xác nhận ({soVN(tong)} học viên)
         </button>
       </div>
+      {xuLy?.kieu === "giay" && (
+        <CapNhatTotNghiepTaiCho maKh={maKh} hv={xuLy.h} onDong={() => setXuLy(null)} onXong={xongXuLy} />
+      )}
+      {xuLy?.kieu === "cuu" && (
+        <CuuTrangThaiTaiCho hv={xuLy.h} loai={loai} onDong={() => setXuLy(null)} onXong={xongXuLy} />
+      )}
       {dan && (
         <DanDanhSachBuoc2
           maKh={maKh}

@@ -32,6 +32,15 @@ interface Mo {
   /** Task 116: body các lần POST /bc2/khop-danh-sach và kiểu trả lời. */
   khop?: { ma_kh: string; ma_bc2: string; dong: string[] }[];
   khopKieu?: "ok" | "loi_400";
+  /** Task 117: xử lý ngoại lệ tại chỗ. `xuLyXong` = mã đăng ký đã được xử lý → mock ung-vien chuyển sang Sẵn sàng. */
+  xemThem?: boolean;
+  xuLyXong?: string[];
+  tnKieu?: "ok" | "chan";
+  tnXemLai?: Record<string, unknown>[];
+  tnGhi?: Record<string, unknown>[];
+  tnPoll?: number;
+  cuuChuyen?: Record<string, unknown>[];
+  hvRieng?: Record<string, unknown>;
 }
 
 const KHOA = [
@@ -79,6 +88,11 @@ const XEM = [hvUv("X-0001", "Võ Thị Kim Chi", "can_xem", { tt: "03", so_giay:
   ma_ly_do: "chua_tot_nghiep", ly_do: "Chưa tốt nghiệp — cần có giấy chứng nhận trước", goi_y_xu_ly: "cap_nhat_tot_nghiep" })];
 const KHONG = [hvUv("N-0001", "Bùi Văn Sơn", "khong_duoc", { tt: "11", ma_bc2: "03/BCII/2026", ten_trang_thai: "Đã vào BC2, chờ kết quả",
   ma_ly_do: "dang_o_bc2_mo", ly_do: "Đang ở BC2 số 03/BCII/2026 — gỡ khỏi BC2 đó trước", goi_y_xu_ly: "go_khoi_bc2" })];
+
+const CUU = hvUv("C-0001", "Đặng Thị Mai", "can_xem", { tt: "17", so_giay: "N1|50", ten_trang_thai: "Thi sát hạch chưa đạt",
+  ma_ly_do: "sai_trang_thai", ly_do: "Trạng thái 17 chưa đưa vào BC2 được — cần đưa về đúng trạng thái", goi_y_xu_ly: "cuu_trang_thai" });
+const DA_XONG = (h: Record<string, unknown>) => ({ ...h, nhom: "san_sang", tt: "09", ten_trang_thai: "Đã tốt nghiệp, chờ lập BC2",
+  so_giay: "N1|7329", ma_ly_do: "", ly_do: "", goi_y_xu_ly: null, tich_san: true });
 
 async function giaBackend(page: Page, mo: Mo) {
   await page.addInitScript(() => localStorage.setItem("tool_session_token", "tok-test"));
@@ -167,6 +181,14 @@ async function giaBackend(page: Page, mo: Mo) {
       return r.fulfill({ json: { lo_id: loId, trang_thai: "xong", xu_ly: 1, tong: 1, xong: true, ma_bc2: "81/2026",
         da_go: ["T-0001"], bo_qua: [], loi: null } });
     }
+    if ((mo.tnGhi?.length ?? 0) > 0 && loId === mo.tnGhi![0].lo_id) {
+      mo.tnPoll = (mo.tnPoll ?? 0) + 1;
+      if (mo.tnPoll === 1) return r.fulfill({ json: { lo_id: loId, trang_thai: "dang_chay", xu_ly: 0, tong: 1, xong: false } });
+      const dsMa = (mo.tnGhi![0].dong as { ma_dk: string }[]).map((d) => d.ma_dk);
+      return r.fulfill({ json: { lo_id: loId, trang_thai: "xong", xu_ly: dsMa.length, tong: dsMa.length, xong: true,
+        da_ghi: dsMa.map((ma_dk) => ({ ma_dk, ket_qua: "se_len_09" })), da_ghi_truoc: [], bo_qua: [], chua_ghi: [], canh_bao: [],
+        dem: { se_len_09: dsMa.length }, loi: null } });
+    }
     if (mo.polls === 1 || mo.lapKieu === "dang_chay_mai") {
       return r.fulfill({ json: { lo_id: loId, trang_thai: "dang_chay", xu_ly: 0, tong: mo.lapTong ?? 1, xong: false } });
     }
@@ -194,6 +216,46 @@ async function giaBackend(page: Page, mo: Mo) {
         : [],
       loi: null } });
   });
+  await page.route("**/local/tnbc2/tot-nghiep/hv?**", (r) => r.fulfill({ json: {
+    ma_kh: "K001", ten_kh: "Khóa B2-01/2026", ngay_bg: "2026-09-20", ghi_duoc: true, khoa_cu: false,
+    so_chung: { so_so_tn: "01/XNĐT/2026", ngay_vao_so: "2026-09-25", so_quyet_dinh: "100/TTTĐ", ngay_ra_qd: "2026-09-24", ngay_in: "", so_hv: 12 },
+    so_giay_ke_tiep: "N1|7329", tong: 0, dem: { chua_tot_nghiep: 0, da_tot_nghiep: 0, da_vao_bc2: 0 }, hoc_vien: mo.hvRieng ? [mo.hvRieng] : [] } }));
+  await page.route("**/local/tnbc2/tot-nghiep/xem-lai", async (r) => {
+    const b = r.request().postDataJSON();
+    (mo.tnXemLai ??= []).push(b);
+    const chan = mo.tnKieu === "chan";
+    const dong = b.dong.map((d: { ma_dk: string }) => ({ ma_dk: d.ma_dk, ket_qua: chan ? "chan" : "se_len_09", ghi_duoc: !chan,
+      chan: chan ? [{ muc: "chan", ma: "so_giay_da_dung", noi_dung: "Số giấy N1|7329 đã được dùng cho học viên khác" }] : [],
+      canh_bao: [], thong_tin: [] }));
+    await r.fulfill({ json: { ma_kh: b.ma_kh, ghi_duoc_khoa: true, tong: dong.length, dem: { [chan ? "chan" : "se_len_09"]: dong.length },
+      khoang_so: null, co_chan: chan, canh_bao: [], dong } });
+  });
+  await page.route("**/local/tnbc2/tot-nghiep/ghi", async (r) => {
+    const b = r.request().postDataJSON();
+    (mo.tnGhi ??= []).push(b);
+    mo.tnPoll = 0;
+    (mo.xuLyXong ??= []).push(...b.dong.map((d: { ma_dk: string }) => d.ma_dk));
+    await r.fulfill({ json: { lo_id: b.lo_id, trang_thai: "dang_chay", xu_ly: 0, tong: b.dong.length, xong: false } });
+  });
+  await page.route("**/local/tnbc2/cuu/tim?**", async (r) => {
+    const q = new URL(r.request().url()).searchParams.get("q") ?? "";
+    const h = [CUU, ...XEM].find((x) => x.cmt === q || x.ma_dk === q) ?? CUU;
+    await r.fulfill({ json: { q, loai: "oto", tong_khop: 1, hien_toi_da: 50, hoc_vien: [{
+      ma_dk: h.ma_dk, so_ho_so: "", ten: h.ten, ngay_sinh: h.ngay_sinh, cmt: h.cmt, hang: "B2", tt: h.tt, ma_bc2: "", ma_kh: "K001",
+      so_giay: "", ten_kh: "Khóa B2-01/2026", bg: "2026-09-20", loai: "oto", khac_loai: false, ten_trang_thai: h.ten_trang_thai,
+      khong_hien: { ma: "sai_trang_thai", noi_dung: h.ly_do },
+      dich: [
+        { ma: "14", ten: "Chưa đạt BC2 — cần lập lại", cho_phep: true, ly_do: "" },
+        { ma: "17", ten: "Thi sát hạch chưa đạt", cho_phep: false, ly_do: "Đang ở trạng thái này" },
+      ], cuu_duoc: true }] } });
+  });
+  await page.route("**/local/tnbc2/cuu/chuyen", async (r) => {
+    const b = r.request().postDataJSON();
+    (mo.cuuChuyen ??= []).push(b);
+    (mo.xuLyXong ??= []).push(b.ma_dk);
+    await r.fulfill({ json: { lo_id: b.lo_id, ma_dk: b.ma_dk, tt_cu: "17", tt_moi: b.dich, ten_trang_thai_cu: "Thi sát hạch chưa đạt",
+      ten_trang_thai_moi: "Chưa đạt BC2 — cần lập lại", ly_do: b.ly_do, canh_bao: [], trang_thai: "xong" } });
+  });
   await page.route("**/local/tnbc2/bc2/khop-danh-sach", async (r) => {
     const b = r.request().postDataJSON();
     (mo.khop ??= []).push(b);
@@ -218,12 +280,15 @@ async function giaBackend(page: Page, mo: Mo) {
     mo.ungVien.push(u.search);
     const thang = Number(u.searchParams.get("thi_lai_thang") || 12);
     const thi = THI.map((h) => ({ ...h, trong_nguong: (h.tuoi_thang ?? 99) <= thang }));
-    const san = SAN.slice(0, mo.soSan ?? SAN.length);
+    const xong = new Set(mo.xuLyXong ?? []);
+    const xemTatCa = mo.xemThem ? [...XEM, CUU] : XEM;
+    const xem = xemTatCa.filter((h) => !xong.has(h.ma_dk));
+    const san = [...xemTatCa.filter((h) => xong.has(h.ma_dk)).map(DA_XONG), ...SAN.slice(0, mo.soSan ?? SAN.length)];
     await r.fulfill({ json: { ma_kh: u.searchParams.get("ma_kh"), ten_kh: "Khóa B2-01/2026", loai: "oto", hom_nay: "2026-10-11",
       thi_lai_thang: thang, ma_bc2: u.searchParams.get("ma_bc2") || "", bc1: { ma_bci: "BCI-1", so_bao_cao: "112/BCI/2026", so_hoc_sinh: 150 },
-      bc2_cua_khoa: [], nhom: { san_sang: san, thi_lai: thi, can_xem: XEM, khong_duoc: KHONG },
+      bc2_cua_khoa: [], nhom: { san_sang: san, thi_lai: thi, can_xem: xem, khong_duoc: KHONG },
       dem: { san_sang: san.length, thi_lai: thi.length, thi_lai_trong_nguong: thi.filter((h) => h.trong_nguong).length,
-        can_xem: XEM.length, khong_duoc: KHONG.length } } });
+        can_xem: xem.length, khong_duoc: KHONG.length } } });
   });
   await page.route("**/local/tnbc2/bc2/goi-y-so?**", async (r) => {
     const maKh = new URL(r.request().url()).searchParams.get("ma_kh");
@@ -395,9 +460,9 @@ test.describe("TNB-04 — Lập BC2 bước ②: chọn học viên", () => {
     await page.getByLabel("Tìm học viên").fill("");             // xóa ô tìm: lọc áp cho cả bốn nhóm
     await expect(page.getByTestId("dai-tom-tat")).toContainText("+ 1");
     await expect(page.getByText("Chưa tốt nghiệp — cần có giấy chứng nhận trước")).toBeVisible();
-    await expect(page.getByText(/Cập nhật tốt nghiệp ở tab/)).toBeVisible();
+    await expect(page.getByText(/cập nhật tốt nghiệp ngay tại đây/)).toBeVisible();
     await page.getByText(/Không đưa được — 1 học viên/).click();
-    await expect(page.getByText(/gỡ khỏi BC2 đó trước/).first()).toBeVisible();
+    await expect(page.getByText(/xem BC2 đó để gỡ trước/).first()).toBeVisible();
     await page.getByRole("button", { name: /Tiếp tục/ }).click();
     await expect(page.getByText("Xác nhận lập BC2 và thêm học viên")).toBeVisible();
     await expect(page.getByText("học viên sẽ thêm")).toBeVisible();
@@ -1017,5 +1082,110 @@ test.describe("TNB-04 — bước ②: Dán danh sách CMT / mã đăng ký (Che
     await expect(hop.getByText(/Có dòng dài quá 40 ký tự/)).toBeVisible();
     await hop.getByRole("button", { name: "Đóng" }).click();
     await expect(page.getByTestId("dai-tom-tat")).toContainText("= 0");
+  });
+});
+
+test.describe("TNB-04 — bước ②: xử lý ngoại lệ tại chỗ (task 117, Checkpoint 28)", () => {
+  async function vaoBuoc2(page: Page, mo: Mo) {
+    await giaBackend(page, mo);
+    await page.goto("/tot-nghiep-bc2/bao-cao-2");
+    await page.getByRole("button", { name: "Lập BC2 mới" }).click();
+    await page.getByTestId("khoa-K001").getByRole("button", { name: "Chọn khóa này →" }).click();
+    await expect(page.getByTestId("dai-tom-tat")).toBeVisible();
+    await page.getByRole("button", { name: "Bỏ chọn tất cả" }).click();
+    await expect(page.getByTestId("dai-tom-tat")).toContainText("= 0");
+  }
+
+  test("Cập nhật tốt nghiệp tại chỗ: mini-form → xem lại & ghi → học viên sang Sẵn sàng và được tích sẵn", async ({ page }) => {
+    const mo: Mo = { cacLanGoi: [], ungVien: [] };
+    await vaoBuoc2(page, mo);
+    if (process.env.CHUP_ANH) {
+      for (const w of [800, 1280, 1440]) {
+        await page.setViewportSize({ width: w, height: 900 });
+        await page.getByRole("list", { name: "Cần xem" }).screenshot({ path: `${process.env.CHUP_ANH}/${w}-can-xem-nut.png` });
+      }
+    }
+    await page.getByRole("button", { name: "Cập nhật tốt nghiệp cho Võ Thị Kim Chi" }).click();
+    const form = page.getByRole("dialog", { name: "Cập nhật tốt nghiệp tại chỗ" });
+    await expect(form.getByLabel("Số giấy chứng nhận")).toHaveValue("N1|7329");   // gợi ý số kế tiếp của khóa
+    await expect(form.getByLabel("Số sổ")).toHaveValue("01/XNĐT/2026");           // bộ sổ điền sẵn từ cùng khóa
+    if (process.env.CHUP_ANH) {
+      for (const w of [800, 1280, 1440]) {
+        await page.setViewportSize({ width: w, height: 900 });
+        await page.screenshot({ path: `${process.env.CHUP_ANH}/${w}-mini-form-so-giay.png` });
+      }
+    }
+    await form.getByRole("button", { name: "Xem lại & ghi" }).click();
+    const hop = page.getByRole("dialog", { name: "Xem lại và ghi tốt nghiệp" });
+    await expect(hop.getByText("học viên sẽ chuyển sang")).toBeVisible();
+    await hop.getByLabel(/Tôi xác nhận đây là CSDL thật/).check();
+    await hop.getByRole("button", { name: "Ghi 1 học viên" }).click();
+    await expect(hop.getByText(/Đã ghi 1 học viên/)).toBeVisible();
+    await hop.getByRole("button", { name: "Đóng" }).click();
+    await expect(page.getByTestId("dai-tom-tat")).toContainText("= 1");           // tích sẵn học viên vừa xử lý
+    await expect(page.getByLabel("Chọn Võ Thị Kim Chi")).toBeChecked();
+    await expect(page.getByRole("button", { name: "Cập nhật tốt nghiệp cho Võ Thị Kim Chi" })).toHaveCount(0);
+    expect(mo.tnGhi).toHaveLength(1);
+    expect(mo.tnGhi![0]).toMatchObject({ ma_kh: "K001", dong: [{ ma_dk: "X-0001", so_giay: "N1|7329" }], xac_nhan_csdl_that: true });
+    expect((mo.tnGhi![0].chung as Record<string, string>).so_so_tn).toBe("01/XNĐT/2026");
+  });
+
+  test("số giấy bị chặn khi xem lại: không ghi, đóng lại thì học viên vẫn ở Cần xem, không tích", async ({ page }) => {
+    const mo: Mo = { cacLanGoi: [], ungVien: [], tnKieu: "chan" };
+    await vaoBuoc2(page, mo);
+    await page.getByRole("button", { name: "Cập nhật tốt nghiệp cho Võ Thị Kim Chi" }).click();
+    const form = page.getByRole("dialog", { name: "Cập nhật tốt nghiệp tại chỗ" });
+    await form.getByRole("button", { name: "Xem lại & ghi" }).click();
+    const hop = page.getByRole("dialog", { name: "Xem lại và ghi tốt nghiệp" });
+    await expect(hop.getByText(/Số giấy N1\|7329 đã được dùng cho học viên khác/)).toBeVisible();
+    await expect(hop.getByRole("button", { name: /^Ghi / })).toBeDisabled();
+    await hop.getByRole("button", { name: "Quay lại" }).click();
+    await form.getByRole("button", { name: "Hủy" }).click();
+    await expect(page.getByRole("button", { name: "Cập nhật tốt nghiệp cho Võ Thị Kim Chi" })).toBeVisible();
+    await expect(page.getByTestId("dai-tom-tat")).toContainText("= 0");
+    expect(mo.tnGhi ?? []).toHaveLength(0);
+  });
+
+  test("Cứu trạng thái tại chỗ: chọn đích + lý do → chuyển → học viên sang Sẵn sàng và được tích sẵn", async ({ page }) => {
+    const mo: Mo = { cacLanGoi: [], ungVien: [], xemThem: true };
+    await vaoBuoc2(page, mo);
+    await page.getByRole("button", { name: "Cứu trạng thái cho Đặng Thị Mai" }).click();
+    const panel = page.getByRole("complementary", { name: "Chuyển trạng thái học viên" });
+    await expect(panel.getByText("Đặng Thị Mai")).toBeVisible();
+    await panel.getByLabel(/Lý do/).fill("Nhập nhầm trạng thái vắng, học viên đã thi");
+    await panel.getByRole("button", { name: "Xem lại" }).click();
+    const xl = page.getByRole("dialog", { name: "Xác nhận chuyển trạng thái" });
+    await xl.getByLabel(/Tôi xác nhận đây là CSDL thật/).check();
+    await xl.getByRole("button", { name: "Chuyển" }).click();
+    await expect(panel.getByText(/Đã chuyển/)).toBeVisible();
+    await panel.getByRole("button", { name: "Xong" }).click();
+    await expect(page.getByTestId("dai-tom-tat")).toContainText("= 1");
+    await expect(page.getByLabel("Chọn Đặng Thị Mai")).toBeChecked();
+    expect(mo.cuuChuyen).toHaveLength(1);
+    expect(mo.cuuChuyen![0]).toMatchObject({ ma_dk: "C-0001", dich: "14", xac_nhan_csdl_that: true });
+  });
+
+  test("học viên đang ở BC2 khác: nút Xem BC2 nhảy sang xem, Quay lại trở về đúng bước ②", async ({ page }) => {
+    const mo: Mo = { cacLanGoi: [], ungVien: [], chiTiet: { ...CHI_TIET } };
+    await vaoBuoc2(page, mo);
+    await page.getByText(/Không đưa được — 1 học viên/).click();
+    await page.getByRole("button", { name: "Xem BC2 03/BCII/2026 chứa Bùi Văn Sơn" }).click();
+    await expect(page.getByRole("button", { name: "← Danh sách BC2" })).toBeVisible();
+    await page.getByRole("button", { name: "← Danh sách BC2" }).click();
+    await expect(page.getByTestId("dai-tom-tat")).toBeVisible();                   // về lại bước ② của khóa cũ
+    await expect(page.getByText("Khóa B2-01/2026").first()).toBeVisible();
+  });
+
+  test("học viên đã có sổ/quyết định riêng: điền sẵn đúng giá trị riêng (không lấy bộ phổ biến của khóa) và báo rõ", async ({ page }) => {
+    const mo: Mo = { cacLanGoi: [], ungVien: [], hvRieng: { ma_dk: "X-0001", so_so_tn: "09/XNĐT/2026", ngay_vao_so: "2026-08-01",
+      so_quyet_dinh: "55/TTTĐ", ngay_ra_qd: "2026-07-30", ngay_in: "" } };
+    await vaoBuoc2(page, mo);
+    await page.getByRole("button", { name: "Cập nhật tốt nghiệp cho Võ Thị Kim Chi" }).click();
+    const form = page.getByRole("dialog", { name: "Cập nhật tốt nghiệp tại chỗ" });
+    await expect(form.getByLabel("Số sổ")).toHaveValue("09/XNĐT/2026");
+    await expect(form.getByLabel("Số quyết định")).toHaveValue("55/TTTĐ");
+    await expect(form.getByText(/đã có sổ\/quyết định riêng/)).toBeVisible();
+    await form.getByRole("button", { name: "Xem lại & ghi" }).click();
+    expect((mo.tnXemLai![0].chung as Record<string, string>).so_so_tn).toBe("09/XNĐT/2026");
   });
 });

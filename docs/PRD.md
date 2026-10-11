@@ -1152,7 +1152,7 @@
 
 #### [TNB-04] Thêm học viên vào BC2
 
-**Trạng thái:** 🔄 In Progress — 6/6 task đã có code (96 luật, 97 đọc ứng viên, 99 lập + thêm + hoàn tác, 109 UI bước ①, 110 UI bước ② mới xong lõi, 112 UI bước ③ lập + thêm + làm tiếp + hoàn tác; kiểm bằng kết nối giả + Playwright giả backend, chưa ghi thật). Lối vào "+ Thêm học viên" từ dòng BC2 đang mở và lọc đang mở/đã đóng đã có (task 113). "Dán danh sách CMT/mã đăng ký" đã có (task 116). **Còn:** xử lý ngoại lệ tại chỗ (mini-form số giấy / Cứu trạng thái) — task 117; nghiệm thu ghi thật ở máy CSDT (Checkpoint 27)
+**Trạng thái:** 🔄 In Progress — 6/6 task đã có code (96 luật, 97 đọc ứng viên, 99 lập + thêm + hoàn tác, 109 UI bước ①, 110 UI bước ② mới xong lõi, 112 UI bước ③ lập + thêm + làm tiếp + hoàn tác; kiểm bằng kết nối giả + Playwright giả backend, chưa ghi thật). Lối vào "+ Thêm học viên" từ dòng BC2 đang mở và lọc đang mở/đã đóng đã có (task 113). "Dán danh sách CMT/mã đăng ký" đã có (task 116); xử lý ngoại lệ tại chỗ (mini-form số giấy / Cứu trạng thái / Xem BC2) đã có (task 117). **Còn:** soát nghiệp vụ toàn story + nghiệm thu ghi thật ở máy CSDT (Checkpoint 27)
 **Story:** Là nhân viên cơ sở, tôi muốn đưa đúng các học viên đủ điều kiện (kể cả HV rớt/vắng từ khóa cũ) vào một BC2 đang mở.
 
 **Done khi:**
@@ -1171,7 +1171,7 @@
 
 **Edge cases:** HV khóa chưa bế giảng → không hiện, kèm giải thích (xem TNB-06) · BC2 do PM cũ tạo → thấy ngay như BC2 tạo ở tool · BC2 đã đóng giữa lúc đang thêm → báo, không ghi · HV đang ở BC2 đang mở khác → không đưa được, kèm "gỡ khỏi BC2 số … trước" (không tự chuyển giữa hai BC2) · mô tô: HV tồn là luồng chính (BC2 `861/26-TTTĐ` có 74 HV tồn của 11 khóa).
 
-> **Ghi nhận khi dựng UI (v4.8, CHANGES #64 — tài liệu đi theo code, không đổi yêu cầu):** bước ③ **chốt số/ngày/ghi chú ở lần gửi đầu** — "Làm tiếp" luôn gửi đúng nội dung đã xác nhận dù số gợi ý nhảy (lỗi do kiểm thử Checkpoint 26 phát hiện); bước ② **tự làm tươi khi quay lại cửa sổ** (bỏ qua nếu vừa tải < 15 giây); thanh tiến độ từ 200 HV; lối vào "+ Thêm học viên" ở dòng BC2 đang mở trong danh sách BC2; Enter ở ô tìm rỗng không tích gì. **Hạn chế đã biết:** F5 giữa lúc ghi mất mã lô nên không "Làm tiếp" được (lô vẫn chạy nền; xem kết quả ở danh sách BC2 / Nhật ký). **Chưa quyết (ghi nhận, không phải yêu cầu):** nhóm riêng "đã ở BC2 này" cho HV vừa thêm vào chính BC2 đang xem (hiện xếp "Không đưa được"); sau Làm tươi HV vừa xử lý xong có được tích sẵn hay không (hiện không).
+> **Ghi nhận khi dựng UI (v4.8, CHANGES #64 — tài liệu đi theo code, không đổi yêu cầu):** bước ③ **chốt số/ngày/ghi chú ở lần gửi đầu** — "Làm tiếp" luôn gửi đúng nội dung đã xác nhận dù số gợi ý nhảy (lỗi do kiểm thử Checkpoint 26 phát hiện); bước ② **tự làm tươi khi quay lại cửa sổ** (bỏ qua nếu vừa tải < 15 giây); thanh tiến độ từ 200 HV; lối vào "+ Thêm học viên" ở dòng BC2 đang mở trong danh sách BC2; Enter ở ô tìm rỗng không tích gì. **Hạn chế đã biết:** F5 giữa lúc ghi mất mã lô nên không "Làm tiếp" được (lô vẫn chạy nền; xem kết quả ở danh sách BC2 / Nhật ký). **Chưa quyết (ghi nhận, không phải yêu cầu):** nhóm riêng "đã ở BC2 này" cho HV vừa thêm vào chính BC2 đang xem (hiện xếp "Không đưa được"); (đã chốt khi làm task 117: HV vừa xử lý xong tại chỗ — Cập nhật tốt nghiệp / Cứu trạng thái — **được tích sẵn** nếu sau làm tươi đã vào Sẵn sàng hoặc Thi lại, vì đó là hành động tường minh của người dùng; HV khác không đổi).
 
 > Nguồn: user 11/10/2026 · `usp_NguoiLX_HoSo_ThemHS_BC2` + `usp_NguoiLX_Update_ThemHSBC2` · TDD §11F.4
 
