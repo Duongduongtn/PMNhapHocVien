@@ -1205,7 +1205,7 @@
 
 #### [TNB-07] Danh sách BC2 và nhật ký thao tác
 
-**Trạng thái:** ⏳ Todo
+**Trạng thái:** 🔄 In Progress — 1/2 task xong (105 backend danh sách BC1/BC2 + nhật ký, chỉ đọc); còn 115 UI
 **Story:** Là nhân viên cơ sở, tôi muốn xem các BC2 hiện có và biết ai đã làm gì trong tool.
 
 **Done khi:**

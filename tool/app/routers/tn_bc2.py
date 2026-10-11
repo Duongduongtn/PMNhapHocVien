@@ -383,6 +383,37 @@ def cuu_hoan_tac(body: CuuHoanTacIn, phien: Phien = Depends(require_session)):
         raise _loi(e)
 
 
+# ── Danh sách BC1/BC2 + nhật ký (TNB-07, task 105): chỉ đọc; `GET /bc2` đứng riêng, đặt TRƯỚC `/bc2/{ma:path}`. ──
+@router.get("/bc1")
+def ds_bc1(loai: str = Query("", pattern="^(|moto|oto)$")):
+    """BC1 theo loại kèm khóa và số BC2 đã có."""
+    try:
+        with sqlserver_cursor() as cur:
+            return svc.ds_bc1(cur, loai)
+    except Exception as e:  # noqa: BLE001
+        raise _loi(e)
+
+
+@router.get("/bc2")
+def ds_bc2(loai: str = Query("", pattern="^(|moto|oto)$"), dong: str = Query("", pattern="^(|mo|dong)$")):
+    """Danh sách BC2 (tab Ô tô/Mô tô; `dong` = `mo` đang mở · `dong` đã đóng): Tổng ghi, HV thực tế, lệch."""
+    try:
+        with sqlserver_cursor() as cur:
+            return svc.ds_bc2(cur, loai, dong)
+    except Exception as e:  # noqa: BLE001
+        raise _loi(e)
+
+
+@router.get("/nhat-ky")
+def nhat_ky(loai: str = Query("", max_length=30), ma_bc2: str = Query("", max_length=13),
+            gioi_han: int = Query(100, ge=1, le=500)):
+    """Nhật ký thao tác phía tool: ai · lúc nào · loại · số HV · kết quả đã/chưa ghi (không PII)."""
+    try:
+        return svc.ds_nhat_ky(loai, ma_bc2, gioi_han)
+    except Exception as e:  # noqa: BLE001
+        raise _loi(e)
+
+
 # ── Xem / gỡ / xóa BC2 (task 100). Đặt CUỐI file: `{ma:path}` sẽ nuốt `/goi-y-so`, `/ung-vien`, `/lo/…`
 #    nếu khai báo trước các route cố định. Số BC2 có dấu `/` nên dùng `:path`. ──
 @router.get("/bc2/{ma:path}")

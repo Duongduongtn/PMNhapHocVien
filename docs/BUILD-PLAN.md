@@ -401,7 +401,7 @@
 | 102 | **Backend ghi tốt nghiệp:** `POST /tot-nghiep/ghi` — `Update_CNTN` từng HV; lưu sổ trước (số giấy rỗng, ở lại `03`); kiểm trùng loại trừ chính HV; chặn khóa chưa bế giảng; HV ≥ 11 ghi số giấy lần đầu = cảnh báo; khóa `tnbc2_ghi`; lỗi giữa chừng trả đã/chưa ghi | `TNB-01 (2/3)` | M | 101,98 | 1+2 | [x] |
 | 103 | **Backend hủy/sửa tốt nghiệp:** `POST /tot-nghiep/huy` — HV `09` → `03`, giữ sổ/quyết định (đọc lại rồi truyền), chặn `≥11`/có `MaBC2`, không dùng `Update_HSTotNghiep` | `TNB-02 (1/2)` | S | 102 | 1+2 | [x] |
 | 104 | **Backend cứu trạng thái:** `GET /cuu/tim?q=` (kèm `giai_thich_khong_hien`), `POST /cuu/chuyen` (nguồn `01/02/03/04/10/12/13` → đích `09/14/17/18`, `ly_do` bắt buộc ≤ 255) + hoàn tác (miễn luật đích, chỉ khi HV chưa đổi tiếp) | `TNB-06 (1/2)` | S | 98 | 1+2 | [x] |
-| 105 | **Backend danh sách:** `GET /bc1?loai=`, `GET /bc2?loai=&dong=` ("HV thực tế" bằng **một** `GROUP BY MaBC2`), `GET /nhat-ky` | `TNB-07 (1/2)` | S | 98 | 1+2 | [ ] |
+| 105 | **Backend danh sách:** `GET /bc1?loai=`, `GET /bc2?loai=&dong=` ("HV thực tế" bằng **một** `GROUP BY MaBC2`), `GET /nhat-ky` | `TNB-07 (1/2)` | S | 98 | 1+2 | [x] |
 | 106 | **Khung phân hệ #5:** thêm `tnbc2` vào `lib/modules.ts` (route `/tot-nghiep-bc2/*`, `db: "GPLX_CSDT"`, băng cam "CSDL: DB Nạp") + token màu + route `App.tsx` + 4 tab (Tốt nghiệp · Báo cáo 2 · Cứu trạng thái · Nhật ký) + `api.ts` + chú giải trạng thái nghiệp vụ (nút "?", tên + mã nhỏ) bám mock | — | M | 97 | 1 | [ ] |
 | 107 | **UI Tốt nghiệp:** chọn khóa (mặc định khóa 13 tháng + công tắc "Hiện khóa cũ"), danh sách HV, điền chung sổ/quyết định/ngày, số giấy liên tiếp + dán từ Excel + kiểm trùng ngay khi gõ, "Xem lại" → "Ghi N HV", kết quả đã/chưa ghi | `TNB-01 (3/3)` | M | 102,106 | 1 | → PRD |
 | 108 | **UI sửa/hủy tốt nghiệp:** sửa nhầm số giấy, "Hủy tốt nghiệp" (hộp nêu tên + số giấy sẽ xóa), khóa nút kèm lý do khi HV đã vào BC2 | `TNB-02 (2/2)` | S | 103,107 | 1 | → PRD |
@@ -421,9 +421,9 @@
 - [x] `ung-vien` đo trên DB Nạp thật ≤ 2 giây; `pytest` toàn bộ pass; không đụng module cũ.
 
 ### ✅ Checkpoint 24 — sau task 101-105 (backend tốt nghiệp + cứu + danh sách)
-- [ ] **Mức 2:** `Update_CNTN` đúng 8 tham số + lưu sổ trước giữ `03` · hủy giữ sổ/quyết định, chặn `≥11` · kiểm trùng loại trừ chính HV, trong lô và trong DB · khóa chưa bế giảng bị chặn · `xem-lai` không ghi.
-- [ ] `GET /bc2` "HV thực tế" bằng một truy vấn (không N+1); khớp số liệu DB (455 BC2).
-- [ ] `pytest` toàn bộ pass.
+- [x] **Mức 2:** `Update_CNTN` đúng 8 tham số + lưu sổ trước giữ `03` · hủy giữ sổ/quyết định, chặn `≥11` · kiểm trùng loại trừ chính HV, trong lô và trong DB · khóa chưa bế giảng bị chặn · `xem-lai` không ghi.
+- [x] `GET /bc2` "HV thực tế" bằng một truy vấn (không N+1); khớp số liệu DB (455 BC2).
+- [x] `pytest` toàn bộ pass.
 
 ### ✅ Checkpoint 25 — sau task 106-108 (tab Tốt nghiệp)
 - [ ] Phân hệ #5 hiện ở sidebar, băng cam "CSDL: DB Nạp", 4 tab, chú giải trạng thái dùng tên nghiệp vụ (không lộ `TT_XuLy`/SP ở giao diện chính).

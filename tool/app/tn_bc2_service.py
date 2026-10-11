@@ -1740,3 +1740,100 @@ def cuu_hoan_tac(conn, *, lo_id_cuu: str, lo_id: str, nguoi: str) -> dict:
             kq["canh_bao"].append({"ma": "khong_ghi_duoc_nhat_ky",
                                    "noi_dung": "Đã hoàn tác nhưng chưa lưu được nhật ký"})
         return {**kq, "lo_id": lo_id, "da_ton_tai": False}
+
+
+# ══════════════ Danh sách BC1 / BC2 + nhật ký (TNB-07, task 105) — CHỈ ĐỌC ══════════════
+_Q_BC1_DS = ("SELECT c.MaBCI, c.SoBaoCao, c.NgayBaoCao, c.MaKH, c.SoHocSinh, k.TenKH, k.HangGPLX, k.NgayBG, "
+             "ISNULL(x.so_bc2, 0) AS so_bc2 "
+             "FROM BaoCaoI c LEFT JOIN KhoaHoc k ON k.MaKH = c.MaKH "
+             "LEFT JOIN (SELECT MaBCI, COUNT(*) AS so_bc2 FROM BaoCaoII GROUP BY MaBCI) x ON x.MaBCI = c.MaBCI "
+             "ORDER BY c.NgayBaoCao DESC")
+# "HV thực tế" bằng ĐÚNG MỘT GROUP BY cho cả danh sách (NguoiLX_HoSo không có index theo MaBC2: đếm từng BC2 = 455 lần quét)
+_Q_BC2_DS = ("SELECT b.MaBCII, b.SoBaoCao, b.NgayBaoCao, b.MaBCI, c.SoBaoCao AS SoBC1, c.MaKH, k.TenKH, k.HangGPLX, "
+             "b.TongSoThiSinh, b.TrangThai, b.NguoiTao, b.NgayTao, ISNULL(x.n, 0) AS hv_thuc_te "
+             "FROM BaoCaoII b LEFT JOIN BaoCaoI c ON c.MaBCI = b.MaBCI LEFT JOIN KhoaHoc k ON k.MaKH = c.MaKH "
+             "LEFT JOIN (SELECT MaBC2, COUNT(*) AS n FROM NguoiLX_HoSo WHERE ISNULL(MaBC2,'') <> '' GROUP BY MaBC2) x "
+             "ON x.MaBC2 = b.MaBCII ORDER BY b.NgayBaoCao DESC, b.NgayTao DESC")
+
+TEN_LOAI_NHAT_KY = {
+    "tao_bc2": "Tạo BC2", "them_hv": "Thêm học viên vào BC2", "go_hv": "Gỡ học viên khỏi BC2",
+    "xoa_bc2": "Xóa BC2", "tot_nghiep": "Cập nhật tốt nghiệp", "huy_tot_nghiep": "Hủy tốt nghiệp",
+    "cuu_trang_thai": "Cứu trạng thái",
+}
+TEN_TRANG_THAI_NHAT_KY = {
+    "xong": "Xong", "loi_giua_chung": "Lỗi giữa chừng (một phần đã ghi)", "that_bai": "Thất bại — chưa ghi",
+    "bat_dau": "Đang chạy hoặc bị gián đoạn", "da_ton_tai": "Đã có từ trước",
+}
+
+
+def ds_bc1(cur, loai: str = "") -> dict:
+    """BC1 (nguồn của BC2) kèm khóa và số BC2 đã có; `loai` suy từ hạng của khóa ('' = tất cả)."""
+    cur.execute(_Q_BC1_DS)
+    out = []
+    for r in cur.fetchall():
+        loai_k = rules.loai_hang(r.get("HangGPLX"))
+        if loai and loai_k != loai:
+            continue
+        out.append({"ma_bci": _s(r["MaBCI"]), "so_bao_cao": _s(r.get("SoBaoCao")), "ngay_bao_cao": _ngay_iso(r.get("NgayBaoCao")),
+                    "ma_kh": _s(r.get("MaKH")), "ten_kh": _s(r.get("TenKH")), "ngay_bg": _ngay_iso(r.get("NgayBG")),
+                    "so_hoc_sinh": r.get("SoHocSinh"), "so_bc2": int(r.get("so_bc2") or 0), "loai": loai_k})
+    return {"loai": loai, "tong": len(out), "bc1": out}
+
+
+def ds_bc2(cur, loai: str = "", dong: str = "") -> dict:
+    """Danh sách BC2 (tab Ô tô / Mô tô, lọc đang mở / đã đóng): Tổng ghi, HV thực tế, lệch, người tạo.
+    Hoàn toàn chỉ đọc — một truy vấn duy nhất."""
+    cur.execute(_Q_BC2_DS)
+    out, mo, da_dong, lech = [], 0, 0, 0
+    for r in cur.fetchall():
+        loai_k = rules.loai_hang(r.get("HangGPLX")) if _s(r.get("HangGPLX")) else ""   # thiếu BC1/khóa: không đoán loại
+        if loai and loai_k != loai:
+            continue
+        la_dong = r.get("TrangThai") in (1, True, "1")
+        if (dong == "mo" and la_dong) or (dong == "dong" and not la_dong):
+            continue
+        tong_ghi = r.get("TongSoThiSinh")
+        thuc_te = int(r.get("hv_thuc_te") or 0)
+        la_lech = tong_ghi is not None and int(tong_ghi or 0) != thuc_te
+        mo += 0 if la_dong else 1
+        da_dong += 1 if la_dong else 0
+        lech += 1 if la_lech else 0
+        out.append({"ma_bc2": _s(r["MaBCII"]), "so_bao_cao": _s(r.get("SoBaoCao")), "ngay_bao_cao": _ngay_iso(r.get("NgayBaoCao")),
+                    "ma_bci": _s(r.get("MaBCI")), "so_bc1": _s(r.get("SoBC1")), "ma_kh": _s(r.get("MaKH")),
+                    "ten_kh": _s(r.get("TenKH")), "loai": loai_k, "tong_ghi": tong_ghi, "hv_thuc_te": thuc_te,
+                    "lech": la_lech, "dong": la_dong, "dang_mo": not la_dong, "nguoi_tao": _s(r.get("NguoiTao")),
+                    "ngay_tao": _ngay_iso(r.get("NgayTao"))})
+    return {"loai": loai, "dong": dong, "tong": len(out), "dang_mo": mo, "da_dong": da_dong, "lech": lech, "bc2": out}
+
+
+def _tom_tat_ket_qua(kq: dict) -> dict:
+    """Đếm đã/chưa ghi từ kết quả đã lưu của một thao tác (chỉ số lượng, không mã HV/tên/CMT)."""
+    def n(k: str) -> int:
+        v = kq.get(k)
+        return len(v) if isinstance(v, (list, tuple)) else int(v or 0)
+    da = n("da_them") + n("da_go") + n("da_ghi") + n("da_huy")
+    chua, bo = n("chua_ghi"), n("bo_qua")
+    phan = []
+    for nhan, k in (("Đã thêm", "da_them"), ("Đã gỡ", "da_go"), ("Đã ghi", "da_ghi"), ("Đã hủy", "da_huy"),
+                    ("Bỏ qua", "bo_qua"), ("Chưa ghi", "chua_ghi")):
+        if n(k):
+            phan.append(f"{nhan} {n(k)}")
+    if kq.get("tt_cu") and kq.get("tt_moi"):
+        phan.append(f"{kq['tt_cu']} → {kq['tt_moi']}")
+    return {"da_ghi": da, "chua_ghi": chua, "bo_qua": bo, "tom_tat": " · ".join(phan)}
+
+
+def ds_nhat_ky(loai: str = "", ma_bc2: str = "", gioi_han: int = 100, db_path=None) -> dict:
+    """Nhật ký thao tác phía tool (sqlite): ai · lúc nào · loại · số HV · kết quả đã/chưa ghi."""
+    gioi_han = max(1, min(int(gioi_han), 500))
+    dang_db = rules.dang_luu_ma_bcii(ma_bc2) if ma_bc2 else None
+    out = []
+    for r in nhat_ky.gan_day(loai or None, dang_db, gioi_han, db_path):
+        kq = r.get("ket_qua") or {}
+        out.append({"id": r["id"], "luc": r["luc"], "nguoi": r.get("nguoi") or "", "loai": r["loai"],
+                    "ten_loai": TEN_LOAI_NHAT_KY.get(r["loai"], r["loai"]), "ma_kh": r.get("ma_kh") or "",
+                    "ma_bc2": r.get("ma_bc2") or "", "lo_id": r.get("lo_id") or "", "so_hv": r.get("so_hv") or 0,
+                    "tom_tat_thao_tac": r.get("tom_tat") or "", "trang_thai": r["trang_thai"],
+                    "ten_trang_thai": TEN_TRANG_THAI_NHAT_KY.get(r["trang_thai"], r["trang_thai"]),
+                    "ket_qua": _tom_tat_ket_qua(kq)})
+    return {"loai": loai, "ma_bc2": ma_bc2, "tong": len(out), "nhat_ky": out}
