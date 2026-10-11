@@ -1,5 +1,6 @@
 import { useState } from "react";
 import ChuGiaiTrangThai from "../../components/ChuGiaiTrangThai";
+import BuocChonHocVien from "../../components/tnbc2/BuocChonHocVien";
 import { BuocChonKhoa, DauWizard, type TrangThaiWizard } from "../../components/tnbc2/WizardBc2";
 import type { LoaiHang } from "../../lib/tnbc2Api";
 
@@ -23,14 +24,24 @@ export default function BaoCao2() {
             loai={wiz.loai}
             onChon={(k, maBc2) => {
               setThongBao(maBc2 ? `Khóa này đã có BC2 ${maBc2} — chuyển sang thêm học viên vào BC2 đó.` : "");
-              setWiz({ ...wiz, buoc: 2, maKh: k.ma_kh, tenKh: k.ten_kh, maBc2 });
+              setWiz({ ...wiz, buoc: 2, maKh: k.ma_kh, tenKh: k.ten_kh, maBc2, dsMaDk: [] });
             }}
           />
         )}
-        {wiz.buoc !== 1 && (
+        {wiz.buoc === 2 && (
+          <BuocChonHocVien
+            maKh={wiz.maKh}
+            tenKh={wiz.tenKh}
+            maBc2={wiz.maBc2}
+            loai={wiz.loai}
+            onDoiKhoa={() => { setThongBao(""); setWiz({ ...wiz, buoc: 1 }); }}
+            onTiep={(dsMaDk) => setWiz({ ...wiz, buoc: 3, dsMaDk })}
+          />
+        )}
+        {wiz.buoc === 3 && (
           <div className="p-4">
             <div className="rounded-xl border border-dashed border-tn-border bg-tn-soft/50 px-4 py-8 text-center text-[13px] text-muted-foreground">
-              Bước {wiz.buoc} đang được dựng.
+              Bước 3 đang được dựng — đã chọn {wiz.dsMaDk.length} học viên.
             </div>
           </div>
         )}
@@ -59,7 +70,7 @@ export default function BaoCao2() {
           ))}
         </div>
         <button type="button"
-          onClick={() => setWiz({ loai, buoc: 1, maKh: "", tenKh: "", maBc2: "" })}
+          onClick={() => setWiz({ loai, buoc: 1, maKh: "", tenKh: "", maBc2: "", dsMaDk: [] })}
           className="h-9 px-4 rounded-lg bg-tn text-white text-[13px] font-semibold">
           Lập BC2 mới
         </button>

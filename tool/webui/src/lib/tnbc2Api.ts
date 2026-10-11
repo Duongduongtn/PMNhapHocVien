@@ -227,8 +227,46 @@ export const khoaSanSang = (loai: LoaiHang, cu = false, thiLaiThang?: number, la
   goi<KhoaSanSangResp>("GET", "/bc2/khoa-san-sang", {
     query: { loai, cu, thi_lai_thang: thiLaiThang, lam_tuoi: lamTuoi },
   });
+export type NhomUngVien = "san_sang" | "thi_lai" | "can_xem" | "khong_duoc";
+export interface HvUngVien {
+  ma_dk: string;
+  so_ho_so: string;
+  ten: string;
+  ngay_sinh: string; // dd/mm/yyyy
+  cmt: string;
+  so_giay: string;
+  hang: string;
+  ma_kh: string;
+  ten_kh: string;
+  tt: string;
+  ten_trang_thai: string;
+  ma_bc2: string;
+  bg: string; // ISO ngày bế giảng khóa gốc
+  nhom: NhomUngVien;
+  ma_ly_do: string;
+  ly_do: string;
+  /** `cap_nhat_tot_nghiep` | `cuu_trang_thai` | `go_khoi_bc2` | null */
+  goi_y_xu_ly: string | null;
+  tich_san: boolean;
+  tuoi_thang: number | null;
+  trong_nguong: boolean;
+}
+export interface UngVienResp {
+  ma_kh: string;
+  ten_kh: string;
+  loai: LoaiHang;
+  hom_nay: string;
+  thi_lai_thang: number;
+  ma_bc2: string;
+  bc1: { ma_bci: string; so_bao_cao: string; so_hoc_sinh: number } | null;
+  bc2_cua_khoa: Bc2CuaKhoa[];
+  nhom: Record<NhomUngVien, HvUngVien[]>;
+  dem: { san_sang: number; thi_lai: number; thi_lai_trong_nguong: number; can_xem: number; khong_duoc: number };
+}
 export const ungVienBc2 = (maKh: string, maBc2 = "", thiLaiThang?: number, lamTuoi = false) =>
-  goi("GET", "/bc2/ung-vien", { query: { ma_kh: maKh, ma_bc2: maBc2, thi_lai_thang: thiLaiThang, lam_tuoi: lamTuoi } });
+  goi<UngVienResp>("GET", "/bc2/ung-vien", {
+    query: { ma_kh: maKh, ma_bc2: maBc2, thi_lai_thang: thiLaiThang, lam_tuoi: lamTuoi },
+  });
 export const khopDanhSach = (maKh: string, maBc2: string, dong: string[]) =>
   goi("POST", "/bc2/khop-danh-sach", { body: { ma_kh: maKh, ma_bc2: maBc2, dong } });
 export const goiYSoBc2 = (maKh: string) => goi("GET", "/bc2/goi-y-so", { query: { ma_kh: maKh } });

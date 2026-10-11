@@ -12,6 +12,8 @@ export interface TrangThaiWizard {
   tenKh: string;
   /** Rỗng = chưa có BC2 (sẽ lập ở bước ③); khác rỗng = thêm học viên vào BC2 đang mở này. */
   maBc2: string;
+  /** Học viên đã chọn ở bước ② (mã đăng ký) — bước ③ ghi đúng danh sách này. */
+  dsMaDk: string[];
 }
 
 const ngayVN = (iso: string) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "");
