@@ -204,6 +204,8 @@ def kiem_ghep_xe(m: dict, ctx: dict) -> list[dict]:
                     f"Xe này đã ghép cho GV {(gvm.get(o['ma']) or {}).get('ten') or o['ma']} trong khóa (1 xe chỉ 1 GV).")
             if o["ma"] == ma and o["xe"] != bs:
                 add(CANH_BAO, "gv_hai_xe", "Giáo viên này đã có xe khác trong cùng khoảng thời gian (1 GV chỉ 1 xe).")
+    for v in out:
+        v["xe"] = bs          # để phân biệt hai ghép cùng GV (ref chỉ có mã GV)
     return out
 
 

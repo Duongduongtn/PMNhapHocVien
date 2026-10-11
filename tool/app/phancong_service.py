@@ -251,15 +251,33 @@ def ha_muc_du_lieu_cu(vande: list[dict], hien: dict, gv_khoa: list[str], pc: lis
     cu_pc = {str(p["id"]) for p in pc for o in hien["pc"]
              if str(o["id"]) == str(p.get("id")) and o["ma"] == p["ma"]
              and sorted(o["mon"]) == sorted(p["mon"]) and o["tu"] == p["tu"] and o["den"] == p["den"]}
-    cu_gh = {m["ma"] for m in ghep for o in hien["ghep"]
+    cu_gh = {(m["ma"], m["xe"]) for m in ghep for o in hien["ghep"]
              if o["ma"] == m["ma"] and o["xe"] == m["xe"] and o["tu"] == m["tu"] and o["den"] == m["den"]}
     cu_gv = {g for g in gv_khoa if any(o["ma"] == g for o in hien["gv_khoa"])}
     cu_xe = {x for x in xe_khoa if any(o["bs"] == x for o in hien["xe_khoa"])}
+    # Lỗi do bản nháp TỰ làm lệch (gỡ GV/xe/thực hành mà vẫn giữ dòng phụ thuộc) KHÔNG phải dữ liệu cũ:
+    # chỉ hạ mức khi chỗ phụ thuộc đã hỏng sẵn trong CDB trước khi sửa.
+    gv_cdb = {o["ma"] for o in hien["gv_khoa"]}
+    xe_cdb = {o["bs"] for o in hien["xe_khoa"]}
+    th_cdb = {o["ma"] for o in hien["pc"] if rules.MON_THUC_HANH in o["mon"]}
+    hong_san = {"gv_ngoai_khoa": lambda ma, xe: ma not in gv_cdb,
+                "gv_khong_day_th": lambda ma, xe: ma not in th_cdb,
+                "xe_ngoai_khoa": lambda ma, xe: xe not in xe_cdb}
+    ma_gh_cu = {ma for ma, _ in cu_gh}
     out = []
     for v in vande:
         ref = v.get("ref") or ""
-        cu = ((ref.startswith("pc-") and ref[3:] in cu_pc) or (ref.startswith("gh-") and ref[3:] in cu_gh)
-              or (ref.startswith("gv-") and ref[3:] in cu_gv) or (ref.startswith("xe-") and ref[3:] in cu_xe))
+        if ref.startswith("gh-"):
+            ma = ref[3:]
+            cu = (ma, v["xe"]) in cu_gh if v.get("xe") is not None else ma in ma_gh_cu
+        else:
+            cu = ((ref.startswith("pc-") and ref[3:] in cu_pc)
+                  or (ref.startswith("gv-") and ref[3:] in cu_gv) or (ref.startswith("xe-") and ref[3:] in cu_xe))
+        if cu and v["ma"] in hong_san:
+            ma_gv = ref[3:] if ref.startswith("gh-") else (ref[3:] if ref.startswith("gv-") else "")
+            if ref.startswith("pc-"):  # gv_ngoai_khoa trên phân công: lấy mã GV từ bản nháp
+                ma_gv = next((p["ma"] for p in pc if str(p.get("id")) == ref[3:]), "")
+            cu = hong_san[v["ma"]](ma_gv, v.get("xe"))
         if cu and v["muc"] == rules.CHAN:
             v = {**v, "muc": rules.CANH_BAO, "du_lieu_cu": True,
                  "noi_dung": "Dữ liệu cũ trong CDB: " + v["noi_dung"]}

@@ -927,7 +927,7 @@
 
 #### [PCG-01] Chọn giáo viên của khóa (bước ①, kèm thao tác hàng loạt)
 
-**Trạng thái:** ✅ Done — bản nháp ở trình duyệt; ghi CDB thuộc PCG-04. Kiểm với API giả (chưa chạy trên CDB thật)
+**Trạng thái:** ✅ Done — bản nháp ở trình duyệt; ghi CDB thuộc PCG-04. Kiểm với API giả (chưa chạy trên CDB thật); /kiemthu 11/10/2026 đã sửa lỗi gỡ GV mà giữ dòng phụ thuộc
 **Story:** Là nhân viên cơ sở, tôi muốn chọn nhanh các giáo viên sẽ dạy một khóa từ danh mục giáo viên đang hoạt động, để khóa có danh sách GV đúng mà không nhập từng dòng.
 
 **Done khi:**
@@ -980,7 +980,7 @@
 
 #### [PCG-04] Kiểm tra 3 mức, bản nháp và ghi vào CDB
 
-**Trạng thái:** ✅ Done — luật + bản nháp + ghi + hiển thị lỗi xong 10/10/2026; kiểm với API giả/test cursor giả, ghi thật chưa nghiệm thu ở máy CSDT
+**Trạng thái:** ✅ Done — luật + bản nháp + ghi + hiển thị lỗi; kiểm với API giả/test cursor giả, ghi thật chưa nghiệm thu ở máy CSDT; /kiemthu 11/10/2026 đã sửa luật "dữ liệu cũ" hạ nhầm dòng mới/dòng mồ côi (`tool/tests/test_phancong_kiemthu.py`)
 **Story:** Là nhân viên cơ sở, tôi muốn mọi thay đổi nằm trong bản nháp, được kiểm chặt theo luật và chỉ ghi vào CDB sau khi tôi xem lại, để không ghi nhầm vào dữ liệu thật.
 
 **Done khi:**
