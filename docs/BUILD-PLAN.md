@@ -433,7 +433,7 @@
 - [ ] Playwright 1280/1440: không tràn, đủ dấu, chữ cảnh báo ≥ 13px.
 
 ### ✅ Checkpoint 26 — sau task 109-113 (lập BC2 + xem/gỡ đầu–cuối)
-- [ ] Luồng ô tô và mô tô: ① chọn khóa → ② 4 nhóm (Sẵn sàng tích sẵn, Thi lại không tích, dán 10 CMT khớp đúng) → ③ "Lập BC2 và thêm N" → thấy tiến độ → mở BC2 thấy đúng N HV.
+- [x] Luồng ô tô và mô tô: ① chọn khóa → ② 4 nhóm (Sẵn sàng tích sẵn, Thi lại không tích, dán 10 CMT khớp đúng) → ③ "Lập BC2 và thêm N" → thấy tiến độ → mở BC2 thấy đúng N HV.
 - [x] HV ở BC2 mở khác nằm "Không đưa được" kèm "gỡ khỏi BC2 … trước"; khóa chưa có BC1 mờ không chọn được.
 - [x] "Hoàn tác lần vừa rồi" gỡ đúng lô; gỡ HV có kết quả bị khóa; xóa BC2 còn HV bị chặn.
 - [x] Bấm "Lập" hai lần/F5 giữa chừng không tạo đôi.
@@ -451,9 +451,9 @@
 - [ ] So giờ máy DB ↔ VPS (Asia/Saigon) trước go-live — MaDK/tên file `.jp2` theo timestamp máy DB.
 
 ### ✅ Checkpoint 28 — sau task 116-117 (đóng nốt TNB-04 ở bước ②)
-- [ ] **Mức 3:** dán 10 CMT → đúng 10 người được tích; dòng không khớp được báo; HV ở nhóm khác nêu lý do (mục còn lại của Checkpoint 26).
-- [ ] **Mức 3:** HV "Cần xem" thiếu số giấy → mini-form → ghi → tự sang Sẵn sàng; "Cứu trạng thái" tại chỗ rồi quay lại thấy HV đã đổi nhóm.
-- [ ] `pnpm build` + vitest + E2E sạch; ảnh 1280/1440 vào `anh-kiem/`.
+- [x] **Mức 3:** dán 10 CMT → đúng 10 người được tích; dòng không khớp được báo; HV ở nhóm khác nêu lý do (mục còn lại của Checkpoint 26).
+- [x] **Mức 3:** HV "Cần xem" thiếu số giấy → mini-form → ghi → tự sang Sẵn sàng; "Cứu trạng thái" tại chỗ rồi quay lại thấy HV đã đổi nhóm.
+- [x] `pnpm build` + vitest + E2E sạch; ảnh 1280/1440 vào `anh-kiem/`.
 - [ ] TNB-04 đủ "Done khi" (trừ ghi thật → Checkpoint 27 nghiệm thu máy CSDT).
 
 ## Nhóm chạy song song được

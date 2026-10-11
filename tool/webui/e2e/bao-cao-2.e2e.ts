@@ -249,6 +249,12 @@ async function giaBackend(page: Page, mo: Mo) {
         { ma: "17", ten: "Thi sát hạch chưa đạt", cho_phep: false, ly_do: "Đang ở trạng thái này" },
       ], cuu_duoc: true }] } });
   });
+  await page.route("**/local/tnbc2/cuu/hoan-tac", async (r) => {
+    const b = r.request().postDataJSON();
+    mo.xuLyXong = (mo.xuLyXong ?? []).filter((m) => m !== "C-0001");
+    await r.fulfill({ json: { lo_id: b.lo_id, ma_dk: "C-0001", tt_cu: "14", tt_moi: "17", lo_goc: b.lo_id_cuu,
+      ten_trang_thai_moi: "Thi sát hạch chưa đạt", canh_bao: [], trang_thai: "xong" } });
+  });
   await page.route("**/local/tnbc2/cuu/chuyen", async (r) => {
     const b = r.request().postDataJSON();
     (mo.cuuChuyen ??= []).push(b);
@@ -1187,5 +1193,46 @@ test.describe("TNB-04 — bước ②: xử lý ngoại lệ tại chỗ (task 1
     await expect(form.getByText(/đã có sổ\/quyết định riêng/)).toBeVisible();
     await form.getByRole("button", { name: "Xem lại & ghi" }).click();
     expect((mo.tnXemLai![0].chung as Record<string, string>).so_so_tn).toBe("09/XNĐT/2026");
+  });
+
+  test("Checkpoint 28: dán đúng 10 CMT → đúng 10 người được tích", async ({ page }) => {
+    const mo: Mo = { cacLanGoi: [], ungVien: [] };
+    await vaoBuoc2(page, mo);
+    await page.getByRole("button", { name: "Dán danh sách CMT" }).click();
+    const hop = page.getByRole("dialog", { name: "Dán danh sách CMT" });
+    await hop.getByRole("textbox").fill(Array.from({ length: 10 }, (_, i) => `S-${String(i).padStart(4, "0")}`).join(String.fromCharCode(10)));
+    await hop.getByRole("button", { name: "Đối chiếu" }).click();
+    await expect(hop.getByText(/Khớp 10 \/ 10 dòng/)).toBeVisible();
+    await hop.getByRole("button", { name: "Tích 10 học viên" }).click();
+    await expect(page.getByTestId("dai-tom-tat")).toContainText("= 10");
+  });
+
+  test("mô tô: học viên chưa tốt nghiệp không có nút Cập nhật tốt nghiệp (chỉ ô tô có giấy chứng nhận)", async ({ page }) => {
+    await giaBackend(page, { cacLanGoi: [], ungVien: [] });
+    await page.goto("/tot-nghiep-bc2/bao-cao-2");
+    await page.getByRole("button", { name: "Mô tô" }).click();
+    await page.getByRole("button", { name: "Lập BC2 mới" }).click();
+    await page.getByTestId("khoa-M001").getByRole("button", { name: "Chọn khóa này →" }).click();
+    await expect(page.getByTestId("dai-tom-tat")).toBeVisible();
+    await expect(page.getByText("Võ Thị Kim Chi")).toBeVisible();
+    await expect(page.getByRole("button", { name: /Cập nhật tốt nghiệp cho/ })).toHaveCount(0);
+  });
+
+  test("Cứu trạng thái rồi Hoàn tác: học viên trở về Cần xem, không tích", async ({ page }) => {
+    const mo: Mo = { cacLanGoi: [], ungVien: [], xemThem: true };
+    await vaoBuoc2(page, mo);
+    await page.getByRole("button", { name: "Cứu trạng thái cho Đặng Thị Mai" }).click();
+    const panel = page.getByRole("complementary", { name: "Chuyển trạng thái học viên" });
+    await panel.getByLabel(/Lý do/).fill("Nhập nhầm trạng thái");
+    await panel.getByRole("button", { name: "Xem lại" }).click();
+    const xl = page.getByRole("dialog", { name: "Xác nhận chuyển trạng thái" });
+    await xl.getByLabel(/Tôi xác nhận đây là CSDL thật/).check();
+    await xl.getByRole("button", { name: "Chuyển" }).click();
+    await expect(panel.getByText(/Đã chuyển/)).toBeVisible();
+    await panel.getByRole("button", { name: "Hoàn tác" }).click();
+    await expect(panel.getByText(/Đã hoàn tác về/)).toBeVisible();
+    await panel.getByRole("button", { name: "Xong" }).click();
+    await expect(page.getByRole("button", { name: "Cứu trạng thái cho Đặng Thị Mai" })).toBeVisible();
+    await expect(page.getByTestId("dai-tom-tat")).toContainText("= 0");
   });
 });
