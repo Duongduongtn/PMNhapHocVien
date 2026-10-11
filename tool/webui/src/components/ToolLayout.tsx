@@ -4,7 +4,7 @@ import { Icon } from "./Icon";
 import CauHinhDrawer from "./CauHinhDrawer";
 import { ConfigDrawerContext } from "../lib/configDrawer";
 import { NHAN_VAI_TRO, useToolAuth } from "../auth/ToolAuth";
-import { MODULES, moduleForPath, type ModuleDef } from "../lib/modules";
+import { MODULES, NHOM_INFO, moduleForPath, type ModuleDef } from "../lib/modules";
 import { getDbDichInfo, coToken, type DbDichInfo } from "../lib/api";
 
 const SB_KEY = "tool.sidebar.collapsed";
@@ -17,6 +17,7 @@ const ACCENT = {
     subActive: "bg-accent text-primary",
     ring: "focus-visible:ring-ring",
     chip: "text-primary bg-accent",
+    hover: "hover:bg-accent/70 hover:text-primary",
   },
   sync: {
     activeItem: "bg-sync-soft text-sync",
@@ -24,6 +25,7 @@ const ACCENT = {
     subActive: "bg-sync-soft text-sync",
     ring: "focus-visible:ring-sync",
     chip: "text-sync bg-sync-soft",
+    hover: "hover:bg-sync-soft/70 hover:text-sync",
   },
   kq: {
     activeItem: "bg-kq-soft text-kq",
@@ -31,6 +33,7 @@ const ACCENT = {
     subActive: "bg-kq-soft text-kq",
     ring: "focus-visible:ring-kq",
     chip: "text-kq bg-kq-soft",
+    hover: "hover:bg-kq-soft/70 hover:text-kq",
   },
   pc: {
     activeItem: "bg-pc-soft text-pc",
@@ -38,6 +41,7 @@ const ACCENT = {
     subActive: "bg-pc-soft text-pc",
     ring: "focus-visible:ring-pc",
     chip: "text-pc bg-pc-soft",
+    hover: "hover:bg-pc-soft/70 hover:text-pc",
   },
   tn: {
     activeItem: "bg-tn-soft text-tn",
@@ -45,6 +49,7 @@ const ACCENT = {
     subActive: "bg-tn-soft text-tn",
     ring: "focus-visible:ring-tn",
     chip: "text-tn bg-tn-soft",
+    hover: "hover:bg-tn-soft/70 hover:text-tn",
   },
 } as const;
 
@@ -149,42 +154,71 @@ export default function ToolLayout() {
             </button>
           </div>
 
-          <nav className="px-2 space-y-1">
-            {MODULES.map((m) => {
+          <nav className="px-2" aria-label="Phân hệ">
+            {MODULES.map((m, idx) => {
               const on = m.id === active.id && !m.comingSoon;
               const a = ACCENT[m.accent];
+              const nhom = NHOM_INFO[m.nhom];
+              const dauNhom = idx === 0 || MODULES[idx - 1].nhom !== m.nhom;
+              const tieuDe = dauNhom && (
+                <div key={m.id + "-nhom"} className={idx === 0 ? "pt-1" : "mt-2 pt-2 border-t border-border"}>
+                  {collapsed ? (
+                    <div className="flex justify-center py-1" title={`${nhom.ten} · ${nhom.db}`}>
+                      <span className={"w-1.5 h-1.5 rounded-full " + nhom.dot} />
+                    </div>
+                  ) : (
+                    <div className="px-1.5 pb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      <span className={"w-1.5 h-1.5 rounded-full shrink-0 " + nhom.dot} />
+                      <span>{nhom.ten}</span>
+                      <span className="font-mono normal-case tracking-normal text-[10px] text-muted-foreground/70 truncate">· {nhom.db}</span>
+                    </div>
+                  )}
+                </div>
+              );
               if (m.comingSoon) {
                 return (
-                  <div
-                    key={m.id}
-                    title="Phân hệ dự kiến"
-                    className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] text-muted-foreground/60 cursor-default select-none"
-                  >
-                    <Icon name={m.icon} className="w-[18px] h-[18px] shrink-0" />
-                    {!collapsed && (
-                      <span className="inline-flex items-center gap-1.5 truncate">
-                        {m.label}
-                        <span className="text-[9px] border border-border rounded px-1 py-px">dự kiến</span>
-                      </span>
-                    )}
+                  <div key={m.id}>
+                    {tieuDe}
+                    <div
+                      title="Phân hệ dự kiến"
+                      className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] text-muted-foreground/60 cursor-default select-none"
+                    >
+                      <Icon name={m.icon} className="w-[18px] h-[18px] shrink-0" />
+                      {!collapsed && (
+                        <span className="inline-flex items-center gap-1.5 truncate">
+                          {m.label}
+                          <span className="text-[9px] border border-border rounded px-1 py-px">dự kiến</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
                 );
               }
               return (
-                <NavLink
-                  key={m.id}
-                  to={m.subnav[0]?.to ?? m.base}
-                  title={collapsed ? m.label : undefined}
-                  className={
-                    "relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 " +
-                    a.ring + " " +
-                    (on ? a.activeItem + " font-semibold" : "text-foreground hover:bg-muted")
-                  }
-                >
-                  {on && <span className={"absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full " + a.rail} />}
-                  <Icon name={m.icon} className="w-[18px] h-[18px] shrink-0" />
-                  {!collapsed && <span className="truncate">{m.label}</span>}
-                </NavLink>
+                <div key={m.id}>
+                  {tieuDe}
+                  <NavLink
+                    to={m.subnav[0]?.to ?? m.base}
+                    title={collapsed ? `${m.label} · ${nhom.ten}` : undefined}
+                    aria-current={on ? "page" : undefined}
+                    className={
+                      "group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 my-0.5 text-[13px] font-medium " +
+                      "transition-all duration-150 motion-reduce:transition-none active:scale-[0.98] motion-reduce:active:scale-100 " +
+                      "focus-visible:outline-none focus-visible:ring-2 " +
+                      a.ring + " " +
+                      (on ? a.activeItem + " font-semibold" : "text-foreground " + a.hover + " hover:translate-x-0.5 motion-reduce:hover:translate-x-0")
+                    }
+                  >
+                    <span
+                      className={
+                        "absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full origin-center transition-transform duration-200 motion-reduce:transition-none " +
+                        a.rail + " " + (on ? "scale-y-100" : "scale-y-0")
+                      }
+                    />
+                    <Icon name={m.icon} className="w-[18px] h-[18px] shrink-0" />
+                    {!collapsed && <span className="truncate">{m.label}</span>}
+                  </NavLink>
+                </div>
               );
             })}
           </nav>
@@ -192,7 +226,7 @@ export default function ToolLayout() {
           {!collapsed && (
             <div className="mt-auto px-3 py-3 border-t border-border">
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Mỗi phân hệ ghi vào một CSDL riêng. Bấm để chuyển — thanh công cụ &amp; màu đổi theo phân hệ.
+                Màu = CSDL đang ghi: <b className="text-primary">xanh</b> DB Nạp · <b className="text-sync">ngọc</b> cầu nối · <b className="text-kq">tím</b> DB đích.
               </p>
             </div>
           )}
@@ -219,6 +253,9 @@ export default function ToolLayout() {
           {active.db && (
             <div className="shrink-0 flex items-center gap-2 px-4 py-1.5 text-[12.5px] bg-warning/10 border-b border-warning/30 text-warning">
               <Icon name="warn" className="w-4 h-4 shrink-0" />
+              <span className={"shrink-0 rounded-full border px-2 py-px text-[10.5px] font-semibold " + NHOM_INFO[active.nhom].chip}>
+                {NHOM_INFO[active.nhom].ten} · {NHOM_INFO[active.nhom].db}
+              </span>
               <span>
                 {active.dbNap ? (
                   <>

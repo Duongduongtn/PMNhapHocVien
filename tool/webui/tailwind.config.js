@@ -28,13 +28,15 @@ export default {
         kq: "hsl(262 60% 46%)",
         "kq-soft": "hsl(262 70% 96%)",
         "kq-border": "hsl(262 50% 84%)",
-        pc: "hsl(330 62% 44%)",
-        "pc-soft": "hsl(330 70% 97%)",
-        "pc-border": "hsl(330 50% 84%)",
-        // Tông nhấn phân hệ Tốt nghiệp & Báo cáo 2 (cam đất) — theo ui-mock/tnbc2.html
-        tn: "hsl(24 82% 40%)",
-        "tn-soft": "hsl(24 90% 96%)",
-        "tn-border": "hsl(24 70% 74%)",
+        // Màu theo CSDL (một DB = một màu): DB đích = tím (kq) → Phân công GV–xe dùng cùng tím với Kết quả đào tạo;
+        // DB Nạp = xanh thương hiệu (primary) → Tốt nghiệp & BC2 dùng cùng xanh với Nạp hồ sơ. Giữ tên lớp pc-*/tn-*
+        // để không phải sửa từng màn; cam/vàng chỉ còn là màu cảnh báo (warning).
+        pc: "hsl(262 60% 46%)",
+        "pc-soft": "hsl(262 70% 96%)",
+        "pc-border": "hsl(262 50% 84%)",
+        tn: "hsl(222 76% 40%)",
+        "tn-soft": "hsl(222 80% 96%)",
+        "tn-border": "hsl(222 60% 80%)",
       },
       borderRadius: { lg: "0.625rem", md: "0.5rem", sm: "0.375rem" },
     },

@@ -30,7 +30,7 @@ export function PhanTrang({
           onClick={() => onTrang(Math.max(0, trang - 1))}
           disabled={trang === 0}
           aria-label="Trang trước"
-          className="h-8 w-8 rounded-md border border-border inline-flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-40"
+          className="h-8 w-8 rounded-lg border border-border inline-flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-40"
         >
           <Icon name="chevronLeft" className="w-4 h-4" />
         </button>
@@ -40,7 +40,7 @@ export function PhanTrang({
           onClick={() => onTrang(trang + 1 < soTrang ? trang + 1 : trang)}
           disabled={trang + 1 >= soTrang}
           aria-label="Trang sau"
-          className="h-8 w-8 rounded-md border border-border inline-flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-40"
+          className="h-8 w-8 rounded-lg border border-border inline-flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-40"
         >
           <Icon name="chevronRight" className="w-4 h-4" />
         </button>
@@ -49,7 +49,7 @@ export function PhanTrang({
             value={coTrang}
             onChange={(e) => onCoTrang(Number(e.target.value))}
             aria-label="Số dòng mỗi trang"
-            className="h-8 rounded-md border border-border bg-card px-2 text-[13px]"
+            className="h-8 rounded-lg border border-border bg-card px-2 text-[13px]"
           >
             {cacCo.map((n) => (
               <option key={n} value={n}>{n}/trang</option>

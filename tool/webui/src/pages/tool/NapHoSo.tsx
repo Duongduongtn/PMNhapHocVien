@@ -245,8 +245,8 @@ function NapLoDialog({ khoa, items, boQua, onDong, onXong, onXemDB, onBoSungAnh 
         <div className="p-3 border-t border-border flex gap-2 flex-wrap">
           {pha === "xacnhan" && (
             <>
-              <button onClick={onDong} className="h-10 px-4 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Hủy</button>
-              <button onClick={() => void chay(items)} className="ml-auto h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center gap-2 hover:brightness-110 transition-all shadow-sm">
+              <button onClick={onDong} className="btn btn-secondary">Hủy</button>
+              <button onClick={() => void chay(items)} className="ml-auto btn btn-primary">
                 <Icon name="plus" className="w-4 h-4" /> Bắt đầu nạp
               </button>
             </>
@@ -257,21 +257,21 @@ function NapLoDialog({ khoa, items, boQua, onDong, onXong, onXemDB, onBoSungAnh 
           {pha === "xong" && (
             <>
               {loiList.length > 0 && (
-                <button onClick={() => void napLaiLoi()} className="h-10 px-4 rounded-lg border border-primary/40 text-primary text-sm font-semibold inline-flex items-center gap-2 hover:bg-primary/5 transition-colors">
+                <button onClick={() => void napLaiLoi()} className="btn btn-secondary">
                   <Icon name="refresh" className="w-4 h-4" /> Nạp lại {loiList.length} lỗi
                 </button>
               )}
               {okMaDks.length > 0 && (
-                <button onClick={() => onXemDB(okMaDks)} className="h-10 px-4 rounded-lg border border-border text-sm font-semibold inline-flex items-center gap-2 hover:bg-muted transition-colors">
+                <button onClick={() => onXemDB(okMaDks)} className="btn btn-secondary">
                   <Icon name="db" className="w-4 h-4" /> Xem trong DB
                 </button>
               )}
               {okThieuAnh > 0 && (
-                <button onClick={onBoSungAnh} className="h-10 px-4 rounded-lg border border-warning/50 text-warning text-sm font-semibold inline-flex items-center gap-2 hover:bg-warning/5 transition-colors">
+                <button onClick={onBoSungAnh} className="btn border border-warning/50 bg-white text-warning hover:bg-warning/10">
                   <Icon name="imageOff" className="w-4 h-4" /> Bổ sung ảnh ({okThieuAnh})
                 </button>
               )}
-              <button onClick={onDong} className="ml-auto h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition-all shadow-sm">Xong</button>
+              <button onClick={onDong} className="ml-auto btn btn-primary">Xong</button>
             </>
           )}
         </div>
@@ -736,7 +736,7 @@ export default function NapHoSo() {
             <button
               onClick={keoVeFromVps}
               disabled={keoBusy}
-              className="ml-auto inline-flex items-center gap-2 h-9 px-4 rounded-lg border border-primary text-primary font-semibold text-sm hover:bg-primary/5 transition-colors disabled:opacity-60"
+              className="ml-auto btn btn-secondary"
             >
               <Icon name="refresh" className={"w-4 h-4" + (keoBusy ? " animate-spin" : "")} /> {keoBusy ? "Đang kéo…" : "Kéo về từ VPS"}
             </button>
@@ -755,20 +755,23 @@ export default function NapHoSo() {
 
           {/* UI-4: ghim theo chiều cao màn hình (thay 720px cứng) — cột detail + ảnh đứng yên,
               chỉ cột list cuộn, giống app Windows. */}
-          <div className="flex flex-col h-[calc(100svh-8.5rem)] min-h-0">
+          <div className="p-4">
+          <div className="list-frame flex flex-col h-[calc(100svh-11.5rem)] min-h-0">
             {/* Hàng chờ nạp lô — 1 danh sách, chuẩn bị qua ngăn trượt phải (task 46 redesign) */}
             <div className="flex-1 min-w-0 flex flex-col min-h-0">
               <div className="px-4 py-3 flex items-center gap-3 flex-wrap border-b border-border shrink-0">
-                <div className="inline-flex rounded-lg bg-muted p-1">
+                <div className="inline-flex rounded-lg border border-border overflow-hidden" role="group" aria-label="Lọc hàng đợi">
                   <button
                     onClick={() => setNapFilter("canxuly")}
-                    className={"inline-flex items-center gap-2 px-3.5 py-1.5 text-sm rounded-md transition-colors " + (napFilter === "canxuly" ? "bg-card shadow-sm text-primary font-semibold" : "text-muted-foreground font-medium hover:text-foreground")}
+                    aria-pressed={napFilter === "canxuly"}
+                    className={"inline-flex items-center gap-1.5 h-8 px-3 text-[12.5px] font-semibold transition-colors " + (napFilter === "canxuly" ? "bg-accent text-primary" : "bg-white text-muted-foreground hover:bg-muted")}
                   >
                     <Icon name="clock" className="w-4 h-4" /> Cần xử lý <span className="text-[11px] bg-primary/10 rounded-full px-1.5">{daLoc.canXuly.length}</span>
                   </button>
                   <button
                     onClick={() => setNapFilter("danap")}
-                    className={"inline-flex items-center gap-2 px-3.5 py-1.5 text-sm rounded-md transition-colors " + (napFilter === "danap" ? "bg-card shadow-sm text-success font-semibold" : "text-muted-foreground font-medium hover:text-foreground")}
+                    aria-pressed={napFilter === "danap"}
+                    className={"inline-flex items-center gap-1.5 h-8 px-3 text-[12.5px] font-semibold transition-colors " + (napFilter === "danap" ? "bg-success/10 text-success" : "bg-white text-muted-foreground hover:bg-muted")}
                   >
                     <Icon name="check" className="w-4 h-4" /> Đã nạp <span className="text-[11px] bg-success/15 text-success rounded-full px-1.5">{daLoc.daNap.length}</span>
                   </button>
@@ -806,7 +809,7 @@ export default function NapHoSo() {
                     type="button"
                     onClick={chonTatCaSanSang}
                     disabled={daLoc.canXuly.filter(rowSanSang).length === 0}
-                    className="h-9 px-3 rounded-lg border border-border text-sm font-medium inline-flex items-center gap-1.5 hover:bg-muted transition-colors disabled:opacity-50"
+                    className="btn btn-secondary"
                   >
                     <Icon name="check" className="w-4 h-4" /> Chọn tất cả sẵn sàng
                   </button>
@@ -821,14 +824,14 @@ export default function NapHoSo() {
                     onClick={xinBoNhieu}
                     disabled={chon.size === 0}
                     title="Bỏ các hồ sơ đã chọn khỏi hàng đợi (không xóa khỏi DB)"
-                    className="ml-auto h-9 px-3 rounded-lg border border-destructive/40 text-destructive text-sm font-medium inline-flex items-center gap-1.5 hover:bg-destructive/5 transition-colors disabled:opacity-50"
+                    className="ml-auto btn btn-danger"
                   >
                     <Icon name="x" className="w-4 h-4" /> Bỏ khỏi hàng đợi ({chon.size})
                   </button>
                   <button
                     onClick={() => moNapDialog(chonSanSang)}
                     disabled={napBusy || chonSanSang.length === 0 || !khoa}
-                    className="h-10 px-5 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center gap-2 hover:brightness-110 transition-all shadow-sm disabled:opacity-60"
+                    className="btn btn-primary"
                   >
                     <Icon name="plus" className="w-4 h-4" />
                     {`Nạp ${chonSanSang.length} học viên${khoa ? ` vào ${khoa.ten_kh} (${khoa.ma_kh})` : ""}`}
@@ -912,7 +915,7 @@ export default function NapHoSo() {
                           const c = coChip(r.uuid);
                           const thieuGiayTo = tinhSanSang(r).thieu.includes("giấy tờ");
                           return (
-                            <div className="hidden sm:flex items-center gap-1">
+                            <div className="hidden lg:flex items-center gap-1">
                               <ChipCo on={c.diaChi} label="Địa chỉ 2 cấp" off="Chưa map" />
                               <ChipCo on={c.anh} label="Có hình" off="Chưa có hình" />
                               {thieuGiayTo && (
@@ -929,7 +932,7 @@ export default function NapHoSo() {
                             type="button"
                             title="Xử lý hồ sơ"
                             onClick={(e) => { e.stopPropagation(); void moChuanBi(r.uuid); }}
-                            className="h-8 px-3 rounded-md bg-primary text-primary-foreground text-[12px] font-semibold inline-flex items-center gap-1 hover:brightness-110 transition-colors shadow-sm"
+                            className="btn btn-primary btn-row"
                           >
                             <Icon name="edit" className="w-3.5 h-3.5" /> Xử lý
                           </button>
@@ -941,7 +944,7 @@ export default function NapHoSo() {
                             title="Nạp lại nhanh"
                             disabled={napBusy || !rowSanSang(r)}
                             onClick={(e) => { e.stopPropagation(); napLaiNhanh(r); }}
-                            className="h-7 px-2 rounded-md border border-primary/40 text-primary text-[11px] font-semibold inline-flex items-center gap-1 hover:bg-primary/5 transition-colors disabled:opacity-50"
+                            className="btn btn-secondary btn-row"
                           >
                             <Icon name="refresh" className={"w-3.5 h-3.5" + (napBusy ? " animate-spin" : "")} /> Nạp lại
                           </button>
@@ -955,7 +958,7 @@ export default function NapHoSo() {
                               title="Xem học viên này trong DB"
                               disabled={!mk}
                               onClick={(e) => { e.stopPropagation(); if (mk) xemTrongDB(mk, [r.ma_dk!]); }}
-                              className="h-7 px-2 rounded-md border border-border text-[11px] font-semibold inline-flex items-center gap-1 hover:bg-muted transition-colors disabled:opacity-50"
+                              className="btn btn-secondary btn-row"
                             >
                               <Icon name="db" className="w-3.5 h-3.5" /> Xem DB
                             </button>
@@ -967,7 +970,7 @@ export default function NapHoSo() {
                           type="button"
                           title="Bỏ khỏi hàng đợi (không xóa khỏi DB)"
                           onClick={(e) => { e.stopPropagation(); xinBoDong(r); }}
-                          className="w-7 h-7 rounded-md inline-flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                          className="w-8 h-8 rounded-lg inline-flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                         >
                           <Icon name="x" className="w-4 h-4" />
                         </button>
@@ -1003,6 +1006,7 @@ export default function NapHoSo() {
               )}
 
             </div>
+          </div>
           </div>
 
           {/* NGĂN "CHUẨN BỊ" — trượt từ phải (task 46): địa chỉ + giấy tờ + ảnh, thay 2 cột cố định */}
@@ -1171,13 +1175,13 @@ export default function NapHoSo() {
                           <span className="text-muted-foreground flex-1">Xóa nháp đã chuẩn bị (địa chỉ, ảnh, giấy tờ)?</span>
                           <button
                             onClick={() => void xoaNhap()}
-                            className="h-8 px-3 rounded-md bg-destructive text-white font-semibold hover:brightness-110 transition-colors"
+                            className="h-8 px-3 rounded-lg bg-destructive text-white font-semibold hover:brightness-110 transition-colors"
                           >
                             Xóa nháp
                           </button>
                           <button
                             onClick={() => setXacNhanXoaNhap(false)}
-                            className="h-8 px-3 rounded-md border border-border font-semibold hover:bg-muted transition-colors"
+                            className="h-8 px-3 rounded-lg border border-border font-semibold hover:bg-muted transition-colors"
                           >
                             Hủy
                           </button>
@@ -1185,7 +1189,7 @@ export default function NapHoSo() {
                       ) : (
                         <button
                           onClick={() => setXacNhanXoaNhap(true)}
-                          className="w-full h-8 rounded-md border border-border text-muted-foreground text-[12px] font-medium inline-flex items-center justify-center gap-1.5 hover:text-destructive hover:border-destructive/40 hover:bg-destructive/5 transition-colors"
+                          className="w-full h-8 rounded-lg border border-border text-muted-foreground text-[12px] font-medium inline-flex items-center justify-center gap-1.5 hover:text-destructive hover:border-destructive/40 hover:bg-destructive/5 transition-colors"
                         >
                           <Icon name="x" className="w-3.5 h-3.5" /> Xóa nháp
                         </button>
@@ -1194,7 +1198,7 @@ export default function NapHoSo() {
                     <button
                       onClick={() => { void chayNapLo([selRow]); }}
                       disabled={napBusy || !rowSanSang(selRow) || !khoa}
-                      className="w-full h-10 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-sm disabled:opacity-60"
+                      className="w-full btn btn-primary"
                     >
                       <Icon name={napBusy ? "refresh" : "plus"} className={"w-4 h-4" + (napBusy ? " animate-spin" : "")} />
                       {selRow.trang_thai === "xong"

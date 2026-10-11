@@ -166,7 +166,7 @@ export default function TaoKhoa() {
           <button
             type="button"
             onClick={() => void onTao()}
-            className="inline-flex items-center gap-2 h-10 px-5 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:brightness-110 transition-all shadow-sm disabled:opacity-60"
+            className="btn btn-primary"
           >
             <Icon name={dangTao ? "refresh" : "plus"} className={"w-4 h-4" + (dangTao ? " animate-spin" : "")} /> {dangTao ? "Đang tạo…" : "Tạo khóa học"}
           </button>

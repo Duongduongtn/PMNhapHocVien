@@ -171,8 +171,8 @@ function DoiNenDialog({ maKh, tenKh, onDong, onXong }: {
         <div className="p-3 border-t border-border flex gap-2">
           {pha === "form" && (
             <>
-              <button onClick={onDong} className="h-10 px-4 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Hủy</button>
-              <button onClick={() => void batDau()} className="ml-auto h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center gap-2 hover:brightness-110 transition-all shadow-sm">
+              <button onClick={onDong} className="btn btn-secondary">Hủy</button>
+              <button onClick={() => void batDau()} className="ml-auto btn btn-primary">
                 <Icon name="image" className="w-4 h-4" /> Bắt đầu
               </button>
             </>
@@ -181,7 +181,7 @@ function DoiNenDialog({ maKh, tenKh, onDong, onXong }: {
             <p className="text-[12px] text-muted-foreground px-1 py-2">Đang xử lý — có thể đóng khi chạy xong.</p>
           )}
           {pha === "xong" && (
-            <button onClick={onXong} className="ml-auto h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition-all shadow-sm">Xong</button>
+            <button onClick={onXong} className="ml-auto btn btn-primary">Xong</button>
           )}
         </div>
       </div>
@@ -653,7 +653,7 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce, locAnhBanDau }: {
           type="button"
           onClick={() => void timKhoa()}
           disabled={loadingKhoa}
-          className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-semibold text-sm inline-flex items-center gap-2 hover:brightness-110 transition-all shadow-sm disabled:opacity-60"
+          className="btn btn-primary"
         >
           <Icon name={loadingKhoa ? "refresh" : "search"} className={"w-4 h-4" + (loadingKhoa ? " animate-spin" : "")} /> Tìm khóa
         </button>
@@ -781,10 +781,10 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce, locAnhBanDau }: {
               <Icon name="refresh" className="w-4 h-4 animate-spin inline mr-1" /> Đang tải học viên…
             </div>
           ) : (
-            <div className="border border-border rounded-xl overflow-hidden">
+            <div className="list-frame">
               <table className="w-full text-[13px]">
                 <thead>
-                  <tr className="bg-muted text-muted-foreground text-left">
+                  <tr className="bg-muted/60 text-muted-foreground text-left text-[12px] border-b border-border">
                     <th className="px-2 py-2 font-semibold w-12">Ảnh</th>
                     <th className="px-3 py-2 font-semibold">Số HS</th>
                     <th className="px-3 py-2 font-semibold">Họ và tên</th>
@@ -809,7 +809,7 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce, locAnhBanDau }: {
                             type="button"
                             title="Đổi khóa"
                             onClick={() => nhanhDoiKhoa(h)}
-                            className="w-7 h-7 rounded-md hover:bg-muted inline-flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                            className="w-8 h-8 rounded-lg hover:bg-muted inline-flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
                           >
                             <Icon name="send" className="w-4 h-4" />
                           </button>
@@ -817,7 +817,7 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce, locAnhBanDau }: {
                             type="button"
                             title="Xóa học viên"
                             onClick={() => nhanhXoa(h)}
-                            className="w-7 h-7 rounded-md hover:bg-destructive/10 inline-flex items-center justify-center text-destructive transition-colors"
+                            className="w-8 h-8 rounded-lg hover:bg-destructive/10 inline-flex items-center justify-center text-destructive transition-colors"
                           >
                             <Icon name="x" className="w-4 h-4" />
                           </button>
@@ -1083,11 +1083,11 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce, locAnhBanDau }: {
                   )}
                 </div>
                 <div className="p-3 border-t border-border flex gap-2 flex-wrap">
-                  <button onClick={dong} className="h-10 px-4 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Đóng</button>
+                  <button onClick={dong} className="btn btn-secondary">Đóng</button>
                   {!doiMo && !xoaMo && !goMo && !anhMo && (
                     <button
                       onClick={() => { setAnhMo(true); setAnhErr(""); }}
-                      className="h-10 px-4 rounded-lg border border-border text-sm font-medium inline-flex items-center gap-1.5 hover:bg-muted transition-colors"
+                      className="btn btn-secondary"
                     >
                       <Icon name="image" className="w-4 h-4" /> {sel.co_anh ? "Thay ảnh" : "Nạp ảnh"}
                     </button>
@@ -1095,7 +1095,7 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce, locAnhBanDau }: {
                   {!doiMo && !xoaMo && !goMo && !anhMo && (
                     <button
                       onClick={() => setMoKhoaKhac(true)}
-                      className="h-10 px-4 rounded-lg border border-border text-sm font-medium inline-flex items-center gap-1.5 hover:bg-muted transition-colors"
+                      className="btn btn-secondary"
                     >
                       <Icon name="plus" className="w-4 h-4" /> Tạo thêm hồ sơ ở khóa học khác hạng
                     </button>
@@ -1104,26 +1104,26 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce, locAnhBanDau }: {
                     <>
                       <button
                         onClick={() => { setXoaMo(true); setXoaErr(""); }}
-                        className="h-10 px-4 rounded-lg border border-destructive/40 text-destructive text-sm font-medium inline-flex items-center gap-1.5 hover:bg-destructive/10 transition-colors"
+                        className="btn btn-danger"
                       >
                         <Icon name="x" className="w-4 h-4" /> Xóa hẳn
                       </button>
                       <button
                         onClick={() => { setGoMo(true); setGoErr(""); setGoSync(null); }}
-                        className="h-10 px-4 rounded-lg border border-warning/50 text-warning text-sm font-medium inline-flex items-center gap-1.5 hover:bg-warning/10 transition-colors"
+                        className="btn border border-warning/50 bg-white text-warning hover:bg-warning/10"
                       >
                         <Icon name="send" className="w-4 h-4" /> Gỡ về chờ nạp
                       </button>
                       <button
                         onClick={() => void moDoiKhoa()}
-                        className="ml-auto h-10 px-4 rounded-lg border border-border text-sm font-medium inline-flex items-center gap-1.5 hover:bg-muted transition-colors"
+                        className="ml-auto btn btn-secondary"
                       >
                         <Icon name="send" className="w-4 h-4" /> Đổi khóa
                       </button>
                       <button
                         onClick={() => void moSua()}
                         disabled={loadingCt}
-                        className="h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center gap-2 hover:brightness-110 transition-all shadow-sm disabled:opacity-60"
+                        className="btn btn-primary"
                       >
                         <Icon name={loadingCt ? "refresh" : "edit"} className={"w-4 h-4" + (loadingCt ? " animate-spin" : "")} /> Sửa
                       </button>
@@ -1245,11 +1245,11 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce, locAnhBanDau }: {
                   )}
                 </div>
                 <div className="p-3 border-t border-border flex gap-2">
-                  <button onClick={() => { setSua(false); setSuaErr(""); }} className="h-10 px-4 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Hủy</button>
+                  <button onClick={() => { setSua(false); setSuaErr(""); }} className="btn btn-secondary">Hủy</button>
                   <button
                     onClick={() => void luu()}
                     disabled={saving}
-                    className="ml-auto h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center gap-2 hover:brightness-110 transition-all shadow-sm disabled:opacity-60"
+                    className="ml-auto btn btn-primary"
                   >
                     <Icon name={saving ? "refresh" : "check"} className={"w-4 h-4" + (saving ? " animate-spin" : "")} sw={3} /> Lưu
                   </button>

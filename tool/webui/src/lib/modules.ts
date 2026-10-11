@@ -4,6 +4,15 @@
 
 export type Accent = "primary" | "sync" | "kq" | "pc" | "tn";
 
+/** Nhóm theo CSDL: DB Nạp → cầu nối đồng bộ → DB đích. Màu nhóm = màu nhấn của phân hệ trong nhóm. */
+export type Nhom = "nap" | "cau-noi" | "dich";
+
+export const NHOM_INFO: Record<Nhom, { ten: string; db: string; chip: string; dot: string }> = {
+  nap: { ten: "DB Nạp", db: "GPLX_CSDT", chip: "text-primary bg-accent border-primary/30", dot: "bg-primary" },
+  "cau-noi": { ten: "Cầu nối", db: "Nạp → đích", chip: "text-sync bg-sync-soft border-sync-border", dot: "bg-sync" },
+  dich: { ten: "DB đích", db: "GPLX_CDB_CSDT", chip: "text-kq bg-kq-soft border-kq-border", dot: "bg-kq" },
+};
+
 export interface SubNav {
   to: string;
   label: string;
@@ -15,6 +24,8 @@ export interface ModuleDef {
   label: string;
   icon: string;
   accent: Accent;
+  /** Nhóm CSDL — quyết định vạch ngăn + tiêu đề nhóm ở menu trái. */
+  nhom: Nhom;
   /** Tiền tố route để xác định phân hệ đang mở. */
   base: string;
   /** Tên CSDL phân hệ ghi vào — hiện ở banner nhắc. Bỏ trống nếu không ghi DB. */
@@ -32,6 +43,7 @@ export const MODULES: ModuleDef[] = [
     label: "Nạp hồ sơ",
     icon: "file",
     accent: "primary",
+    nhom: "nap",
     base: "/tool",
     subnav: [
       { to: "/tool/nap", label: "Nạp hồ sơ", icon: "file" },
@@ -40,10 +52,27 @@ export const MODULES: ModuleDef[] = [
     ],
   },
   {
+    id: "tnbc2",
+    label: "Tốt nghiệp & BC2",
+    icon: "file",
+    accent: "primary",
+    nhom: "nap",
+    base: "/tot-nghiep-bc2",
+    db: "GPLX_CSDT",
+    dbNap: true,
+    subnav: [
+      { to: "/tot-nghiep-bc2/tot-nghiep", label: "Tốt nghiệp (ô tô)", icon: "check" },
+      { to: "/tot-nghiep-bc2/bao-cao-2", label: "Báo cáo 2", icon: "file" },
+      { to: "/tot-nghiep-bc2/cuu-trang-thai", label: "Học viên không tìm thấy", icon: "search" },
+      { to: "/tot-nghiep-bc2/nhat-ky", label: "Nhật ký", icon: "clock" },
+    ],
+  },
+  {
     id: "sync",
     label: "Đồng bộ CDB",
     icon: "refresh",
     accent: "sync",
+    nhom: "cau-noi",
     base: "/sync",
     db: "GPLX_CDB_CSDT",
     subnav: [
@@ -53,22 +82,11 @@ export const MODULES: ModuleDef[] = [
     ],
   },
   {
-    id: "ketqua",
-    label: "Kết quả đào tạo",
-    icon: "check",
-    accent: "kq",
-    base: "/ket-qua",
-    db: "GPLX_CDB_CSDT",
-    subnav: [
-      { to: "/ket-qua/cap-nhat", label: "Cập nhật KQĐT", icon: "check" },
-      { to: "/ket-qua/ket-xuat", label: "Theo dõi kết xuất", icon: "clock" },
-    ],
-  },
-  {
     id: "phancong",
     label: "Phân công GV – xe",
     icon: "calendar",
-    accent: "pc",
+    accent: "kq",
+    nhom: "dich",
     base: "/phan-cong",
     db: "GPLX_CDB_CSDT",
     subnav: [
@@ -77,18 +95,16 @@ export const MODULES: ModuleDef[] = [
     ],
   },
   {
-    id: "tnbc2",
-    label: "Tốt nghiệp & BC2",
-    icon: "file",
-    accent: "tn",
-    base: "/tot-nghiep-bc2",
-    db: "GPLX_CSDT",
-    dbNap: true,
+    id: "ketqua",
+    label: "Kết quả đào tạo",
+    icon: "check",
+    accent: "kq",
+    nhom: "dich",
+    base: "/ket-qua",
+    db: "GPLX_CDB_CSDT",
     subnav: [
-      { to: "/tot-nghiep-bc2/tot-nghiep", label: "Tốt nghiệp (ô tô)", icon: "check" },
-      { to: "/tot-nghiep-bc2/bao-cao-2", label: "Báo cáo 2", icon: "file" },
-      { to: "/tot-nghiep-bc2/cuu-trang-thai", label: "Học viên không tìm thấy", icon: "search" },
-      { to: "/tot-nghiep-bc2/nhat-ky", label: "Nhật ký", icon: "clock" },
+      { to: "/ket-qua/cap-nhat", label: "Cập nhật KQĐT", icon: "check" },
+      { to: "/ket-qua/ket-xuat", label: "Theo dõi kết xuất", icon: "clock" },
     ],
   },
 ];
