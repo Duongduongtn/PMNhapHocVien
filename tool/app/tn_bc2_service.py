@@ -813,3 +813,223 @@ def quen_job(lo_id: str) -> None:
     """Chỉ dùng cho test."""
     with _JOBS_KHOA:
         _JOBS.pop(lo_id, None)
+
+
+# ══════════════ Xem / gỡ / xóa BC2 (TNB-05, task 100) ══════════════
+_Q_BC2_MOT = ("SELECT MaBCII, MaBCI, SoBaoCao, NgayBaoCao, TongSoThiSinh, TrangThai, NguoiTao, NgayTao "
+              "FROM BaoCaoII WHERE MaBCII = %s")
+_Q_HV_CUA_BC2 = ("SELECT h.MaDK, h.SoHoSo, n.HoVaTen, n.NgaySinh, n.SoCMT, h.HangGPLX, h.TT_XuLy, h.TT_XuLy_Old, "
+                 "h.MaBC2, h.SoGiayCNTN, h.MaKhoaHoc, k.TenKH, k.NgayBG "
+                 "FROM NguoiLX_HoSo h LEFT JOIN NguoiLX n ON n.MaDK = h.MaDK "
+                 "LEFT JOIN KhoaHoc k ON k.MaKH = h.MaKhoaHoc "
+                 "WHERE h.MaBC2 = %s ORDER BY k.MaKH, n.TenNLX, n.HoDemNLX")
+_Q_DEM_HV_BC2 = "SELECT COUNT(*) AS n FROM NguoiLX_HoSo WHERE MaBC2 = %s"
+
+
+def _doc_bc2_mot(cur, dang_db: str) -> dict | None:
+    cur.execute(_Q_BC2_MOT, (dang_db,))
+    r = cur.fetchone()
+    if not r:
+        return None
+    return {"ma": _s(r["MaBCII"]), "ma_bci": _s(r["MaBCI"]), "so_bao_cao": _s(r.get("SoBaoCao")),
+            "ngay_bao_cao": _ngay_iso(r.get("NgayBaoCao")), "tong_ghi": r.get("TongSoThiSinh"),
+            "trang_thai": 1 if r.get("TrangThai") in (1, True, "1") else 0,
+            "nguoi_tao": _s(r.get("NguoiTao")), "ngay_tao": _ngay_iso(r.get("NgayTao"))}
+
+
+def _ly_do_khoa(hv: dict, bc2_dong: bool) -> str:
+    if bc2_dong:
+        return "BC2 đã đóng — không gỡ được"
+    if hv["tt"] == rules.TT_DA_VAO_BC2 and hv["tt_cu"] == rules.TT_DA_VAO_BC2:
+        return ("Trạng thái trước đó của học viên cũng là \"Đã vào BC2\" — gỡ ra sẽ không về đúng, "
+                "xử lý ở phần mềm cũ")
+    if hv["tt"] != rules.TT_DA_VAO_BC2:
+        return (f"Đã chuyển sang \"{rules.ten_trang_thai(hv['tt'], hv['loai'])}\" — gỡ khỏi BC2 sẽ làm mất kết quả; "
+                "dùng Cứu trạng thái nếu cần")
+    return ""
+
+
+def chi_tiet_bc2(cur, ma_bc2: str) -> dict:
+    """Chi tiết một BC2 + danh sách HV (màn xem/gỡ). `go_duoc` = còn `11`, đúng BC2, BC2 còn mở.
+    Tìm kiếm / chọn nhiều làm ở giao diện. 404 nếu không có BC2."""
+    dang_db = rules.dang_luu_ma_bcii(ma_bc2)
+    bc2 = _doc_bc2_mot(cur, dang_db)
+    if bc2 is None:
+        raise LoiNghiepVu("bc2_khong_ton_tai", f"Không có BC2 số {ma_bc2}", 404)
+    bc1_map, _m, _b, _t = doc_bc(cur)
+    ma_kh = next((k for k, b in bc1_map.items() if b["ma_bci"] == bc2["ma_bci"]), "")
+    khoa = {"ten_kh": "", "loai": ""}
+    if ma_kh:
+        try:
+            khoa = loai_cua_khoa(cur, ma_kh)
+        except LoiNghiepVu:
+            pass
+    dong = bc2["trang_thai"] == 1
+    cur.execute(_Q_HV_CUA_BC2, (dang_db,))
+    dong_hv = cur.fetchall()
+    loai = khoa["loai"] or (rules.loai_hang(dong_hv[0].get("HangGPLX")) if dong_hv else "")
+    hocvien = []
+    for r in dong_hv:
+        hv = {"ma_dk": _s(r["MaDK"]), "so_ho_so": _s(r.get("SoHoSo")), "ten": _s(r.get("HoVaTen")),
+              "ngay_sinh": _ngay_sinh_vn(r.get("NgaySinh")), "cmt": _s(r.get("SoCMT")), "hang": _s(r.get("HangGPLX")),
+              "tt": _s(r.get("TT_XuLy")), "tt_cu": _s(r.get("TT_XuLy_Old")), "ma_bc2": _s(r.get("MaBC2")),
+              "so_giay": _s(r.get("SoGiayCNTN")), "ma_kh": _s(r.get("MaKhoaHoc")), "ten_kh": _s(r.get("TenKH")),
+              "bg": _ngay_iso(r.get("NgayBG")), "loai": rules.loai_hang(r.get("HangGPLX"))}
+        ly = _ly_do_khoa(hv, dong)
+        canh_bao = hv["tt"] == rules.TT_DA_VAO_BC2 and hv["tt_cu"] == ""     # gỡ ra sẽ về giá trị rỗng
+        hocvien.append({
+            "ma_dk": hv["ma_dk"], "so_ho_so": hv["so_ho_so"], "ten": hv["ten"], "ngay_sinh": hv["ngay_sinh"],
+            "cmt": hv["cmt"], "hang": hv["hang"], "ma_kh": hv["ma_kh"], "ten_kh": hv["ten_kh"], "tt": hv["tt"],
+            "ten_trang_thai": rules.ten_trang_thai(hv["tt"], hv["loai"]), "tt_cu": hv["tt_cu"],
+            "ten_trang_thai_cu": rules.ten_trang_thai(hv["tt_cu"], hv["loai"]) if hv["tt_cu"] else "",
+            "go_duoc": not ly, "ly_do_khoa": ly, "canh_bao_tt_cu": canh_bao,
+            "khac_khoa_bc1": bool(ma_kh) and hv["ma_kh"] != ma_kh,
+        })
+    return {
+        "ma_bc2": bc2["ma"], "so_bao_cao": bc2["so_bao_cao"], "ngay_bao_cao": bc2["ngay_bao_cao"],
+        "trang_thai": bc2["trang_thai"], "dang_mo": not dong, "nguoi_tao": bc2["nguoi_tao"],
+        "ngay_tao": bc2["ngay_tao"], "ma_bci": bc2["ma_bci"], "ma_kh": ma_kh, "ten_kh": khoa.get("ten_kh", ""),
+        "loai": loai, "tong_ghi": bc2["tong_ghi"], "hv_thuc_te": len(hocvien),
+        "lech": bc2["tong_ghi"] is not None and int(bc2["tong_ghi"] or 0) != len(hocvien),
+        "hoc_vien": hocvien, "xoa_duoc": (not dong) and len(hocvien) == 0,
+    }
+
+
+def _phan_loai_go(cur, dang_db: str, ds: list[str]) -> tuple[list[dict], list[dict], list[dict]]:
+    """Đọc lại các HV muốn gỡ: (gỡ được, bỏ qua kèm lý do, cảnh báo `TT_XuLy_Old` rỗng/`11`)."""
+    hvs = _doc_hv_lai(cur, ds)
+    ung_vien_go, bo_qua, canh_bao = [], [], []
+    for ma_dk in ds:
+        hv = hvs.get(ma_dk)
+        if hv is None:
+            bo_qua.append({"ma_dk": ma_dk, "ma_ly_do": "hv_khong_ton_tai", "ly_do": "Không còn học viên này"})
+        elif hv["ma_bc2"] != dang_db:
+            bo_qua.append({"ma_dk": ma_dk, "ma_ly_do": "khong_con_o_bc2",
+                           "ly_do": "Học viên không còn ở BC2 này (PM cũ vừa đổi)"})
+        elif hv["tt"] != rules.TT_DA_VAO_BC2:
+            bo_qua.append({"ma_dk": ma_dk, "ma_ly_do": "da_co_ket_qua",
+                           "ly_do": f"Đã chuyển sang \"{rules.ten_trang_thai(hv['tt'], rules.loai_hang(hv['hang']))}\" "
+                                    "— gỡ khỏi BC2 sẽ làm mất kết quả"})
+        elif hv["tt_cu"] == rules.TT_DA_VAO_BC2:
+            bo_qua.append({"ma_dk": ma_dk, "ma_ly_do": "trang_thai_cu_la_11",
+                           "ly_do": "Trạng thái trước đó cũng là 'Đã vào BC2' — gỡ ra sẽ không về đúng "
+                                    "(kẹt 'Đã vào BC2' mà không có BC2), xử lý ở phần mềm cũ"})
+        else:
+            ung_vien_go.append(hv)
+            if not hv["tt_cu"]:
+                canh_bao.append({"ma_dk": ma_dk, "ma": "trang_thai_cu_rong",
+                                 "noi_dung": "Không có trạng thái cũ để quay về — gỡ ra học viên sẽ về giá trị rỗng"})
+    return ung_vien_go, bo_qua, canh_bao
+
+
+def kiem_truoc_go(cur, ma_bc2: str, ds_ma_dk: Iterable[str], da_xem_canh_bao: bool) -> list[str]:
+    """Kiểm nhanh ĐỒNG BỘ (router gọi trước khi chạy nền): BC2 tồn tại + còn mở, danh sách hợp lệ,
+    cảnh báo `TT_XuLy_Old` chưa xác nhận → 409. Trả danh sách đã chuẩn hoá."""
+    ds = _chuan_ds(ds_ma_dk)
+    vde = rules.kiem_danh_sach_dan(ds)
+    if vde:
+        raise LoiNghiepVu(vde[0]["ma"], vde[0]["noi_dung"], 400)
+    if not ds:
+        raise LoiNghiepVu("khong_co_hoc_vien", "Chưa chọn học viên nào để gỡ", 400)
+    dang_db = rules.dang_luu_ma_bcii(ma_bc2)
+    bc2 = _doc_bc2_mot(cur, dang_db)
+    if bc2 is None:
+        raise LoiNghiepVu("bc2_khong_ton_tai", f"Không có BC2 số {ma_bc2}", 404)
+    if bc2["trang_thai"] != 0:
+        raise LoiNghiepVu("bc2_da_dong", f"BC2 số {ma_bc2} đã đóng — không gỡ được", 409)
+    _g, _b, canh_bao = _phan_loai_go(cur, dang_db, ds)
+    if canh_bao and not da_xem_canh_bao:
+        raise LoiNghiepVu("can_xac_nhan_canh_bao", canh_bao[0]["noi_dung"], 409, {"canh_bao": canh_bao})
+    return ds
+
+
+def go_hv(conn, *, ma_bc2: str, lo_id: str, ds_ma_dk: Iterable[str], nguoi: str, da_xem_canh_bao: bool = False,
+          bao_tien_do: Callable[[int, int], None] | None = None) -> dict:
+    """Gỡ HV đã chọn khỏi BC2 đang mở (TNB-05): trong khóa ghi, BC2 phải còn MỞ; đọc lại, chỉ HV còn `11`
+    và đúng `MaBC2`; đọc lại SÁT trước SP; `usp_NguoiLXHoSo_Update_DanhSachHocSinhBC2 @TrangThaiXuLy=101`;
+    ghi nhật ký từng HV ngay sau SP. `TT_XuLy_Old` rỗng/`11` cần `da_xem_canh_bao`."""
+    ds = _chuan_ds(ds_ma_dk)
+    vde = rules.kiem_danh_sach_dan(ds)
+    if vde:
+        raise LoiNghiepVu(vde[0]["ma"], vde[0]["noi_dung"], 400)
+    if not ds:
+        raise LoiNghiepVu("khong_co_hoc_vien", "Chưa chọn học viên nào để gỡ", 400)
+    dang_db = rules.dang_luu_ma_bcii(ma_bc2)
+    with khoa_ghi(conn) as cur:
+        bc2 = _doc_bc2_mot(cur, dang_db)
+        if bc2 is None:
+            raise LoiNghiepVu("bc2_khong_ton_tai", f"Không có BC2 số {ma_bc2}", 404)
+        if bc2["trang_thai"] != 0:
+            raise LoiNghiepVu("bc2_da_dong", f"BC2 số {ma_bc2} đã đóng — không gỡ được", 409)
+        da_go_truoc = {h["ma_dk"] for h in nhat_ky.lo_hv(lo_id) if h["ket_qua"] == "da_go"}   # "Làm tiếp"
+        ds_moi = [m for m in ds if m not in da_go_truoc]
+        ung_vien_go, bo_qua, canh_bao = _phan_loai_go(cur, dang_db, ds_moi)
+        if canh_bao and not da_xem_canh_bao:
+            raise LoiNghiepVu("can_xac_nhan_canh_bao", canh_bao[0]["noi_dung"], 409, {"canh_bao": canh_bao})
+        nhat_ky.lo_bat_dau(lo_id, nguoi, nhat_ky.LO_GO, "", dang_db, len(ds))
+        nk = nhat_ky.bat_dau(nguoi, nhat_ky.GO_HV, "", dang_db, len(ds), f"Gỡ {len(ds)} HV khỏi BC2 {ma_bc2}",
+                             {"ma_dk": ds}, lo_id=lo_id)
+        for b in bo_qua:
+            nhat_ky.lo_ghi_hv(lo_id, b["ma_dk"], "bo_qua", b["ma_ly_do"])
+        da_go, chua_ghi, loi = sorted(da_go_truoc, key=ds.index), [], None
+        for idx, hv in enumerate(ung_vien_go):
+            ma_dk = hv["ma_dk"]
+            try:
+                moi = _doc_mot_hv(cur, ma_dk)                  # đọc lại SÁT trước SP
+                if moi is None or moi["tt"] != rules.TT_DA_VAO_BC2 or moi["ma_bc2"] != dang_db:
+                    bo_qua.append({"ma_dk": ma_dk, "ma_ly_do": "doi_giua_chung",
+                                   "ly_do": "Phần mềm cũ vừa đổi học viên này — không gỡ"})
+                    nhat_ky.lo_ghi_hv(lo_id, ma_dk, "bo_qua", "doi_giua_chung")
+                    continue
+                cur.execute("EXEC usp_NguoiLXHoSo_Update_DanhSachHocSinhBC2 %s,%s,%s,%s",
+                            (ma_dk, moi["so_ho_so"][:5], dang_db, 101))
+                nhat_ky.lo_ghi_hv(lo_id, ma_dk, "da_go")       # GHI NGAY sau SP thành công
+                da_go.append(ma_dk)
+            except Exception as e:  # noqa: BLE001 — lỗi DB: dừng, báo đã/chưa gỡ
+                loi = {"ma_dk": ma_dk, "noi_dung": str(e)[:200]}
+                chua_ghi = [h["ma_dk"] for h in ung_vien_go[idx:]]
+                for m in chua_ghi:
+                    nhat_ky.lo_ghi_hv(lo_id, m, "chua_ghi", "loi_db")
+                break
+            finally:
+                if bao_tien_do:
+                    bao_tien_do(idx + 1, len(ung_vien_go))
+        bo_cache()
+        trang_thai = "loi_giua_chung" if loi else "xong"
+        kq = {"lo_id": lo_id, "ma_bc2": dang_db, "tong": len(ds), "da_go": da_go, "bo_qua": bo_qua,
+              "chua_ghi": chua_ghi, "canh_bao": canh_bao, "loi": loi, "trang_thai": trang_thai}
+        nhat_ky.lo_cap_nhat(lo_id, trang_thai=trang_thai, ket_qua={k: v for k, v in kq.items() if k != "lo_id"},
+                            luc_xong=datetime.now().isoformat(timespec="seconds"))
+        nhat_ky.ket_thuc(nk, trang_thai, {"da_go": len(da_go), "bo_qua": len(bo_qua), "chua_ghi": len(chua_ghi)})
+        return kq
+
+
+def xoa_bc2(conn, ma_bc2: str, nguoi: str) -> dict:
+    """Xóa một BC2 RỖNG và còn MỞ (`usp_BaoCaoII_Delete`). SP chỉ xóa đúng dòng BC2, không kiểm HV và
+    `MaBC2` không có khóa ngoại → phải ĐẾM `MaBC2` (mọi `TT_XuLy`; `TongSoThiSinh` không phải số đếm)
+    ngay trước SP, trong khóa ghi. BC2 đã đóng (đã gửi) không xóa ở tool."""
+    dang_db = rules.dang_luu_ma_bcii(ma_bc2)
+    with khoa_ghi(conn) as cur:
+        bc2 = _doc_bc2_mot(cur, dang_db)
+        if bc2 is None:
+            raise LoiNghiepVu("bc2_khong_ton_tai", f"Không có BC2 số {ma_bc2}", 404)
+        if bc2["trang_thai"] != 0:
+            raise LoiNghiepVu("bc2_da_dong", f"BC2 số {ma_bc2} đã đóng — không xóa ở tool", 409)
+        cur.execute(_Q_DEM_HV_BC2, (dang_db,))
+        n = int((cur.fetchone() or {}).get("n") or 0)
+        if n > 0:
+            raise LoiNghiepVu("con_hoc_vien", f"BC2 số {ma_bc2} còn {n} học viên — gỡ hết trước khi xóa", 409,
+                              {"so_hv": n})
+        nk = nhat_ky.bat_dau(nguoi, nhat_ky.XOA_BC2, "", dang_db, 0, f"Xóa BC2 {ma_bc2}", {"ma_bc2": dang_db})
+        try:
+            cur.execute("EXEC usp_BaoCaoII_Delete %s", (dang_db,))
+        except Exception as e:  # noqa: BLE001
+            nhat_ky.ket_thuc(nk, "that_bai", {"loi": str(e)[:200]})
+            raise
+        con = _doc_bc2_mot(cur, dang_db)
+        bo_cache()
+        if con is not None:
+            nhat_ky.ket_thuc(nk, "loi_giua_chung", {"loi": "BC2 vẫn còn sau khi xóa"})
+            raise RuntimeError("Xóa BC2 không thấy hiệu lực — kiểm lại ở danh sách BC2")
+        nhat_ky.ket_thuc(nk, "xong", {"ma_bc2": dang_db})
+        return {"ma_bc2": dang_db, "da_xoa": True}

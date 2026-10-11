@@ -50,6 +50,7 @@ _DDL_LO_HV = (
 
 LO_LAP = "lap"
 LO_HOAN_TAC = "hoan_tac"
+LO_GO = "go"                  # gỡ HV thủ công (khác hoàn tác lô; không phải "lần thêm" nên không che lô thêm)
 
 
 def _loc_pii(v: Any) -> Any:

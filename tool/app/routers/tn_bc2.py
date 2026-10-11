@@ -216,3 +216,51 @@ def hoan_tac(ma: str, body: HoanTacIn, phien: Phien = Depends(require_session)):
                              sqlserver_conn)
     except Exception as e:  # noqa: BLE001
         raise _loi(e)
+
+
+# ── Xem / gỡ / xóa BC2 (task 100). Đặt CUỐI file: `{ma:path}` sẽ nuốt `/goi-y-so`, `/ung-vien`, `/lo/…`
+#    nếu khai báo trước các route cố định. Số BC2 có dấu `/` nên dùng `:path`. ──
+@router.get("/bc2/{ma:path}")
+def chi_tiet_bc2(ma: str):
+    """Chi tiết một BC2 + học viên (màn xem/gỡ): `go_duoc`, `ly_do_khoa`, `xoa_duoc`."""
+    try:
+        with sqlserver_cursor() as cur:
+            return svc.chi_tiet_bc2(cur, ma)
+    except Exception as e:  # noqa: BLE001
+        raise _loi(e)
+
+
+class GoIn(BaseModel):
+    lo_id: str = Field(min_length=1, max_length=80)
+    ds_ma_dk: list[str] = Field(default_factory=list, max_length=20000)
+    da_xem_canh_bao: bool = False
+    xac_nhan_csdl_that: bool = False
+
+
+@router.post("/bc2/{ma:path}/go")
+def go_hv(ma: str, body: GoIn, phien: Phien = Depends(require_session)):
+    """Gỡ HV đã chọn khỏi BC2 đang mở; chạy nền theo `lo_id` (cùng cách theo dõi với lập/hoàn tác)."""
+    _cau_xac_nhan(body.xac_nhan_csdl_that)
+    try:
+        _kiem_lo_id(body.lo_id)
+        if not svc.trang_thai_lo(body.lo_id):      # lô mới → kiểm nhanh để báo 4xx/409 ngay, không đợi nền
+            with sqlserver_cursor() as cur:
+                svc.kiem_truoc_go(cur, ma, body.ds_ma_dk, body.da_xem_canh_bao)
+        return svc.khoi_chay(
+            body.lo_id, svc.go_hv,
+            dict(ma_bc2=ma, lo_id=body.lo_id, ds_ma_dk=svc._chuan_ds(body.ds_ma_dk), nguoi=phien.username,
+                 da_xem_canh_bao=body.da_xem_canh_bao),
+            sqlserver_conn)
+    except Exception as e:  # noqa: BLE001
+        raise _loi(e)
+
+
+@router.delete("/bc2/{ma:path}")
+def xoa_bc2(ma: str, xac_nhan_csdl_that: bool = Query(False), phien: Phien = Depends(require_session)):
+    """Xóa BC2 rỗng còn mở (đếm `MaBC2` mọi `TT_XuLy` ở máy chủ); BC2 đã đóng không xóa."""
+    _cau_xac_nhan(xac_nhan_csdl_that)
+    try:
+        with sqlserver_conn() as conn:
+            return svc.xoa_bc2(conn, ma, phien.username)
+    except Exception as e:  # noqa: BLE001
+        raise _loi(e)

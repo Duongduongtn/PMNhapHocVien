@@ -1171,7 +1171,7 @@
 
 #### [TNB-05] Bỏ học viên khỏi BC2
 
-**Trạng thái:** ⏳ Todo
+**Trạng thái:** 🔄 In Progress — 1/2 task xong (100 backend xem/gỡ/xóa BC2, kiểm bằng kết nối giả, chưa ghi thật); còn 113 UI
 **Story:** Là nhân viên cơ sở, tôi muốn gỡ học viên thêm nhầm khỏi BC2 đang mở.
 
 **Done khi:**
