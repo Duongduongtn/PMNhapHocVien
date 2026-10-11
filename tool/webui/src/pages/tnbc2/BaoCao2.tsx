@@ -1,6 +1,7 @@
 import { useState } from "react";
 import ChuGiaiTrangThai from "../../components/ChuGiaiTrangThai";
 import BuocChonHocVien from "../../components/tnbc2/BuocChonHocVien";
+import BuocXacNhan from "../../components/tnbc2/BuocXacNhan";
 import TaoBc2Rong from "../../components/tnbc2/TaoBc2Rong";
 import { BuocChonKhoa, DauWizard, type TrangThaiWizard } from "../../components/tnbc2/WizardBc2";
 import type { LoaiHang } from "../../lib/tnbc2Api";
@@ -22,7 +23,7 @@ export default function BaoCao2() {
         onThemHocVien={(maKh, tenKh, maBc2) => {
           setRong(false);
           setThongBao(`Đã tạo BC2 ${maBc2} — chọn học viên để thêm vào BC2 này.`);
-          setWiz({ loai, buoc: 2, maKh, tenKh, maBc2, dsMaDk: [] });
+          setWiz({ loai, buoc: 2, maKh, tenKh, maBc2, dsMaDk: [], nSan: 0, nThi: 0, tenHv: {} });
         }}
       />
     );
@@ -40,7 +41,7 @@ export default function BaoCao2() {
             loai={wiz.loai}
             onChon={(k, maBc2) => {
               setThongBao(maBc2 ? `Khóa này đã có BC2 ${maBc2} — chuyển sang thêm học viên vào BC2 đó.` : "");
-              setWiz({ ...wiz, buoc: 2, maKh: k.ma_kh, tenKh: k.ten_kh, maBc2, dsMaDk: [] });
+              setWiz({ ...wiz, buoc: 2, maKh: k.ma_kh, tenKh: k.ten_kh, maBc2, dsMaDk: [], nSan: 0, nThi: 0, tenHv: {} });
             }}
           />
         )}
@@ -51,15 +52,15 @@ export default function BaoCao2() {
             maBc2={wiz.maBc2}
             loai={wiz.loai}
             onDoiKhoa={() => { setThongBao(""); setWiz({ ...wiz, buoc: 1 }); }}
-            onTiep={(dsMaDk) => setWiz({ ...wiz, buoc: 3, dsMaDk })}
+            onTiep={(chon) => setWiz({ ...wiz, buoc: 3, ...chon })}
           />
         )}
         {wiz.buoc === 3 && (
-          <div className="p-4">
-            <div className="rounded-xl border border-dashed border-tn-border bg-tn-soft/50 px-4 py-8 text-center text-[13px] text-muted-foreground">
-              Bước 3 đang được dựng — đã chọn {wiz.dsMaDk.length} học viên.
-            </div>
-          </div>
+          <BuocXacNhan
+            tt={wiz}
+            onQuayLai={() => setWiz({ ...wiz, buoc: 2 })}
+            onXong={() => { setWiz(null); setThongBao(""); }}
+          />
         )}
       </div>
     );
@@ -86,7 +87,7 @@ export default function BaoCao2() {
           ))}
         </div>
         <button type="button"
-          onClick={() => setWiz({ loai, buoc: 1, maKh: "", tenKh: "", maBc2: "", dsMaDk: [] })}
+          onClick={() => setWiz({ loai, buoc: 1, maKh: "", tenKh: "", maBc2: "", dsMaDk: [], nSan: 0, nThi: 0, tenHv: {} })}
           className="h-9 px-4 rounded-lg bg-tn text-white text-[13px] font-semibold">
           Lập BC2 mới
         </button>

@@ -1148,7 +1148,7 @@
 
 #### [TNB-04] Thêm học viên vào BC2
 
-**Trạng thái:** 🔄 In Progress — 4/6 task xong (96 luật thuần, 97 backend đọc ứng viên, 99 backend lập + thêm HV + hoàn tác, 109 UI bước ① chọn khóa; kiểm bằng kết nối giả, chưa ghi thật); 110 (bước ②) mới xong lõi — 4 nhóm, tích, dải tóm tắt, khóa gốc, ngưỡng tháng, tìm, danh sách ảo; **còn "Dán danh sách CMT" + xử lý ngoại lệ tại chỗ (mini-form số giấy / Cứu trạng thái)** và 112 (bước ③) UI
+**Trạng thái:** 🔄 In Progress — 6/6 task đã có code (96 luật, 97 đọc ứng viên, 99 lập + thêm + hoàn tác, 109 UI bước ①, 110 UI bước ② mới xong lõi, 112 UI bước ③ lập + thêm + làm tiếp + hoàn tác; kiểm bằng kết nối giả + Playwright giả backend, chưa ghi thật). **Còn:** "Dán danh sách CMT" + xử lý ngoại lệ tại chỗ (mini-form số giấy / Cứu trạng thái) — task 110b; lối vào "Thêm học viên" từ dòng BC2 đang mở + công tắc "Hiện BC2 đã đóng" — task 115; nghiệm thu ghi thật ở máy CSDT (Checkpoint 27)
 **Story:** Là nhân viên cơ sở, tôi muốn đưa đúng các học viên đủ điều kiện (kể cả HV rớt/vắng từ khóa cũ) vào một BC2 đang mở.
 
 **Done khi:**

@@ -14,6 +14,11 @@ export interface TrangThaiWizard {
   maBc2: string;
   /** Học viên đã chọn ở bước ② (mã đăng ký) — bước ③ ghi đúng danh sách này. */
   dsMaDk: string[];
+  /** Số của khóa / số thi lại trong danh sách đã chọn (để bước ③ hiện cơ cấu). */
+  nSan: number;
+  nThi: number;
+  /** Mã đăng ký → họ tên, để kết quả ghi hiện tên người đọc được. */
+  tenHv: Record<string, string>;
 }
 
 const ngayVN = (iso: string) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "");

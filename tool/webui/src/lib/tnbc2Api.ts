@@ -173,6 +173,11 @@ export interface LoTn {
   bi_gian_doan?: boolean;
   da_ghi?: { ma_dk: string; ket_qua: string }[];
   da_ghi_truoc?: string[];
+  ma_bc2?: string;
+  da_tao_bc2?: boolean;
+  da_them?: string[];
+  da_co_tu_truoc?: string[];
+  da_go?: string[];
   da_huy?: { ma_dk: string; so_giay_cu: string }[];
   da_huy_truoc?: { ma_dk: string; so_giay_cu: string }[];
   bo_qua?: { ma_dk: string; ma_ly_do: string; ly_do: string }[];
@@ -337,7 +342,7 @@ export const lapBc2 = (b: {
   ghi_chu: string;
   ds_ma_dk: string[];
   da_xem_canh_bao: boolean;
-}) => goi("POST", "/bc2/lap", { body: { ...b, xac_nhan_csdl_that: true } });
+}) => goi<LoTn>("POST", "/bc2/lap", { body: { ...b, xac_nhan_csdl_that: true } });
 /** Tiến độ DÙNG CHUNG cho mọi lô chạy nền (lập, gỡ, hoàn tác, ghi/hủy tốt nghiệp). */
 export const tienDoLo = (loId: string) => goi<LoTn>("GET", `/bc2/lo/${encodeURIComponent(loId)}`);
 
@@ -350,7 +355,7 @@ export const goHvKhoiBc2 = (ma: string, loId: string, dsMaDk: string[], daXemCan
   });
 export const xoaBc2 = (ma: string) => goi("DELETE", duongBc2(ma), { query: { xac_nhan_csdl_that: true } });
 export const hoanTacLoThem = (ma: string, loId: string) =>
-  goi("POST", `${duongBc2(ma)}/hoan-tac`, { body: { lo_id: loId, xac_nhan_csdl_that: true } });
+  goi<LoTn>("POST", `${duongBc2(ma)}/hoan-tac`, { body: { lo_id: loId, xac_nhan_csdl_that: true } });
 
 // ── Cứu trạng thái ──
 export const timHvCuu = (q: string, loai: LoaiHang | "" = "") => goi("GET", "/cuu/tim", { query: { q, loai } });

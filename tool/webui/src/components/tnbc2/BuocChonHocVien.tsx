@@ -87,7 +87,7 @@ export default function BuocChonHocVien({
   maBc2: string;
   loai: LoaiHang;
   onDoiKhoa: () => void;
-  onTiep: (dsMaDk: string[]) => void;
+  onTiep: (chon: { dsMaDk: string[]; nSan: number; nThi: number; tenHv: Record<string, string> }) => void;
 }) {
   const [data, setData] = useState<UngVienResp | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
@@ -99,12 +99,27 @@ export default function BuocChonHocVien({
   const [moRong, setMoRong] = useState<Record<string, boolean>>({});
   const khoiTao = useRef("");
 
+  // Quay lại cửa sổ (sau khi xử lý ở phần mềm cũ) → làm tươi danh sách; bỏ qua nếu vừa tải < 15 giây.
+  const lanTai = useRef(Date.now());
+  useEffect(() => {
+    const khiHien = () => {
+      if (document.visibilityState === "visible" && Date.now() - lanTai.current > 15000) setLamTuoi((n) => n + 1);
+    };
+    document.addEventListener("visibilitychange", khiHien);
+    window.addEventListener("focus", khiHien);
+    return () => {
+      document.removeEventListener("visibilitychange", khiHien);
+      window.removeEventListener("focus", khiHien);
+    };
+  }, []);
+
   useEffect(() => {
     let huy = false;
     setLoi(null);
     ungVienBc2(maKh, maBc2, thang, lamTuoi > 0)
       .then((d) => {
         if (huy) return;
+        lanTai.current = Date.now();
         setData(d);
         setThangNhap(String(d.thi_lai_thang));
         const duoc = new Set([...d.nhom.san_sang, ...d.nhom.thi_lai].map((h) => h.ma_dk));
@@ -159,7 +174,7 @@ export default function BuocChonHocVien({
         <div className="ml-auto flex items-center gap-2">
           <input aria-label="Tìm học viên" className="field-input" style={{ width: 240 }} value={q}
             placeholder="Tìm tên / số CMT (Enter để tích)" onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") doi([...san, ...thiLai], true); }} />
+            onKeyDown={(e) => { if (e.key === "Enter" && q.trim()) doi([...san, ...thiLai], true); }} />
           <button type="button" className={nutNho} onClick={() => setSel(new Set())}>Bỏ chọn tất cả</button>
           <button type="button" className={nutNho} onClick={() => setLamTuoi((n) => n + 1)}>Làm tươi</button>
           <ChuGiaiTrangThai />
@@ -293,7 +308,16 @@ export default function BuocChonHocVien({
         </button>
         <span className="text-[13px] text-muted-foreground">{soVN(tong)} học viên sẽ được đưa vào BC2</span>
         <button type="button" disabled={tong === 0}
-          onClick={() => data && onTiep([...data.nhom.san_sang, ...data.nhom.thi_lai].filter((h) => sel.has(h.ma_dk)).map((h) => h.ma_dk))}
+          onClick={() => {
+            if (!data) return;
+            const chon = [...data.nhom.san_sang, ...data.nhom.thi_lai].filter((h) => sel.has(h.ma_dk));
+            onTiep({
+              dsMaDk: chon.map((h) => h.ma_dk),
+              nSan,
+              nThi,
+              tenHv: Object.fromEntries(chon.map((h) => [h.ma_dk, h.ten])),
+            });
+          }}
           className="ml-auto h-9 px-4 rounded-lg bg-tn text-white text-[13px] font-semibold disabled:opacity-45 disabled:cursor-not-allowed">
           Tiếp tục → Xác nhận ({soVN(tong)} học viên)
         </button>
