@@ -455,9 +455,9 @@ function nhomHv(h) {
   if (W.bc2 && h.bc2 === W.bc2) return null;
   if (k.bg > HOM_NAY) return {g:'khong', ly:'Khóa ' + k.ten + ' chưa bế giảng (' + dmy(k.bg) + ')'};
   if (['13','16','19'].includes(h.tt)) return {g:'khong', ly:'Đã có kết quả cuối (' + ttTen(h) + ')'};
-  if (h.tt === '11') return h.bc2 ? {g:'canxem', ly:'Đang ở BC2 số ' + h.bc2 + ' — tích để chuyển sang BC2 này', kieu:'chuyen'} : null;
+  if (h.tt === '11') return h.bc2 ? {g:'khong', ly:'Đang ở BC2 số ' + h.bc2 + ' — gỡ khỏi BC2 đó trước (mở BC2 đó → Gỡ), rồi quay lại đây'} : null;
   if (h.kh === W.ma_kh) {
-    if (W.loai === 'oto') return h.tt==='09' ? {g:'san'} : h.tt==='03' ? {g:'canxem', ly:'Chưa tốt nghiệp — cần có giấy chứng nhận trước', kieu:'tn'} : {g:'canxem', ly:'Trạng thái "' + ttTen(h) + '" chưa nằm trong nhóm chờ lập BC2', kieu:'la'};
+    if (W.loai === 'oto') return h.tt==='09' ? {g:'san'} : h.tt==='03' ? {g:'canxem', ly:'Chưa tốt nghiệp — cần có giấy chứng nhận trước', kieu:'tn'} : ['14','17','18'].includes(h.tt) ? {g:'thilai'} : {g:'canxem', ly:'Trạng thái "' + ttTen(h) + '" chưa nằm trong nhóm chờ lập BC2', kieu:'la'};
     return h.tt==='03' ? {g:'san'} : ['14','17','18'].includes(h.tt) ? {g:'thilai'} : {g:'canxem', ly:'Trạng thái "' + ttTen(h) + '" chưa nằm trong nhóm chờ lập BC2', kieu:'la'};
   }
   if (['14','17','18'].includes(h.tt) || (W.loai==='oto' && h.tt==='09')) return {g:'thilai'};
@@ -491,15 +491,15 @@ function wizKhoa() {
     ${dsk.map(k => {
       const save = W.ma_kh; W.ma_kh = k.ma; const g = dsNhom(); W.ma_kh = save;
       const c1 = BC1.find(x => x.kh === k.ma && x.loai === W.loai), coBc2 = c1 && W.loai==='moto' ? BC2.find(b => b.bc1 === c1.ma && b.tt===0 && hvCuaBc2(b.ma).some(h => h.kh === k.ma)) : null;
-      return `<div class="khoa-card" onclick="chonKhoa('${k.ma}')">
-        <div class="w-[220px]"><div class="font-semibold text-[14.5px]">${k.ten}</div><div class="text-[12px] text-muted-foreground">bế giảng ${dmy(k.bg)}${c1?' · BC1 <span class="mono">'+c1.ma+'</span>':' · <span class="text-warning">chưa có BC1</span>'}</div></div>
+      return `<div class="khoa-card" ${c1?`onclick="chonKhoa('${k.ma}')"`:'style="opacity:.55;cursor:not-allowed"'}>
+        <div class="w-[220px]"><div class="font-semibold text-[14.5px]">${k.ten}</div><div class="text-[12px] text-muted-foreground">bế giảng ${dmy(k.bg)}${c1?' · BC1 <span class="mono">'+c1.ma+'</span>':' · <span class="text-warning">chưa có BC1 — chưa lập BC2 được</span>'}</div></div>
         <div class="flex gap-8 flex-1">
           <div><div class="num text-success">${g.san.length}</div><div class="text-[11.5px] text-muted-foreground">Sẵn sàng</div></div>
           <div><div class="num text-primary">${g.thilai.filter(x => tuoiThang(x.h) <= W.thang).length}</div><div class="text-[11.5px] text-muted-foreground">Thi lại (≤ ${W.thang} tháng)</div></div>
           <div><div class="num ${g.canxem.length?'text-warning':''}">${g.canxem.length}</div><div class="text-[11.5px] text-muted-foreground">Cần xem</div></div>
         </div>
         ${coBc2?`<span class="badge b-tn">Đã có BC2 ${coBc2.ma}</span>`:''}
-        <button class="btn pri">Chọn khóa này →</button>
+        <button class="btn pri" ${c1?'':'disabled'}>Chọn khóa này →</button>
       </div>`; }).join('') || '<div class="text-muted-foreground py-10 text-center">Không có khóa đã bế giảng trong phạm vi.</div>'}
     <div class="msg inf"><span>ⓘ Chọn khóa là đủ: tool tự tìm BC1, gợi ý số BC2 và gom học viên thành các nhóm ở bước sau.</span></div>
   </div>`;
@@ -517,7 +517,7 @@ function wizChon() {
   const lo = x => !q || boDau(x.h.ten).includes(q) || x.h.cmt.includes(q);
   const sel = x => W.sel.has(x.h.dk);
   const nSan = g.san.filter(sel).length, nThi = g.thilai.filter(sel).length, nXem = g.canxem.filter(sel).length;
-  const tong = nSan + nThi + nXem, chuyen = g.canxem.filter(x => sel(x) && x.n.kieu === 'chuyen').length;
+  const tong = nSan + nThi + nXem;
   const k = khoaOf(W.ma_kh);
   const row = x => `<tr class="row ${sel(x)?'sel':''}"><td class="w-8"><input type="checkbox" ${sel(x)?'checked':''} onchange="tichW('${x.h.dk}',this.checked)"/></td>
       <td class="font-medium">${x.h.ten}</td><td class="tabnum">${dmy(x.h.ns)}</td><td class="mono">${x.h.cmt}</td><td>${ttBadge(x.h)}</td></tr>`;
@@ -529,7 +529,6 @@ function wizChon() {
   <div class="shrink-0 px-4 py-2.5 bg-tn-soft border-b border-border flex items-center gap-4">
     <div><div class="text-[11px] text-muted-foreground">Sẽ đưa vào BC2</div>
       <div class="text-[20px] font-bold tabnum">${nSan} <span class="text-[13px] font-medium text-muted-foreground">của khóa</span> + ${nThi} <span class="text-[13px] font-medium text-muted-foreground">thi lại</span>${nXem?' + '+nXem+' <span class="text-[13px] font-medium text-muted-foreground">cần xem</span>':''} = <span class="text-tn">${tong}</span> học viên</div></div>
-    ${chuyen?`<span class="badge b-warn">⚠ ${chuyen} học viên sẽ chuyển từ BC2 khác</span>`:''}
     <div class="ml-auto flex items-center gap-2">
       <input id="qW" class="field-input" style="width:240px" placeholder="Tìm tên / số CMT (Enter để tích)" value="${W.q}" oninput="W.q=this.value;render('qW')" onkeydown="if(event.key==='Enter')tichKetQua()"/>
       <button class="btn" onclick="danList()">Dán danh sách CMT</button>
@@ -558,19 +557,19 @@ function wizChon() {
             <span class="badge ${m<=W.thang?'b-ok':'b-warn'}">${m<=W.thang?'trong '+W.thang+' tháng':'cũ hơn '+W.thang+' tháng'}</span>
             <span class="text-[12.5px] ml-auto">${n}/${ds.length} đã chọn</span>
             <button class="btn sm" onclick="event.stopPropagation();chonKhoaGoc('${ma}',${n<ds.length})">${n<ds.length?'Chọn cả khóa':'Bỏ cả khóa'}</button></div>
-          ${open?`<table class="w-full"><tbody>${ds.map(x => `<tr class="row ${sel(x)?'sel':''}"><td class="w-8 pl-8"><input type="checkbox" ${sel(x)?'checked':''} onchange="tichW('${x.h.dk}',this.checked)"/></td><td class="font-medium">${x.h.ten}</td><td class="tabnum">${dmy(x.h.ns)}</td><td class="mono">${x.h.cmt}</td><td>${ttBadge(x.h)}${x.h.bc2?'<span class="badge b-warn ml-1">đang ở BC2 '+x.h.bc2+'</span>':''}</td></tr>`).join('')}</tbody></table>`:''}
+          ${open?`<table class="w-full"><tbody>${ds.map(x => `<tr class="row ${sel(x)?'sel':''}"><td class="w-8 pl-8"><input type="checkbox" ${sel(x)?'checked':''} onchange="tichW('${x.h.dk}',this.checked)"/></td><td class="font-medium">${x.h.ten}</td><td class="tabnum">${dmy(x.h.ns)}</td><td class="mono">${x.h.cmt}</td><td>${ttBadge(x.h)}${x.h.bc2?'<span class="badge b-warn ml-1">từ BC2 cũ '+x.h.bc2+'</span>':''}</td></tr>`).join('')}</tbody></table>`:''}
         </div>`; }).join('') : '<div class="text-center text-muted-foreground py-6">Không có học viên thi lại.</div>'}</div>
     </section>
 
     ${g.canxem.length?`<section class="grp">
-      <div class="grp-h"><span class="text-warning text-[16px]">⚠️</span><div><div class="font-semibold">Cần xem — ${g.canxem.length} học viên</div><div class="text-[12px] text-muted-foreground">Chưa đủ điều kiện hoặc đang ở báo cáo khác. Không tích sẵn; mỗi dòng có cách xử lý nhanh.</div></div></div>
-      <table class="w-full"><tbody>${g.canxem.filter(lo).map(x => `<tr class="row ${sel(x)?'sel':''}"><td class="w-8"><input type="checkbox" ${sel(x)?'checked':''} ${x.n.kieu==='chuyen'?'':'disabled'} onchange="tichW('${x.h.dk}',this.checked)"/></td>
+      <div class="grp-h"><span class="text-warning text-[16px]">⚠️</span><div><div class="font-semibold">Cần xem — ${g.canxem.length} học viên</div><div class="text-[12px] text-muted-foreground">Chưa đủ điều kiện (chưa tốt nghiệp, thiếu số giấy, trạng thái lạ). Không tích sẵn; mỗi dòng có cách xử lý nhanh.</div></div></div>
+      <table class="w-full"><tbody>${g.canxem.filter(lo).map(x => `<tr class="row ${sel(x)?'sel':''}"><td class="w-8"><input type="checkbox" ${sel(x)?'checked':''} disabled onchange="tichW('${x.h.dk}',this.checked)"/></td>
         <td class="font-medium">${x.h.ten}</td><td class="mono">${x.h.cmt}</td><td>${ttBadge(x.h)}</td><td class="text-[12.5px] text-warning">${x.n.ly}</td>
         <td class="text-right">${x.n.kieu==='tn'?`<button class="btn sm" onclick="suaTaiCho('${x.h.dk}')">Cập nhật tốt nghiệp</button>`:x.n.kieu==='la'?`<button class="btn sm" onclick="suaTaiCho('${x.h.dk}')">Sửa trạng thái</button>`:''}</td></tr>`).join('')}</tbody></table>
     </section>`:''}
 
     <details class="grp" ${W.khongHien?'open':''} ontoggle="W.khongHien=this.open">
-      <summary class="grp-h"><span class="text-[16px]">⛔</span><div><div class="font-semibold">Không đưa được — ${g.khong.length} học viên</div><div class="text-[12px] text-muted-foreground">Mở ra để biết vì sao một học viên không có trong danh sách.</div></div><span class="ml-auto text-[12px] text-primary">Xem lý do</span></summary>
+      <summary class="grp-h"><span class="text-[16px]">⛔</span><div><div class="font-semibold">Không đưa được — ${g.khong.length} học viên</div><div class="text-[12px] text-muted-foreground">Mở ra để biết vì sao một học viên không có trong danh sách. Học viên đang ở BC2 đang mở khác cũng nằm đây: gỡ khỏi BC2 đó trước.</div></div><span class="ml-auto text-[12px] text-primary">Xem lý do</span></summary>
       <table class="w-full"><tbody>${g.khong.slice(0,60).map(x => `<tr class="row lock"><td class="font-medium pl-4">${x.h.ten}</td><td class="mono">${x.h.cmt}</td><td>${ttBadge(x.h)}</td><td class="text-[12.5px]">${x.n.ly}</td></tr>`).join('') || '<tr><td class="text-center text-muted-foreground py-4">Không có.</td></tr>'}</tbody></table>
     </details>
   </div>
@@ -586,7 +585,7 @@ function chonKhoaGoc(ma, on) { dsNhom().thilai.filter(x => x.h.kh === ma).forEac
 function themThiLai() { const ds = dsNhom().thilai.filter(x => tuoiThang(x.h) <= W.thang); ds.forEach(x => W.sel.add(x.h.dk)); render(); toast('Đã thêm ' + ds.length + ' học viên thi lại trong ' + W.thang + ' tháng gần nhất'); }
 function tichKetQua() {
   const q = boDau(W.q); if (!q) return; const g = dsNhom();
-  const ds = g.san.concat(g.thilai, g.canxem.filter(x => x.n.kieu==='chuyen')).filter(x => boDau(x.h.ten).includes(q) || x.h.cmt.includes(q));
+  const ds = g.san.concat(g.thilai).filter(x => boDau(x.h.ten).includes(q) || x.h.cmt.includes(q));
   ds.forEach(x => W.sel.add(x.h.dk)); W.q = ''; render(); toast('Đã tích ' + ds.length + ' học viên khớp');
 }
 function danList() {
@@ -597,7 +596,7 @@ function danList() {
 }
 function apDan() {
   const dong = $('#dsDan').value.split(/\s+/).map(s => s.trim()).filter(Boolean), g = dsNhom();
-  const tat = g.san.concat(g.thilai, g.canxem.filter(x => x.n.kieu==='chuyen')); let khop = 0;
+  const tat = g.san.concat(g.thilai); let khop = 0;
   dong.forEach(s => { const x = tat.find(t => t.h.cmt === s || t.h.dk === s); if (x) { W.sel.add(x.h.dk); khop++; } });
   closeModal(); render(); toast(`Khớp ${khop}/${dong.length} dòng` + (khop < dong.length ? ' — ' + (dong.length - khop) + ' dòng không có trong danh sách đưa được' : ''), khop < dong.length ? 'warn' : '');
 }
@@ -627,7 +626,7 @@ function goiYSo() {
 }
 function wizXacNhan() {
   const g = dsNhom(), tat = g.san.concat(g.thilai, g.canxem), chon = tat.filter(x => W.sel.has(x.h.dk));
-  const nSan = chon.filter(x => x.n.g==='san').length, nThi = chon.filter(x => x.n.g==='thilai').length, chuyen = chon.filter(x => x.n.kieu==='chuyen');
+  const nSan = chon.filter(x => x.n.g==='san').length, nThi = chon.filter(x => x.n.g==='thilai').length;
   const c1 = BC1.find(x => x.kh === W.ma_kh), so = W.so ?? (W.bc2 || goiYSo());
   const trung = !W.bc2 && BC2.some(b => b.ma === so);
   return `<div class="flex-1 min-h-0 overflow-auto p-4">
@@ -644,13 +643,11 @@ function wizXacNhan() {
       <div class="text-[12.5px] text-muted-foreground">${W.loai==='moto'?'Mô tô: mỗi khóa một BC1 và một BC2; số BC2 = số BC1 bỏ tiền tố A1A2. Tổng thí sinh ghi bằng số học sinh của BC1.':'Ô tô: số BC2 theo chuỗi riêng "số/năm". Tổng thí sinh ghi bằng số học viên lúc lập.'}</div>
     </div>
     <div class="grp p-4">
-      <div class="grid grid-cols-4 gap-3 text-center">
+      <div class="grid grid-cols-3 gap-3 text-center">
         <div><div class="num text-tn">${chon.length}</div><div class="text-[12px] text-muted-foreground">học viên sẽ thêm</div></div>
         <div><div class="num text-success">${nSan}</div><div class="text-[12px] text-muted-foreground">của khóa</div></div>
         <div><div class="num text-primary">${nThi}</div><div class="text-[12px] text-muted-foreground">thi lại</div></div>
-        <div><div class="num ${chuyen.length?'text-warning':''}">${chuyen.length}</div><div class="text-[12px] text-muted-foreground">chuyển từ BC2 khác</div></div>
       </div>
-      ${chuyen.length?`<div class="msg wrn mt-3"><span>⚠ ${chuyen.length} học viên đang ở BC2 khác sẽ <b>rời BC2 đó</b>: ${chuyen.map(x => x.h.ten + ' (' + x.h.bc2 + ')').join(', ')}.</span></div>`:''}
     </div>
     <div class="msg inf"><span>Tool đọc lại từng học viên ngay trước khi ghi: ai phần mềm cũ vừa đổi thì được bỏ qua và nêu lý do, không ghi đè. Sau khi ghi có nút <b>Hoàn tác lần vừa rồi</b>.</span></div>
     ${IT('Tạo BC2 bằng <span class="mono">usp_BaoCaoII_Insert</span> (trạng thái đang mở), thêm từng học viên bằng <span class="mono">usp_NguoiLX_Update_ThemHSBC2</span> (khóa theo BC2); hoàn tác bằng <span class="mono">usp_NguoiLXHoSo_Update_DanhSachHocSinhBC2</span>. "Tổng ghi" không đổi khi thêm.')}
