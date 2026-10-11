@@ -2,7 +2,7 @@
 
 > File do `/kehoach` sinh. `/tieptheo` đọc file này để biết làm gì tiếp theo.
 > **Thứ tự code** nằm ở đây. **Yêu cầu và trạng thái story** nằm ở `docs/PRD.md`.
-> Cập nhật lần cuối: 11/10/2026 (v23 — Phase 10 Tốt nghiệp & Báo cáo 2 TNB-01..07, task 96-115, CHANGES #60-#62, TDD §11F v6.8. Trước đó v22 — Phase 9 Phân công GV – xe PCG-01..05, task 85-95, CHANGES #54. Trước đó v21 — KQD-05 mở rộng "Sửa sau gửi" #53, task 83-84. Trước đó v20 — Phase 8 NAP-01 #51 "Bỏ khỏi hàng đợi" dòng chờ/lỗi + tombstone, task 81-82. Trước đó v19 — THU-06 chỉ OCR 5 trường (CHANGES #50); v18 — Phase 7 THU-06 task 79-80)
+> Cập nhật lần cuối: 11/10/2026 (v24 — thêm task 116-117 (110b) + Checkpoint 28; trước đó v23 — Phase 10 Tốt nghiệp & Báo cáo 2 TNB-01..07, task 96-115, CHANGES #60-#62, TDD §11F v6.8. Trước đó v22 — Phase 9 Phân công GV – xe PCG-01..05, task 85-95, CHANGES #54. Trước đó v21 — KQD-05 mở rộng "Sửa sau gửi" #53, task 83-84. Trước đó v20 — Phase 8 NAP-01 #51 "Bỏ khỏi hàng đợi" dòng chờ/lỗi + tombstone, task 81-82. Trước đó v19 — THU-06 chỉ OCR 5 trường (CHANGES #50); v18 — Phase 7 THU-06 task 79-80)
 
 ## Quyết định về thứ tự
 
@@ -412,6 +412,8 @@
 | 113 | **UI xem/gỡ/xóa BC2:** danh sách HV trong BC2 (tìm, chọn nhiều, "Gỡ N học viên"), khóa HV có kết quả kèm lý do, cảnh báo `TT_XuLy_Old` rỗng, xóa BC2 rỗng có xác nhận, hoàn tác lô | `TNB-05 (2/2)` | M | 100,106 | 1 | → PRD |
 | 114 | **UI Cứu trạng thái:** tìm HV, lý do không hiện, chọn đích (tên nghiệp vụ + mã), lý do bắt buộc, hộp xem lại "cũ → mới", hoàn tác một lần | `TNB-06 (2/2)` | M | 104,106 | 1 | → PRD |
 | 115 | **UI danh sách BC2 + nhật ký:** tab Ô tô/Mô tô, lọc đang mở/đã đóng, "Tổng ghi" ≠ "HV thực tế" đánh dấu lệch, bấm dòng → chi tiết; tab Nhật ký (ai · lúc nào · loại · số HV · kết quả) | `TNB-07 (2/2)` | M | 105,106 | 1 | → PRD |
+| 116 | **Dán danh sách ở bước ② (110b-1):** hộp dán cột CMT/mã đăng ký (≤ 5.000 dòng) → `POST /bc2/khop-danh-sach` → tích đúng người khớp (Sẵn sàng/Thi lại); báo **số dòng không khớp** và HV khớp nhưng không đưa được kèm lý do; không tích HV ngoài nhóm được phép | `TNB-04 (5/6, phần dán)` | S | 97,110 | 1 | → PRD |
+| 117 | **Xử lý ngoại lệ tại chỗ ở bước ② (110b-2):** nhóm Cần xem — "Cập nhật tốt nghiệp" (mini-form số giấy → `POST /tot-nghiep/ghi`, làm tươi, HV tự sang Sẵn sàng); "Cứu trạng thái" mở `PanelCuuTrangThai` ngay trong màn (dùng lại task 114) rồi làm tươi; nhóm Không đưa được — nút nhảy sang xem BC2 đang giữ HV ("gỡ khỏi BC2 đó trước") | `TNB-04 (5/6, phần ngoại lệ)` | M | 107,110,113,114 | 1+3 | → PRD |
 
 > TNB-04 cắt 6 task (96→97→99→109→110→112) cùng trỏ 1 story → PRD `TNB-04` chỉ ✅ khi xong cả 6. TNB-01 cắt 3 (101/102/107), TNB-02 cắt 2 (103/108), TNB-03 cắt 2 (98/111), TNB-05 cắt 2 (100/113), TNB-06 cắt 2 (104/114), TNB-07 cắt 2 (105/115). **Ghi thật chỉ nghiệm thu ở máy CSDT** (dev không ghi happy-path vào DB Nạp thật).
 
@@ -448,11 +450,18 @@
 - [ ] Đối chiếu bảo mật OG đóng trước go-live (chặn go-live nếu chưa đạt).
 - [ ] So giờ máy DB ↔ VPS (Asia/Saigon) trước go-live — MaDK/tên file `.jp2` theo timestamp máy DB.
 
+### ✅ Checkpoint 28 — sau task 116-117 (đóng nốt TNB-04 ở bước ②)
+- [ ] **Mức 3:** dán 10 CMT → đúng 10 người được tích; dòng không khớp được báo; HV ở nhóm khác nêu lý do (mục còn lại của Checkpoint 26).
+- [ ] **Mức 3:** HV "Cần xem" thiếu số giấy → mini-form → ghi → tự sang Sẵn sàng; "Cứu trạng thái" tại chỗ rồi quay lại thấy HV đã đổi nhóm.
+- [ ] `pnpm build` + vitest + E2E sạch; ảnh 1280/1440 vào `anh-kiem/`.
+- [ ] TNB-04 đủ "Done khi" (trừ ghi thật → Checkpoint 27 nghiệm thu máy CSDT).
+
 ## Nhóm chạy song song được
 
 > Chủ dự án chốt **1 người build tuần tự** → không dùng song song. Mục này để tham chiếu nếu về sau mở phiên thứ hai.
 
 **Phải chạy một mình (nếu có parallel):**
+- Task 116 → 117 (Phase 10, bước ② lập BC2): cùng sửa `BuocChonHocVien.tsx`, làm tuần tự
 - Task 1, 3, 12, 13 — dựng khung, chạm cấu trúc nền của cả app.
 - Task 5 — bảng phụ trên DB đích.
 - Task 9, 14, 15 — cơ chế lõi (SP import / auth / hàng đợi), nhiều task dựa vào.
@@ -502,12 +511,13 @@
 - **Số story trong PRD khi cập nhật:** 56 (thêm `TNB-01..07` từ CHANGES #60; `PCG-01..05` từ CHANGES #54; thêm `THU-06` từ CHANGES #49; `KQD-06` #48; `KQD-05` #45; trước đó `KQD-01/02/03/04` #42; `DGT-01/02/03/04` #38/#39; `TCB-01/02/03/04` #35; `HTG-07` #34; `SYNC-01/02/03` #33; chưa tính NICE `QLY-04`, `THU-03`)
 - **Mã story đã đưa vào kế hoạch:** `HTG-01`, `HTG-02`, `HTG-03`, `HTG-07`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `THU-06`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `SYNC-01`, `SYNC-02`, `SYNC-03`, `TCB-01`, `TCB-02`, `TCB-03`, `TCB-04`, `DGT-01`, `DGT-02`, `DGT-03`, `DGT-04`, `KQD-01`, `KQD-02`, `KQD-03`, `KQD-04`, `KQD-05`, `KQD-06`, `PCG-01`, `PCG-02`, `PCG-03`, `PCG-04`, `PCG-05`, `TNB-01`, `TNB-02`, `TNB-03`, `TNB-04`, `TNB-05`, `TNB-06`, `TNB-07`
 - **Mã story chưa đưa vào:** `QLY-04`, `THU-03` (NICE, chưa đủ chi tiết) · **`HTG-04/05/06`** (thêm ở CHANGES #18, đã code thẳng — chưa có task trong plan; cần `/kehoach` bổ sung riêng nếu muốn khớp sổ)
-- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 11/10/2026 (#62)
+- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 11/10/2026 (#63)
 
 ## Changelog
 
 | Ngày | Thay đổi |
 |---|---|
+| 11/10/2026 | v24 — bổ sung (không đổi PRD/TDD): thêm **task 116** dán danh sách CMT/mã đăng ký ở bước ② + **task 117** xử lý ngoại lệ tại chỗ ở bước ② (nốt phần "110b" của `TNB-04`; 116 S, 117 M, tuần tự vì cùng sửa `BuocChonHocVien.tsx`) + **Checkpoint 28** |
 | 11/10/2026 | v23 — bổ sung (CHANGES #60-#62, PRD v4.6, TDD §11F v6.8 sau /reviewtdd 25 phát hiện): thêm **Phase 10 Tốt nghiệp & Báo cáo 2** (feature mới, prefix `TNB`, 7 story, phân hệ #5, DB Nạp) — task **96** luật thuần + test · **97** backend đọc ứng viên (SP `@MaKH=''` + SELECT bổ sung) · **98** tạo BC2 + nhật ký + khóa `tnbc2_ghi` · **99** `/bc2/lap` chạy nền + `lo_id` + hoàn tác · **100** xem/gỡ/xóa BC2 · **101-103** tốt nghiệp đọc/ghi/hủy · **104** cứu trạng thái · **105** danh sách BC1/BC2 + nhật ký · **106** khung phân hệ #5 · **107-108** UI tốt nghiệp · **109-112** UI lập BC2 3 bước (+ form BC2) · **113** UI xem/gỡ · **114** UI cứu · **115** UI danh sách + nhật ký, + Checkpoint 23-27 + 3 Prerequisite + 5 rủi ro. Chỉ gọi SP có sẵn, không bảng/cột mới. +7 story (49→56). 115 task. |
 | 10/10/2026 | v22 — bổ sung (CHANGES #54, PRD v4.3, TDD v6.4 §11E): thêm **Phase 9 Phân công giáo viên – xe** (feature mới, prefix `PCG`, 5 story) — task **85** luật thuần + test · **86** backend đọc + `/kiem-tra` · **87** backend `/ghi` + nhật ký (rủi ro cao làm trước UI) · **88** khung phân hệ #4 · **89** PCG-01 bước ① · **90** bản nháp + Ghi vào CDB · **91-92** PCG-02 bước ② (từng GV + hàng loạt) · **93-94** PCG-03 bước ③ (xe + ghép, gợi ý) · **95** PCG-05 rà soát + Checkpoint 20/21/22. Chỉ ghi `KhoaHoc_GiaoVien`/`KhoaHoc_XeTap`, không bảng mới; không dùng SP xóa lan. +5 story (44→49). 95 task. |
 | 10/10/2026 | v21 — bổ sung (CHANGES #53, PRD v4.2, TDD v6.3): thêm **KQD-05 mở rộng "Sửa sau gửi" chọn từng HV** vào cuối Phase 6 — task **83** backend (`POST /mo-sua-sau-gui` + `GET /sua-sau-gui` + nhật ký sqlite `sua_sau_gui`, lùi đúng HV chọn, không xóa gói, `13` 409) + task **84** UI (ô tích + hộp xác nhận + chip/băng cam + khối đỏ KQD-03 + sửa MoKhoaModal) + Checkpoint 19. Thay khóa cứng M1 (decisions §21). Không story mới, giữ 44. 84 task. |
