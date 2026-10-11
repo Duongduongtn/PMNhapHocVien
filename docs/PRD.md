@@ -1131,7 +1131,7 @@
 
 #### [TNB-03] Tạo BC2 (ô tô / mô tô)
 
-**Trạng thái:** 🔄 In Progress — 1/2 task xong (98 backend tạo BC2, kiểm bằng kết nối giả, chưa ghi thật); còn 111 UI form
+**Trạng thái:** ⚠️ Partial — 2/2 task xong (98 backend, 111 UI form + tạo BC2 rỗng); mức 1 pass bằng kết nối giả + Playwright giả backend, **chưa ghi thật DB Nạp** (nghiệm thu máy CSDT, Checkpoint 27); **chưa hiện ngày của BC1** (API `goi-y-so` chưa trả ngày BC1 — cần quyết định thêm cột)
 **Story:** Là nhân viên cơ sở, tôi muốn tạo phiếu BC2 đúng số và đúng BC1 của khóa, để thêm học viên vào báo cáo.
 
 **Done khi:**

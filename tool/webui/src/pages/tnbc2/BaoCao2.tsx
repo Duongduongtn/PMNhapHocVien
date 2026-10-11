@@ -1,6 +1,7 @@
 import { useState } from "react";
 import ChuGiaiTrangThai from "../../components/ChuGiaiTrangThai";
 import BuocChonHocVien from "../../components/tnbc2/BuocChonHocVien";
+import TaoBc2Rong from "../../components/tnbc2/TaoBc2Rong";
 import { BuocChonKhoa, DauWizard, type TrangThaiWizard } from "../../components/tnbc2/WizardBc2";
 import type { LoaiHang } from "../../lib/tnbc2Api";
 
@@ -11,6 +12,21 @@ export default function BaoCao2() {
   const [loai, setLoai] = useState<LoaiHang>("oto");
   const [wiz, setWiz] = useState<TrangThaiWizard | null>(null);
   const [thongBao, setThongBao] = useState("");
+  const [rong, setRong] = useState(false);
+
+  if (rong) {
+    return (
+      <TaoBc2Rong
+        loai={loai}
+        onVe={() => setRong(false)}
+        onThemHocVien={(maKh, tenKh, maBc2) => {
+          setRong(false);
+          setThongBao(`Đã tạo BC2 ${maBc2} — chọn học viên để thêm vào BC2 này.`);
+          setWiz({ loai, buoc: 2, maKh, tenKh, maBc2, dsMaDk: [] });
+        }}
+      />
+    );
+  }
 
   if (wiz) {
     return (
@@ -73,6 +89,10 @@ export default function BaoCao2() {
           onClick={() => setWiz({ loai, buoc: 1, maKh: "", tenKh: "", maBc2: "", dsMaDk: [] })}
           className="h-9 px-4 rounded-lg bg-tn text-white text-[13px] font-semibold">
           Lập BC2 mới
+        </button>
+        <button type="button" onClick={() => setRong(true)}
+          className="h-9 px-4 rounded-lg border border-input text-[13px] font-semibold hover:bg-muted">
+          Tạo BC2 rỗng
         </button>
       </div>
     </div>

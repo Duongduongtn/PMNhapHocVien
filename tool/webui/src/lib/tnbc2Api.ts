@@ -269,7 +269,57 @@ export const ungVienBc2 = (maKh: string, maBc2 = "", thiLaiThang?: number, lamTu
   });
 export const khopDanhSach = (maKh: string, maBc2: string, dong: string[]) =>
   goi("POST", "/bc2/khop-danh-sach", { body: { ma_kh: maKh, ma_bc2: maBc2, dong } });
-export const goiYSoBc2 = (maKh: string) => goi("GET", "/bc2/goi-y-so", { query: { ma_kh: maKh } });
+export interface GoiYSoResp {
+  ma_kh: string;
+  ten_kh: string;
+  loai: LoaiHang;
+  nam: number;
+  so: string;
+  co_bc1: boolean;
+  bc1: { ma_bci: string; so_bao_cao: string; so_hoc_sinh: number } | null;
+  bc2_cua_khoa: Bc2CuaKhoa[];
+  trung: boolean;
+}
+export interface TaoBc2Resp {
+  ma_bc2: string;
+  da_ton_tai: boolean;
+  ma_kh: string;
+  loai: LoaiHang;
+  ma_bci: string;
+  /** Vắng khi `da_ton_tai` (BC2 đã được tạo từ trước, server chỉ trả mã) — màn hình phải tự lấy từ giá trị đã nhập. */
+  so_bao_cao?: string;
+  ngay_bao_cao?: string;
+  tong_so_thi_sinh?: number;
+  trang_thai?: number;
+  canh_bao: { ma: string; noi_dung: string }[];
+}
+export interface Bc2Dong {
+  ma_bc2: string;
+  so_bao_cao: string;
+  ngay_bao_cao: string;
+  ma_bci: string;
+  so_bc1: string;
+  ma_kh: string;
+  ten_kh: string;
+  loai: LoaiHang | "";
+  tong_ghi: number | null;
+  hv_thuc_te: number;
+  lech: boolean;
+  dong: boolean;
+  dang_mo: boolean;
+  nguoi_tao: string;
+  ngay_tao: string;
+}
+export interface DsBc2Resp {
+  loai: string;
+  dong: string;
+  tong: number;
+  dang_mo: number;
+  da_dong: number;
+  lech: number;
+  bc2: Bc2Dong[];
+}
+export const goiYSoBc2 = (maKh: string) => goi<GoiYSoResp>("GET", "/bc2/goi-y-so", { query: { ma_kh: maKh } });
 export const taoBc2 = (b: {
   ma_kh: string;
   so_bao_cao: string;
@@ -277,7 +327,7 @@ export const taoBc2 = (b: {
   ghi_chu: string;
   da_xem_canh_bao: boolean;
   thu_lai?: boolean;
-}) => goi("POST", "/bc2", { body: { ...b, xac_nhan_csdl_that: true } });
+}) => goi<TaoBc2Resp>("POST", "/bc2", { body: { ...b, xac_nhan_csdl_that: true } });
 export const lapBc2 = (b: {
   lo_id: string;
   ma_kh: string;
@@ -312,6 +362,6 @@ export const cuuHoanTac = (loIdCuu: string, loId: string) =>
 // ── Danh sách + nhật ký (chỉ đọc) ──
 export const dsBc1 = (loai: LoaiHang | "" = "") => goi("GET", "/bc1", { query: { loai } });
 export const dsBc2 = (loai: LoaiHang | "" = "", dong: "mo" | "dong" | "" = "") =>
-  goi("GET", "/bc2", { query: { loai, dong } });
+  goi<DsBc2Resp>("GET", "/bc2", { query: { loai, dong } });
 export const dsNhatKy = (loai = "", maBc2 = "", gioiHan = 100) =>
   goi("GET", "/nhat-ky", { query: { loai, ma_bc2: maBc2, gioi_han: gioiHan } });
