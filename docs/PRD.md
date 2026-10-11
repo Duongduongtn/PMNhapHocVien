@@ -1083,6 +1083,140 @@
 
 ---
 
+### 🟣 Tốt nghiệp & Báo cáo 2 (workspace riêng — tool máy CSDT, DB Nạp `GPLX_CSDT`)
+
+**Trạng thái:** ⏳ Todo — nhóm mới (CHANGES #60, 11/10/2026, prefix **TNB**). Phân hệ #5 của tool: **cập nhật tốt nghiệp** cho học viên **ô tô**, **tạo Báo cáo 2 (BC2)** và **thêm/bỏ học viên khỏi BC2** (ô tô và mô tô riêng), kèm chức năng **cứu trạng thái** học viên không tìm thấy khi lập BC2. Làm việc trên **DB Nạp** (`GPLX_CSDT`) để **phần mềm cũ (PM cũ) mở lên thấy y chang**.
+
+> **Phạm vi:** tool làm — cập nhật/hủy tốt nghiệp ô tô · tạo số + tạo BC2 · thêm/bỏ HV khỏi BC2 · chuyển `TT_XuLy` cứu HV. **PM cũ vẫn làm:** kết xuất BC2, cập nhật kết quả BC2, đổi trạng thái HV sau khi gửi BC2, **đóng BC2** (`TrangThai=1`). **KHÔNG làm:** gửi BC2, nhập kết quả sát hạch, lập/sửa BC1.
+>
+> **Ràng buộc cứng:** chỉ dùng **SP có sẵn** trong DB Nạp (`usp_NguoiLX_HoSo_Update_CNTN`, `usp_BaoCaoII_Insert`, `usp_NguoiLX_HoSo_ThemHS_BC2`, `usp_NguoiLX_Update_ThemHSBC2`, `usp_NguoiLXHoSo_Update_DanhSachHocSinhBC2`, `usp_NguoiLX_HoSo_UpdateTTXLy`); **không** `INSERT/UPDATE/DELETE` trực tiếp, **không** sửa schema, **không** tạo SP mới. Tool và PM cũ **dùng chung một DB** (không staging) → mọi thứ PM cũ làm tool thấy ngay sau khi làm tươi.
+>
+> **Sự thật đã verify trên DB 11/10/2026:** `TT_XuLy` Nạp: 01 Nhận hồ sơ · 03 Đã nhận ảnh · **09 Đạt tốt nghiệp** · **11 Đã lập BC2** · 12 Đã gửi BC2 · 13/14 Đạt/Chưa đạt BC2 · 16/17/18 Đạt/Chưa đạt/Vắng SH · 19 Đã nhận GPLX (khác nghĩa CDB: ở CDB `12` = đã kết xuất). Ô tô: `03 → 09 → 11 → 13/14 → 16/17/18 → 19`; **mô tô không có bước tốt nghiệp**: `03 → 11 → …`. `BaoCaoII.TrangThai`: **0 = đang mở** (toàn HV ở 11), **1 = đã đóng**. 455 BC2: 329 chỉ ô tô · 130 chỉ mô tô · 0 trộn. PM cũ ghi tốt nghiệp bằng `usp_NguoiLX_HoSo_Update_CNTN` (cả 90 HV ô tô ở 09 có đủ 6 trường sổ tốt nghiệp).
+
+> **Ngôn ngữ và cách làm giao diện (CHANGES #61):** màn hình **không** hiện mã story, tên SP hay `TT_XuLy`. Trạng thái học viên hiện bằng **tên nghiệp vụ** kèm mã nhỏ của PM cũ và một **bảng chú giải** (nút "?"): "Đã học xong, chưa tốt nghiệp" (03 ô tô) · "Đã học xong, chờ lập BC2" (03 mô tô) · "Đã tốt nghiệp, chờ lập BC2" (09) · "Đã vào BC2, chờ kết quả" (11) · "Chưa đạt BC2 — cần lập lại" (14) · "Thi sát hạch chưa đạt" (17) · "Vắng sát hạch" (18) · "Đã có kết quả cuối" (13/16/19). Chi tiết kỹ thuật gom vào mục thu gọn "dành cho IT". **Ưu tiên tự động hóa:** tích sẵn nhóm sẵn sàng, chọn hàng loạt theo khóa gốc, dán danh sách CMT, xử lý ngoại lệ tại chỗ, một nút làm xong, hoàn tác lần thêm vừa rồi.
+
+#### [TNB-01] Cập nhật tốt nghiệp ô tô theo lô
+
+**Trạng thái:** ⏳ Todo
+**Story:** Là nhân viên cơ sở, tôi muốn nhập sổ tốt nghiệp, quyết định và số giấy chứng nhận tốt nghiệp (CNTN) cho cả một khóa ô tô trong một lượt, để học viên được ghi nhận "Đạt tốt nghiệp" và đủ điều kiện vào BC2.
+
+**Done khi:**
+- ⬜ **Chọn theo khóa học** (không theo BC1). Danh sách HV có cột **Tên học viên · Ngày sinh · Số CMT · Tên khóa học**, cột phụ **Trạng thái** (Chưa tốt nghiệp / Đã tốt nghiệp) và **Số giấy CNTN**.
+- ⬜ **Phạm vi mặc định:** HV ô tô (hạng không chứa `A`, khác `B1m`) của khóa **đã bế giảng từ "hôm nay − 1 tháng − 1 năm" đến hôm nay** (vd hôm nay 11/10/2026 → từ 11/09/2025), tức khóa năm nay và năm trước. Công tắc **"Hiện khóa cũ"** mở rộng sang mọi khóa đã bế giảng, HV khóa cũ có huy hiệu "khóa cũ". Khóa **chưa bế giảng** chỉ xem, không ghi được.
+- ⬜ **Tìm** theo họ tên (gõ không dấu cũng ra), số CMT/CCCD, mã đăng ký; lọc theo khóa và trạng thái.
+- ⬜ **Điền chung một lượt cho các HV đã tích:** số sổ tốt nghiệp (vd `01/XNĐT/2026`), ngày vào sổ, số quyết định (vd `100/TTTĐ`), ngày ra quyết định, ngày in giấy; khóa đã có sổ thì điền sẵn từ HV cùng khóa. Tool **không tự bịa** số/ngày quyết định.
+- ⬜ **Số giấy CNTN** (dạng `N1|7282`): nhập số bắt đầu → tool đánh liên tiếp theo thứ tự tên; sửa tay từng ô; dán cột số từ Excel; **kiểm trùng ngay khi gõ** (trong lô và trong DB).
+- ⬜ **Lưu sổ trước, cấp số giấy sau:** HV chưa có số giấy → ghi thông tin sổ/quyết định nhưng ở lại `03`; có số giấy → sang **`09`**.
+- ⬜ "Xem lại" (số HV, khoảng số giấy, cảnh báo) → "Ghi N HV": gọi `usp_NguoiLX_HoSo_Update_CNTN` từng HV (applock theo khóa); lỗi giữa chừng báo **đã/chưa ghi**, làm tiếp được.
+- ❌ Không nhập kết quả thi, không gửi báo cáo, không đụng hạng mô tô.
+
+**Edge cases:** HV đã ở 11–18 mà thiếu số giấy (~41 người) → ghi được số giấy nhưng **không đổi trạng thái**, kèm cảnh báo "báo cáo đã lập không đổi theo" · HV đã `09` → hiện "Đã tốt nghiệp", chỉ sửa được qua TNB-02 · trùng số giấy → chặn dòng đó · khóa cũ trước 2018 chưa từng có sổ (461 HV) → vẫn làm được, nhân viên nhập số quyết định thật · số chứng chỉ nghề (`SoCCN`) là tùy chọn riêng, không bắt buộc.
+
+> Nguồn: user 11/10/2026 · `usp_NguoiLX_HoSo_Update_CNTN` (6 trường sổ) · dữ liệu 90 HV ô tô ở 09 · TDD §11F.2
+
+#### [TNB-02] Sửa / hủy kết quả tốt nghiệp
+
+**Trạng thái:** ⏳ Todo
+**Story:** Là nhân viên cơ sở, tôi muốn sửa số giấy hoặc hủy tốt nghiệp khi chọn nhầm, để dữ liệu đúng trước khi lập BC2.
+
+**Done khi:**
+- ⬜ **Sửa nhầm số giấy/sổ/quyết định:** nhập lại cho HV đang `09`; SP chỉ cập nhật thông tin, giữ `09`.
+- ⬜ **Hủy tốt nghiệp:** chọn HV đang `09` → "Hủy tốt nghiệp" (hộp xác nhận nêu tên + số giấy sẽ bị xóa) → SP với số giấy rỗng đưa **`09 → 03`**; giữ nguyên thông tin sổ/quyết định để nhập lại.
+- ⬜ **CHẶN** hủy/sửa khi HV **đã vào BC2** (`TT_XuLy ≥ 11` hoặc `MaBC2` có giá trị): nút khóa kèm lý do "phải gỡ khỏi BC2 trước" (TNB-05).
+- ❌ Không dùng `usp_NguoiLX_HoSo_Update_HSTotNghiep` để hủy (dựa vào `TT_XuLy_Old`, 32/90 HV ở 09 đang trống).
+
+**Edge cases:** HV bị PM cũ đưa vào BC2 giữa lúc đang mở hộp → đọc lại trước khi ghi, bỏ qua kèm lý do · hủy mà `TT_XuLy` đã khác `09` → SP không đổi trạng thái, tool báo "HV không còn ở 09".
+
+> Nguồn: user 11/10/2026 · định nghĩa SP verify DB · TDD §11F.2
+
+#### [TNB-03] Tạo BC2 (ô tô / mô tô)
+
+**Trạng thái:** ⏳ Todo
+**Story:** Là nhân viên cơ sở, tôi muốn tạo phiếu BC2 đúng số và đúng BC1 của khóa, để thêm học viên vào báo cáo.
+
+**Done khi:**
+- ⬜ Chọn **loại** (ô tô / mô tô — hai danh sách riêng) → chọn **BC1** (bắt buộc; hiện khóa, số BC1, ngày, số HV) → nhập **số báo cáo**, **ngày báo cáo**, ghi chú.
+- ⬜ **Gợi ý số, nhân viên sửa được, kiểm trùng trước khi ghi:** ô tô = số kế tiếp trong chuỗi `n/năm` (vd `81/2026`); mô tô = **số BC1 bỏ tiền tố `A1A2`** (BC1 `A1A2870/26-TTTĐ` → BC2 `870/26-TTTĐ`). `MaBCII` = `SoBaoCao`.
+- ⬜ **`TongSoThiSinh` đúng như PM cũ, không tự đếm lại:** mô tô = `BaoCaoI.SoHocSinh` của BC1; ô tô = số HV tại lúc lập (0 khi tạo rỗng). Danh sách hiện song song "Tổng ghi" và "HV thực tế".
+- ⬜ "Xem lại" → "Tạo BC2": `usp_BaoCaoII_Insert`, **`TrangThai=0` (đang mở)**, người tạo = tên đăng nhập tool. **Trong luồng 3 bước của TNB-04 việc tạo BC2 và thêm HV gộp một lần xác nhận** ("Lập BC2 và thêm N học viên"); vẫn cho tạo BC2 rỗng từ danh sách BC2.
+- ⬜ Mỗi BC2 mô tô gắn BC1 của chính khóa đó (1 khóa = 1 BC1 = 1 BC2); ô tô có thể nhiều BC2 cho một BC1.
+- ❌ Không tạo BC2 không có BC1; không tạo BC1; không nút "Đóng BC2".
+
+**Edge cases:** số BC2 trùng → chặn · BC1 đã có BC2 mô tô → cảnh báo "khóa này đã có BC2 số …" · mất kết nối giữa chừng → kiểm lại BC2 đã tạo chưa trước khi thử lại (tránh tạo đôi).
+
+> Nguồn: user 11/10/2026 · 7 BC2 mô tô gần nhất (tổng = `SoHocSinh` BC1) · TDD §11F.3
+
+#### [TNB-04] Thêm học viên vào BC2
+
+**Trạng thái:** ⏳ Todo
+**Story:** Là nhân viên cơ sở, tôi muốn đưa đúng các học viên đủ điều kiện (kể cả HV rớt/vắng từ khóa cũ) vào một BC2 đang mở.
+
+**Done khi:**
+- ⬜ Chọn **BC2 đang mở** (`TrangThai=0`) của đúng loại; BC2 đã đóng chỉ xem (công tắc "Hiện BC2 đã đóng").
+- ⬜ **Luồng 3 bước, một nút làm xong:** ① **Chọn khóa** (khóa đã bế giảng chưa có BC2; mỗi dòng ghi "Sẵn sàng · Thi lại · Cần xem") → ② **Chọn học viên** (một màn, không tab) → ③ **Xác nhận** ("Lập BC2 và thêm N học viên": tạo BC2 nếu chưa có rồi thêm HV; BC2 đã có thì chỉ thêm). Vào từ "Lập BC2 mới" (đủ 3 bước) hoặc từ dòng BC2 đang mở → "Thêm học viên" (vào thẳng bước ②).
+- ⬜ **Bốn nhóm học viên (thay cho tab + mã):** ✅ **Sẵn sàng** (HV của khóa đủ điều kiện, chưa ở báo cáo nào — **tích sẵn**) · 🔁 **Thi lại** (rớt/vắng sát hạch hoặc chưa đạt BC2 từ khóa trước — **KHÔNG tích sẵn**; có nút **"Thêm HV thi lại trong [12] tháng"** đổi được số tháng; gom theo khóa gốc, "chọn cả khóa") · ⚠️ **Cần xem** (đang ở BC2 khác sẽ bị chuyển · chưa tốt nghiệp (ô tô) · thiếu số giấy; mỗi dòng có hướng xử lý 1 chạm) · ⛔ **Không đưa được** (khóa chưa bế giảng · đã có kết quả cuối · sai loại; ẩn mặc định, mở ra để biết lý do).
+- ⬜ **Dải tóm tắt luôn hiện:** "Sẽ đưa vào BC2: 150 + 74 = 224 học viên" cập nhật khi tích, kèm số cảnh báo.
+- ⬜ **Chọn nhanh:** tìm tên/CMT (Enter để tích) · **"Dán danh sách"** (dán cột CMT/mã đăng ký từ Excel để tích đúng người, báo số không khớp) · chọn cả khóa gốc · bỏ chọn tất cả.
+- ⬜ **Xử lý ngoại lệ ngay trên dòng, không rời màn:** HV chưa tốt nghiệp (ô tô) → "Cập nhật tốt nghiệp" (mini-form số giấy, xong tự sang Sẵn sàng); trạng thái lạ → "Cứu trạng thái" (TNB-06) rồi quay lại.
+- ⬜ **Điều kiện:** ô tô — `09` (đã tốt nghiệp) cộng `14/17/18`; mô tô — `03` cộng `14/17/18`; khóa đã bế giảng; đúng loại hạng. Danh sách lấy bằng `usp_NguoiLX_HoSo_ThemHS_BC2` rồi **lọc lại phía tool** theo đúng điều kiện (SP nhánh mô tô có lỗi `OR 'B1m'`).
+- ⬜ **Ô tô và mô tô không trộn** trong cùng BC2 (tool tự chặn vì DB không có cột hạng ở `BaoCaoII`).
+- ⬜ "Thêm N HV": `usp_NguoiLX_Update_ThemHSBC2` từng HV (applock theo BC2) → `MaBC2` mới, `TT_XuLy='11'`, lưu `TT_XuLy_Old`. HV đang ở BC2 khác bị **chuyển** sang BC2 này — hộp xem lại nêu rõ "đang ở BC2 số …".
+- ⬜ **Đọc lại từng HV trước khi ghi:** HV PM cũ đã thêm/đổi từ lúc tải danh sách → **bỏ qua kèm lý do**, không ghi đè. Có nút **Làm tươi**; tự tải lại khi quay lại cửa sổ.
+- ⬜ Kết quả hiện **đã/chưa ghi** kèm lý do bỏ qua; **"Làm tiếp"** khi đứt giữa chừng; **"Hoàn tác lần vừa rồi"** gỡ đúng các HV vừa thêm (còn ở "Đã vào BC2, chờ kết quả").
+- ❌ Không đếm lại `TongSoThiSinh`, không đóng BC2, không nhập kết quả sát hạch.
+
+**Edge cases:** HV khóa chưa bế giảng → không hiện, kèm giải thích (xem TNB-06) · BC2 do PM cũ tạo → thấy ngay như BC2 tạo ở tool · BC2 đã đóng giữa lúc đang thêm → báo, không ghi · mô tô: HV tồn là luồng chính (BC2 `861/26-TTTĐ` có 74 HV tồn của 11 khóa).
+
+> Nguồn: user 11/10/2026 · `usp_NguoiLX_HoSo_ThemHS_BC2` + `usp_NguoiLX_Update_ThemHSBC2` · TDD §11F.4
+
+#### [TNB-05] Bỏ học viên khỏi BC2
+
+**Trạng thái:** ⏳ Todo
+**Story:** Là nhân viên cơ sở, tôi muốn gỡ học viên thêm nhầm khỏi BC2 đang mở.
+
+**Done khi:**
+- ⬜ Chọn HV trong BC2 → "Gỡ khỏi BC2" (hộp xác nhận): `usp_NguoiLXHoSo_Update_DanhSachHocSinhBC2` với `@TrangThaiXuLy=101` → `TT_XuLy` về `TT_XuLy_Old`, `MaBC2=''`.
+- ⬜ **Chỉ gỡ HV còn `TT_XuLy='11'`** (chưa có kết quả). HV `13/14/16–19` khóa nút kèm lý do (SP sẽ trả về trạng thái cũ làm mất kết quả).
+- ⬜ **Xóa BC2** chỉ khi còn 0 HV (`usp_BaoCaoII_Delete`), có xác nhận.
+- ⬜ HV từng ở BC2 cũ rồi thêm sang BC2 này: gỡ ra **không** tự quay về BC2 cũ (hộp xác nhận nêu rõ).
+- ⬜ **Màn xem/gỡ riêng** (ít dùng hơn thêm): danh sách HV trong BC2 có tìm kiếm, chọn nhiều, "Gỡ N học viên"; HV đã có kết quả bị khóa kèm lý do.
+- ⬜ **Hoàn tác lần thêm vừa rồi** (gỡ theo lô thêm gần nhất, chỉ HV còn "Đã vào BC2, chờ kết quả").
+- ❌ Không nút "Đóng BC2".
+
+**Edge cases:** HV bị PM cũ đổi trạng thái giữa lúc chọn → đọc lại, bỏ qua kèm lý do · `TT_XuLy_Old` rỗng → cảnh báo trước khi gỡ (sẽ về giá trị rỗng).
+
+> Nguồn: user 11/10/2026 · SP gỡ verify DB · TDD §11F.4
+
+#### [TNB-06] Chuyển trạng thái học viên (cứu HV không tìm thấy)
+
+**Trạng thái:** ⏳ Todo
+**Story:** Là nhân viên cơ sở, khi một học viên đã tốt nghiệp hoặc vắng/rớt sát hạch không hiện trong danh sách để thêm vào BC2, tôi muốn đưa trạng thái của họ về đúng nhóm chờ lập BC2.
+
+**Done khi:**
+- ⬜ **Tìm HV** theo tên/CMT/mã đăng ký; tool hiện **lý do HV không có trong danh sách ứng viên** (trạng thái ngoài tập cho phép / khóa chưa bế giảng / khác hạng / đang ở BC2 …).
+- ⬜ **Đích cho phép:** `09` (ô tô, bắt buộc đã có số giấy CNTN) hoặc `14/17/18`. **Nguồn cho phép:** HV chưa có kết quả cuối `01, 02, 03, 04, 10, 12, 13`. **CHẶN** nguồn `11` (phải gỡ BC2 trước), `16` (đạt SH), `19` (đã nhận GPLX).
+- ⬜ Bắt buộc **nhập lý do**; hộp xem lại "trạng thái cũ → mới" + SP sẽ gọi; ghi **nhật ký**.
+- ⬜ Ghi bằng `usp_NguoiLX_HoSo_UpdateTTXLy`; sau khi ghi có nút **hoàn tác về trạng thái cũ** (một lần, ngay sau đó). Giao diện hiện **tên trạng thái nghiệp vụ kèm mã** (xem chú giải đầu chương).
+- ❌ Không cho gõ mã trạng thái tự do; không sửa kết quả sát hạch; không giải quyết được ca "khóa chưa bế giảng" (điều kiện nằm ở ngày bế giảng của khóa).
+
+**Edge cases:** SP đặt `Transfer_flag=0` (hiện toàn bộ HV đã bằng 0) · HV khác hạng với loại đang chọn → không đổi, báo lý do · HV `09` mà không có số giấy → chặn đích 09.
+
+> Nguồn: user 11/10/2026 · `usp_NguoiLX_HoSo_UpdateTTXLy` · TDD §11F.5
+
+#### [TNB-07] Danh sách BC2 và nhật ký thao tác
+
+**Trạng thái:** ⏳ Todo
+**Story:** Là nhân viên cơ sở, tôi muốn xem các BC2 hiện có và biết ai đã làm gì trong tool.
+
+**Done khi:**
+- ⬜ Bảng BC2 theo tab **Ô tô / Mô tô**, lọc **đang mở / đã đóng**: số báo cáo · ngày · BC1 · khóa · **Tổng ghi** · **HV thực tế** (đánh dấu lệch) · người tạo. Bấm một dòng → chi tiết (TNB-04/05).
+- ⬜ **Nhật ký thao tác phía tool:** ai · lúc nào · loại (tốt nghiệp / tạo BC2 / thêm / gỡ / cứu trạng thái) · số HV · kết quả đã/chưa ghi.
+- ❌ Chỉ đọc; không sửa/xóa BC2 ở màn này.
+
+> Nguồn: user 11/10/2026 · `usp_BaoCaoII_Search`, `usp_BaoCaoI_SelectAll` · TDD §11F.6
+
+---
+
 ### 🟠 NICE TO HAVE (sau này thêm)
 
 - [ ] [QLY-04] Kết xuất/báo cáo danh sách học viên (Excel) — có log, giới hạn, chỉ quản trị.
@@ -1222,3 +1356,5 @@
 | 07/10/2026 | v4.1 — **THU-06 OCR chỉ đọc 5 trường mặt trước — bỏ ngày cấp** (CHANGES #50, phát hiện khi build task 79): ngày cấp in ở MẶT SAU thẻ → OCR mặt trước không đọc được; Steps bước 3 + Done-khi sửa 6→5 trường (CCCD/họ tên/ngày sinh/giới tính/nơi TT), +dòng "ngày cấp nhân viên nhập tay". User chốt A. Số story giữ 44, THU-06 giữ 🔄. | PM |
 | 10/10/2026 | v4.2 — **KQD-05 mở rộng: "Sửa sau khi đã gửi Sở" chọn từng HV** (CHANGES #53): thay khóa cứng M1 bằng lối sửa có xác nhận khi cơ sở hết gói chưa gửi — ô tích HV `12` trên lưới KQD-02 + hộp xác nhận (cảnh báo, lý do bắt buộc ≤1.000 ký tự, tích cam kết kết xuất lại) + chip cam "Sửa sau gửi — chưa kết xuất lại" + khối đỏ "chờ kết xuất lại" ở KQD-03; chỉ lùi HV được chọn, không xóa gói đã gửi, `13` từ chối. Lối "Mở khóa" cũ (còn gói chưa gửi) giữ nguyên. **KQD-05 hạ ⚠️ Partial → ⏳ Todo** (yêu cầu đổi). KQD-02/03/04 chỉ thêm ghi chú, giữ trạng thái. Số story giữ 44. Không làm kết xuất XML (file ký số). | PM |
 | 10/10/2026 | v4.3 — **+Feature "Phân công giáo viên – xe" (prefix mới `PCG`, 5 story `PCG-01..05`)** (CHANGES #54): phân hệ #4 của tool máy CSDT ghi `KhoaHoc_GiaoVien`/`KhoaHoc_XeTap` ở CDB đích — ① chọn GV của khóa (+hàng loạt) · ② phân công môn + từ→đến (môn Thực hành nổi bật, ngày bắt đầu thực hành tự nhập, giờ bước 30 phút, "Theo ngày"=00:00) · ③ chọn xe + ghép 1 GV–1 xe + "Gợi ý ghép xe" · kiểm 3 mức theo luật datetime nửa mở của CDB, bản nháp + "Ghi vào CDB" có xác nhận · tab "Rà soát khóa". Không làm lịch tuần `LichHoc`, phân xe theo HV, sửa danh mục GV/xe. **Số story 44→49.** | PM |
+| 11/10/2026 | v4.4 — **+Feature "Tốt nghiệp & Báo cáo 2" (prefix mới `TNB`, 7 story `TNB-01..07`)** (CHANGES #60): phân hệ #5 của tool, DB Nạp `GPLX_CSDT`, chỉ dùng SP có sẵn; cập nhật/hủy tốt nghiệp ô tô, tạo BC2 + thêm/bỏ HV (ô tô, mô tô riêng), cứu `TT_XuLy`. PM cũ vẫn kết xuất/đóng BC2. +TDD §11F (v6.6) + decisions §23 + SCREENS #26–#32; **số story 49→56**. | BA/PM |
+| 11/10/2026 | v4.5 — **TNB: thiết kế lại luồng thêm HV vào BC2** (CHANGES #61, phản hồi mockup v1): 3 bước một nút làm xong, 4 nhóm HV (Sẵn sàng/Thi lại/Cần xem/Không đưa được), HV thi lại không tích sẵn + nút "Thêm HV thi lại 12 tháng", dán danh sách CMT, xử lý ngoại lệ tại chỗ, hoàn tác lần thêm vừa rồi; giao diện dùng tên trạng thái nghiệp vụ + chú giải, không lộ mã/SP. Số story giữ 56. | BA/PM |

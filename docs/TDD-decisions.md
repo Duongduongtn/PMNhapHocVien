@@ -247,3 +247,31 @@
 - **Còn mở (xác minh ở /reviewtdd hoặc khi code):** gói DKKH/BC1 có chứa GV/xe không (đang ⚠); lọc môn theo hạng từ `DM_HangDT_MonHoc` (cấu hình giờ 3 hạng B/B.01/C1 hiện NULL); đối chiếu `CacHangGPLXDuocDT` với hạng khóa; mã `LoaiGV` AL có hạn chế môn không.
 - **Phạm vi:** chỉ tool máy CSDT; router mới `phancong.py`; không đụng app web/VPS/Nạp/Sync/KQĐT.
 - **Nguồn:** user 10/10/2026 (nhiều lượt trao đổi + mock `ui-mock/phancong.html`); PRD PCG-01..05; TDD §11E; CHANGES #54; probe DB live 10/10/2026 (`GPLX_CDB_CSDT`); `docs/DB-GPLX_CDB_CSDT.md` (bổ sung §8).
+
+
+## 23. Tốt nghiệp & Báo cáo 2 trên DB Nạp (11/10/2026, rà soát schema + dữ liệu `GPLX_CSDT`)
+
+- **Đã chốt (user, 11/10/2026):**
+  - **Phân hệ riêng #5**, prefix `TNB`; làm việc trên **DB Nạp**, **chỉ gọi SP có sẵn**, PM cũ mở lên thấy y chang; không tạo SP/bảng/cột.
+  - **Tool làm:** cập nhật/hủy tốt nghiệp ô tô · tạo BC2 · thêm/bỏ HV (ô tô, mô tô riêng) · chuyển `TT_XuLy` cứu HV. **PM cũ làm:** kết xuất BC2, kết quả BC2, đổi trạng thái sau gửi, **đóng BC2** (tool không có nút Đóng).
+  - Tốt nghiệp chọn theo **khóa**; mặc định khóa bế giảng trong "hôm nay − 1 tháng − 1 năm → hôm nay", công tắc "khóa cũ".
+  - Cứu trạng thái: nguồn `01/02/03/04/10/12/13` → đích `09/14/17/18`, chặn `11/16/19`.
+  - Đánh số BC2 theo quy tắc từng loại, nhân viên sửa được, kiểm trùng.
+- **Vì sao:**
+  - **Dùng `usp_NguoiLX_HoSo_Update_CNTN` (không phải `Update_HSTotNghiep`):** 90/90 HV ô tô ở `09` có đủ 6 trường sổ tốt nghiệp — dấu vết PM cũ dùng SP này; `HSTotNghiep` chỉ ghi số giấy + `SoCCN` và hủy dựa `TT_XuLy_Old` (32/90 HV trống).
+  - **BC2 `TrangThai` 0 = đang mở / 1 = đã đóng:** 11/11 BC2 `TrangThai=0` toàn HV ở `11`; 439/440 BC2 `TrangThai=1` không còn HV ở `11`; khớp ghi chú trong `ThemHS_BC2`.
+  - **`TongSoThiSinh` không đếm lại:** mô tô = `BaoCaoI.SoHocSinh` (7/7 BC2 gần nhất), ô tô = số HV lúc lập; PM cũ không cập nhật sau → làm khác sẽ lệch báo cáo.
+  - **Lọc lại ứng viên ở tool:** nhánh mô tô của `ThemHS_BC2` viết `... AND hạng like '%A%' OR hạng='B1m'` (HV `B1m` bỏ qua mọi điều kiện); DB hiện 0 HV `B1m` nên chưa hại, vẫn lọc phòng.
+  - **BC1 bắt buộc ở phiếu BC2, không ở HV:** 455/455 BC2 có `MaBCI`; `NguoiLX_HoSo.MaBC1` gần như trống (37.117 HV có BC2 mà trống).
+  - **Ô tô/mô tô không trộn:** 329 BC2 chỉ ô tô, 130 chỉ mô tô, 0 trộn — DB không có cột hạng nên tool tự chặn.
+  - **Đọc lại trước khi ghi:** tool và PM cũ cùng một DB; `ThemHSBC2` ghi đè `MaBC2` của HV đang ở BC2 khác.
+- **Phương án đã cân nhắc:**
+  - *Nút "Đóng BC2":* (A) không làm, PM cũ đóng ← chọn · (B) đóng khi không còn HV ở 11 · (C) đóng tự do.
+  - *Cứu trạng thái:* (A) nguồn/đích hẹp ← chọn · (B) cho cả 16/19 với xác nhận mạnh · (C) gõ mã tự do.
+  - *Mặc định khóa:* (A) cửa sổ 13 tháng theo `NgayBG` ← chọn · (B) cả năm nay + năm trước · (C) 12 tháng bỏ tháng cuối.
+  - *Đánh số BC2:* (A) theo quy tắc từng loại ← chọn · (B) tự gõ · (C) một chuỗi chung.
+- **Đánh đổi:** tool phụ thuộc đúng SP của PM cũ (đổi PM cũ có thể lệch); `TongSoThiSinh` hiển thị lệch thật nhưng đúng PM cũ.
+- **Còn mở (xác minh khi code/nghiệm thu):** chụp trước/sau PM cũ để biết chính xác SP + cột nó chạm (`NgaySua`, `NguoiSua`, `Transfer_flag`); quy tắc số giấy CNTN kế tiếp (`N1|7282` → ?) và số sổ/quyết định theo khóa; PM cũ có ép "đã 09 mới vào BC2" ở giao diện không.
+- **Phạm vi:** chỉ tool máy CSDT; router mới `tn_bc2.py`; không đụng app web/VPS/CDB/Sync/KQĐT/Phân công.
+- **Nguồn:** user 11/10/2026 (nhiều lượt trao đổi); probe DB Nạp 11/10/2026; PRD TNB-01..07; TDD §11F; CHANGES #60.
+- **Cập nhật 11/10/2026 (CHANGES #61, phản hồi mockup v1):** luồng thêm HV **3 bước một nút làm xong** (chọn khóa → chọn học viên → xác nhận "Lập BC2 và thêm N học viên"), bốn nhóm HV thay cho tab + mã. **Vì sao:** v1 bắt duyệt từng HV qua 3 tab và lộ mã kỹ thuật; nhân viên chỉ quyết "khóa nào, đưa ai"; phần còn lại tool tự suy. **HV thi lại KHÔNG tích sẵn** (user chốt) — số liệu: mô tô ≈ 196 người trong 12 tháng nhưng 2.767 quá 24 tháng; ô tô ≈ 437 / 1.268; tích sẵn tất cả sẽ kéo nghìn HV rất cũ vào BC2. Thay bằng nút "Thêm HV thi lại 12 tháng" (đổi được) + dán danh sách CMT + chọn theo khóa gốc. Đã cân nhắc: (A) tích sẵn thi lại ≤ 12 tháng · (B) không tích sẵn, một nút ← chọn · (C) tích sẵn tất cả. Thêm: hoàn tác theo `lo_id`, ngoại lệ xử lý tại chỗ (tốt nghiệp / cứu trạng thái).

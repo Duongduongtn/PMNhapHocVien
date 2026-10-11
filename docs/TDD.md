@@ -1521,6 +1521,98 @@ Một truy vấn tổng hợp theo `MaKH`: số GV cờ=1; số GV có ≥1 dòn
 
 ---
 
+## 11F. Tốt nghiệp & Báo cáo 2 (tool — workspace riêng, DB Nạp) — TNB-01..07 (CHANGES #60)
+
+> Ghi **DB Nạp `GPLX_CSDT`** (bảng `NguoiLX_HoSo`, `BaoCaoII`) **chỉ qua SP có sẵn** để PM cũ thấy y chang. Không bảng/cột/SP mới. Nguồn sự thật = định nghĩa SP + dữ liệu đã probe 11/10/2026. Quyết định: TDD-decisions §23. Mock: `ui-mock/tnbc2.html`.
+
+### 11F.0 Kiến trúc
+- **Backend:** `tool/app/routers/tn_bc2.py` (mount `require_session` ở `main.py`, như `phancong.py`) + `tool/app/tn_bc2_rules.py` (**luật thuần, không DB**: phân loại hạng, tập trạng thái ứng viên, chuyển trạng thái được phép, quy tắc đánh số) + `tool/app/tn_bc2_service.py` (đọc DB Nạp, ghi bằng SP). Kết nối `sqlserver_conn()` (`tool/app/db.py`, autocommit giữ applock như `nap.py`). **Không** đụng CDB, **không** staging: tool và PM cũ dùng chung DB → luôn đọc lại trước khi ghi.
+- **Frontend:** phân hệ mới `tnbc2` trong `tool/webui/src/lib/modules.ts` (route `/tot-nghiep-bc2/*`, `db: "GPLX_CSDT"`, băng cam "CSDL: DB Nạp"), 4 tab: **Tốt nghiệp** · **Báo cáo 2** (danh sách · **Lập BC2 / Thêm HV 3 bước** · xem/gỡ) · **Cứu trạng thái** · Nhật ký; bám `ui-mock/tnbc2.html` v2. Giao diện chỉ dùng **tên trạng thái nghiệp vụ** (kèm mã nhỏ + chú giải), không hiện tên SP/`TT_XuLy`.
+- **Nhật ký:** sqlite phía tool theo mẫu `phancong_nhat_ky.py` (`tnbc2_nhat_ky`).
+
+### 11F.1 Dữ liệu DB Nạp dùng (đã verify)
+| Bảng / SP | Dùng cho | Ghi chú |
+|---|---|---|
+| `NguoiLX_HoSo` | `MaDK, SoHoSo, MaKhoaHoc, HangGPLX, HangDaoTao, TT_XuLy, TT_XuLy_Old, MaBC2, SoSoTN, NgayVaoSoTN, SoQuyetDinhTN, NgayRaQDTN, SoGiayCNTN, NgayInGiayTN, SoCCN, Transfer_flag` | `MaBC1` gần như trống → **không dùng** làm liên kết BC1 |
+| `NguoiLX` | `HoVaTen, NgaySinh (varchar8), SoCMT` | tên/ngày sinh/CMT hiển thị |
+| `KhoaHoc` | `MaKH, TenKH, NgayKG, NgayBG` | điều kiện "đã bế giảng" |
+| `BaoCaoI` | `MaBCI, MaKH, SoBaoCao, SoHocSinh` | BC1 của khóa; chỉ đọc |
+| `BaoCaoII` | `MaBCII (=SoBaoCao), MaBCI, TongSoThiSinh, TrangThai(0 mở/1 đóng), TT_Xuly(không dùng)` | FK `BaoCaoII→BaoCaoI` CASCADE; không FK từ `NguoiLX_HoSo.MaBC2` |
+| `usp_NguoiLX_HoSo_Update_CNTN` | ghi tốt nghiệp (6 trường); hủy | `03→09` khi có số giấy; số giấy rỗng và đang `09` → `03` |
+| `usp_BaoCaoII_Insert` | tạo BC2 | tự `BEGIN TRANSACTION` |
+| `usp_NguoiLX_HoSo_ThemHS_BC2` | lấy ứng viên | nhánh mô tô lỗi `OR 'B1m'` → lọc lại |
+| `usp_NguoiLX_Update_ThemHSBC2` | thêm HV | `MaBC2`, `TT_XuLy='11'`, `TT_XuLy_Old`=cũ |
+| `usp_NguoiLXHoSo_Update_DanhSachHocSinhBC2` | gỡ HV (`@TrangThaiXuLy=101`) | `TT_XuLy=TT_XuLy_Old`, `MaBC2=''` |
+| `usp_NguoiLX_HoSo_UpdateTTXLy` | cứu trạng thái | `TT_XuLy_Old`=cũ, `Transfer_flag=0` (1 nếu `04`) |
+| `usp_BaoCaoII_Delete` | xóa BC2 rỗng | |
+| `usp_BaoCaoI_SelectAll`, `usp_BaoCaoII_Search`, `usp_BaoCao2_DSHS` | đọc | |
+
+### 11F.2 Tốt nghiệp ô tô (TNB-01/02)
+- **Loại ô tô** = `HangGPLX` **không** chứa `A` và khác `B1m`. Phạm vi mặc định: `KhoaHoc.NgayBG` ∈ [hôm nay − 1 tháng − 1 năm, hôm nay]; công tắc "khóa cũ" bỏ cận dưới; khóa `NgayBG > hôm nay` chỉ đọc.
+- Ghi: với mỗi HV `EXEC usp_NguoiLX_HoSo_Update_CNTN @MaDK, @SoHoSo, @sSoSoCNTN, @dNgayVaoSoCNTN, @sSoQuyetDinh, @dNgayQuyetDinh, @sSoCNTN, @dNgayInCNTN`. **Lưu sổ trước**: `@sSoCNTN=''` + HV đang `03` → chỉ ghi sổ, ở lại `03`. **Hủy**: HV đang `09`, gửi `@sSoCNTN=''` + giữ nguyên các giá trị sổ hiện có (đọc lại rồi truyền) → SP đưa `09→03`.
+- Chặn hủy/sửa khi `TT_XuLy ≥ 11` hoặc `MaBC2 <> ''` (SP chỉ đổi trạng thái khi `03`/`09`, nhưng vẫn xóa số giấy).
+- Kiểm trùng `SoGiayCNTN` trong DB (và trong lô) trước khi ghi; applock theo `MaKH`.
+```
+ 03 ──(sổ + số giấy)──> 09 ──(thêm vào BC2)──> 11 ──(PM cũ: kết quả)──> 13/14 ──> 16/17/18 ──> 19
+  ▲                      │
+  └──── hủy tốt nghiệp ──┘   (chặn khi đã ≥ 11)
+```
+
+### 11F.3 Tạo BC2 (TNB-03)
+- `EXEC usp_BaoCaoII_Insert @MaBCII=<SoBaoCao>, @MaBCI, @MaCSDT, @SoBaoCao, @NgayBaoCao, @TongSoThiSinh, @GhiChu, @TrangThai=0, @NguoiTao, @NguoiSua, @NgayTao, @NgaySua`. `MaBCII` varchar(13) → kiểm độ dài.
+- **Đánh số (gợi ý, sửa được, kiểm trùng):** ô tô = `MAX(n)+1` trong các `MaBCII` dạng `^\d+/<năm>$`; mô tô = `BaoCaoI.SoBaoCao` bỏ tiền tố `A1A2` (`A1A2870/26-TTTĐ` → `870/26-TTTĐ`).
+- **`TongSoThiSinh`:** mô tô = `BaoCaoI.SoHocSinh`; ô tô = số HV lúc lập. **Không** đếm lại khi thêm/gỡ (đúng PM cũ).
+- Chống tạo đôi: trước khi thử lại, kiểm `BaoCaoII` đã có `MaBCII` đó chưa.
+
+### 11F.4 Lập BC2 + thêm / gỡ HV (TNB-03/04/05) — luồng 3 bước (CHANGES #61)
+- **Nguồn ứng viên:** gọi `usp_NguoiLX_HoSo_ThemHS_BC2(@MaDK='',@TenHocSinh='',@SoCMND='',@NgaySinh='',@MaKH=<khóa>,@TenKH='',@HangDT=<hạng>,@TrangThai=0,@maBC2=<BC2|''>)` rồi **phân nhóm và lọc lại** trong `tn_bc2_rules.phan_nhom(hv, loai, khoa_bc1, thi_lai_thang)`:
+  | Nhóm | Điều kiện (ô tô / mô tô) | Mặc định |
+  |---|---|---|
+  | `san_sang` | `MaKhoaHoc = BaoCaoI.MaKH` · ô tô `09` / mô tô `03` · chưa có `MaBC2` hoặc BC2 cũ đã đóng · khóa `NgayBG ≤ hôm nay` | tích sẵn |
+  | `thi_lai` | khóa khác · `TT_XuLy ∈ {14,17,18}` · không thuộc BC2 `TrangThai=0` khác | không tích; `thi_lai_thang` mặc định 12 theo `KhoaHoc.NgayBG` |
+  | `can_xem` | ô tô `03` chưa tốt nghiệp · thuộc BC2 `TrangThai=0` khác (sẽ chuyển) · thiếu số giấy (ô tô `09` nhưng `SoGiayCNTN=''`) | không tích, kèm `goi_y_xu_ly` |
+  | `khong_duoc` | khóa chưa bế giảng · `TT_XuLy ∈ {11,13,16,19}` · sai loại hạng | ẩn, kèm `ly_do` |
+- **Luồng:** ① chọn khóa (`GET /bc2/khoa-san-sang?loai=` trả đếm 3 nhóm) → ② `GET /bc2/ung-vien?ma_kh=&ma_bc2=&thi_lai_thang=` (4 nhóm + đếm) → ③ `POST /bc2/lap` (nếu chưa có BC2: `usp_BaoCaoII_Insert` rồi thêm; có rồi: chỉ thêm).
+- **Thêm:** `usp_NguoiLX_Update_ThemHSBC2(@MaDK,@SoHoSo,@MaBC2)` từng HV trong `sp_getapplock` theo BC2; **đọc lại** `TT_XuLy, MaBC2` ngay trước khi ghi, khác lúc tải → bỏ qua kèm lý do. Ô tô/mô tô không trộn. Mỗi lần chạy sinh `lo_id` (uuid) lưu cùng nhật ký sqlite: danh sách `ma_dk` đã thêm.
+- **Dán danh sách:** `POST /bc2/khop-danh-sach` nhận cột CMT/`MaDK`, trả HV khớp + số dòng không khớp; chỉ tích HV nằm trong 3 nhóm đưa được.
+- **Hoàn tác:** `POST /bc2/{ma}/hoan-tac` gỡ đúng các HV của `lo_id` gần nhất còn `TT_XuLy='11'` và đúng `MaBC2` (cùng SP gỡ).
+- **Gỡ:** chỉ HV `TT_XuLy='11'` và đúng BC2: `usp_NguoiLXHoSo_Update_DanhSachHocSinhBC2(@MaDK,@SoHoSo,@MaBC2,@TrangThaiXuLy=101)`.
+```
+ Nhân viên            Giao diện                       Server tool                       DB Nạp
+    │ ① chọn khóa       │ GET /bc2/khoa-san-sang        │ đếm Sẵn sàng / Thi lại / Cần xem  │
+    │──────────────────>│──────────────────────────────>│<──────────────────────────────────│
+    │ ② xem 4 nhóm      │ GET /bc2/ung-vien             │ ThemHS_BC2 + phân nhóm, lọc lại ─>│
+    │ tích / dán CMT    │──────────────────────────────>│                                   │
+    │ ③ "Lập BC2 và     │ POST /bc2/lap {ds_ma_dk}      │ (Insert BC2 nếu chưa có)          │
+    │    thêm N HV"     │──────────────────────────────>│ applock; đọc lại từng HV;         │
+    │                   │<── {da_them, bo_qua, lo_id} ──│ Update_ThemHSBC2 từng HV ────────>│
+    │ "Hoàn tác"        │ POST /bc2/{ma}/hoan-tac       │ gỡ theo lo_id (chỉ HV còn 11)     │
+```
+
+### 11F.5 Cứu trạng thái (TNB-06)
+- Chuyển được: nguồn ∈ `{01,02,03,04,10,12,13}` → đích ∈ `{09,14,17,18}`; chặn nguồn `{11,16,19}`; đích `09` cần `SoGiayCNTN <> ''` và là ô tô.
+- Ghi: `usp_NguoiLX_HoSo_UpdateTTXLy(@MaDK,@SoHoSo,@TT_XuLy)`; hoàn tác = chuyển về `TT_XuLy_Old` đọc ngay trước đó (cùng luật chặn). Bắt buộc `ly_do`, ghi nhật ký.
+- **Giải thích "vì sao không thấy":** `tn_bc2_rules.giai_thich_khong_hien(hv, loai)` trả một trong: trạng thái ngoài tập · khóa chưa bế giảng (`NgayBG`) · khác loại hạng · đang ở BC2 `<số>` · đã có kết quả cuối.
+
+### 11F.6 API (tool, gác session như §11E)
+`GET /local/tnbc2/khoa?loai=&cu=` · `GET /local/tnbc2/tot-nghiep/hv?ma_kh=&q=&trang_thai=` · `POST /local/tnbc2/tot-nghiep/ghi` · `POST /local/tnbc2/tot-nghiep/huy` · `GET /local/tnbc2/bc1?loai=` · `GET /local/tnbc2/bc2?loai=&dong=` · **`GET /local/tnbc2/bc2/khoa-san-sang?loai=`** · **`GET /local/tnbc2/bc2/ung-vien?ma_kh=&ma_bc2=&thi_lai_thang=`** · **`POST /local/tnbc2/bc2/khop-danh-sach`** · **`POST /local/tnbc2/bc2/lap`** (tạo nếu chưa có + thêm) · `GET /local/tnbc2/bc2/{ma}` (chi tiết + HV) · `POST /local/tnbc2/bc2/{ma}/go` · **`POST /local/tnbc2/bc2/{ma}/hoan-tac`** · `DELETE /local/tnbc2/bc2/{ma}` (chỉ 0 HV) · `GET /local/tnbc2/cuu/tim?q=` · `POST /local/tnbc2/cuu/chuyen` · `GET /local/tnbc2/nhat-ky`. Mọi `POST` ghi cần `xac_nhan_csdl_that: true`. Trả về luôn kèm **tên trạng thái nghiệp vụ** (`ten_trang_thai`) cùng mã.
+
+### 11F.7 Luật (Chặn / Cảnh báo)
+| Mức | Luật |
+|---|---|
+| ⛔ Chặn | ghi tốt nghiệp khóa chưa bế giảng · trùng số giấy · hủy/sửa HV đã `≥11` · thêm HV sai loại hạng vào BC2 · gỡ HV khác `11` · xóa BC2 còn HV · tạo BC2 thiếu BC1 / trùng số · cứu từ `11/16/19` · cứu về `09` thiếu số giấy |
+| ⚠ Cảnh báo | HV khóa cũ (huy hiệu) · HV đang ở BC2 khác (sẽ chuyển) · ghi số giấy cho HV đã `11–18` (báo cáo không đổi) · BC1 đã có BC2 mô tô · `TT_XuLy_Old` rỗng khi gỡ |
+| ℹ Thông tin | "Tổng ghi" ≠ "HV thực tế" |
+
+### 11F.8 Kiểm thử
+- Cursor giả (mẫu `tests/test_phancong_ghi.py`): đúng SP + tham số, **không** câu `INSERT/UPDATE/DELETE` trực tiếp, thứ tự, lỗi giữa chừng, đọc lại trước khi ghi, applock.
+- Luật thuần: tập ứng viên theo loại, chuyển trạng thái được phép, đánh số ô tô/mô tô, `giai_thich_khong_hien`.
+- So sánh trước/sau với PM cũ trên 1 HV + 1 BC2 thử (chụp snapshot cột) → nghiệm thu máy CSDT.
+
+> **Phục vụ:** TNB-01/02/03/04/05/06/07. Quyết định: TDD-decisions §23. Liên quan: §11 (DB Nạp), §11E (mẫu nhật ký + đọc lại trước khi ghi).
+
+---
+
 ## 12. Security
 
 | Nhóm | Cơ chế |
@@ -1660,6 +1752,8 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 | --- | --- | --- |
+| 11/10/2026 | 6.7 | **Sửa §11F theo phản hồi mockup v1** (CHANGES #61): §11F.4 viết lại — luồng 3 bước, 4 nhóm HV (`san_sang`/`thi_lai`/`can_xem`/`khong_duoc`) + ngưỡng `thi_lai_thang`, `lo_id` + hoàn tác, dán danh sách; §11F.6 +`khoa-san-sang`, `khop-danh-sach`, `lap`, `hoan-tac`; tên trạng thái nghiệp vụ trong API. |
+| 11/10/2026 | 6.6 | **+§11F Tốt nghiệp & Báo cáo 2** (CHANGES #60, TNB-01..07): phân hệ #5 tool, **DB Nạp `GPLX_CSDT`**, chỉ gọi SP có sẵn (`Update_CNTN`, `BaoCaoII_Insert`, `ThemHS_BC2` + lọc lại, `Update_ThemHSBC2`, `Update_DanhSachHocSinhBC2`, `UpdateTTXLy`); luật ô tô/mô tô riêng, `TrangThai` BC2 0/1, đánh số theo loại, đọc lại trước khi ghi, cứu trạng thái nguồn/đích hẹp. |
 | 11/10/2026 | 6.5 | **Sửa sau /reviewtdd §11E** (biên bản `tdd-review-11-10-2026-pcg.md`, CHANGES #59): §11E.0 +bản nháp ở UI + sơ đồ vòng đời · §11E.1 +sơ đồ hai tầng cờ · §11E.2 +`GET /mon`, +`dau_van_tay` · §11E.3 khớp #56/#58 · §11E.4 hàng loạt ở UI · §11E.5 ghép xe min–max + thuật ngữ · §11E.6 **+`dau_van_tay` → 409 `khoa_da_doi`, +khóa ghi → 409 `dang_ghi`**, diff rỗng → 200, định nghĩa "giữ nguyên", không rollback + sơ đồ luồng ghi · §11E.7 +thuật ngữ GV loại TH/AL ≠ GV dạy thực hành, +`mon_khong_ton_tai`, +giới hạn đầu vào, +ghi chú `xac_nhan_csdl_that` không phải an ninh · §11E.8 +công thức kết luận · §11E.9 +test. |
 | 10/10/2026 | 6.4 | **+§11E Phân công giáo viên – xe cho khóa** (CHANGES #54, PCG-01..05): phân hệ #4 tool; router `phancong.py` + `phancong_rules.py` (luật thuần: datetime nửa mở, phạm vi khóa, 1 GV–1 xe, hạn giấy phép) + `phancong_service.py`; 9 endpoint (`/kiem-tra` không ghi, `/goi-y-ghep-xe`, `/ghi` kiểm lại + thứ tự xóa→thêm→sửa + trả đã/chưa ghi); dùng SP `usp_KhoaHoc_GiaoVien_Insert`, `usp_LichLV_KhoaHoc_GiaoVien_Insert/_Update`, `usp_KhoaHoc_XeTap_Insert`, `LichSD_KhoaHoc_XeTap_Insert`, `usp_LichSD_KhoaHoc_XeTap_Update`, xóa theo `MaLichLV/MaLichSD`; **KHÔNG** dùng SP xóa lan; lưu môn `TenMonHoc="1,8"`, `MaMonHoc` NULL; nhật ký sqlite `phancong_nhat_ky`. Không bảng CDB mới. decisions §22. Cần /reviewtdd (API + nghiệp vụ mới). |
 | 10/10/2026 | 6.3 | **KQD-05 mở rộng "Sửa sau gửi" chọn từng HV** (CHANGES #53): §11D.7b mới — điều kiện bật (hết gói chưa gửi), `POST /mo-sua-sau-gui` (lùi đúng HV được chọn, không xóa gói, nhật ký sqlite `sua_sau_gui` ghi trước) + `GET /sua-sau-gui` (khối đỏ KQD-03); §11D.6 +2 endpoint; decisions §21 (đổi quyết định M1 khóa cứng §19). Verify DB 10/10: SP tiếp nhận phản hồi Sở chỉ nhận `TT_XuLy='12'`. Cần /reviewtdd (API + bảng sqlite mới). |

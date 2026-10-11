@@ -1,0 +1,843 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1280" />
+<title>Mock — Tốt nghiệp & Báo cáo 2 (phân hệ #5) · v2</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script>
+  tailwind.config = {
+    theme: { extend: {
+      fontFamily: { sans: ['"Be Vietnam Pro"', "system-ui", "sans-serif"] },
+      colors: {
+        background:"hsl(210 40% 96%)", foreground:"hsl(222 47% 11%)", card:"hsl(0 0% 100%)",
+        primary:"hsl(222 76% 40%)", muted:"hsl(210 40% 96%)", "muted-foreground":"hsl(215 16% 47%)",
+        destructive:"hsl(0 72% 51%)", success:"hsl(142 71% 38%)", warning:"hsl(32 90% 42%)",
+        border:"hsl(214 32% 91%)", tn:"hsl(24 82% 40%)", "tn-soft":"hsl(24 90% 96%)",
+      },
+      borderRadius: { lg:"0.625rem", md:"0.5rem", sm:"0.375rem" },
+    } },
+  };
+</script>
+<style>
+  body { font-family:"Be Vietnam Pro",system-ui,sans-serif; background:hsl(210 40% 96%); color:hsl(222 47% 11%); -webkit-font-smoothing:antialiased; }
+  .app-min { min-width:1180px; }
+  .tabnum { font-variant-numeric:tabular-nums; }
+  .mono { font-family:ui-monospace,"Cascadia Code",Consolas,monospace; font-size:12px; }
+  .field-input { width:100%; font-size:13.5px; height:36px; padding:0 10px; border-radius:8px; border:1px solid hsl(214 32% 82%); background:#fff; }
+  .field-input:focus { outline:none; border-color:hsl(24 82% 40%); box-shadow:0 0 0 3px hsl(24 82% 40% / .15); }
+  .field-input.sm { height:30px; font-size:12.5px; padding:0 8px; }
+  .field-input.bad { border-color:hsl(0 72% 51%); background:hsl(0 72% 98%); }
+  .field-label { font-size:11.5px; font-weight:600; color:hsl(215 16% 36%); display:block; margin-bottom:3px; }
+  .badge { display:inline-block; font-size:11px; font-weight:600; padding:1px 8px; border-radius:999px; border:1px solid; white-space:nowrap; }
+  .b-red { color:hsl(0 72% 45%); background:hsl(0 72% 97%); border-color:hsl(0 72% 80%); }
+  .b-warn { color:hsl(32 90% 34%); background:hsl(32 90% 95%); border-color:hsl(32 80% 72%); }
+  .b-ok { color:hsl(142 71% 28%); background:hsl(142 71% 95%); border-color:hsl(142 50% 75%); }
+  .b-gray { color:hsl(215 16% 38%); background:hsl(210 40% 96%); border-color:hsl(214 32% 85%); }
+  .b-tn { color:hsl(24 82% 32%); background:hsl(24 90% 95%); border-color:hsl(24 70% 74%); }
+  .b-blue { color:hsl(222 70% 38%); background:hsl(222 76% 96%); border-color:hsl(222 60% 80%); }
+  .macu { font-size:10px; opacity:.7; margin-left:4px; font-weight:500; }
+  .row { border-bottom:1px solid hsl(214 32% 93%); }
+  .row:hover { background:hsl(24 90% 98.5%); }
+  .row.sel { background:hsl(24 90% 95%); }
+  .row.lock { background:hsl(210 20% 97%); color:hsl(215 16% 50%); }
+  .btn { display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 14px; border-radius:8px; font-size:13px; font-weight:600; border:1px solid hsl(214 32% 82%); background:#fff; cursor:pointer; white-space:nowrap; }
+  .btn:hover { background:hsl(210 40% 96%); }
+  .btn.sm { height:28px; padding:0 10px; font-size:12px; }
+  .btn.pri { background:hsl(24 82% 40%); border-color:hsl(24 82% 36%); color:#fff; }
+  .btn.pri:hover { background:hsl(24 82% 35%); }
+  .btn.dan { color:hsl(0 72% 40%); border-color:hsl(0 72% 78%); }
+  .btn.lnk { border-color:transparent; background:transparent; color:hsl(222 76% 40%); padding:0 6px; }
+  .btn.lg { height:48px; padding:0 22px; font-size:15px; border-radius:10px; width:100%; justify-content:center; }
+  .bc2-card { background:#fff; border:2px solid hsl(24 70% 74%); border-radius:14px; padding:16px; display:flex; flex-direction:column; gap:10px; }
+  .bc2-card:hover { border-color:hsl(24 82% 40%); box-shadow:0 4px 14px hsl(24 82% 40% / .15); }
+  .bc2-card.new { border-style:dashed; border-color:hsl(214 32% 78%); background:hsl(210 40% 98%); }
+  .btn[disabled] { opacity:.45; cursor:not-allowed; }
+  .tab { height:44px; padding:0 14px; font-size:13.5px; font-weight:600; color:hsl(215 16% 40%); border-bottom:3px solid transparent; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+  .tab.on { color:hsl(24 82% 36%); border-color:hsl(24 82% 40%); }
+  .seg { display:inline-flex; border:1px solid hsl(214 32% 85%); border-radius:9px; overflow:hidden; background:#fff; }
+  .seg button { height:32px; padding:0 14px; font-size:13px; font-weight:600; color:hsl(215 16% 40%); }
+  .seg button.on { background:hsl(24 90% 94%); color:hsl(24 82% 32%); }
+  .msg { border-left:4px solid; padding:7px 10px; font-size:13px; line-height:1.45; border-radius:6px; display:flex; gap:8px; }
+  .msg.blk { border-color:hsl(0 72% 51%); background:hsl(0 72% 96%); color:hsl(0 72% 32%); }
+  .msg.wrn { border-color:hsl(32 90% 48%); background:hsl(32 90% 95%); color:hsl(32 90% 26%); }
+  .msg.inf { border-color:hsl(222 76% 50%); background:hsl(222 76% 97%); color:hsl(222 50% 26%); }
+  .msg.okm { border-color:hsl(142 71% 38%); background:hsl(142 71% 95%); color:hsl(142 71% 20%); }
+  .toast { animation: sl .18s ease-out; } @keyframes sl { from { transform:translateX(24px); opacity:0 } to { transform:none; opacity:1 } }
+  th { font-size:11.5px; font-weight:600; color:hsl(215 16% 40%); text-align:left; padding:6px 8px; background:hsl(210 40% 97%); position:sticky; top:0; z-index:1; border-bottom:1px solid hsl(214 32% 88%); }
+  td { padding:6px 8px; font-size:13px; }
+  .pill { display:flex; align-items:center; gap:8px; padding:6px 14px; border-radius:999px; font-size:13px; font-weight:600; color:hsl(215 16% 46%); border:1px solid hsl(214 32% 88%); background:#fff; }
+  .pill .n { width:22px; height:22px; border-radius:999px; display:grid; place-items:center; font-size:12px; background:hsl(214 32% 90%); }
+  .pill.on { color:hsl(24 82% 30%); border-color:hsl(24 70% 70%); background:hsl(24 90% 95%); }
+  .pill.on .n { background:hsl(24 82% 40%); color:#fff; }
+  .pill.done .n { background:hsl(142 71% 38%); color:#fff; }
+  .grp { background:#fff; border:1px solid hsl(214 32% 88%); border-radius:12px; overflow:hidden; }
+  .grp-h { padding:10px 14px; display:flex; align-items:center; gap:10px; border-bottom:1px solid hsl(214 32% 92%); }
+  .khoa-card { background:#fff; border:1.5px solid hsl(214 32% 86%); border-radius:12px; padding:12px 14px; display:flex; align-items:center; gap:14px; cursor:pointer; }
+  .khoa-card:hover { border-color:hsl(24 70% 62%); background:hsl(24 90% 99%); }
+  .num { font-size:20px; font-weight:700; line-height:1; }
+  details > summary { cursor:pointer; list-style:none; } details > summary::-webkit-details-marker { display:none; }
+</style>
+</head>
+<body class="h-screen overflow-hidden">
+<div class="app-min h-full flex flex-col">
+
+  <header class="shrink-0 h-12 bg-card border-b border-border flex items-center gap-3 px-4">
+    <div class="flex items-center gap-2 font-semibold text-[15px]">
+      <span class="inline-grid place-items-center w-6 h-6 rounded-md bg-primary text-white text-[12px]">DB</span>
+      Tool nạp DB — máy CSDT
+    </div>
+    <span class="text-[11px] text-muted-foreground border border-border rounded-full px-2 py-0.5">mock giao diện v2 · dữ liệu giả · chưa nối cơ sở dữ liệu</span>
+    <div class="ml-auto flex items-center gap-2 text-[12px]">
+      <span class="text-muted-foreground">Giả lập:</span>
+      <label class="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full border border-border cursor-pointer select-none"><input id="simPm" type="checkbox" onchange="S.pmCu=this.checked;toast('Đã bật: phần mềm cũ vừa đổi dữ liệu của 2 học viên — thử thêm để thấy cách tool xử lý','warn')"/> Phần mềm cũ vừa sửa dữ liệu</label>
+    </div>
+  </header>
+
+  <div class="flex-1 min-h-0 flex">
+    <aside class="shrink-0 w-[220px] bg-card border-r border-border flex flex-col">
+      <div class="px-3 pt-3 pb-1.5"><span class="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Phân hệ</span></div>
+      <nav class="px-2 space-y-1 text-[13px] font-medium">
+        <div class="rounded-lg px-2.5 py-2 hover:bg-muted cursor-pointer">① Nạp hồ sơ</div>
+        <div class="rounded-lg px-2.5 py-2 hover:bg-muted cursor-pointer">② Đồng bộ CDB</div>
+        <div class="rounded-lg px-2.5 py-2 hover:bg-muted cursor-pointer">③ Kết quả đào tạo</div>
+        <div class="rounded-lg px-2.5 py-2 hover:bg-muted cursor-pointer">④ Phân công GV – xe</div>
+        <div class="rounded-lg px-2.5 py-2 font-semibold text-tn bg-tn-soft" style="box-shadow: inset 3px 0 0 hsl(24 82% 40%)">⑤ Tốt nghiệp & Báo cáo 2</div>
+      </nav>
+      <div class="mt-auto px-3 py-3 border-t border-border text-[11px] text-muted-foreground leading-relaxed">Ghi <b>tốt nghiệp</b> và <b>Báo cáo 2</b> thẳng vào cơ sở dữ liệu của phần mềm cũ — mở phần mềm cũ lên thấy y chang. Kết xuất, nhập kết quả và đóng Báo cáo 2 vẫn làm ở phần mềm cũ.</div>
+    </aside>
+
+    <main class="flex-1 min-w-0 flex flex-col overflow-hidden">
+      <div class="shrink-0 px-4 py-1.5 bg-warning/10 border-b border-warning/30 text-[12.5px] flex items-center gap-2 text-warning">
+        <span>⚠ Phân hệ này ghi vào <b>CSDL: GPLX_CSDT (DB Nạp)</b> · máy <b>DESKTOP-UBV2GQI</b> · CSĐT <b>70004</b> — ghi thẳng vào dữ liệu thật, phần mềm cũ dùng chung.</span>
+        <span class="ml-auto inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-success/10 border border-success/40 text-[12px] text-success font-semibold">● Đã kết nối</span>
+      </div>
+      <div class="shrink-0 bg-card border-b border-border px-4 flex items-center gap-1" id="subnav"></div>
+      <div id="view" class="flex-1 min-h-0 flex flex-col"></div>
+    </main>
+  </div>
+</div>
+<div id="modalRoot"></div>
+<div id="toastRoot" class="fixed right-4 bottom-20 z-[70] space-y-2"></div>
+
+<script>
+/* ============ DỮ LIỆU GIẢ (hư cấu — không phải người thật) ============ */
+const HOM_NAY = '2026-10-11';
+const CUA_SO_TU = '2025-09-11';            // hôm nay − 1 tháng − 1 năm
+const KHOA = [
+  {ma:'70004K26B0107', ten:'B.01-K107', loai:'oto',  bg:'2026-09-12'},
+  {ma:'70004K26B0108', ten:'B.01-K108', loai:'oto',  bg:'2026-09-28'},
+  {ma:'70004K26C1008', ten:'C1-K08',    loai:'oto',  bg:'2026-10-02'},
+  {ma:'70004K25B0098', ten:'B.01-K98',  loai:'oto',  bg:'2025-11-20'},
+  {ma:'70004K22B0042', ten:'B.01-K42',  loai:'oto',  bg:'2022-06-30'},
+  {ma:'70004K26B0110', ten:'B.01-K110', loai:'oto',  bg:'2026-11-15'},
+  {ma:'70004K26A1015', ten:'A1K129',    loai:'moto', bg:'2026-10-06'},
+  {ma:'70004K26A1014', ten:'A1K128',    loai:'moto', bg:'2026-08-31'},
+  {ma:'70004K25A1010', ten:'A1K112',    loai:'moto', bg:'2025-12-10'},
+  {ma:'70004K24A1003', ten:'A1K090',    loai:'moto', bg:'2024-05-10'},
+  {ma:'70004K23A1007', ten:'A1K085',    loai:'moto', bg:'2023-11-20'},
+];
+const khoaOf = ma => KHOA.find(k => k.ma === ma);
+const HO = ['Nguyễn','Trần','Lê','Phạm','Hoàng','Phan','Vũ','Đặng','Bùi','Đỗ'], DEM = ['Văn','Thị','Minh','Quốc','Ngọc','Hữu'],
+      TEN = ['An','Bình','Cường','Dũng','Giang','Hà','Hải','Khoa','Lan','Linh','Minh','Nam','Phúc','Quân','Sơn','Tâm','Thảo','Tuấn','Vy','Yến'];
+let _i = 0;
+function gen(n, loai, kh, tt, bc2, giay) {
+  const out = [];
+  for (let k = 0; k < n; k++, _i++) {
+    out.push({ dk:'70004-G-' + String(_i).padStart(4,'0'), loai, kh, tt, bc2:bc2||'', giay: giay ? 'N1|' + (7300 + _i) : '',
+      ten: HO[_i%10] + ' ' + DEM[(_i*3)%6] + ' ' + TEN[(_i*7)%20],
+      ns: (1990 + (_i%14)) + '-' + String(1 + _i%12).padStart(2,'0') + '-' + String(1 + (_i*5)%27).padStart(2,'0'),
+      cmt: '079' + String(190000000 + _i*7919).slice(0,9) });
+  }
+  return out;
+}
+let HV = [].concat(
+  gen(6,  'oto', '70004K26B0107', '09', '', true),
+  gen(2,  'oto', '70004K26B0107', '03', ''),
+  gen(1,  'oto', '70004K26B0107', '11', '75/2026', true),
+  gen(1,  'oto', '70004K26B0107', '04', ''),
+  gen(5,  'oto', '70004K26B0108', '03', ''),
+  gen(3,  'oto', '70004K26B0108', '09', '', true),
+  gen(4,  'oto', '70004K26C1008', '09', '', true),
+  gen(2,  'oto', '70004K25B0098', '18', '62/2025', true),
+  gen(3,  'oto', '70004K22B0042', '17', '31/2024', true),
+  gen(2,  'oto', '70004K22B0042', '14', '', true),
+  gen(2,  'oto', '70004K26B0110', '03', ''),
+  gen(12, 'moto','70004K26A1015', '03', ''),
+  gen(1,  'moto','70004K26A1015', '11', '868/26-TTTĐ'),
+  gen(5,  'moto','70004K26A1014', '18', '867/26-TTTĐ'),
+  gen(4,  'moto','70004K26A1014', '17', ''),
+  gen(6,  'moto','70004K25A1010', '18', '861/26-TTTĐ'),
+  gen(2,  'moto','70004K25A1010', '14', ''),
+  gen(9,  'moto','70004K24A1003', '18', ''),
+  gen(7,  'moto','70004K23A1007', '17', ''),
+);
+const BC1 = [
+  {ma:'857/26-TTTĐ', kh:'70004K26B0107', loai:'oto',  ngay:'2026-09-14', sohs:60},
+  {ma:'858/26-TTTĐ', kh:'70004K26B0108', loai:'oto',  ngay:'2026-09-30', sohs:55},
+  {ma:'849/26-TTTĐ', kh:'70004K26C1008', loai:'oto',  ngay:'2026-10-03', sohs:48},
+  {ma:'A1A2870/26-TTTĐ', kh:'70004K26A1015', loai:'moto', ngay:'2026-10-07', sohs:150},
+  {ma:'A1A2867/26-TTTĐ', kh:'70004K26A1014', loai:'moto', ngay:'2026-09-02', sohs:150},
+];
+let BC2 = [
+  {ma:'75/2026',     bc1:'857/26-TTTĐ',     loai:'oto',  ngay:'2026-10-03', tong:42,  tt:0, nguoi:'CSDTTHANHDAT'},
+  {ma:'62/2025',     bc1:'857/26-TTTĐ',     loai:'oto',  ngay:'2025-11-28', tong:30,  tt:1, nguoi:'CSDTTHANHDAT'},
+  {ma:'868/26-TTTĐ', bc1:'A1A2867/26-TTTĐ', loai:'moto', ngay:'2026-10-02', tong:150, tt:0, nguoi:'CSDTTHANHDAT'},
+  {ma:'867/26-TTTĐ', bc1:'A1A2867/26-TTTĐ', loai:'moto', ngay:'2026-09-29', tong:150, tt:1, nguoi:'CSDTTHANHDAT'},
+];
+let NHATKY = [
+  {luc:'11/10/2026 09:12', nguoi:'thu1', loai:'Thêm học viên vào BC2', chi:'BC2 75/2026 · 3 học viên ô tô', kq:'Xong 3/3'},
+  {luc:'11/10/2026 08:40', nguoi:'thu1', loai:'Cập nhật tốt nghiệp', chi:'Khóa B.01-K107 · 2 học viên', kq:'Xong 2/2'},
+];
+let LOBATCH = {};      // mã BC2 -> danh sách học viên của lần thêm gần nhất
+
+const S = { tab:'tn', loai:'oto', cu:false, q:'', khoa:'', trangThai:'', sel:new Set(),
+  gen:{so:'', ngaySo:'', qd:'', ngayQd:'', ngayIn:'', batDau:'N1|7400'}, giay:{},
+  bc2Dong:'mo', mode:'list', xemMa:null, xemSel:new Set(), cuuQ:'', cuuSel:null, pmCu:false };
+let W = null;   // trạng thái wizard lập BC2 / thêm học viên
+
+/* ============ TIỆN ÍCH ============ */
+const $ = s => document.querySelector(s);
+const dmy = d => d ? d.split('-').reverse().join('/') : '';
+const boDau = s => s.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase();
+function ttTen(h) {
+  return ({'01':'Mới nhận hồ sơ','04':'Nhận hồ sơ từ nơi khác','09':'Đã tốt nghiệp, chờ lập BC2','11':'Đã vào BC2, chờ kết quả',
+    '14':'Chưa đạt BC2 — cần lập lại','17':'Thi sát hạch chưa đạt','18':'Vắng sát hạch','13':'Đạt BC2','16':'Đạt sát hạch','19':'Đã nhận GPLX'})[h.tt]
+    || (h.tt === '03' ? (h.loai === 'oto' ? 'Đã học xong, chưa tốt nghiệp' : 'Đã học xong, chờ lập BC2') : h.tt);
+}
+function ttBadge(h) {
+  const c = h.tt==='09'?'b-ok': h.tt==='03'?'b-gray': h.tt==='11'?'b-blue': ['14','17','18'].includes(h.tt)?'b-warn':'b-gray';
+  return `<span class="badge ${c}" title="Mã trạng thái trong phần mềm cũ: ${h.tt}">${ttTen(h)}<span class="macu">${h.tt}</span></span>`;
+}
+function toast(msg, kind) {
+  const el = document.createElement('div');
+  el.className = 'toast rounded-lg border px-3 py-2 text-[13px] shadow-lg max-w-[380px] ' + (kind==='warn' ? 'bg-amber-50 border-amber-300 text-amber-900' : 'bg-white border-border');
+  el.textContent = msg; $('#toastRoot').appendChild(el); setTimeout(() => el.remove(), 4500);
+}
+function modal(html, wide) {
+  $('#modalRoot').innerHTML = `<div class="fixed inset-0 z-50 bg-black/40 grid place-items-center" onclick="if(event.target===this)closeModal()"><div class="bg-white rounded-xl shadow-2xl ${wide?'w-[860px]':'w-[560px]'} max-h-[86vh] flex flex-col">${html}</div></div>`;
+}
+const closeModal = () => { $('#modalRoot').innerHTML = ''; };
+const IT = txt => `<details class="text-[12px] text-muted-foreground"><summary class="underline decoration-dotted">Chi tiết kỹ thuật (dành cho IT)</summary><div class="mt-1 leading-relaxed">${txt}</div></details>`;
+function chuGiai() {
+  const rows = [['Đã học xong, chưa tốt nghiệp','03','Ô tô: đã học hết khóa, chưa có giấy chứng nhận tốt nghiệp'],['Đã học xong, chờ lập BC2','03','Mô tô: học xong khóa, sẵn sàng đưa vào BC2'],
+    ['Đã tốt nghiệp, chờ lập BC2','09','Ô tô: có giấy tốt nghiệp, chưa vào báo cáo'],['Đã vào BC2, chờ kết quả','11','Đã nằm trong một BC2, chưa có kết quả'],
+    ['Chưa đạt BC2 — cần lập lại','14','BC2 trước không đạt, cần đưa vào BC2 mới'],['Thi sát hạch chưa đạt','17','Thi sát hạch rớt, chờ thi lại'],['Vắng sát hạch','18','Không đến thi sát hạch, chờ thi lại'],
+    ['Đạt BC2 / Đạt sát hạch / Đã nhận GPLX','13 · 16 · 19','Đã có kết quả cuối — không đưa vào BC2 nữa']];
+  modal(`<div class="p-4 border-b border-border font-semibold">Chú giải trạng thái học viên</div>
+  <div class="p-4 overflow-auto"><div class="text-[12.5px] text-muted-foreground mb-2">Mã nhỏ bên cạnh là mã trạng thái trong phần mềm cũ, để bạn đối chiếu khi cần.</div>
+  <table class="w-full"><thead><tr><th>Trạng thái</th><th>Mã cũ</th><th>Nghĩa</th></tr></thead><tbody>${rows.map(r => `<tr class="row"><td class="font-medium">${r[0]}</td><td class="mono">${r[1]}</td><td>${r[2]}</td></tr>`).join('')}</tbody></table></div>
+  <div class="p-3 border-t border-border flex justify-end"><button class="btn" onclick="closeModal()">Đóng</button></div>`);
+}
+const helpBtn = `<button class="btn lnk sm" onclick="chuGiai()" title="Giải thích các trạng thái">? Chú giải</button>`;
+const hvCuaBc2 = ma => HV.filter(h => h.bc2 === ma);
+
+/* ============ KHUNG ============ */
+function viewWizard() { return W.step === 4 ? viewKetQua() : wizHead() + (W.step===1 ? wizKhoa() : W.step===2 ? wizChon() : wizXacNhan()); }
+function render(focusId) {
+  const tabs = [['tn','Tốt nghiệp (ô tô)'],['bc2','Báo cáo 2'],['cuu','Học viên không tìm thấy'],['nk','Nhật ký']];
+  $('#subnav').innerHTML = tabs.map(([k,t]) => `<button class="tab ${S.tab===k?'on':''}" onclick="S.tab='${k}';S.mode='list';render()">${t}</button>`).join('');
+  const v = S.tab==='tn' ? viewTotNghiep : S.tab==='bc2' ? (S.mode==='wiz' ? viewWizard : S.mode==='xem' ? viewXem : viewBc2List) : S.tab==='cuu' ? viewCuu : viewNhatKy;
+  $('#view').innerHTML = v();
+  if (focusId) { const el = document.getElementById(focusId); if (el) { el.focus(); const n = el.value.length; el.setSelectionRange(n, n); } }
+}
+
+/* ============ 1. TỐT NGHIỆP (ô tô) ============ */
+function listTN() {
+  const q = boDau(S.q);
+  return HV.filter(h => {
+    if (h.loai !== 'oto') return false;
+    const k = khoaOf(h.kh);
+    if (!S.cu && k.bg < CUA_SO_TU) return false;
+    if (S.khoa && h.kh !== S.khoa) return false;
+    if (!['03','09','11'].includes(h.tt)) return false;
+    if (S.trangThai === 'chua' && h.tt !== '03') return false;
+    if (S.trangThai === 'da' && h.tt !== '09') return false;
+    if (q && !(boDau(h.ten).includes(q) || h.cmt.includes(q) || h.dk.toLowerCase().includes(q))) return false;
+    return true;
+  });
+}
+function lyDoKhoa(h) {
+  const k = khoaOf(h.kh);
+  if (k.bg > HOM_NAY) return 'Khóa chưa bế giảng (' + dmy(k.bg) + ') — chỉ xem';
+  if (h.tt === '11' || h.bc2) return 'Đã vào BC2 số ' + h.bc2 + ' — gỡ khỏi BC2 trước';
+  return '';
+}
+function giayTrung(dk, v) {
+  if (!v) return false;
+  return HV.some(h => h.dk !== dk && h.giay === v) || Object.entries(S.giay).some(([k,x]) => k !== dk && x === v);
+}
+function viewTotNghiep() {
+  const ds = listTN();
+  const khoaOpts = KHOA.filter(k => k.loai==='oto' && (S.cu || k.bg >= CUA_SO_TU)).map(k => `<option value="${k.ma}" ${S.khoa===k.ma?'selected':''}>${k.ten} · bế giảng ${dmy(k.bg)}${k.bg>HOM_NAY?' (chưa)':''}</option>`).join('');
+  const chon = ds.filter(h => S.sel.has(h.dk)), nSel = chon.length;
+  const canGhi = nSel>0 && chon.every(h => !lyDoKhoa(h));
+  const canHuy = nSel>0 && chon.every(h => h.tt==='09' && !h.bc2);
+  return `
+  <div class="shrink-0 bg-card border-b border-border px-4 py-2.5 flex items-end gap-3">
+    <div class="w-[250px]"><label class="field-label">Khóa học</label><select class="field-input" onchange="S.khoa=this.value;S.sel=new Set();render()"><option value="">Tất cả khóa trong phạm vi</option>${khoaOpts}</select></div>
+    <div class="w-[280px]"><label class="field-label">Tìm theo tên / số CMT / mã đăng ký (gõ không dấu cũng được)</label><input id="qTn" class="field-input" value="${S.q}" placeholder="vd: nguyen thi hoa" oninput="S.q=this.value;render('qTn')"/></div>
+    <div class="w-[170px]"><label class="field-label">Trạng thái</label><select class="field-input" onchange="S.trangThai=this.value;render()"><option value="">Tất cả</option><option value="chua" ${S.trangThai==='chua'?'selected':''}>Chưa tốt nghiệp</option><option value="da" ${S.trangThai==='da'?'selected':''}>Đã tốt nghiệp</option></select></div>
+    <label class="inline-flex items-center gap-2 h-9 px-3 rounded-lg border border-border bg-white text-[13px] cursor-pointer"><input type="checkbox" ${S.cu?'checked':''} onchange="S.cu=this.checked;S.khoa='';render()"/> Hiện khóa cũ</label>
+    ${helpBtn}
+    <div class="ml-auto text-[12px] text-muted-foreground text-right leading-snug">Mặc định: khóa bế giảng từ <b>${dmy(CUA_SO_TU)}</b> đến hôm nay<br/>${ds.length} học viên</div>
+  </div>
+  <div class="flex-1 min-h-0 flex">
+    <div class="flex-1 min-w-0 overflow-auto">
+      <table class="w-full">
+        <thead><tr><th class="w-8"><input type="checkbox" onchange="chonTatCa(this.checked)"/></th><th>Tên học viên</th><th>Ngày sinh</th><th>Số CMT</th><th>Tên khóa học</th><th>Trạng thái</th><th class="w-[150px]">Số giấy CNTN</th></tr></thead>
+        <tbody>${ds.length ? ds.map(h => {
+          const ly = lyDoKhoa(h), k = khoaOf(h.kh), old = k.bg < CUA_SO_TU, gv = S.giay[h.dk] ?? h.giay;
+          return `<tr class="row ${S.sel.has(h.dk)?'sel':''} ${ly&&h.tt==='11'?'lock':''}">
+            <td><input type="checkbox" ${S.sel.has(h.dk)?'checked':''} ${k.bg>HOM_NAY?'disabled':''} onchange="chonHv('${h.dk}',this.checked)"/></td>
+            <td class="font-medium">${h.ten}${old?' <span class="badge b-warn">khóa cũ</span>':''}</td>
+            <td class="tabnum">${dmy(h.ns)}</td><td class="mono">${h.cmt}</td>
+            <td>${k.ten}<div class="text-[11px] text-muted-foreground">bế giảng ${dmy(k.bg)}</div></td>
+            <td>${ttBadge(h)}${ly?`<div class="text-[11px] text-warning mt-0.5">${ly}</div>`:''}</td>
+            <td>${(h.tt==='03'&&!ly)?`<input class="field-input sm mono ${giayTrung(h.dk,gv)?'bad':''}" value="${gv}" placeholder="N1|…" oninput="S.giay['${h.dk}']=this.value;render()"/>`:`<span class="mono">${h.giay||'—'}</span>`}</td>
+          </tr>`; }).join('') : `<tr><td colspan="7" class="text-center text-muted-foreground py-10">Không có học viên trong phạm vi. Bật "Hiện khóa cũ" để xem khóa bế giảng trước ${dmy(CUA_SO_TU)}.</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+    <aside class="shrink-0 w-[330px] border-l border-border bg-card p-3 overflow-auto space-y-3">
+      <div class="text-[13px] font-semibold">Điền chung cho ${nSel} học viên đã tích</div>
+      <div><label class="field-label">Số sổ tốt nghiệp</label><input class="field-input" placeholder="01/XNĐT/2026" value="${S.gen.so}" oninput="S.gen.so=this.value"/></div>
+      <div class="grid grid-cols-2 gap-2">
+        <div><label class="field-label">Ngày vào sổ</label><input type="date" class="field-input" value="${S.gen.ngaySo}" oninput="S.gen.ngaySo=this.value"/></div>
+        <div><label class="field-label">Ngày in giấy</label><input type="date" class="field-input" value="${S.gen.ngayIn}" oninput="S.gen.ngayIn=this.value"/></div>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div><label class="field-label">Số quyết định</label><input class="field-input" placeholder="100/TTTĐ" value="${S.gen.qd}" oninput="S.gen.qd=this.value"/></div>
+        <div><label class="field-label">Ngày ra quyết định</label><input type="date" class="field-input" value="${S.gen.ngayQd}" oninput="S.gen.ngayQd=this.value"/></div>
+      </div>
+      <div class="msg inf"><span>ⓘ Nhập đúng số/ngày quyết định theo giấy tờ thật; tool không tự bịa. Khóa đã có sổ thì điền sẵn.</span></div>
+      <div class="border-t border-border pt-3">
+        <label class="field-label">Số giấy chứng nhận tốt nghiệp bắt đầu từ</label>
+        <div class="flex gap-2"><input class="field-input mono" value="${S.gen.batDau}" oninput="S.gen.batDau=this.value"/><button class="btn" onclick="danhSo()">Đánh liên tiếp</button></div>
+        <div class="text-[11.5px] text-muted-foreground mt-1">Đánh theo thứ tự tên cho học viên đã tích chưa có số giấy. Sửa tay từng ô được; kiểm trùng ngay khi gõ.</div>
+      </div>
+      <div class="text-[12px] text-muted-foreground border-t border-border pt-2 leading-relaxed">
+        <b>Lưu sổ trước, cấp giấy sau:</b> chưa có số giấy → ghi sổ/quyết định, học viên vẫn là "chưa tốt nghiệp". Có số giấy → "Đã tốt nghiệp".<br/>
+        <b>Khóa chưa bế giảng</b> chỉ xem, không ghi được.
+      </div>
+    </aside>
+  </div>
+  <div class="shrink-0 h-14 bg-card border-t border-border px-4 flex items-center gap-3">
+    <span class="text-[13px]"><b>${nSel}</b> học viên đã chọn</span>
+    <button class="btn" onclick="chonChuaGiay()">Chọn học viên chưa có số giấy</button>
+    <button class="btn dan ml-auto" ${canHuy?'':'disabled'} onclick="xacNhanHuy()" title="Chỉ hủy được học viên đã tốt nghiệp và chưa vào BC2">Hủy tốt nghiệp</button>
+    <button class="btn pri" ${canGhi?'':'disabled'} onclick="xemLaiTN()">Xem lại & ghi ${nSel} học viên</button>
+  </div>`;
+}
+function chonHv(dk, on) { on ? S.sel.add(dk) : S.sel.delete(dk); render(); }
+function chonTatCa(on) { listTN().forEach(h => { if (khoaOf(h.kh).bg <= HOM_NAY) on ? S.sel.add(h.dk) : S.sel.delete(h.dk); }); render(); }
+function chonChuaGiay() { S.sel = new Set(listTN().filter(h => h.tt==='03' && !lyDoKhoa(h)).map(h => h.dk)); render(); }
+function danhSo() {
+  const m = S.gen.batDau.match(/^(.*?)(\d+)$/); if (!m) { toast('Số bắt đầu phải kết thúc bằng số, vd N1|7400','warn'); return; }
+  let n = +m[2]; const w = m[2].length;
+  listTN().filter(h => S.sel.has(h.dk) && h.tt==='03').sort((a,b) => a.ten.localeCompare(b.ten,'vi')).forEach(h => { S.giay[h.dk] = m[1] + String(n++).padStart(w,'0'); });
+  render();
+}
+function xemLaiTN() {
+  const chon = listTN().filter(h => S.sel.has(h.dk));
+  const coGiay = chon.filter(h => (S.giay[h.dk] ?? h.giay)), chiSo = chon.length - coGiay.length;
+  const trung = chon.filter(h => giayTrung(h.dk, S.giay[h.dk] ?? h.giay));
+  const g = coGiay.map(h => S.giay[h.dk] ?? h.giay).sort();
+  modal(`<div class="p-4 border-b border-border font-semibold">Xem lại trước khi ghi</div>
+  <div class="p-4 space-y-3 overflow-auto text-[13.5px]">
+    <div class="grid grid-cols-3 gap-3">
+      <div class="rounded-lg border border-border p-3"><div class="text-[11px] text-muted-foreground">Sẽ thành "Đã tốt nghiệp"</div><div class="text-2xl font-bold text-success">${coGiay.length}</div></div>
+      <div class="rounded-lg border border-border p-3"><div class="text-[11px] text-muted-foreground">Chỉ lưu sổ, chưa cấp giấy</div><div class="text-2xl font-bold">${chiSo}</div></div>
+      <div class="rounded-lg border border-border p-3"><div class="text-[11px] text-muted-foreground">Khoảng số giấy</div><div class="mono text-[13px] mt-1">${g.length? g[0]+' → '+g[g.length-1] : '—'}</div></div>
+    </div>
+    <div class="text-[12.5px]">Sổ <b>${S.gen.so||'(chưa nhập)'}</b> · Quyết định <b>${S.gen.qd||'(chưa nhập)'}</b> ngày ${dmy(S.gen.ngayQd)||'—'} · in giấy ${dmy(S.gen.ngayIn)||'—'}</div>
+    ${(!S.gen.so||!S.gen.qd)?'<div class="msg wrn"><span>⚠ Chưa nhập đủ số sổ / số quyết định — vẫn ghi được nhưng phần mềm cũ sẽ thấy trống.</span></div>':''}
+    ${trung.length?`<div class="msg blk"><span>⛔ ${trung.length} học viên trùng số giấy — sửa lại mới ghi được.</span></div>`:''}
+    ${IT('Gọi <span class="mono">usp_NguoiLX_HoSo_Update_CNTN</span> cho từng học viên (khóa theo khóa học). Lỗi giữa chừng báo đã/chưa ghi, làm tiếp được.')}
+  </div>
+  <div class="p-3 border-t border-border flex justify-end gap-2"><button class="btn" onclick="closeModal()">Quay lại</button><button class="btn pri" ${trung.length?'disabled':''} onclick="ghiTN()">Ghi ${chon.length} học viên</button></div>`);
+}
+function ghiTN() {
+  const chon = listTN().filter(h => S.sel.has(h.dk));
+  let xong = 0; const loi = [];
+  chon.forEach((h,i) => {
+    if (i === 5 && chon.length > 6) { loi.push(h); return; }
+    const g = S.giay[h.dk] ?? h.giay; h.so = S.gen.so || h.so;
+    if (g) { h.giay = g; h.tt = '09'; } xong++;
+  });
+  NHATKY.unshift({luc:'11/10/2026 10:05', nguoi:'thu1', loai:'Cập nhật tốt nghiệp', chi:`${chon.length} học viên`, kq:`Xong ${xong}/${chon.length}`});
+  S.sel = new Set(); S.giay = {};
+  modal(`<div class="p-4 border-b border-border font-semibold">Kết quả ghi tốt nghiệp</div>
+  <div class="p-4 space-y-3 text-[13.5px]">
+    <div class="msg ${loi.length?'wrn':'okm'}"><span>${loi.length?'⚠':'✔'} Đã ghi <b>${xong}</b> / ${chon.length} học viên.</span></div>
+    ${loi.length?`<div class="msg blk"><span>Chưa ghi ${loi.length} học viên: <b>${loi.map(h=>h.ten).join(', ')}</b> — mất kết nối giữa chừng. Bấm "Làm tiếp" để ghi phần còn lại (không ghi trùng phần đã ghi).</span></div>`:''}
+  </div>
+  <div class="p-3 border-t border-border flex justify-end gap-2">${loi.length?'<button class="btn pri" onclick="closeModal();render()">Làm tiếp</button>':''}<button class="btn" onclick="closeModal();render()">Đóng</button></div>`);
+}
+function xacNhanHuy() {
+  const chon = listTN().filter(h => S.sel.has(h.dk));
+  modal(`<div class="p-4 border-b border-border font-semibold">Hủy kết quả tốt nghiệp?</div>
+  <div class="p-4 space-y-2 text-[13.5px]">
+    <div class="msg wrn"><span>Sẽ xóa số giấy của <b>${chon.length}</b> học viên và đưa về <b>"Đã học xong, chưa tốt nghiệp"</b>. Thông tin sổ/quyết định giữ nguyên để nhập lại.</span></div>
+    <ul class="list-disc pl-5 text-[13px]">${chon.map(h => `<li>${h.ten} — <span class="mono">${h.giay}</span></li>`).join('')}</ul>
+    <div class="text-[12px] text-muted-foreground">Học viên đã vào BC2 không hủy được — phải gỡ khỏi BC2 trước (tab Báo cáo 2).</div>
+  </div>
+  <div class="p-3 border-t border-border flex justify-end gap-2"><button class="btn" onclick="closeModal()">Giữ nguyên</button><button class="btn dan" onclick="huyTN()">Hủy tốt nghiệp</button></div>`);
+}
+function huyTN() {
+  const chon = listTN().filter(h => S.sel.has(h.dk));
+  chon.forEach(h => { h.tt = '03'; h.giay = ''; });
+  NHATKY.unshift({luc:'11/10/2026 10:08', nguoi:'thu1', loai:'Hủy tốt nghiệp', chi:`${chon.length} học viên`, kq:'Xong'});
+  S.sel = new Set(); closeModal(); render(); toast('Đã đưa ' + chon.length + ' học viên về "chưa tốt nghiệp"');
+}
+
+/* ============ 2. BÁO CÁO 2 — DANH SÁCH ============ */
+function viewBc2List() {
+  const ds = BC2.filter(b => b.loai === S.loai && (S.bc2Dong==='mo' ? b.tt===0 : b.tt===1));
+  return `
+  <div class="shrink-0 bg-card border-b border-border px-4 py-2.5 flex items-center gap-3">
+    <div class="seg"><button class="${S.loai==='oto'?'on':''}" onclick="S.loai='oto';render()">Ô tô</button><button class="${S.loai==='moto'?'on':''}" onclick="S.loai='moto';render()">Mô tô</button></div>
+    <div class="seg"><button class="${S.bc2Dong==='mo'?'on':''}" onclick="S.bc2Dong='mo';render()">Đang mở</button><button class="${S.bc2Dong==='dong'?'on':''}" onclick="S.bc2Dong='dong';render()">Đã đóng (chỉ xem)</button></div>
+    <div class="text-[12px] text-muted-foreground">BC2 <b>đang mở</b> = chưa có kết quả, còn thêm/gỡ học viên được. Việc đóng BC2 do phần mềm cũ làm.</div>
+    <button class="btn pri ml-auto" onclick="batDauWizard(null)">+ Lập BC2 ${S.loai==='oto'?'ô tô':'mô tô'} mới</button>
+  </div>
+  <div class="flex-1 min-h-0 overflow-auto">
+    ${S.bc2Dong==='mo' ? `<div class="px-4 pt-4">
+      <div class="text-[15px] font-semibold mb-2">Chọn Báo cáo 2 để thêm học viên</div>
+      <div class="grid grid-cols-3 gap-4">
+        ${ds.map(b => { const n = hvCuaBc2(b.ma).length, c1 = BC1.find(x => x.ma === b.bc1), k = c1 && khoaOf(c1.kh);
+          return `<div class="bc2-card">
+            <div><div class="text-[11.5px] text-muted-foreground">BC2 ${b.loai==='oto'?'ô tô':'mô tô'} · đang mở</div>
+              <div class="mono font-bold" style="font-size:22px">${b.ma}</div></div>
+            <div class="text-[13px] leading-snug">Khóa <b>${k?k.ten:'—'}</b> · ngày ${dmy(b.ngay)}<br/>Đã có <b>${n}</b> học viên · tổng ghi ${b.tong}</div>
+            <button class="btn pri lg" onclick="batDauWizard('${b.ma}')">Chọn BC2 này → Thêm học viên</button>
+            <button class="btn sm" style="justify-content:center" onclick="S.mode='xem';S.xemMa='${b.ma}';S.xemSel=new Set();render()">Xem / gỡ học viên trong BC2 này</button>
+          </div>`; }).join('')}
+        <div class="bc2-card new">
+          <div><div class="text-[11.5px] text-muted-foreground">Chưa có BC2 cho khóa cần lập?</div><div class="font-bold" style="font-size:18px">Lập BC2 ${S.loai==='oto'?'ô tô':'mô tô'} mới</div></div>
+          <div class="text-[13px] text-muted-foreground leading-snug">Chọn khóa, tool tự gợi ý số BC2 và gom học viên giúp bạn.</div>
+          <button class="btn lg" style="border-color:hsl(24 82% 40%);color:hsl(24 82% 32%)" onclick="batDauWizard(null)">+ Lập BC2 mới</button>
+        </div>
+      </div>
+    </div>` : ''}
+    <div class="px-4 pt-5 pb-1 text-[13px] font-semibold">${S.bc2Dong==='mo'?'Tất cả BC2 đang mở':'Các BC2 đã đóng'}</div>
+    <table class="w-full">
+      <thead><tr><th>Số BC2</th><th>Ngày báo cáo</th><th>BC1</th><th>Khóa</th><th class="text-right">Tổng ghi</th><th class="text-right">Học viên thực tế</th><th>Trạng thái</th><th>Người tạo</th><th></th></tr></thead>
+      <tbody>${ds.length ? ds.map(b => {
+        const n = hvCuaBc2(b.ma).length, c1 = BC1.find(x => x.ma === b.bc1), k = c1 && khoaOf(c1.kh);
+        return `<tr class="row">
+          <td class="font-semibold mono">${b.ma}</td><td class="tabnum">${dmy(b.ngay)}</td><td class="mono">${b.bc1}</td><td>${k?k.ten:'—'}</td>
+          <td class="text-right tabnum">${b.tong}</td>
+          <td class="text-right tabnum ${n!==b.tong?'text-warning font-semibold':''}">${n}${n!==b.tong?' <span class="badge b-warn">lệch</span>':''}</td>
+          <td>${b.tt===0?'<span class="badge b-tn">Đang mở</span>':'<span class="badge b-gray">Đã đóng</span>'}</td><td>${b.nguoi}</td>
+          <td class="text-right whitespace-nowrap">${b.tt===0?`<button class="btn pri" onclick="batDauWizard('${b.ma}')">Chọn BC2 này → Thêm học viên</button> `:''}<button class="btn" onclick="S.mode='xem';S.xemMa='${b.ma}';S.xemSel=new Set();render()">Xem / gỡ</button></td></tr>`; }).join('')
+        : `<tr><td colspan="9" class="text-center text-muted-foreground py-10">Không có BC2 ${S.bc2Dong==='mo'?'đang mở':'đã đóng'} cho ${S.loai==='oto'?'ô tô':'mô tô'}.</td></tr>`}</tbody>
+    </table>
+    <div class="m-4 msg inf"><span>ⓘ <b>"Tổng ghi"</b> khác <b>"Học viên thực tế"</b> là bình thường: phần mềm cũ ghi tổng lúc lập (mô tô = số học sinh của BC1) và không đếm lại. Tool giữ đúng như vậy.</span></div>
+  </div>`;
+}
+
+/* ============ 3. LẬP BC2 / THÊM HỌC VIÊN — 3 BƯỚC ============ */
+function batDauWizard(bc2Ma) {
+  S.tab = 'bc2'; S.mode = 'wiz';
+  const b = bc2Ma ? BC2.find(x => x.ma === bc2Ma) : null;
+  const c1 = b ? BC1.find(x => x.ma === b.bc1) : null;
+  W = { loai: b ? b.loai : S.loai, step: b ? 2 : 1, ma_kh: c1 ? c1.kh : '', bc2: bc2Ma, sel: new Set(), thang: 12, q: '', moRong: {}, cu: false, ketQua: null, khongHien: false, so: null, ngay: null };
+  if (b) khoiTao();
+  render();
+}
+function nhomHv(h) {
+  const k = khoaOf(h.kh);
+  if (h.loai !== W.loai) return null;
+  if (W.bc2 && h.bc2 === W.bc2) return null;
+  if (k.bg > HOM_NAY) return {g:'khong', ly:'Khóa ' + k.ten + ' chưa bế giảng (' + dmy(k.bg) + ')'};
+  if (['13','16','19'].includes(h.tt)) return {g:'khong', ly:'Đã có kết quả cuối (' + ttTen(h) + ')'};
+  if (h.tt === '11') return h.bc2 ? {g:'canxem', ly:'Đang ở BC2 số ' + h.bc2 + ' — tích để chuyển sang BC2 này', kieu:'chuyen'} : null;
+  if (h.kh === W.ma_kh) {
+    if (W.loai === 'oto') return h.tt==='09' ? {g:'san'} : h.tt==='03' ? {g:'canxem', ly:'Chưa tốt nghiệp — cần có giấy chứng nhận trước', kieu:'tn'} : {g:'canxem', ly:'Trạng thái "' + ttTen(h) + '" chưa nằm trong nhóm chờ lập BC2', kieu:'la'};
+    return h.tt==='03' ? {g:'san'} : ['14','17','18'].includes(h.tt) ? {g:'thilai'} : {g:'canxem', ly:'Trạng thái "' + ttTen(h) + '" chưa nằm trong nhóm chờ lập BC2', kieu:'la'};
+  }
+  if (['14','17','18'].includes(h.tt) || (W.loai==='oto' && h.tt==='09')) return {g:'thilai'};
+  return null;
+}
+function tuoiThang(h) {
+  const a = khoaOf(h.kh).bg.split('-').map(Number), b = HOM_NAY.split('-').map(Number);
+  return (b[0]-a[0])*12 + (b[1]-a[1]);
+}
+function khoiTao() { W.sel = new Set(HV.filter(h => { const n = nhomHv(h); return n && n.g==='san'; }).map(h => h.dk)); }
+function dsNhom() {
+  const out = {san:[], thilai:[], canxem:[], khong:[]};
+  HV.forEach(h => { const n = nhomHv(h); if (n) out[n.g].push({h, n}); });
+  return out;
+}
+function wizHead() {
+  const pill = (n, t) => `<div class="pill ${W.step===n?'on':W.step>n?'done':''}"><span class="n">${W.step>n?'✓':n}</span>${t}</div>`;
+  return `<div class="shrink-0 bg-card border-b border-border px-4 py-2.5 flex items-center gap-3">
+    <button class="btn" onclick="S.mode='list';W=null;render()">← Danh sách BC2</button>
+    ${pill(1,'Chọn khóa')}<span class="text-muted-foreground">›</span>${pill(2,'Chọn học viên')}<span class="text-muted-foreground">›</span>${pill(3,'Xác nhận')}
+    <div class="ml-auto text-[12px] text-muted-foreground">${W.loai==='oto'?'Ô tô':'Mô tô'}${W.bc2?' · Thêm vào BC2 số <b>'+W.bc2+'</b>':' · Lập BC2 mới'}</div></div>`;
+}
+/* --- Bước 1 --- */
+function wizKhoa() {
+  const dsk = KHOA.filter(k => k.loai===W.loai && k.bg <= HOM_NAY && (W.cu || k.bg >= CUA_SO_TU));
+  return `<div class="flex-1 min-h-0 overflow-auto p-4 space-y-3">
+    <div class="flex items-center gap-3">
+      <div class="text-[15px] font-semibold">Chọn khóa cần lập BC2</div>
+      <label class="inline-flex items-center gap-2 h-8 px-3 rounded-lg border border-border bg-white text-[12.5px] cursor-pointer ml-auto"><input type="checkbox" ${W.cu?'checked':''} onchange="W.cu=this.checked;render()"/> Hiện khóa cũ</label>
+    </div>
+    ${dsk.map(k => {
+      const save = W.ma_kh; W.ma_kh = k.ma; const g = dsNhom(); W.ma_kh = save;
+      const c1 = BC1.find(x => x.kh === k.ma && x.loai === W.loai), coBc2 = c1 && W.loai==='moto' ? BC2.find(b => b.bc1 === c1.ma && b.tt===0 && hvCuaBc2(b.ma).some(h => h.kh === k.ma)) : null;
+      return `<div class="khoa-card" onclick="chonKhoa('${k.ma}')">
+        <div class="w-[220px]"><div class="font-semibold text-[14.5px]">${k.ten}</div><div class="text-[12px] text-muted-foreground">bế giảng ${dmy(k.bg)}${c1?' · BC1 <span class="mono">'+c1.ma+'</span>':' · <span class="text-warning">chưa có BC1</span>'}</div></div>
+        <div class="flex gap-8 flex-1">
+          <div><div class="num text-success">${g.san.length}</div><div class="text-[11.5px] text-muted-foreground">Sẵn sàng</div></div>
+          <div><div class="num text-primary">${g.thilai.filter(x => tuoiThang(x.h) <= W.thang).length}</div><div class="text-[11.5px] text-muted-foreground">Thi lại (≤ ${W.thang} tháng)</div></div>
+          <div><div class="num ${g.canxem.length?'text-warning':''}">${g.canxem.length}</div><div class="text-[11.5px] text-muted-foreground">Cần xem</div></div>
+        </div>
+        ${coBc2?`<span class="badge b-tn">Đã có BC2 ${coBc2.ma}</span>`:''}
+        <button class="btn pri">Chọn khóa này →</button>
+      </div>`; }).join('') || '<div class="text-muted-foreground py-10 text-center">Không có khóa đã bế giảng trong phạm vi.</div>'}
+    <div class="msg inf"><span>ⓘ Chọn khóa là đủ: tool tự tìm BC1, gợi ý số BC2 và gom học viên thành các nhóm ở bước sau.</span></div>
+  </div>`;
+}
+function chonKhoa(ma) {
+  W.ma_kh = ma;
+  const c1 = BC1.find(x => x.kh === ma && x.loai === W.loai);
+  const co = c1 && W.loai==='moto' ? BC2.find(b => b.bc1 === c1.ma && b.tt===0 && hvCuaBc2(b.ma).some(h => h.kh === ma)) : null;
+  if (co) { W.bc2 = co.ma; toast('Khóa này đã có BC2 ' + co.ma + ' — chuyển sang thêm học viên vào BC2 đó'); }
+  khoiTao(); W.step = 2; render();
+}
+/* --- Bước 2 --- */
+function wizChon() {
+  const g = dsNhom(), q = boDau(W.q);
+  const lo = x => !q || boDau(x.h.ten).includes(q) || x.h.cmt.includes(q);
+  const sel = x => W.sel.has(x.h.dk);
+  const nSan = g.san.filter(sel).length, nThi = g.thilai.filter(sel).length, nXem = g.canxem.filter(sel).length;
+  const tong = nSan + nThi + nXem, chuyen = g.canxem.filter(x => sel(x) && x.n.kieu === 'chuyen').length;
+  const k = khoaOf(W.ma_kh);
+  const row = x => `<tr class="row ${sel(x)?'sel':''}"><td class="w-8"><input type="checkbox" ${sel(x)?'checked':''} onchange="tichW('${x.h.dk}',this.checked)"/></td>
+      <td class="font-medium">${x.h.ten}</td><td class="tabnum">${dmy(x.h.ns)}</td><td class="mono">${x.h.cmt}</td><td>${ttBadge(x.h)}</td></tr>`;
+  const bangSan = g.san.filter(lo);
+  const thilaiTheoKhoa = {};
+  g.thilai.filter(lo).forEach(x => { (thilaiTheoKhoa[x.h.kh] ||= []).push(x); });
+  const thiLai12 = g.thilai.filter(x => tuoiThang(x.h) <= W.thang).length;
+  return `
+  <div class="shrink-0 px-4 py-2.5 bg-tn-soft border-b border-border flex items-center gap-4">
+    <div><div class="text-[11px] text-muted-foreground">Sẽ đưa vào BC2</div>
+      <div class="text-[20px] font-bold tabnum">${nSan} <span class="text-[13px] font-medium text-muted-foreground">của khóa</span> + ${nThi} <span class="text-[13px] font-medium text-muted-foreground">thi lại</span>${nXem?' + '+nXem+' <span class="text-[13px] font-medium text-muted-foreground">cần xem</span>':''} = <span class="text-tn">${tong}</span> học viên</div></div>
+    ${chuyen?`<span class="badge b-warn">⚠ ${chuyen} học viên sẽ chuyển từ BC2 khác</span>`:''}
+    <div class="ml-auto flex items-center gap-2">
+      <input id="qW" class="field-input" style="width:240px" placeholder="Tìm tên / số CMT (Enter để tích)" value="${W.q}" oninput="W.q=this.value;render('qW')" onkeydown="if(event.key==='Enter')tichKetQua()"/>
+      <button class="btn" onclick="danList()">Dán danh sách CMT</button>
+      <button class="btn" onclick="W.sel=new Set();render()">Bỏ chọn tất cả</button>
+      ${helpBtn}
+    </div>
+  </div>
+  <div class="flex-1 min-h-0 overflow-auto p-4 space-y-4">
+    <div class="text-[12.5px] text-muted-foreground">Khóa <b class="text-foreground">${k.ten}</b> (bế giảng ${dmy(k.bg)}) · ${W.bc2?'BC2 số <b class="text-foreground">'+W.bc2+'</b>':'BC2 mới — tool sẽ gợi ý số ở bước xác nhận'}</div>
+
+    <section class="grp">
+      <div class="grp-h"><span class="text-success text-[16px]">✅</span><div><div class="font-semibold">Sẵn sàng — ${g.san.length} học viên của khóa</div><div class="text-[12px] text-muted-foreground">${W.loai==='oto'?'Đã có giấy chứng nhận tốt nghiệp':'Đã học xong khóa'}, chưa nằm trong báo cáo nào. Đã tích sẵn.</div></div>
+        <div class="ml-auto flex gap-2"><button class="btn sm" onclick="nhomChon('san',true)">Chọn tất cả</button><button class="btn sm" onclick="nhomChon('san',false)">Bỏ chọn</button></div></div>
+      <table class="w-full"><tbody>${bangSan.length?bangSan.map(row).join(''):'<tr><td class="text-center text-muted-foreground py-6">Không có học viên sẵn sàng.</td></tr>'}</tbody></table>
+    </section>
+
+    <section class="grp">
+      <div class="grp-h"><span class="text-primary text-[16px]">🔁</span><div><div class="font-semibold">Thi lại — ${g.thilai.length} học viên từ các khóa trước</div><div class="text-[12px] text-muted-foreground">Rớt hoặc vắng sát hạch, hoặc chưa đạt BC2, đang chờ lập lại. <b>Không tích sẵn</b> — bấm nút bên phải để thêm nhanh.</div></div>
+        <div class="ml-auto flex items-center gap-2"><span class="text-[12px]">trong</span><input type="number" min="1" max="120" class="field-input sm" style="width:64px" value="${W.thang}" onchange="W.thang=Math.max(1,+this.value||12);render()"/><span class="text-[12px]">tháng gần nhất</span>
+          <button class="btn sm pri" onclick="themThiLai()">Thêm ${thiLai12} HV thi lại ≤ ${W.thang} tháng</button></div></div>
+      <div>${Object.keys(thilaiTheoKhoa).length ? Object.entries(thilaiTheoKhoa).sort((a,b) => khoaOf(b[0]).bg.localeCompare(khoaOf(a[0]).bg)).map(([ma, ds]) => {
+        const kk = khoaOf(ma), m = tuoiThang(ds[0].h), n = ds.filter(sel).length, open = W.moRong[ma];
+        return `<div class="border-b border-border">
+          <div class="px-4 py-2 flex items-center gap-3 cursor-pointer hover:bg-muted" onclick="W.moRong['${ma}']=!W.moRong['${ma}'];render()">
+            <span class="text-[12px]">${open?'▼':'▶'}</span><span class="font-medium">${kk.ten}</span><span class="text-[12px] text-muted-foreground">bế giảng ${dmy(kk.bg)} · ${m} tháng trước</span>
+            <span class="badge ${m<=W.thang?'b-ok':'b-warn'}">${m<=W.thang?'trong '+W.thang+' tháng':'cũ hơn '+W.thang+' tháng'}</span>
+            <span class="text-[12.5px] ml-auto">${n}/${ds.length} đã chọn</span>
+            <button class="btn sm" onclick="event.stopPropagation();chonKhoaGoc('${ma}',${n<ds.length})">${n<ds.length?'Chọn cả khóa':'Bỏ cả khóa'}</button></div>
+          ${open?`<table class="w-full"><tbody>${ds.map(x => `<tr class="row ${sel(x)?'sel':''}"><td class="w-8 pl-8"><input type="checkbox" ${sel(x)?'checked':''} onchange="tichW('${x.h.dk}',this.checked)"/></td><td class="font-medium">${x.h.ten}</td><td class="tabnum">${dmy(x.h.ns)}</td><td class="mono">${x.h.cmt}</td><td>${ttBadge(x.h)}${x.h.bc2?'<span class="badge b-warn ml-1">đang ở BC2 '+x.h.bc2+'</span>':''}</td></tr>`).join('')}</tbody></table>`:''}
+        </div>`; }).join('') : '<div class="text-center text-muted-foreground py-6">Không có học viên thi lại.</div>'}</div>
+    </section>
+
+    ${g.canxem.length?`<section class="grp">
+      <div class="grp-h"><span class="text-warning text-[16px]">⚠️</span><div><div class="font-semibold">Cần xem — ${g.canxem.length} học viên</div><div class="text-[12px] text-muted-foreground">Chưa đủ điều kiện hoặc đang ở báo cáo khác. Không tích sẵn; mỗi dòng có cách xử lý nhanh.</div></div></div>
+      <table class="w-full"><tbody>${g.canxem.filter(lo).map(x => `<tr class="row ${sel(x)?'sel':''}"><td class="w-8"><input type="checkbox" ${sel(x)?'checked':''} ${x.n.kieu==='chuyen'?'':'disabled'} onchange="tichW('${x.h.dk}',this.checked)"/></td>
+        <td class="font-medium">${x.h.ten}</td><td class="mono">${x.h.cmt}</td><td>${ttBadge(x.h)}</td><td class="text-[12.5px] text-warning">${x.n.ly}</td>
+        <td class="text-right">${x.n.kieu==='tn'?`<button class="btn sm" onclick="suaTaiCho('${x.h.dk}')">Cập nhật tốt nghiệp</button>`:x.n.kieu==='la'?`<button class="btn sm" onclick="suaTaiCho('${x.h.dk}')">Sửa trạng thái</button>`:''}</td></tr>`).join('')}</tbody></table>
+    </section>`:''}
+
+    <details class="grp" ${W.khongHien?'open':''} ontoggle="W.khongHien=this.open">
+      <summary class="grp-h"><span class="text-[16px]">⛔</span><div><div class="font-semibold">Không đưa được — ${g.khong.length} học viên</div><div class="text-[12px] text-muted-foreground">Mở ra để biết vì sao một học viên không có trong danh sách.</div></div><span class="ml-auto text-[12px] text-primary">Xem lý do</span></summary>
+      <table class="w-full"><tbody>${g.khong.slice(0,60).map(x => `<tr class="row lock"><td class="font-medium pl-4">${x.h.ten}</td><td class="mono">${x.h.cmt}</td><td>${ttBadge(x.h)}</td><td class="text-[12.5px]">${x.n.ly}</td></tr>`).join('') || '<tr><td class="text-center text-muted-foreground py-4">Không có.</td></tr>'}</tbody></table>
+    </details>
+  </div>
+  <div class="shrink-0 h-14 bg-card border-t border-border px-4 flex items-center gap-3">
+    <button class="btn" onclick="${W.bc2?"S.mode='list';W=null;":'W.step=1;'}render()">${W.bc2?'← Danh sách BC2':'← Chọn khóa khác'}</button>
+    <span class="text-[13px] text-muted-foreground">${tong} học viên sẽ được đưa vào BC2</span>
+    <button class="btn pri ml-auto" ${tong?'':'disabled'} onclick="W.step=3;render()">Tiếp: xác nhận →</button>
+  </div>`;
+}
+function tichW(dk, on) { on ? W.sel.add(dk) : W.sel.delete(dk); render(); }
+function nhomChon(g, on) { dsNhom()[g].forEach(x => on ? W.sel.add(x.h.dk) : W.sel.delete(x.h.dk)); render(); }
+function chonKhoaGoc(ma, on) { dsNhom().thilai.filter(x => x.h.kh === ma).forEach(x => on ? W.sel.add(x.h.dk) : W.sel.delete(x.h.dk)); render(); }
+function themThiLai() { const ds = dsNhom().thilai.filter(x => tuoiThang(x.h) <= W.thang); ds.forEach(x => W.sel.add(x.h.dk)); render(); toast('Đã thêm ' + ds.length + ' học viên thi lại trong ' + W.thang + ' tháng gần nhất'); }
+function tichKetQua() {
+  const q = boDau(W.q); if (!q) return; const g = dsNhom();
+  const ds = g.san.concat(g.thilai, g.canxem.filter(x => x.n.kieu==='chuyen')).filter(x => boDau(x.h.ten).includes(q) || x.h.cmt.includes(q));
+  ds.forEach(x => W.sel.add(x.h.dk)); W.q = ''; render(); toast('Đã tích ' + ds.length + ' học viên khớp');
+}
+function danList() {
+  modal(`<div class="p-4 border-b border-border font-semibold">Dán danh sách số CMT hoặc mã đăng ký</div>
+  <div class="p-4 space-y-2"><div class="text-[12.5px] text-muted-foreground">Mỗi dòng một số (copy một cột từ Excel). Tool tích đúng những học viên khớp trong ba nhóm Sẵn sàng / Thi lại / Cần xem.</div>
+  <textarea id="dsDan" class="field-input mono" style="height:180px;padding:8px" placeholder="079190000001&#10;079191000002"></textarea></div>
+  <div class="p-3 border-t border-border flex justify-end gap-2"><button class="btn" onclick="closeModal()">Hủy</button><button class="btn pri" onclick="apDan()">Tích theo danh sách</button></div>`);
+}
+function apDan() {
+  const dong = $('#dsDan').value.split(/\s+/).map(s => s.trim()).filter(Boolean), g = dsNhom();
+  const tat = g.san.concat(g.thilai, g.canxem.filter(x => x.n.kieu==='chuyen')); let khop = 0;
+  dong.forEach(s => { const x = tat.find(t => t.h.cmt === s || t.h.dk === s); if (x) { W.sel.add(x.h.dk); khop++; } });
+  closeModal(); render(); toast(`Khớp ${khop}/${dong.length} dòng` + (khop < dong.length ? ' — ' + (dong.length - khop) + ' dòng không có trong danh sách đưa được' : ''), khop < dong.length ? 'warn' : '');
+}
+function suaTaiCho(dk) {
+  const h = HV.find(x => x.dk === dk), tn = h.loai === 'oto' && h.tt === '03';
+  modal(`<div class="p-4 border-b border-border font-semibold">${tn?'Cập nhật tốt nghiệp ngay':'Sửa trạng thái học viên'}</div>
+  <div class="p-4 space-y-3 text-[13.5px]">
+    <div class="rounded-lg border border-border p-3"><b>${h.ten}</b><div class="mono text-muted-foreground">${h.cmt} · ${khoaOf(h.kh).ten}</div><div class="mt-1">Hiện tại: ${ttBadge(h)}</div></div>
+    ${tn?`<div><label class="field-label">Số giấy chứng nhận tốt nghiệp</label><input id="sGiay" class="field-input mono" value="N1|${7500 + (parseInt(h.dk.slice(-4), 10) || 0)}"/></div>
+      <div class="msg inf"><span>Dùng chung số sổ và quyết định đã nhập ở màn Tốt nghiệp. Xong, học viên tự chuyển sang nhóm <b>Sẵn sàng</b> và được tích.</span></div>`
+    :`<div><label class="field-label">Chuyển sang</label><select id="sDich" class="field-input"><option value="17">Thi sát hạch chưa đạt (17)</option><option value="18">Vắng sát hạch (18)</option><option value="14">Chưa đạt BC2 — cần lập lại (14)</option></select></div>
+      <div><label class="field-label">Lý do (bắt buộc, ghi vào nhật ký)</label><input id="sLy" class="field-input" placeholder="vd: nhập nhầm trạng thái"/></div>`}
+  </div>
+  <div class="p-3 border-t border-border flex justify-end gap-2"><button class="btn" onclick="closeModal()">Hủy</button><button class="btn pri" onclick="apSua('${dk}')">${tn?'Cập nhật và tích':'Chuyển trạng thái'}</button></div>`);
+}
+function apSua(dk) {
+  const h = HV.find(x => x.dk === dk);
+  if (h.loai === 'oto' && h.tt === '03') { h.giay = $('#sGiay').value; h.tt = '09'; W.sel.add(dk); toast('Đã cập nhật tốt nghiệp cho ' + h.ten + ' — chuyển sang nhóm Sẵn sàng'); }
+  else { const ly = ($('#sLy').value || '').trim(); if (!ly) { toast('Cần nhập lý do','warn'); return; } h.tt = $('#sDich').value; toast('Đã chuyển trạng thái cho ' + h.ten); }
+  closeModal(); render();
+}
+/* --- Bước 3 --- */
+function goiYSo() {
+  if (W.loai === 'moto') { const c1 = BC1.find(x => x.kh === W.ma_kh); return c1 ? c1.ma.replace(/^A1A2/,'') : ''; }
+  const n = Math.max(0, ...BC2.filter(b => b.loai==='oto').map(b => { const m = b.ma.match(/^(\d+)\/2026$/); return m ? +m[1] : 0; })) + 1;
+  return n + '/2026';
+}
+function wizXacNhan() {
+  const g = dsNhom(), tat = g.san.concat(g.thilai, g.canxem), chon = tat.filter(x => W.sel.has(x.h.dk));
+  const nSan = chon.filter(x => x.n.g==='san').length, nThi = chon.filter(x => x.n.g==='thilai').length, chuyen = chon.filter(x => x.n.kieu==='chuyen');
+  const c1 = BC1.find(x => x.kh === W.ma_kh), so = W.so ?? (W.bc2 || goiYSo());
+  const trung = !W.bc2 && BC2.some(b => b.ma === so);
+  return `<div class="flex-1 min-h-0 overflow-auto p-4">
+   <div class="max-w-[760px] mx-auto space-y-4">
+    <div class="text-[15px] font-semibold">Xác nhận ${W.bc2?'thêm học viên vào BC2':'lập BC2 và thêm học viên'}</div>
+    <div class="grp p-4 space-y-3">
+      <div class="grid grid-cols-3 gap-3">
+        <div><label class="field-label">Số BC2 (= mã báo cáo)</label><input class="field-input mono ${trung?'bad':''}" value="${so}" ${W.bc2?'disabled':''} oninput="W.so=this.value;render()"/></div>
+        <div><label class="field-label">Ngày báo cáo</label><input type="date" class="field-input" value="${W.ngay||HOM_NAY}" ${W.bc2?'disabled':''} oninput="W.ngay=this.value"/></div>
+        <div><label class="field-label">BC1 của khóa</label><input class="field-input mono" value="${c1?c1.ma:'(chưa có BC1)'}" disabled/></div>
+      </div>
+      ${trung?'<div class="msg blk"><span>⛔ Số BC2 này đã tồn tại — đổi số khác.</span></div>':''}
+      ${!c1&&!W.bc2?'<div class="msg blk"><span>⛔ Khóa này chưa có BC1 — phải có BC1 mới lập được BC2.</span></div>':''}
+      <div class="text-[12.5px] text-muted-foreground">${W.loai==='moto'?'Mô tô: mỗi khóa một BC1 và một BC2; số BC2 = số BC1 bỏ tiền tố A1A2. Tổng thí sinh ghi bằng số học sinh của BC1.':'Ô tô: số BC2 theo chuỗi riêng "số/năm". Tổng thí sinh ghi bằng số học viên lúc lập.'}</div>
+    </div>
+    <div class="grp p-4">
+      <div class="grid grid-cols-4 gap-3 text-center">
+        <div><div class="num text-tn">${chon.length}</div><div class="text-[12px] text-muted-foreground">học viên sẽ thêm</div></div>
+        <div><div class="num text-success">${nSan}</div><div class="text-[12px] text-muted-foreground">của khóa</div></div>
+        <div><div class="num text-primary">${nThi}</div><div class="text-[12px] text-muted-foreground">thi lại</div></div>
+        <div><div class="num ${chuyen.length?'text-warning':''}">${chuyen.length}</div><div class="text-[12px] text-muted-foreground">chuyển từ BC2 khác</div></div>
+      </div>
+      ${chuyen.length?`<div class="msg wrn mt-3"><span>⚠ ${chuyen.length} học viên đang ở BC2 khác sẽ <b>rời BC2 đó</b>: ${chuyen.map(x => x.h.ten + ' (' + x.h.bc2 + ')').join(', ')}.</span></div>`:''}
+    </div>
+    <div class="msg inf"><span>Tool đọc lại từng học viên ngay trước khi ghi: ai phần mềm cũ vừa đổi thì được bỏ qua và nêu lý do, không ghi đè. Sau khi ghi có nút <b>Hoàn tác lần vừa rồi</b>.</span></div>
+    ${IT('Tạo BC2 bằng <span class="mono">usp_BaoCaoII_Insert</span> (trạng thái đang mở), thêm từng học viên bằng <span class="mono">usp_NguoiLX_Update_ThemHSBC2</span> (khóa theo BC2); hoàn tác bằng <span class="mono">usp_NguoiLXHoSo_Update_DanhSachHocSinhBC2</span>. "Tổng ghi" không đổi khi thêm.')}
+   </div>
+  </div>
+  <div class="shrink-0 h-14 bg-card border-t border-border px-4 flex items-center gap-3">
+    <button class="btn" onclick="W.step=2;render()">← Quay lại chọn học viên</button>
+    <button class="btn pri ml-auto" ${(trung||(!c1&&!W.bc2)||!chon.length)?'disabled':''} onclick="thucHien()">${W.bc2?'Thêm '+chon.length+' học viên':'Lập BC2 và thêm '+chon.length+' học viên'}</button>
+  </div>`;
+}
+function thucHien() {
+  const g = dsNhom(), chon = g.san.concat(g.thilai, g.canxem).filter(x => W.sel.has(x.h.dk));
+  const so = W.so ?? (W.bc2 || goiYSo()), c1 = BC1.find(x => x.kh === W.ma_kh);
+  if (!W.bc2) { BC2.unshift({ma:so, bc1:c1.ma, loai:W.loai, ngay:W.ngay||HOM_NAY, tong:W.loai==='moto'?c1.sohs:chon.length, tt:0, nguoi:'thu1'}); W.bc2 = so; }
+  const boQua = [], xong = [];
+  chon.forEach((x,i) => {
+    if (S.pmCu && i < 2) { boQua.push({h:x.h, ly:'phần mềm cũ vừa đưa vào BC2 số ' + (W.loai==='oto'?'74/2026':'869/26-TTTĐ')}); return; }
+    x.h.bc2 = W.bc2; x.h.tt = '11'; xong.push(x.h);
+  });
+  LOBATCH[W.bc2] = xong.map(h => h.dk);
+  NHATKY.unshift({luc:'11/10/2026 10:22', nguoi:'thu1', loai:'Thêm học viên vào BC2', chi:`BC2 ${W.bc2} · ${chon.length} học viên`, kq:`Xong ${xong.length}/${chon.length}`});
+  W.ketQua = {xong, boQua, tong:chon.length}; W.step = 4; render();
+}
+function viewKetQua() {
+  const r = W.ketQua;
+  return `<div class="flex-1 min-h-0 overflow-auto p-4"><div class="max-w-[720px] mx-auto space-y-4">
+    <div class="msg ${r.boQua.length?'wrn':'okm'} text-[14px]"><span>${r.boQua.length?'⚠':'✔'} Đã thêm <b>${r.xong.length}</b> / ${r.tong} học viên vào BC2 số <b>${W.bc2}</b>.</span></div>
+    ${r.boQua.length?`<div class="msg blk"><span>Bỏ qua ${r.boQua.length} học viên vì dữ liệu đã đổi từ lúc bạn tải danh sách:<br/>${r.boQua.map(x => '• <b>'+x.h.ten+'</b> — '+x.ly).join('<br/>')}</span></div>`:''}
+    <div class="flex gap-2 flex-wrap">
+      ${r.boQua.length?`<button class="btn pri" onclick="lamTiep()">Làm tiếp ${r.boQua.length} học viên còn lại</button>`:''}
+      <button class="btn" onclick="hoanTacLo('${W.bc2}')">Hoàn tác lần vừa rồi</button>
+      <button class="btn" onclick="S.mode='xem';S.xemMa='${W.bc2}';S.xemSel=new Set();W=null;render()">Xem học viên trong BC2</button>
+      <button class="btn" onclick="S.mode='list';W=null;render()">Về danh sách BC2</button>
+    </div>
+  </div></div>`;
+}
+function lamTiep() {
+  const dks = W.ketQua.boQua.map(x => x.h.dk);
+  S.pmCu = false; $('#simPm').checked = false;
+  W.sel = new Set(dks); W.step = 3; render();
+}
+function hoanTacLo(ma) {
+  const ds = (LOBATCH[ma] || []).map(dk => HV.find(h => h.dk === dk)).filter(h => h && h.tt === '11' && h.bc2 === ma);
+  ds.forEach(h => { h.bc2 = ''; h.tt = h.loai === 'oto' ? '09' : '03'; });
+  LOBATCH[ma] = [];
+  NHATKY.unshift({luc:'11/10/2026 10:30', nguoi:'thu1', loai:'Hoàn tác lần thêm vừa rồi', chi:`BC2 ${ma} · ${ds.length} học viên`, kq:'Xong'});
+  toast('Đã gỡ ' + ds.length + ' học viên của lần thêm vừa rồi');
+  if (W) { W.step = 2; khoiTao(); }
+  render();
+}
+
+/* ============ 4. XEM / GỠ HỌC VIÊN TRONG BC2 ============ */
+function viewXem() {
+  const b = BC2.find(x => x.ma === S.xemMa), c1 = BC1.find(x => x.ma === b.bc1), k = c1 && khoaOf(c1.kh);
+  const q = boDau(S.q), ds = hvCuaBc2(b.ma).filter(h => !q || boDau(h.ten).includes(q) || h.cmt.includes(q));
+  const dong = b.tt === 1, goDuoc = h => h.tt === '11' && !dong;
+  const nTick = [...S.xemSel].filter(d => ds.find(h => h.dk===d)).length;
+  return `
+  <div class="shrink-0 bg-card border-b border-border px-4 py-2.5 flex items-center gap-3">
+    <button class="btn" onclick="S.mode='list';render()">← Danh sách BC2</button>
+    <div><div class="text-[11px] text-muted-foreground">BC2 ${b.loai==='oto'?'ô tô':'mô tô'}</div><div class="font-semibold mono text-[15px]">${b.ma}</div></div>
+    <div class="text-[12.5px] leading-snug border-l border-border pl-3">BC1 <span class="mono">${b.bc1}</span><br/>Khóa <b>${k?k.ten:'—'}</b></div>
+    <div class="text-[12.5px] leading-snug border-l border-border pl-3">Tổng ghi <b>${b.tong}</b> · Học viên thực tế <b>${hvCuaBc2(b.ma).length}</b></div>
+    ${dong?'<span class="badge b-gray">Đã đóng — chỉ xem</span>':'<span class="badge b-tn">Đang mở</span>'}
+    <input id="qX" class="field-input ml-auto" style="width:240px" placeholder="Tìm tên / số CMT" value="${S.q}" oninput="S.q=this.value;render('qX')"/>
+    ${helpBtn}
+    <button class="btn dan" ${(hvCuaBc2(b.ma).length||dong)?'disabled':''} onclick="xoaBc2('${b.ma}')" title="Chỉ xóa được BC2 không còn học viên">Xóa BC2 rỗng</button>
+  </div>
+  <div class="flex-1 min-h-0 overflow-auto">
+    <div class="m-3 msg inf"><span>ⓘ Chỉ gỡ được học viên còn ở "Đã vào BC2, chờ kết quả". Học viên đã có kết quả bị khóa vì gỡ sẽ làm mất kết quả.</span></div>
+    <table class="w-full">
+      <thead><tr><th class="w-8"></th><th>Tên học viên</th><th>Ngày sinh</th><th>Số CMT</th><th>Khóa gốc</th><th>Trạng thái</th></tr></thead>
+      <tbody>${ds.length?ds.map(h => `<tr class="row ${S.xemSel.has(h.dk)?'sel':''} ${goDuoc(h)?'':'lock'}">
+        <td><input type="checkbox" ${S.xemSel.has(h.dk)?'checked':''} ${goDuoc(h)?'':'disabled'} onchange="this.checked?S.xemSel.add('${h.dk}'):S.xemSel.delete('${h.dk}');render()"/></td>
+        <td class="font-medium">${h.ten}</td><td class="tabnum">${dmy(h.ns)}</td><td class="mono">${h.cmt}</td><td>${khoaOf(h.kh).ten}</td>
+        <td>${ttBadge(h)}${goDuoc(h)?'':'<div class="text-[11px] text-warning">Đã có kết quả — không gỡ được</div>'}</td></tr>`).join('')
+        : '<tr><td colspan="6" class="text-center text-muted-foreground py-10">Chưa có học viên trong BC2 này.</td></tr>'}</tbody>
+    </table>
+  </div>
+  <div class="shrink-0 h-14 bg-card border-t border-border px-4 flex items-center gap-3">
+    <span class="text-[13px]"><b>${nTick}</b> học viên đã chọn</span>
+    <button class="btn" ${(LOBATCH[b.ma]||[]).length&&!dong?'':'disabled'} onclick="hoanTacLo('${b.ma}')">Hoàn tác lần thêm vừa rồi</button>
+    <button class="btn" onclick="batDauWizard('${b.ma}')" ${dong?'disabled':''}>+ Thêm học viên</button>
+    <button class="btn dan ml-auto" ${nTick?'':'disabled'} onclick="xacNhanGo()">Gỡ ${nTick} học viên khỏi BC2</button>
+  </div>`;
+}
+function xacNhanGo() {
+  const b = BC2.find(x => x.ma === S.xemMa), chon = hvCuaBc2(b.ma).filter(h => S.xemSel.has(h.dk));
+  modal(`<div class="p-4 border-b border-border font-semibold">Gỡ ${chon.length} học viên khỏi BC2 ${b.ma}?</div>
+  <div class="p-4 space-y-2 text-[13.5px]">
+    <div class="msg wrn"><span>Mỗi học viên về trạng thái trước đó và <b>không</b> tự quay lại BC2 cũ.</span></div>
+    <ul class="list-disc pl-5 text-[13px]">${chon.map(h => `<li>${h.ten} — ${khoaOf(h.kh).ten}</li>`).join('')}</ul>
+  </div>
+  <div class="p-3 border-t border-border flex justify-end gap-2"><button class="btn" onclick="closeModal()">Giữ nguyên</button><button class="btn dan" onclick="goHv()">Gỡ ${chon.length} học viên</button></div>`);
+}
+function goHv() {
+  const b = BC2.find(x => x.ma === S.xemMa), chon = hvCuaBc2(b.ma).filter(h => S.xemSel.has(h.dk));
+  chon.forEach(h => { h.bc2 = ''; h.tt = h.loai === 'oto' ? '09' : '03'; });
+  NHATKY.unshift({luc:'11/10/2026 10:28', nguoi:'thu1', loai:'Gỡ học viên khỏi BC2', chi:`BC2 ${b.ma} · ${chon.length} học viên`, kq:'Xong'});
+  S.xemSel = new Set(); closeModal(); render(); toast('Đã gỡ ' + chon.length + ' học viên khỏi BC2');
+}
+function xoaBc2(ma) { BC2 = BC2.filter(b => b.ma !== ma); NHATKY.unshift({luc:'11/10/2026 10:35', nguoi:'thu1', loai:'Xóa BC2 rỗng', chi:ma, kq:'Xong'}); S.mode='list'; render(); toast('Đã xóa BC2 ' + ma); }
+
+/* ============ 5. HỌC VIÊN KHÔNG TÌM THẤY (CỨU TRẠNG THÁI) ============ */
+const CUU_CHAN = ['11','16','19'];
+function lyKhongHien(h) {
+  const k = khoaOf(h.kh);
+  if (h.tt === '11') return 'Đang ở BC2 số ' + h.bc2 + ' — gỡ khỏi BC2 trước';
+  if (CUU_CHAN.includes(h.tt)) return 'Đã có kết quả cuối (' + ttTen(h) + ') — không hạ lại';
+  if (k.bg > HOM_NAY) return 'Khóa ' + k.ten + ' chưa bế giảng (' + dmy(k.bg) + ') — đổi trạng thái không giải quyết được';
+  const ok = h.loai === 'oto' ? ['09','14','17','18'] : ['03','14','17','18'];
+  if (!ok.includes(h.tt)) return 'Trạng thái "' + ttTen(h) + '" chưa nằm trong nhóm chờ lập BC2';
+  return 'Đã đủ điều kiện — có trong danh sách khi lập BC2';
+}
+function viewCuu() {
+  const q = boDau(S.cuuQ), ds = q ? HV.filter(h => boDau(h.ten).includes(q) || h.cmt.includes(q) || h.dk.toLowerCase().includes(q)).slice(0,30) : [];
+  return `
+  <div class="shrink-0 bg-card border-b border-border px-4 py-3 flex items-end gap-3">
+    <div class="w-[420px]"><label class="field-label">Tìm học viên không thấy khi lập BC2 (tên / số CMT / mã đăng ký)</label><input id="qCuu" class="field-input" value="${S.cuuQ}" placeholder="vd: nguyen van an" oninput="S.cuuQ=this.value;S.cuuSel=null;render('qCuu')"/></div>
+    <div class="text-[12px] text-muted-foreground max-w-[540px] leading-snug">Dùng khi một học viên đã tốt nghiệp hoặc vắng/rớt sát hạch mà không có trong danh sách. Chỉ đưa được về nhóm chờ lập BC2 những học viên <b>chưa có kết quả cuối</b>; đang ở BC2 hoặc đã đạt sát hạch / nhận GPLX thì bị chặn.</div>
+    ${helpBtn}
+  </div>
+  <div class="flex-1 min-h-0 flex">
+    <div class="flex-1 min-w-0 overflow-auto">
+      ${!q?'<div class="text-center text-muted-foreground py-14 text-[13.5px]">Gõ tên hoặc số CMT để tìm. Tool sẽ nói rõ vì sao học viên không có trong danh sách.</div>':`
+      <table class="w-full">
+        <thead><tr><th>Tên học viên</th><th>Số CMT</th><th>Loại</th><th>Khóa</th><th>Trạng thái hiện tại</th><th>Vì sao không thấy trong danh sách BC2?</th><th></th></tr></thead>
+        <tbody>${ds.length?ds.map(h => {
+          const ly = lyKhongHien(h), du = ly.startsWith('Đã đủ'), chan = CUU_CHAN.includes(h.tt) || khoaOf(h.kh).bg > HOM_NAY;
+          return `<tr class="row ${S.cuuSel===h.dk?'sel':''}">
+            <td class="font-medium">${h.ten}</td><td class="mono">${h.cmt}</td><td>${h.loai==='oto'?'Ô tô':'Mô tô'}</td><td>${khoaOf(h.kh).ten}</td>
+            <td>${ttBadge(h)}</td><td><span class="${du?'text-success':chan?'text-destructive':'text-warning'} text-[12.5px]">${ly}</span></td>
+            <td class="text-right">${(!chan && !du)?`<button class="btn sm" onclick="S.cuuSel='${h.dk}';render()">Chuyển trạng thái…</button>`:''}</td></tr>`; }).join(''):'<tr><td colspan="7" class="text-center text-muted-foreground py-10">Không tìm thấy học viên nào.</td></tr>'}</tbody>
+      </table>`}
+    </div>
+    ${S.cuuSel?viewCuuPanel():''}
+  </div>`;
+}
+function viewCuuPanel() {
+  const h = HV.find(x => x.dk === S.cuuSel);
+  const dich = (h.loai === 'oto' ? [['09','Đã tốt nghiệp, chờ lập BC2 (09) — cần có số giấy']] : []).concat([['14','Chưa đạt BC2 — cần lập lại (14)'],['17','Thi sát hạch chưa đạt (17)'],['18','Vắng sát hạch (18)']]);
+  return `<aside class="shrink-0 w-[360px] border-l border-border bg-card p-3 overflow-auto space-y-3">
+    <div class="text-[13px] font-semibold">Chuyển trạng thái học viên</div>
+    <div class="rounded-lg border border-border p-3 text-[13px]"><b>${h.ten}</b><div class="mono text-muted-foreground">${h.cmt} · ${khoaOf(h.kh).ten}</div><div class="mt-1">Hiện tại: ${ttBadge(h)}</div></div>
+    <div><label class="field-label">Chuyển sang</label><select id="cDich" class="field-input">${dich.map(d => `<option value="${d[0]}">${d[1]}</option>`).join('')}</select></div>
+    <div><label class="field-label">Lý do (bắt buộc, ghi vào nhật ký)</label><textarea id="cLy" class="field-input" style="height:72px;padding:8px" placeholder="vd: nhập nhầm trạng thái vắng, học viên thực tế đã thi"></textarea></div>
+    ${(h.loai==='oto' && !h.giay)?'<div class="msg blk"><span>⛔ Đích "Đã tốt nghiệp" cần học viên đã có số giấy chứng nhận — học viên này chưa có.</span></div>':''}
+    <div class="msg inf"><span>Chỉ đổi trạng thái, không đụng số BC2, kết quả hay số giấy. Có nút <b>Hoàn tác</b> ngay sau khi chuyển.</span></div>
+    ${IT('Gọi <span class="mono">usp_NguoiLX_HoSo_UpdateTTXLy</span>; trạng thái cũ được lưu vào <span class="mono">TT_XuLy_Old</span>.')}
+    <div class="flex gap-2"><button class="btn" onclick="S.cuuSel=null;render()">Hủy</button><button class="btn pri" onclick="cuuXemLai()">Xem lại</button></div>
+  </aside>`;
+}
+function cuuXemLai() {
+  const h = HV.find(x => x.dk === S.cuuSel), dich = $('#cDich').value, ly = $('#cLy').value.trim();
+  if (!ly) { toast('Cần nhập lý do trước khi chuyển','warn'); return; }
+  const mau = {...h, tt: dich};
+  modal(`<div class="p-4 border-b border-border font-semibold">Xác nhận chuyển trạng thái</div>
+  <div class="p-4 space-y-3 text-[13.5px]">
+    <div class="flex items-center gap-3 justify-center py-2 flex-wrap">${ttBadge(h)} <span class="text-2xl">→</span> ${ttBadge(mau)}</div>
+    <div class="text-[13px]"><b>${h.ten}</b> · ${khoaOf(h.kh).ten}<br/>Lý do: <i>${ly}</i></div>
+    <div class="msg wrn"><span>Ghi thẳng vào dữ liệu thật, phần mềm cũ thấy ngay. Sau khi chuyển có thể hoàn tác.</span></div>
+  </div>
+  <div class="p-3 border-t border-border flex justify-end gap-2"><button class="btn" onclick="closeModal()">Quay lại</button><button class="btn pri" onclick="cuuGhi('${dich}','${ly.replace(/'/g,'’')}')">Chuyển</button></div>`);
+}
+function cuuGhi(dich, ly) {
+  const h = HV.find(x => x.dk === S.cuuSel), cu = h.tt;
+  h.tt = dich; NHATKY.unshift({luc:'11/10/2026 10:40', nguoi:'thu1', loai:'Chuyển trạng thái học viên', chi:`${h.ten}: ${cu} → ${dich} · "${ly}"`, kq:'Xong'});
+  window._hoanTac = {dk:h.dk, cu}; closeModal(); S.cuuSel = null; render();
+  const el = document.createElement('div'); el.className = 'toast rounded-lg border bg-white px-3 py-2 text-[13px] shadow-lg flex items-center gap-3';
+  el.innerHTML = `Đã chuyển trạng thái. <button class="btn sm" onclick="hoanTac();this.parentNode.remove()">Hoàn tác</button>`;
+  $('#toastRoot').appendChild(el); setTimeout(() => el.remove(), 9000);
+}
+function hoanTac() {
+  const t = window._hoanTac; if (!t) return; const h = HV.find(x => x.dk === t.dk); h.tt = t.cu;
+  NHATKY.unshift({luc:'11/10/2026 10:41', nguoi:'thu1', loai:'Hoàn tác chuyển trạng thái', chi:`${h.ten} → ${t.cu}`, kq:'Xong'}); render(); toast('Đã hoàn tác');
+}
+
+/* ============ 6. NHẬT KÝ ============ */
+function viewNhatKy() {
+  return `<div class="flex-1 min-h-0 overflow-auto">
+    <table class="w-full"><thead><tr><th>Thời gian</th><th>Người thao tác</th><th>Việc</th><th>Chi tiết</th><th>Kết quả</th></tr></thead>
+    <tbody>${NHATKY.map(n => `<tr class="row"><td class="tabnum">${n.luc}</td><td>${n.nguoi}</td><td class="font-medium">${n.loai}</td><td>${n.chi}</td><td><span class="badge b-ok">${n.kq}</span></td></tr>`).join('')}</tbody></table>
+    <div class="m-4 msg inf"><span>ⓘ Nhật ký lưu trên máy này để truy vết ai đã làm gì; phần mềm cũ không ghi lại người thao tác cho các việc này.</span></div>
+  </div>`;
+}
+
+render();
+</script>
+</body>
+</html>
