@@ -134,9 +134,17 @@ def kiem_phan_cong(p: dict, ctx: dict) -> list[dict]:
                 add(CANH_BAO, "gv_trung_cung_khoa",
                     "Chồng thời gian với phân công khác của GV này trong cùng khóa: "
                     f"{_ten_mon(q.get('mon') or [], ctx.get('ds_mon'))} ({fmt_khoang(q['tu'], q['den'])}).")
-    if MON_THUC_HANH in (p.get("mon") or []) and p.get("den") and ngay(p["den"]) < khoa["bg"]:
-        add(CANH_BAO, "th_chua_toi_be_giang",
-            f"Thực hành mới kéo đến {_fmt_ngay(ngay(p['den']))}, chưa tới ngày bế giảng {_fmt_ngay(khoa['bg'])}.")
+    if MON_THUC_HANH in (p.get("mon") or []):
+        if g is not None and g.get("loai") == "LT":
+            add(CANH_BAO, "gv_lt_day_thuc_hanh",
+                "Giáo viên này là GV lý thuyết (LT) nhưng được phân công môn Thực hành lái xe.")
+        # CHANGES #58: tính theo cả GV — chỉ báo 1 lần, ở dòng thực hành kết thúc xa nhất, khi đợt cuối vẫn chưa tới bế giảng.
+        th = [q for q in ctx["pc"] if q["ma"] == ma and MON_THUC_HANH in (q.get("mon") or []) and q.get("den")]
+        cuoi = max(th, key=lambda q: ngay(q["den"])) if th else None
+        la_dong_cuoi = cuoi is not None and (cuoi is p or (p.get("id") is not None and cuoi.get("id") == p.get("id")))
+        if la_dong_cuoi and ngay(cuoi["den"]) < khoa["bg"]:
+            add(CANH_BAO, "th_chua_toi_be_giang",
+                f"Thực hành mới kéo đến {_fmt_ngay(ngay(cuoi['den']))}, chưa tới ngày bế giảng {_fmt_ngay(khoa['bg'])}.")
     return out
 
 

@@ -207,3 +207,38 @@ def test_pcg04_xe_het_han_chi_bi_chan_khi_ghep_khong_chan_khi_chi_o_danh_sach():
     assert "xe_het_han" not in ma_loi(ds)                                    # PRD: thêm được, chỉ chặn khi ghép
     gh = chay([_th()], [_gh("75032101", "93C-9")], xe_khoa=("93C-9",), xes=[xe("93C-9", het="2026-11-30")])
     assert "xe_het_han" in ma_loi(gh)
+
+
+# ── CHANGES #58 — chốt 9 điểm mơ hồ (10/10/2026) ──
+def test_pcg02_gv_ly_thuyet_nhan_mon_thuc_hanh_canh_bao_khong_chan():            # E-2
+    from tests.test_phancong_rules import gv
+    v = chay([_th()], gvs=[gv("75032101", loai="LT")])
+    assert "gv_lt_day_thuc_hanh" in ma_loi(v, r.CANH_BAO) and not r.co_chan(v)
+    lt = P(1, "75032101", [4], "2026-10-06T00:00", "2026-10-08T00:00")
+    assert "gv_lt_day_thuc_hanh" not in ma_loi(chay([lt], gvs=[gv("75032101", loai="LT")]), r.CANH_BAO)
+    assert "gv_lt_day_thuc_hanh" not in ma_loi(chay([_th()], gvs=[gv("75032101", loai="AL")]), r.CANH_BAO)
+
+
+def test_pcg04_khoa_dkkh_khong_doi_gi_ghi_tra_khong_co_thay_doi_khong_hoi_canh_bao(auth_headers, monkeypatch):   # E-6
+    db = _Db(warn_dkkh=True); _patch(monkeypatch, db)
+    resp = client.post("/local/phancong/ghi", headers=auth_headers,
+                       json={**hien_tai(), "xac_nhan_csdl_that": True, "da_xem_canh_bao": False})
+    assert resp.status_code == 200 and resp.json()["da_ghi"] == [] and not db.execs
+    assert resp.json()["thong_bao"] == "Không có thay đổi để ghi."
+
+
+def test_pcg04_khoa_dkkh_co_thay_doi_van_doi_xac_nhan_canh_bao(auth_headers, monkeypatch):
+    db = _Db(warn_dkkh=True); _patch(monkeypatch, db)
+    resp = client.post("/local/phancong/ghi", headers=auth_headers,
+                       json={**them_gv102(), "xac_nhan_csdl_that": True, "da_xem_canh_bao": False})
+    assert resp.status_code == 409 and resp.json()["detail"]["loi"] == "thieu_xac_nhan_canh_bao"
+
+
+def test_pcg02_chua_toi_be_giang_tinh_theo_ca_gv_nhieu_dot_noi_tiep_khong_bao_oan():   # E-9
+    dot1 = P(1, "75032101", [6], "2026-10-15T00:00", "2026-11-30T00:00")
+    dot2 = P(2, "75032101", [6], "2026-11-30T00:00", "2026-12-20T00:00")
+    assert "th_chua_toi_be_giang" not in ma_loi(chay([dot1, dot2]), r.CANH_BAO)
+    dot2_ngan = P(2, "75032101", [6], "2026-11-30T00:00", "2026-12-10T00:00")
+    v = chay([dot1, dot2_ngan])
+    bao = [x for x in v if x["ma"] == "th_chua_toi_be_giang"]
+    assert len(bao) == 1 and bao[0]["ref"] == "pc-2"                          # 1 cảnh báo/GV, ở đợt cuối

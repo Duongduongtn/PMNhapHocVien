@@ -56,6 +56,6 @@ def ra_soat(conn, ma_csdt: str) -> list[dict]:
             "gv_ds": len(ds), "gv_chua_pc": len(ds - pc), "pc_ngoai_ds": len(pc - ds),
             "xe_ds": len(xds), "xe_chua_ghep": len(xds - xgh), "ghep_ngoai_ds": len(xgh - xds),
         }
-        r["can_xu_ly"] = r["gv_ds"] == 0 or any(r[c] for c in ("gv_chua_pc", "pc_ngoai_ds", "xe_chua_ghep", "ghep_ngoai_ds"))
+        r["can_xu_ly"] = r["gv_ds"] == 0 or any(r[c] for c in ("gv_chua_pc", "pc_ngoai_ds", "ghep_ngoai_ds"))
         out.append(r)
     return out

@@ -115,7 +115,7 @@ export default function BuocGiaoVien({
   }, [danhMuc, trongKhoa, q, loai]);
 
   const hopHang = useMemo(
-    () => pool.filter((g) => g.active && g.loai === "TH" && !lechHang(g, khoa) && khoaDangDay(g).length === 0).map((g) => g.ma),
+    () => pool.filter((g) => g.active && (g.loai === "TH" || g.loai === "AL") && !lechHang(g, khoa) && khoaDangDay(g).length === 0).map((g) => g.ma),
     [pool, khoa],
   );
 

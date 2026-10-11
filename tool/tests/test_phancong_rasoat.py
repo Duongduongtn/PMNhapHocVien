@@ -73,3 +73,12 @@ def test_ra_soat_dem_dung_va_ket_luan(auth_headers, monkeypatch):
     assert (k2["gv_chua_pc"], k2["pc_ngoai_ds"], k2["xe_ds"], k2["ghep_ngoai_ds"], k2["can_xu_ly"]) == (1, 1, 0, 1, True)
     assert j["K3"]["gv_ds"] == 0 and j["K3"]["can_xu_ly"] is True       # khóa chưa có GV → Cần xử lý
     assert not any(s.lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE", "EXEC")) for s in db.log)
+
+
+def test_pcg05_xe_chua_ghep_chi_la_thong_tin_ket_luan_van_on(auth_headers, monkeypatch):   # CHANGES #58 (E-7)
+    db = _Db()
+    db.xe.append({"MaKH": "K1", "BienSoXe": "X9", "la_ds": 1})        # K1 có thêm 1 xe trong danh sách, chưa ghép cho ai
+    monkeypatch.setattr("app.routers.phancong._db_dich", lambda tk: "GPLX_CDB_CSDT")
+    monkeypatch.setattr("app.routers.phancong.sqlserver_conn_dich", lambda d, autocommit=False: _Conn(db))
+    j = {x["ma_kh"]: x for x in client.get("/local/phancong/ra-soat", headers=auth_headers).json()}
+    assert j["K1"]["xe_chua_ghep"] == 1 and j["K1"]["can_xu_ly"] is False

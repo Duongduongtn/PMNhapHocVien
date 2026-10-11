@@ -934,7 +934,7 @@
 - ⬜ Chọn **khóa** bằng combobox (chỉ khóa của CSĐT hiện tại) + hiện hạng, ngày khai giảng → bế giảng, trạng thái DKKH; băng cam "ghi CSDL đích" dùng chung với KQĐT/Sync.
 - ⬜ Danh sách trái = GV **đang hoạt động** chưa thuộc khóa (tìm tên/mã, lọc loại **TH** Thực hành · **LT** Lý thuyết · **AL** Lý thuyết + Thực hành); danh sách phải = GV của khóa. Mỗi GV có huy hiệu: loại, "Đã ngừng", "Chỉ dạy hạng X" khi lệch hạng khóa **và GV dạy thực hành** (loại TH/AL; GV lý thuyết không cảnh báo hạng; khóa B/C1: hạng được đào tạo B, C1, C, D… đều hợp — user 10/10/2026), "Đang ở khóa Y đến dd/mm" khi khóa kia chưa bế giảng.
 - ⬜ **Thêm từng GV**: GV có cảnh báo (lệch hạng/đang dạy khóa khác) → hộp nêu lý do, vẫn thêm được; GV đã ngừng → không thêm được.
-- ⬜ **Hàng loạt:** tích nhiều GV → "Thêm N GV" (hộp xem trước từng GV: hợp lệ / cảnh báo / không thêm được + lý do); nút "Chọn GV TH hợp hạng" (đang hoạt động, đúng hạng, không chạy khóa khác); "Gỡ N GV".
+- ⬜ **Hàng loạt:** tích nhiều GV → "Thêm N GV" (hộp xem trước từng GV: hợp lệ / cảnh báo / không thêm được + lý do); nút "Chọn GV TH hợp hạng" (loại **TH và AL**, đang hoạt động, đúng hạng, không chạy khóa khác — CHANGES #58); "Gỡ N GV".
 - ⬜ **Gỡ GV khỏi khóa** → hộp xác nhận liệt kê **đúng các phân công + ghép xe sẽ bị xóa theo** (chỉ trong khóa này).
 - ❌ Không thêm/sửa/xóa giáo viên trong danh mục; không đổi `TrangThai` GV.
 
@@ -969,7 +969,7 @@
 
 **Done khi:**
 - ⬜ "**Xe của khóa**" hiển thị gọn (dải chip: biển số · trạng thái · gỡ); "Thêm xe" mở danh sách xe đang hoạt động (hạng xe, hạn giấy phép, xe đang ở khóa khác); xe đã ngừng không thêm được; xe hết hạn vẫn thêm được vào danh sách nhưng **bị chặn khi ghép**.
-- ⬜ **Ghép xe:** mỗi GV có phân công "Thực hành lái xe" chọn **1 xe** từ danh sách xe của khóa, kèm từ ngày–đến ngày (mặc định theo phân công thực hành, ghi `00:00`, "Theo ngày") và địa điểm điền sẵn *"tại trung tâm Thành Đạt và trên đường"*; mỗi xe chỉ 1 GV, mỗi GV chỉ 1 xe trong cùng khoảng thời gian.
+- ⬜ **Ghép xe:** mỗi GV có phân công "Thực hành lái xe" chọn **1 xe** từ danh sách xe của khóa, kèm từ ngày–đến ngày (mặc định theo phân công thực hành, ghi `00:00`, "Theo ngày") và địa điểm điền sẵn = **giá trị cơ sở hay dùng nhất** trong các ghép xe cũ, chưa có thì *"tại trung tâm Thành Đạt và trên đường"* (CHANGES #58); GV có nhiều đợt thực hành cách quãng → điền sẵn từ đợt đầu đến đợt cuối; mỗi xe chỉ 1 GV, mỗi GV chỉ 1 xe trong cùng khoảng thời gian.
 - ⬜ **"Gợi ý ghép xe":** đề xuất xe còn trống, đã thuộc khóa, giấy phép còn hạn, ưu tiên đúng hạng cho các GV chưa có xe; **xem trước, sửa xe từng dòng, tích dòng muốn dùng rồi "Áp"** — không tự ghi.
 - ⬜ Đổi xe của GV → hỏi xác nhận; gỡ xe khỏi khóa → liệt kê ghép xe sẽ bị xóa theo; "Bỏ ghép".
 - ❌ Không ghép xe hàng loạt tự động; không gán xe cho học viên; không sửa danh mục xe.
@@ -984,7 +984,7 @@
 **Story:** Là nhân viên cơ sở, tôi muốn mọi thay đổi nằm trong bản nháp, được kiểm chặt theo luật và chỉ ghi vào CDB sau khi tôi xem lại, để không ghi nhầm vào dữ liệu thật.
 
 **Done khi:**
-- ⬜ **Kiểm tra 3 mức, chạy lại mỗi thay đổi:** ⛔ **Chặn** (không lưu/ghi được): ngoài phạm vi khóa · bắt đầu ≥ kết thúc · chưa chọn môn · GV chưa trong khóa · GV/xe đã ngừng · xe chưa thuộc khóa · xe hết hạn giấy phép trước bế giảng · ghép xe cho GV không dạy thực hành. ⚠ **Cảnh báo** (ghi được sau xác nhận): GV/xe **trùng thời gian có xét giờ** (khóa khác hoặc cùng khóa; cùng ngày khác giờ không tính là trùng) · 1 xe 2 GV / 1 GV 2 xe chồng giờ · lệch hạng xe · lệch hạng GV (**chỉ khi GV có phân công Thực hành lái xe**; khóa B/C1 xem bảng hợp hạng TDD §11E.7) · thực hành chưa tới bế giảng · GV chưa phân công · GV thực hành chưa có xe · khóa đã gửi DKKH. ℹ **Thông tin**: xe chưa ghép.
+- ⬜ **Kiểm tra 3 mức, chạy lại mỗi thay đổi:** ⛔ **Chặn** (không lưu/ghi được): ngoài phạm vi khóa · bắt đầu ≥ kết thúc · chưa chọn môn · GV chưa trong khóa · GV/xe đã ngừng · xe chưa thuộc khóa · xe hết hạn giấy phép trước bế giảng · ghép xe cho GV không dạy thực hành. ⚠ **Cảnh báo** (ghi được sau xác nhận): GV/xe **trùng thời gian có xét giờ** (khóa khác hoặc cùng khóa; cùng ngày khác giờ không tính là trùng) · 1 xe 2 GV / 1 GV 2 xe chồng giờ · lệch hạng xe · lệch hạng GV (**chỉ khi GV có phân công Thực hành lái xe**; khóa B/C1 xem bảng hợp hạng TDD §11E.7) · thực hành chưa tới bế giảng (**tính theo cả GV**: đợt thực hành kết thúc xa nhất vẫn trước bế giảng; 1 cảnh báo/GV) · GV lý thuyết (LT) được phân công môn Thực hành · GV chưa phân công · GV thực hành chưa có xe · khóa đã gửi DKKH. ℹ **Thông tin**: xe chưa ghép. **Bản nháp không đổi gì → "Không có thay đổi để ghi", không hỏi xác nhận cảnh báo** (CHANGES #58).
 - ⬜ **Hiển thị lỗi rõ:** thông báo ngay dưới ô/dòng sai (chữ lớn, dải màu bên trái), băng tóm tắt đầu mỗi bước ("N lỗi chặn — Tới lỗi đầu tiên"), cột "Kiểm tra khóa" bấm một lỗi → cuộn + nháy đúng dòng.
 - ⬜ **Bản nháp:** thanh dưới "Chưa ghi vào CDB: N thay đổi" + "Xem các thay đổi" (liệt kê từng dòng: thêm/sửa/xóa kèm tên GV, môn, ngày, xe) + "Hủy thay đổi" (xác nhận); không ghi gì vào CDB trước khi bấm "Ghi vào CDB". Bản nháp tự giữ trên máy theo từng khóa (không mất khi F5/đóng tab; chỉ khôi phục khi CDB chưa đổi, hỏi Làm tiếp / Bỏ).
 - ⬜ **"Ghi vào CDB":** bị khóa khi còn lỗi chặn; hộp xem lại tóm tắt thêm/sửa/xóa (kèm SP sẽ gọi) + **tích "đây là CSDL thật"** + (nếu có) **tích "đã xem N cảnh báo"**; server **kiểm lại toàn bộ luật** trên trạng thái CDB hiện tại trước khi ghi (không tin client).
@@ -1002,7 +1002,7 @@
 **Story:** Là nhân viên cơ sở, tôi muốn thấy khóa nào đang làm dở hoặc lệch giữa danh sách và phân công, để xử lý đúng khóa cần.
 
 **Done khi:**
-- ⬜ Bảng mọi khóa của CSĐT: GV trong danh sách · GV chưa phân công · phân công ngoài danh sách · xe trong danh sách · xe chưa ghép · ghép xe ngoài danh sách · kết luận Ổn / Cần xử lý.
+- ⬜ Bảng mọi khóa của CSĐT: GV trong danh sách · GV chưa phân công · phân công ngoài danh sách · xe trong danh sách · xe chưa ghép (chỉ là thông tin, **không** làm kết luận thành "Cần xử lý") · ghép xe ngoài danh sách · kết luận Ổn / Cần xử lý (CHANGES #58).
 - ⬜ Bấm một dòng → mở khóa đó ở màn Phân công theo khóa.
 - ❌ Chỉ đọc; không sửa hàng loạt nhiều khóa.
 

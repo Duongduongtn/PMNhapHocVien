@@ -538,14 +538,6 @@ def ghi(conn, ma: str, ma_kh: str, ban_nhap: dict, nguoi: str, da_xem_canh_bao: 
     trả `da_ghi`/`chua_ghi`. Không tự rollback phần đã ghi (mỗi SP một giao dịch riêng)."""
     if not xac_nhan_csdl_that:
         raise LoiNghiepVu("thieu_xac_nhan_csdl_that", "Cần xác nhận đây là CSDL thật trước khi ghi.", http=400)
-    kq = kiem_tra(conn, ma, ma_kh, ban_nhap, hom_nay)
-    if kq["co_chan"]:
-        raise LoiNghiepVu("con_loi_chan", "Còn lỗi chặn — sửa hết mới ghi được.", {"vande": kq["vande"]})
-    n_canh_bao = kq["tom_tat"]["canh_bao"]
-    if n_canh_bao and not da_xem_canh_bao:
-        raise LoiNghiepVu("thieu_xac_nhan_canh_bao", f"Còn {n_canh_bao} cảnh báo — cần xác nhận đã xem.",
-                          {"so_canh_bao": n_canh_bao, "vande": [v for v in kq["vande"] if v["muc"] == rules.CANH_BAO]})
-
     mons = ds_mon(conn)
     hien = hien_trang(conn, ma_kh, mons)
     gv_khoa = [s.strip() for s in ban_nhap.get("gv_khoa", [])]
@@ -558,6 +550,14 @@ def ghi(conn, ma: str, ma_kh: str, ban_nhap: dict, nguoi: str, da_xem_canh_bao: 
     if td["tong"] == 0:
         return {"ok": True, "da_ghi": [], "chua_ghi": [], "loi": None, "thong_bao": "Không có thay đổi để ghi.",
                 "hien_trang": hien}
+    # CHANGES #58: không có thay đổi thì khỏi hỏi cảnh báo — cổng luật chỉ áp khi thật sự có dòng để ghi.
+    kq = kiem_tra(conn, ma, ma_kh, ban_nhap, hom_nay)
+    if kq["co_chan"]:
+        raise LoiNghiepVu("con_loi_chan", "Còn lỗi chặn — sửa hết mới ghi được.", {"vande": kq["vande"]})
+    n_canh_bao = kq["tom_tat"]["canh_bao"]
+    if n_canh_bao and not da_xem_canh_bao:
+        raise LoiNghiepVu("thieu_xac_nhan_canh_bao", f"Còn {n_canh_bao} cảnh báo — cần xác nhận đã xem.",
+                          {"so_canh_bao": n_canh_bao, "vande": [v for v in kq["vande"] if v["muc"] == rules.CANH_BAO]})
     ids = sorted({*gv_khoa, *[p["ma"] for p in pc], *[m["ma"] for m in ghep]})
     gvm = {g["ma"]: g for g in ds_giao_vien(conn, ma, ids)} if ids else {}
     buoc = _dung_buoc(conn, ma_kh, td, gvm, nguoi, datetime.now())
