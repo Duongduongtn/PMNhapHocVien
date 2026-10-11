@@ -2,7 +2,7 @@
 
 > File do `/kehoach` sinh. `/tieptheo` đọc file này để biết làm gì tiếp theo.
 > **Thứ tự code** nằm ở đây. **Yêu cầu và trạng thái story** nằm ở `docs/PRD.md`.
-> Cập nhật lần cuối: 10/10/2026 (v22 — Phase 9 Phân công GV – xe PCG-01..05, task 85-95, CHANGES #54. Trước đó v21 — KQD-05 mở rộng "Sửa sau gửi" #53, task 83-84. Trước đó v20 — Phase 8 NAP-01 #51 "Bỏ khỏi hàng đợi" dòng chờ/lỗi + tombstone, task 81-82. Trước đó v19 — THU-06 chỉ OCR 5 trường (CHANGES #50); v18 — Phase 7 THU-06 task 79-80)
+> Cập nhật lần cuối: 11/10/2026 (v23 — Phase 10 Tốt nghiệp & Báo cáo 2 TNB-01..07, task 96-115, CHANGES #60-#62, TDD §11F v6.8. Trước đó v22 — Phase 9 Phân công GV – xe PCG-01..05, task 85-95, CHANGES #54. Trước đó v21 — KQD-05 mở rộng "Sửa sau gửi" #53, task 83-84. Trước đó v20 — Phase 8 NAP-01 #51 "Bỏ khỏi hàng đợi" dòng chờ/lỗi + tombstone, task 81-82. Trước đó v19 — THU-06 chỉ OCR 5 trường (CHANGES #50); v18 — Phase 7 THU-06 task 79-80)
 
 ## Quyết định về thứ tự
 
@@ -13,6 +13,7 @@
 - **1 người build → tuần tự một luồng**, không tách nhánh song song (quyết định chủ dự án 01/10/2026).
 - **Phase 4 Đồng bộ CDB (task 54-60) — module mới tách khỏi Nạp:** SHOULD, xếp cuối sau mọi task Nạp/thu thập (không đảo lên MUST). Đổi `ToolLayout`→sidebar (task 54) đụng chrome dùng chung → chạy một mình, nhưng **hành vi màn Nạp không đổi** (không hạ story Nạp). Ghi vào CSDL đích GPLX_CDB_CSDT (≠ CSDL Nạp) → module backend tách (`sync_*`), không import Nạp. Tạo HV **qua 3 SP chuẩn CDB** + MaCSDT từ `QTHT.MA_CSDT`/khóa đích (đã phân tích DB: `docs/DB-GPLX_CDB_CSDT.md`). Khóa đích đã BC1: **cảnh báo, vẫn cho sync** (user chốt B 04/10) — khác NAP-02 chặn cứng, vì sync là thao tác bù dữ liệu chủ động.
 - **KQD (task 71-78, Phase 6) — module #3 "Cập nhật kết quả đào tạo":** xếp sau DGT vì là module mới hoàn toàn, tái dùng hạ tầng CDB đã ổn định (sidebar task 54 + `conn_dich`/config đích task 55). Cắt KQD-02 làm 2 task (72 backend quy đổi/Đạt/ghi · 73 UI form) và KQD-05 làm 2 task (76 backend mở-khóa · 77 UI) tránh cỡ L (nhiều tiêu chí Done); KQD-06 (task 78) sửa lẻ/xóa điểm gộp 1 task. KQD-05 "Mở khóa để sửa sau kết xuất" thao tác **mức CƠ SỞ** (DB không nối HV↔gói). Chỉ ghi KQĐT (`TT_XuLy` 03→09/10, riêng KQD-05 lùi 12→09/10, KQD-06 lùi 09/10→03 khi xóa điểm), KHÔNG kết xuất XML. Mọi ghi thật đối chiếu phần mềm CDB → nghiệm thu máy CSDT (như TCB/QLY).
+- **Phase 10 TNB (task 96-115) — phân hệ #5 "Tốt nghiệp & Báo cáo 2", ghi DB Nạp `GPLX_CSDT` dùng chung với PM cũ:** risk-first như Phase 9 — luật thuần (96) rồi backend (97-105) **trước** UI (106-115), vì ghi thẳng DB thật mà PM cũ đang dùng, hỏng sau khi dựng UI là làm lại cả hai. Chỉ gọi SP có sẵn, không INSERT/UPDATE/DELETE trực tiếp. TNB-04 cắt 6 task (luật · đọc ứng viên · ghi lô · UI ① · UI ② · UI ③), TNB-01 cắt 3, TNB-02/03/05/06/07 cắt 2 — không task nào cỡ L. Cả 7 story cùng nhóm, không có đảo MUST/SHOULD. Ghi thật → nghiệm thu máy CSDT (Checkpoint 27).
 - **#24/#26 (task 41-47) — lần đầu sửa server VPS từ Phase 2:** task 41/42/44 đổi server đang chạy prod → phải **deploy lại VPS** + verify 3 vai trò/luồng gửi-kéo ngay sau (Checkpoint 8). Thứ tự trong cụm: 41 (THU-05, tạo `deleted` — nền cho 44) → 42 (server QLY-08) → 43 (tool QLY-08, dep 42) → 44 (đồng bộ xóa, dep 41). Task 45-47 thuần client (ảnh gốc + redesign Nạp lô), code sau, chạy skill `impeccable` lúc dựng UI.
 
 ## Cây phụ thuộc
@@ -58,6 +59,9 @@
 - **AS-001** quét thẻ CCCD thật của cơ sở — kiểm ở Checkpoint 4.
 - **AS-003** nạp thử 1 HV → mở app cũ đối chiếu — kiểm ở Checkpoint 2.
 - **MaGT identity?** — kiểm `NguoiLXHS_GiayTo.MaGT` ở `GPLX_CDB_CSDT` có IDENTITY không (quyết truyền tay hay dùng hàm `GetMaGiaytoByHosoForSync`) — cần trước **task 57**.
+- **SQL login của tool ở DB Nạp có `EXECUTE` trên 7 SP của TDD §11F.1** (`usp_NguoiLX_HoSo_Update_CNTN`, `usp_BaoCaoII_Insert`, `usp_BaoCaoII_Delete`, `usp_NguoiLX_HoSo_ThemHS_BC2`, `usp_NguoiLX_Update_ThemHSBC2`, `usp_NguoiLXHoSo_Update_DanhSachHocSinhBC2`, `usp_NguoiLX_HoSo_UpdateTTXLy`) và `sp_getapplock` — cần trước **task 98**.
+- **Chụp trước/sau PM cũ** (1 HV + 1 BC2 thử: `NgaySua`, `NguoiSua`, `Transfer_flag` và cột khác PM cũ chạm) — cần trước **task 99/102** để biết SP + cột chính xác (TDD-decisions §23 "Còn mở").
+- **Quy tắc số giấy CNTN liên tiếp** (`N1|7282` → ?) và số sổ/quyết định theo khóa — cần trước **task 107**; chưa rõ thì mặc định nhập tay từng ô (nhân viên luôn sửa được).
 - **SP sửa/đổi khóa/xóa trong CDB?** — kiểm `GPLX_CDB_CSDT` có `usp_NguoiLX_Update` / SP đổi khóa / SP xóa (như `GPLX_CSDT`) không — cần trước **task 65-66**; thiếu thì tắt nút tương ứng + báo (đã ghi trong TDD §11B.7 + CHANGES #35).
 
 ## Phase 1 — Tool nạp được 1 HV khớp app cũ *(de-risk mắt xích khó nhất)*
@@ -382,6 +386,63 @@
 - [ ] Ngày bắt đầu thực hành **trống** → nút Thực hành khóa; không có gợi ý ngầm.
 - [ ] **Ghi thật CDB production + đối chiếu phần mềm CDB (GV/xe/lịch hiện đúng) → nghiệm thu máy CSDT**; hỏi hỗ trợ CDB việc gói DKKH có chứa GV/xe.
 
+## Phase 10 — Tốt nghiệp & Báo cáo 2 (phân hệ #5, TNB-01..07)
+
+> Feature mới (CHANGES #60-#62, PRD v4.6, TDD §11F v6.8, decisions §23, mock `ui-mock/tnbc2.html`, biên bản `tdd-review-11-10-2026-tnb.md`). Ghi **DB Nạp `GPLX_CSDT`** (`NguoiLX_HoSo`, `BaoCaoII`) **chỉ qua SP có sẵn**; PM cũ mở lên thấy y chang. **Rủi ro cao lên sớm:** luật + backend ghi làm TRƯỚC UI. Không đụng task cũ. Mô tả chi tiết ở PRD; thiết kế ở TDD §11F. Ghi thật → **nghiệm thu máy CSDT**.
+
+| # | Task | Story | Quy mô | Phụ thuộc | Kiểm | Xong |
+|---|---|---|---|---|---|---|
+| 96 | **Luật thuần** `tool/app/tn_bc2_rules.py` (không DB): `phan_nhom` 4 nhóm + thứ tự xét `khong_duoc`→`can_xem`→`thi_lai`→`san_sang` · phân loại ô tô/mô tô · chuyển `TT_XuLy` được phép + hoàn tác miễn luật đích · đánh số BC2 ô tô/mô tô · `giai_thich_khong_hien` · độ dài cột + giới hạn đầu vào (TDD §11F.1/.7) + unit test | `TNB-04 (1/6)` | M | — | 1+2 | [ ] |
+| 97 | **Backend đọc ứng viên:** `routers/tn_bc2.py` (mount `require_session`) + `tn_bc2_service.py` (`sqlserver_conn`); `GET /bc2/khoa-san-sang`, `GET /bc2/ung-vien`, `POST /bc2/khop-danh-sach`; gọi `ThemHS_BC2` **một lần `@MaKH=''`** + một `SELECT` bổ sung `TT_XuLy, MaBC2, HangGPLX, NgayBG, BaoCaoII.TrangThai`; phân nhóm trong Python; cache ~30 giây (bỏ khi làm tươi/sau ghi) | `TNB-04 (2/6)` | M | 96 | 1+2 | [ ] |
+| 98 | **Backend tạo BC2:** `GET /bc2/goi-y-so`, `POST /bc2` (Insert `TrangThai=0`, kiểm trùng số, BC1 suy từ khóa, `TongSoThiSinh` đúng PM cũ) + nhật ký sqlite `tnbc2_nhat_ky` (mẫu `phancong_nhat_ky.py`; **không lưu CMT/họ tên**) + helper khóa ghi chung `tnbc2_ghi` + cổng `xac_nhan_csdl_that` | `TNB-03 (1/2)` | M | 96,97 | 1+2 | [ ] |
+| 99 | **Backend lập + thêm HV:** `POST /bc2/lap` chạy nền (`lo_id` client sinh, idempotent) — đọc lại cả lô, đọc `BaoCaoII.TrangThai`, Insert nếu chưa có, từng HV `Update_ThemHSBC2` (HV đã `11` đúng BC2 = "đã thêm", không gọi lại SP), kiểm `TT_XuLy_Old='11'`, nhật ký từng HV · `GET /bc2/lo/{lo_id}` · `POST /bc2/{ma}/hoan-tac` (lô gần nhất của BC2, một lần) | `TNB-04 (3/6)` | M | 98 | 1+2 | [ ] |
+| 100 | **Backend xem/gỡ/xóa BC2:** `GET /bc2/{ma}` (chi tiết + HV), `POST /bc2/{ma}/go` (chỉ HV còn `11` + BC2 còn mở, `DanhSachHocSinhBC2` 101), `DELETE /bc2/{ma}` (**đếm `MaBC2` mọi `TT_XuLy` = 0** trong khóa, rồi `BaoCaoII_Delete`) | `TNB-05 (1/2)` | M | 98 | 1+2 | [ ] |
+| 101 | **Backend tốt nghiệp đọc:** `GET /khoa?loai=&cu=`, `GET /tot-nghiep/hv`, `POST /tot-nghiep/xem-lai` (chạy thử: trùng số giấy trong lô/DB, khoảng số, cảnh báo; không ghi); tìm không dấu trong Python | `TNB-01 (1/3)` | M | 96 | 1+2 | [ ] |
+| 102 | **Backend ghi tốt nghiệp:** `POST /tot-nghiep/ghi` — `Update_CNTN` từng HV; lưu sổ trước (số giấy rỗng, ở lại `03`); kiểm trùng loại trừ chính HV; chặn khóa chưa bế giảng; HV ≥ 11 ghi số giấy lần đầu = cảnh báo; khóa `tnbc2_ghi`; lỗi giữa chừng trả đã/chưa ghi | `TNB-01 (2/3)` | M | 101,98 | 1+2 | [ ] |
+| 103 | **Backend hủy/sửa tốt nghiệp:** `POST /tot-nghiep/huy` — HV `09` → `03`, giữ sổ/quyết định (đọc lại rồi truyền), chặn `≥11`/có `MaBC2`, không dùng `Update_HSTotNghiep` | `TNB-02 (1/2)` | S | 102 | 1+2 | [ ] |
+| 104 | **Backend cứu trạng thái:** `GET /cuu/tim?q=` (kèm `giai_thich_khong_hien`), `POST /cuu/chuyen` (nguồn `01/02/03/04/10/12/13` → đích `09/14/17/18`, `ly_do` bắt buộc ≤ 255) + hoàn tác (miễn luật đích, chỉ khi HV chưa đổi tiếp) | `TNB-06 (1/2)` | S | 98 | 1+2 | [ ] |
+| 105 | **Backend danh sách:** `GET /bc1?loai=`, `GET /bc2?loai=&dong=` ("HV thực tế" bằng **một** `GROUP BY MaBC2`), `GET /nhat-ky` | `TNB-07 (1/2)` | S | 98 | 1+2 | [ ] |
+| 106 | **Khung phân hệ #5:** thêm `tnbc2` vào `lib/modules.ts` (route `/tot-nghiep-bc2/*`, `db: "GPLX_CSDT"`, băng cam "CSDL: DB Nạp") + token màu + route `App.tsx` + 4 tab (Tốt nghiệp · Báo cáo 2 · Cứu trạng thái · Nhật ký) + `api.ts` + chú giải trạng thái nghiệp vụ (nút "?", tên + mã nhỏ) bám mock | — | M | 97 | 1 | [ ] |
+| 107 | **UI Tốt nghiệp:** chọn khóa (mặc định khóa 13 tháng + công tắc "Hiện khóa cũ"), danh sách HV, điền chung sổ/quyết định/ngày, số giấy liên tiếp + dán từ Excel + kiểm trùng ngay khi gõ, "Xem lại" → "Ghi N HV", kết quả đã/chưa ghi | `TNB-01 (3/3)` | M | 102,106 | 1 | → PRD |
+| 108 | **UI sửa/hủy tốt nghiệp:** sửa nhầm số giấy, "Hủy tốt nghiệp" (hộp nêu tên + số giấy sẽ xóa), khóa nút kèm lý do khi HV đã vào BC2 | `TNB-02 (2/2)` | S | 103,107 | 1 | → PRD |
+| 109 | **Lập BC2 bước ①:** chọn khóa — mỗi dòng đếm Sẵn sàng · Thi lại · Cần xem, khóa chưa có BC1 hiện mờ + khóa nút, vào từ "Lập BC2 mới" hoặc từ dòng BC2 đang mở (vào thẳng ②) | `TNB-04 (4/6)` | S | 97,106 | 1 | [ ] |
+| 110 | **Bước ②:** 4 nhóm HV (Sẵn sàng tích sẵn · Thi lại không tích + nút "Thêm HV thi lại trong N tháng" + gom theo khóa gốc · Cần xem với hướng xử lý 1 chạm · Không đưa được ẩn mặc định), dải "Sẽ đưa vào BC2: A + B = N", tìm/dán danh sách CMT, xử lý ngoại lệ tại chỗ (mini-form số giấy / Cứu trạng thái), danh sách ảo ~3.450 dòng | `TNB-04 (5/6)` | M | 109,104 | 1 | [ ] |
+| 111 | **Form BC2:** số gợi ý (sửa được, kiểm trùng), ngày báo cáo, ghi chú, BC1 của khóa (chỉ đọc), "Xem lại" → "Tạo BC2"; dùng cho cả BC2 rỗng từ danh sách và bước ③ | `TNB-03 (2/2)` | S | 98,106 | 1 | → PRD |
+| 112 | **Bước ③:** hộp xác nhận "Lập BC2 và thêm N học viên" (tích "CSDL thật"), thanh tiến độ từ 200 HV (poll `/bc2/lo/{lo_id}`), đã/chưa ghi + lý do bỏ qua, "Làm tiếp", "Hoàn tác lần vừa rồi", làm tươi khi quay lại cửa sổ | `TNB-04 (6/6)` | M | 99,110,111 | 1 | → PRD |
+| 113 | **UI xem/gỡ/xóa BC2:** danh sách HV trong BC2 (tìm, chọn nhiều, "Gỡ N học viên"), khóa HV có kết quả kèm lý do, cảnh báo `TT_XuLy_Old` rỗng, xóa BC2 rỗng có xác nhận, hoàn tác lô | `TNB-05 (2/2)` | M | 100,106 | 1 | → PRD |
+| 114 | **UI Cứu trạng thái:** tìm HV, lý do không hiện, chọn đích (tên nghiệp vụ + mã), lý do bắt buộc, hộp xem lại "cũ → mới", hoàn tác một lần | `TNB-06 (2/2)` | M | 104,106 | 1 | → PRD |
+| 115 | **UI danh sách BC2 + nhật ký:** tab Ô tô/Mô tô, lọc đang mở/đã đóng, "Tổng ghi" ≠ "HV thực tế" đánh dấu lệch, bấm dòng → chi tiết; tab Nhật ký (ai · lúc nào · loại · số HV · kết quả) | `TNB-07 (2/2)` | M | 105,106 | 1 | → PRD |
+
+> TNB-04 cắt 6 task (96→97→99→109→110→112) cùng trỏ 1 story → PRD `TNB-04` chỉ ✅ khi xong cả 6. TNB-01 cắt 3 (101/102/107), TNB-02 cắt 2 (103/108), TNB-03 cắt 2 (98/111), TNB-05 cắt 2 (100/113), TNB-06 cắt 2 (104/114), TNB-07 cắt 2 (105/115). **Ghi thật chỉ nghiệm thu ở máy CSDT** (dev không ghi happy-path vào DB Nạp thật).
+
+### ✅ Checkpoint 23 — sau task 96-100 (backend BC2)
+- [ ] **Mức 2** `tn_bc2_rules`: thứ tự xét 4 nhóm (HV ở BC2 mở khác → `khong_duoc`; ô tô `14/17/18` cùng khóa → `thi_lai`; `09` thiếu số giấy → `can_xem`) · `MaBC2` không tồn tại xử như rỗng · đánh số ô tô/mô tô · hoàn tác cứu miễn luật đích · giới hạn đầu vào/độ dài cột.
+- [ ] **Mức 2** service (cursor giả): `lo_id` gửi hai lần → một lần chạy · "Làm tiếp" **không gọi lại** SP với HV đã `11` đúng BC2 · BC2 đóng giữa chừng → không ghi · xóa BC2 còn HV (đếm theo `MaBC2`) → chặn · `TT_XuLy_Old='11'` sau ghi → cảnh báo · nhật ký không chứa CMT/họ tên · **không bao giờ** có `INSERT/UPDATE/DELETE` trực tiếp.
+- [ ] `ung-vien` đo trên DB Nạp thật ≤ 2 giây; `pytest` toàn bộ pass; không đụng module cũ.
+
+### ✅ Checkpoint 24 — sau task 101-105 (backend tốt nghiệp + cứu + danh sách)
+- [ ] **Mức 2:** `Update_CNTN` đúng 8 tham số + lưu sổ trước giữ `03` · hủy giữ sổ/quyết định, chặn `≥11` · kiểm trùng loại trừ chính HV, trong lô và trong DB · khóa chưa bế giảng bị chặn · `xem-lai` không ghi.
+- [ ] `GET /bc2` "HV thực tế" bằng một truy vấn (không N+1); khớp số liệu DB (455 BC2).
+- [ ] `pytest` toàn bộ pass.
+
+### ✅ Checkpoint 25 — sau task 106-108 (tab Tốt nghiệp)
+- [ ] Phân hệ #5 hiện ở sidebar, băng cam "CSDL: DB Nạp", 4 tab, chú giải trạng thái dùng tên nghiệp vụ (không lộ `TT_XuLy`/SP ở giao diện chính).
+- [ ] Tab Tốt nghiệp trên 1 khóa test: điền chung → số giấy liên tiếp → kiểm trùng → Xem lại → Ghi → hủy một HV; nút khóa khi HV đã vào BC2.
+- [ ] Playwright 1280/1440: không tràn, đủ dấu, chữ cảnh báo ≥ 13px.
+
+### ✅ Checkpoint 26 — sau task 109-113 (lập BC2 + xem/gỡ đầu–cuối)
+- [ ] Luồng ô tô và mô tô: ① chọn khóa → ② 4 nhóm (Sẵn sàng tích sẵn, Thi lại không tích, dán 10 CMT khớp đúng) → ③ "Lập BC2 và thêm N" → thấy tiến độ → mở BC2 thấy đúng N HV.
+- [ ] HV ở BC2 mở khác nằm "Không đưa được" kèm "gỡ khỏi BC2 … trước"; khóa chưa có BC1 mờ không chọn được.
+- [ ] "Hoàn tác lần vừa rồi" gỡ đúng lô; gỡ HV có kết quả bị khóa; xóa BC2 còn HV bị chặn.
+- [ ] Bấm "Lập" hai lần/F5 giữa chừng không tạo đôi.
+
+### ✅ Checkpoint 27 — sau task 114-115 (cứu + danh sách + nhật ký) — **nghiệm thu máy CSDT**
+- [ ] Cứu trạng thái: nguồn `11/16/19` bị chặn; đích `09` thiếu số giấy bị chặn; hoàn tác về `03` được.
+- [ ] Danh sách BC2 + nhật ký khớp thao tác vừa làm; `pnpm build` webui sạch; đóng gói lại exe nếu giao máy.
+- [ ] **Ghi thật DB Nạp production + mở PM cũ đối chiếu** (HV, BC2, số giấy hiện đúng; chụp trước/sau cột `NgaySua`/`NguoiSua`/`Transfer_flag`) → nghiệm thu máy CSDT.
+- [ ] Chỉ tiêu §11F.8: danh sách ứng viên ≤ 2 giây · thêm 100 HV ≤ 5 giây · từ 200 HV có thanh tiến độ.
+- [ ] Login SQL của tool có `EXECUTE` đủ 7 SP + `sp_getapplock` (Prerequisite).
+
 ### ✅ Checkpoint 5 — cuối dự án
 - [ ] Mọi tiêu chí MUST + SHOULD trong PRD đạt.
 - [ ] Đối chiếu bảo mật OG đóng trước go-live (chặn go-live nếu chưa đạt).
@@ -397,7 +458,9 @@
 - Task 9, 14, 15 — cơ chế lõi (SP import / auth / hàng đợi), nhiều task dựa vào.
 - Task 83 → 84 — tuần tự, cùng đụng `routers/ketqua.py` + `CapNhatKQDT.tsx`/`MoKhoaModal.tsx`.
 - Task 85 → 94 (Phase 9) — tuần tự, cùng đụng `routers/phancong.py` / `phancong_rules.py` / `PhanCongTheoKhoa.tsx`; task 88 sửa `modules.ts` + `App.tsx` (shell dùng chung).
-- **Nhóm song song duy nhất:** task 95 với 91–94 — an toàn nếu tách file riêng (`phancong_rasoat.py`, `RaSoat.tsx`); chốt hợp đồng `GET /ra-soat` trước.
+- Task 96 → 105 (Phase 10 backend) — tuần tự, cùng đụng `routers/tn_bc2.py` / `tn_bc2_service.py` / `tn_bc2_rules.py`; task 106 sửa `modules.ts` + `App.tsx` (shell dùng chung) → chạy một mình.
+- **Nhóm song song duy nhất Phase 10 (nếu mở phiên thứ hai):** task 113, 114, 115 — khác file (`XemBc2.tsx`, `CuuTrangThai.tsx`, `DanhSachBc2.tsx`), chỉ an toàn sau 106 và backend tương ứng (100/104/105) xong; chốt hợp đồng endpoint trước.
+- **Nhóm song song duy nhất Phase 9:** task 95 với 91–94 — an toàn nếu tách file riêng (`phancong_rasoat.py`, `RaSoat.tsx`); chốt hợp đồng `GET /ra-soat` trước.
 
 ## Chờ chốt (chưa lên lịch code)
 
@@ -425,21 +488,27 @@
 | Chưa xác minh gói DKKH/BC1 có chứa GV/xe (task 90) | Thấp–TB | Đang để ⚠ "khóa đã gửi DKKH"; xác minh với hỗ trợ CDB trước khi nâng mức |
 | HV đang mở "sửa sau gửi" mà Sở trả 13/14 → SP tiếp nhận chỉ nhận HV `12` nên HV kẹt (task 83/84) | Cao | Cảnh báo + tích cam kết + khối đỏ nhắc; kết xuất lại ngay bằng phần mềm CDB |
 | Sở nhận 2 bản KQĐT cho cùng HV (bản đã gửi + kết xuất lại) — chưa rõ Sở xử lý (task 83/84) | Trung bình | Hỏi hỗ trợ CDB/Sở trước khi dùng thật; nghiệm thu máy CSDT |
+| Ghi nhầm vào DB Nạp thật khi thêm/gỡ HV hoặc ghi tốt nghiệp (Phase 10, task 99/102) | Cao | Server kiểm lại toàn bộ luật ⛔ trên dữ liệu đọc lại + khóa `tnbc2_ghi` + cổng `xac_nhan_csdl_that`; ghi từng HV báo đã/chưa ghi; chụp trước/sau PM cũ; nghiệm thu máy CSDT (Checkpoint 27) |
+| `usp_NguoiLX_Update_ThemHSBC2` không có điều kiện trạng thái → gọi lại cho HV đã `11` đặt `TT_XuLy_Old='11'`, gỡ ra HV kẹt `11` không BC2 (task 99) | Cao | "Làm tiếp" không gọi lại SP với HV đã `11` đúng BC2; bỏ "chuyển giữa BC2"; kiểm `TT_XuLy_Old` sau ghi → cảnh báo |
+| PM cũ ghi cột/SP mà ta chưa biết (`NgaySua`, `NguoiSua`, `Transfer_flag`) → dữ liệu tool ghi lệch PM cũ (task 99/102) | Trung bình | Chụp trước/sau PM cũ trước task 99/102 (Prerequisite); nghiệm thu so snapshot cột |
+| PM cũ không dùng khóa `tnbc2_ghi` → khe nhỏ ghi chồng giữa lúc tool đọc lại và gọi SP (task 99) | Thấp | Chấp nhận (TDD §16.1): tool một máy, ghi ngắn; đọc lại sát trước SP + kiểm sau ghi |
+| `usp_BaoCaoII_Delete` không kiểm HV, `MaBC2` không có FK → xóa nhầm để HV mồ côi (task 100) | Cao | Đếm `MaBC2` mọi `TT_XuLy` = 0 trong khóa, ngay trước SP; thi hành ở máy chủ |
 | Sửa server VPS đang chạy prod (task 41/42/44) làm gãy luồng thu thập đang live | Cao | Deploy giờ thấp điểm + verify login/gửi/kéo ngay sau deploy (Checkpoint 8); đổi thêm endpoint, không đổi endpoint cũ |
 
 ## Nguồn đối chiếu
 
 > `/tieptheo` so mục này với PRD mỗi buổi để biết kế hoạch còn khớp không. Lệch thì báo user chạy lại `/kehoach` chế độ bổ sung. **Không tự sửa kế hoạch.**
 
-- **Số story trong PRD khi cập nhật:** 49 (thêm `PCG-01..05` từ CHANGES #54; thêm `THU-06` từ CHANGES #49; `KQD-06` #48; `KQD-05` #45; trước đó `KQD-01/02/03/04` #42; `DGT-01/02/03/04` #38/#39; `TCB-01/02/03/04` #35; `HTG-07` #34; `SYNC-01/02/03` #33; chưa tính NICE `QLY-04`, `THU-03`)
-- **Mã story đã đưa vào kế hoạch:** `HTG-01`, `HTG-02`, `HTG-03`, `HTG-07`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `THU-06`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `SYNC-01`, `SYNC-02`, `SYNC-03`, `TCB-01`, `TCB-02`, `TCB-03`, `TCB-04`, `DGT-01`, `DGT-02`, `DGT-03`, `DGT-04`, `KQD-01`, `KQD-02`, `KQD-03`, `KQD-04`, `KQD-05`, `KQD-06`, `PCG-01`, `PCG-02`, `PCG-03`, `PCG-04`, `PCG-05`
+- **Số story trong PRD khi cập nhật:** 56 (thêm `TNB-01..07` từ CHANGES #60; `PCG-01..05` từ CHANGES #54; thêm `THU-06` từ CHANGES #49; `KQD-06` #48; `KQD-05` #45; trước đó `KQD-01/02/03/04` #42; `DGT-01/02/03/04` #38/#39; `TCB-01/02/03/04` #35; `HTG-07` #34; `SYNC-01/02/03` #33; chưa tính NICE `QLY-04`, `THU-03`)
+- **Mã story đã đưa vào kế hoạch:** `HTG-01`, `HTG-02`, `HTG-03`, `HTG-07`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `THU-06`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `SYNC-01`, `SYNC-02`, `SYNC-03`, `TCB-01`, `TCB-02`, `TCB-03`, `TCB-04`, `DGT-01`, `DGT-02`, `DGT-03`, `DGT-04`, `KQD-01`, `KQD-02`, `KQD-03`, `KQD-04`, `KQD-05`, `KQD-06`, `PCG-01`, `PCG-02`, `PCG-03`, `PCG-04`, `PCG-05`, `TNB-01`, `TNB-02`, `TNB-03`, `TNB-04`, `TNB-05`, `TNB-06`, `TNB-07`
 - **Mã story chưa đưa vào:** `QLY-04`, `THU-03` (NICE, chưa đủ chi tiết) · **`HTG-04/05/06`** (thêm ở CHANGES #18, đã code thẳng — chưa có task trong plan; cần `/kehoach` bổ sung riêng nếu muốn khớp sổ)
-- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 10/10/2026 (#54)
+- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 11/10/2026 (#62)
 
 ## Changelog
 
 | Ngày | Thay đổi |
 |---|---|
+| 11/10/2026 | v23 — bổ sung (CHANGES #60-#62, PRD v4.6, TDD §11F v6.8 sau /reviewtdd 25 phát hiện): thêm **Phase 10 Tốt nghiệp & Báo cáo 2** (feature mới, prefix `TNB`, 7 story, phân hệ #5, DB Nạp) — task **96** luật thuần + test · **97** backend đọc ứng viên (SP `@MaKH=''` + SELECT bổ sung) · **98** tạo BC2 + nhật ký + khóa `tnbc2_ghi` · **99** `/bc2/lap` chạy nền + `lo_id` + hoàn tác · **100** xem/gỡ/xóa BC2 · **101-103** tốt nghiệp đọc/ghi/hủy · **104** cứu trạng thái · **105** danh sách BC1/BC2 + nhật ký · **106** khung phân hệ #5 · **107-108** UI tốt nghiệp · **109-112** UI lập BC2 3 bước (+ form BC2) · **113** UI xem/gỡ · **114** UI cứu · **115** UI danh sách + nhật ký, + Checkpoint 23-27 + 3 Prerequisite + 5 rủi ro. Chỉ gọi SP có sẵn, không bảng/cột mới. +7 story (49→56). 115 task. |
 | 10/10/2026 | v22 — bổ sung (CHANGES #54, PRD v4.3, TDD v6.4 §11E): thêm **Phase 9 Phân công giáo viên – xe** (feature mới, prefix `PCG`, 5 story) — task **85** luật thuần + test · **86** backend đọc + `/kiem-tra` · **87** backend `/ghi` + nhật ký (rủi ro cao làm trước UI) · **88** khung phân hệ #4 · **89** PCG-01 bước ① · **90** bản nháp + Ghi vào CDB · **91-92** PCG-02 bước ② (từng GV + hàng loạt) · **93-94** PCG-03 bước ③ (xe + ghép, gợi ý) · **95** PCG-05 rà soát + Checkpoint 20/21/22. Chỉ ghi `KhoaHoc_GiaoVien`/`KhoaHoc_XeTap`, không bảng mới; không dùng SP xóa lan. +5 story (44→49). 95 task. |
 | 10/10/2026 | v21 — bổ sung (CHANGES #53, PRD v4.2, TDD v6.3): thêm **KQD-05 mở rộng "Sửa sau gửi" chọn từng HV** vào cuối Phase 6 — task **83** backend (`POST /mo-sua-sau-gui` + `GET /sua-sau-gui` + nhật ký sqlite `sua_sau_gui`, lùi đúng HV chọn, không xóa gói, `13` 409) + task **84** UI (ô tích + hộp xác nhận + chip/băng cam + khối đỏ KQD-03 + sửa MoKhoaModal) + Checkpoint 19. Thay khóa cứng M1 (decisions §21). Không story mới, giữ 44. 84 task. |
 | 08/10/2026 | v20 — bổ sung (CHANGES #51, sau /reviewtdd → TDD v6.1): thêm **Phase 8 NAP-01 "Bỏ khỏi hàng đợi" dòng chờ/lỗi + tombstone** — task **81** backend (bảng `keo_ve_bo_qua` + migrate + lọc trong `keo_ve_upsert` + endpoint `POST /local/nap/bo-qua` xử mọi trạng thái/idempotent/trần 1000 + **GỠ `DELETE /local/keo-ve/:uuid`** của task 38) + task **82** UI (chọn nhiều + nút bỏ cho dòng ⚪/🔴 + xác nhận 2 bước + chuyển DELETE→POST) + Checkpoint 18. Chỉ đụng `staging.sqlite`, KHÔNG đụng VPS/DB. Mở rộng NAP-01, **không story mới, giữ 44**. Sau code → đóng gói lại exe. 82 task. |
