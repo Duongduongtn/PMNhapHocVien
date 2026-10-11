@@ -992,7 +992,7 @@
 - ⬜ Nhật ký thao tác phía tool (ai · lúc nào · khóa · thay đổi gì) để truy vết (CDB `NguoiTao` hiện trống).
 - ❌ Không dùng `usp_KhoaHoc_GiaoVien_Delete`, `usp_KhoaHoc_XeTap_Delete`, `usp_VoHieuLuc*` (xóa lan nhiều dòng/nhiều khóa) — xóa theo `MaLichLV`/`MaLichSD` từng dòng.
 
-**Edge cases:** hai nhân viên cùng sửa một khóa → **không áp dụng** (user chốt 10/10/2026: tại một thời điểm chỉ có một người thao tác tool) · xe/GV bị ngừng giữa lúc đang soạn → lỗi chặn khi ghi · mất kết nối giữa chừng → danh sách dòng đã ghi.
+**Edge cases:** hai nhân viên cùng sửa một khóa → **không áp dụng** (user chốt 10/10/2026: tại một thời điểm chỉ có một người thao tác tool) · xe/GV bị ngừng giữa lúc đang soạn → lỗi chặn khi ghi · **CDB bị sửa từ lúc mở khóa (vd phần mềm CDB cũ vừa thêm phân công) → không ghi được, báo "Khóa đã bị sửa… tải lại rồi làm tiếp", bản nháp trên máy vẫn giữ (CHANGES #59)** · bấm Ghi hai lần/hai tab cùng lúc → lần thứ hai báo "đang được ghi" · mất kết nối giữa chừng → danh sách dòng đã ghi.
 
 > Nguồn: user 10/10/2026 · schema không cưỡng chế luật (verify) · TDD §11E.6, decisions §22
 

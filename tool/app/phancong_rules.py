@@ -112,6 +112,10 @@ def kiem_phan_cong(p: dict, ctx: dict) -> list[dict]:
 
     if not p.get("mon"):
         add(CHAN, "thieu_mon", "Chưa chọn môn dạy.")
+    ds_mon = ctx.get("ds_mon") or {}
+    la = [m for m in (p.get("mon") or []) if ds_mon and m not in ds_mon]
+    if la:
+        add(CHAN, "mon_khong_ton_tai", f"Môn {', '.join(str(m) for m in la)} không có trong danh mục môn học.")
     for muc, code, nd in kiem_khoang_khoa(khoa, p.get("tu", ""), p.get("den", "")):
         add(muc, code, nd)
     if ma not in ctx["gv_khoa"]:

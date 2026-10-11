@@ -1196,6 +1196,8 @@ export interface HienTrangPC {
   pc: PcDong[];
   xe_khoa: { id: number; bs: string }[];
   ghep: GhepDong[];
+  /** Băm hiện trạng CDB lúc đọc; gửi lại ở `/ghi` — khác thì server trả 409 `khoa_da_doi` (CHANGES #59). */
+  dau_van_tay?: string;
 }
 export interface BanKhacPC {
   [k: string]: unknown;
@@ -1266,7 +1268,7 @@ export const kiemTraPC = (maKh: string, ban: BanNhapPC, targetKey?: string) =>
 export const ghiPC = async (
   maKh: string,
   ban: BanNhapPC,
-  xacNhan: { da_xem_canh_bao: boolean; xac_nhan_csdl_that: boolean },
+  xacNhan: { da_xem_canh_bao: boolean; xac_nhan_csdl_that: boolean; dau_van_tay?: string },
   targetKey?: string,
 ): Promise<GhiPCKetQua> => {
   const r = await fetch(`${BASE}/local/phancong/ghi?${qs({ target_key: targetKey })}`, {

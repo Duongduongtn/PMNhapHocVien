@@ -242,3 +242,63 @@ def test_pcg02_chua_toi_be_giang_tinh_theo_ca_gv_nhieu_dot_noi_tiep_khong_bao_oa
     v = chay([dot1, dot2_ngan])
     bao = [x for x in v if x["ma"] == "th_chua_toi_be_giang"]
     assert len(bao) == 1 and bao[0]["ref"] == "pc-2"                          # 1 cảnh báo/GV, ở đợt cuối
+
+
+# ── CHANGES #59 — /reviewtdd §11E: dấu vân tay hiện trạng, khóa ghi, giới hạn đầu vào ──
+def test_pcg04_ghi_dau_van_tay_khop_thi_ghi_lech_thi_409_khoa_da_doi(auth_headers, monkeypatch):   # 3.1
+    db = _Db(); _patch(monkeypatch, db)
+    r0 = client.post("/local/phancong/ghi", headers=auth_headers,
+                     json={**hien_tai(), "xac_nhan_csdl_that": True}).json()
+    dvt = r0["hien_trang"]["dau_van_tay"]
+    assert isinstance(dvt, str) and len(dvt) == 20
+    resp = ghi(auth_headers, {**them_gv102(), "dau_van_tay": dvt})
+    assert resp.status_code == 200 and resp.json()["ok"] is True
+    db2 = _Db(); _patch(monkeypatch, db2)
+    resp = ghi(auth_headers, {**them_gv102(), "dau_van_tay": "0" * 20})              # CDB đã khác lúc mở
+    assert resp.status_code == 409 and resp.json()["detail"]["loi"] == "khoa_da_doi" and not db2.execs
+
+
+def test_pcg04_dau_van_tay_doi_khi_cdb_co_them_dong(auth_headers, monkeypatch):
+    db = _Db(); _patch(monkeypatch, db)
+    a = client.post("/local/phancong/ghi", headers=auth_headers,
+                    json={**hien_tai(), "xac_nhan_csdl_that": True}).json()["hien_trang"]["dau_van_tay"]
+    db.cur_gv.append({"MaLichLV": 3, "MaGV": "75032101", "la_ds": 0, "NgayBD": datetime(2026, 10, 2),
+                      "NgayKT": datetime(2026, 10, 3), "MaMonHoc": None, "TenMonHoc": "4"})   # người khác vừa thêm
+    b = client.post("/local/phancong/ghi", headers=auth_headers,
+                    json={**hien_tai(), "xac_nhan_csdl_that": True}).json()["hien_trang"]["dau_van_tay"]
+    assert a != b
+
+
+def test_pcg04_ghi_dang_ghi_o_khoa_nay_thi_409_dang_ghi(auth_headers, monkeypatch):               # 3.2
+    db = _Db(); _patch(monkeypatch, db)
+    khoa = svc._khoa_ghi(KHOA_MA)
+    assert khoa.acquire(blocking=False)
+    try:
+        resp = ghi(auth_headers, them_gv102())
+        assert resp.status_code == 409 and resp.json()["detail"]["loi"] == "dang_ghi" and not db.execs
+    finally:
+        khoa.release()
+    assert ghi(auth_headers, them_gv102()).status_code == 200                                      # nhả khóa thì ghi được
+
+
+def test_pcg04_khoa_duoc_nha_ca_khi_ghi_loi(auth_headers, monkeypatch):
+    db = _Db(fail_at=0); _patch(monkeypatch, db)
+    ghi(auth_headers, them_gv102())
+    khoa = svc._khoa_ghi(KHOA_MA)
+    assert khoa.acquire(blocking=False)
+    khoa.release()
+
+
+def test_pcg03_dia_diem_qua_255_ky_tu_bi_tu_choi_truoc_khi_ghi(auth_headers, monkeypatch):         # 4.1
+    db = _Db(); _patch(monkeypatch, db)
+    d = them_gv102(); d["ghep"][-1]["dia_diem"] = "x" * 256
+    resp = ghi(auth_headers, d)
+    assert resp.status_code == 422 and not db.execs
+    d["ghep"][-1]["dia_diem"] = "y" * 255
+    assert ghi(auth_headers, d).status_code == 200
+
+
+def test_pcg02_mon_khong_co_trong_danh_muc_bi_chan_o_buoc_kiem_tra():                               # 4.1
+    v = chay([P(1, "75032101", [6, 99], "2026-10-15T00:00", "2026-12-20T00:00")])
+    assert "mon_khong_ton_tai" in ma_loi(v)
+    assert "mon_khong_ton_tai" not in ma_loi(chay([_th()]))

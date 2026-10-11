@@ -225,6 +225,7 @@ export default function PhanCongTheoKhoa() {
   function sauKhiGhi(r: GhiPCKetQua) {
     // Làm tươi bản nháp + mốc theo CDB sau khi ghi (cả khi lỗi giữa chừng — tránh ghi trùng dòng đã ghi).
     if (r.hien_trang) {
+      setHien((h) => (h ? { ...h, ...r.hien_trang } : h));   // cập nhật cả dấu vân tay cho lần ghi sau
       setBan(banTuHienTrang(r.hien_trang));
       setGoc(banTuHienTrang(r.hien_trang));
     }
@@ -498,6 +499,7 @@ export default function PhanCongTheoKhoa() {
           coChan={!kt || kt.co_chan}
           dangKiem={ktBusy}
           targetKey={targetKey}
+          dauVanTay={hien?.dau_van_tay}
           onHuy={() => { setBan({ ...goc, pc: goc.pc.map((p) => ({ ...p })), ghep: goc.ghep.map((g) => ({ ...g })) }); }}
           onDaGhi={sauKhiGhi}
           tenGv={(ma) => danhMuc.find((g) => g.ma === ma)?.ten ?? ma}

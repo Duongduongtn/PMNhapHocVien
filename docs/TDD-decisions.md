@@ -235,7 +235,8 @@
   - **Ngày bắt đầu thực hành để trống:** dữ liệu 14 khóa cho thấy khoảng khai giảng→bắt đầu thực hành lệch theo hạng và theo khóa (B01 17, C1 20, B 20–22 ngày, có khóa lệch 1–2 ngày) → không có quy tắc cố định; ghi sai sẽ lan xuống mọi GV thực hành và ngày ghép xe.
   - **Lưu môn kiểu danh sách mã** (`TenMonHoc="1,8"`, `MaMonHoc` NULL): định dạng phần mềm CDB hiện hành ghi từ 29/07/2026 (144 dòng/10 khóa; trước đó 54 dòng/5 khóa ghi mã+tên).
   - **Không dùng SP xóa lan:** `usp_KhoaHoc_GiaoVien_Delete`/`usp_KhoaHoc_XeTap_Delete` xóa mọi dòng (khóa,GV|xe) gồm cả lịch; `usp_VoHieuLuc*` xóa danh sách ở **mọi khóa kể cả đã bế giảng** → xóa theo `MaLichLV`/`MaLichSD` từng dòng.
-  - **Luật chạy ở server, một nguồn:** UI gọi `POST /kiem-tra`; `POST /ghi` kiểm lại lần cuối (không tin client, hai người cùng sửa).
+  - **Luật chạy ở server, một nguồn:** UI gọi `POST /kiem-tra`; `POST /ghi` kiểm lại lần cuối (không tin client).
+  - **Cập nhật 11/10/2026 (/reviewtdd §11E, CHANGES #59):** `/ghi` nhận `dau_van_tay` (băm hiện trạng lúc mở khóa) và khóa ghi theo `ma_kh`. Vì sao: phần mềm CDB cũ cùng ghi một CDB và CDB không có UNIQUE — bản nháp cũ sẽ xóa lặng lẽ dòng người khác vừa thêm, hoặc bấm đúp nhân đôi dòng. Đã cân nhắc: (A) băm + khóa ← chọn · (B) chỉ băm · (C) ghi vào Risks, chờ sự cố. Ca "hai người cùng sửa trong tool" vẫn không áp dụng (một người thao tác).
 - **Phương án đã cân nhắc:**
   - *Giờ mặc định:* (A) 00:00→00:00 như CDB ← chọn · (B) 00:00→23:59 trực quan nhưng lệch CDB, chặn oan ca nối tiếp.
   - *Trùng thời gian:* (A) có xét giờ như CDB ← chọn · (B) chặn cùng ngày (chặn oan ca sáng/chiều) · (C) theo loại GV (phức tạp, lệch CDB).

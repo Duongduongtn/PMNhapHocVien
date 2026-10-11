@@ -24,23 +24,25 @@ router = APIRouter(prefix="/local/phancong", tags=["phancong"])
 
 class PcIn(BaseModel):
     id: int | str | None = None
-    ma: str
-    mon: list[int] = Field(default_factory=list)
-    tu: str = ""
-    den: str = ""
+    ma: str = Field(max_length=30)
+    mon: list[int] = Field(default_factory=list, max_length=20)
+    tu: str = Field(default="", max_length=25)
+    den: str = Field(default="", max_length=25)
 
 
 class GhepIn(BaseModel):
     id: int | str | None = None   # MaLichSD nếu dòng đã có ở CDB; id tạm ("n1") nếu mới
-    ma: str
-    xe: str = ""
-    tu: str = ""
-    den: str = ""
-    dia_diem: str = ""
+    ma: str = Field(max_length=30)
+    xe: str = Field(default="", max_length=30)
+    tu: str = Field(default="", max_length=25)
+    den: str = Field(default="", max_length=25)
+    dia_diem: str = Field(default="", max_length=255)   # nvarchar(255) ở CDB
 
 
 class BanNhapIn(BaseModel):
-    ma_kh: str
+    ma_kh: str = Field(max_length=30)
+    # Dấu vân tay hiện trạng CDB lúc mở khóa (`dau_van_tay` của GET /khoa/{ma_kh}); `/ghi` so lại, khác → 409.
+    dau_van_tay: str | None = Field(default=None, max_length=64)
     gv_khoa: list[str] = Field(default_factory=list, max_length=300)
     pc: list[PcIn] = Field(default_factory=list, max_length=1000)
     xe_khoa: list[str] = Field(default_factory=list, max_length=300)

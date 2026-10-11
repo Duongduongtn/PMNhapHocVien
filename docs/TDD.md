@@ -1421,6 +1421,16 @@ DB **không có** trigger/computed/constraint tính 3 cờ (verify 06/10: 0 trig
 - **Backend:** `tool/app/routers/phancong.py` (mount `require_session` ở `main.py`, như `ketqua.py`) + `tool/app/phancong_rules.py` (**luật thuần Python, không DB** — nhận trạng thái khóa + dữ liệu "bận" rồi trả danh sách vấn đề) + `tool/app/phancong_service.py` (đọc CDB, dựng dữ liệu bận, ghi theo SP). Kết nối qua `sqlserver_conn_dich(target_key)`; KHÔNG đụng DB Nạp.
 - **Frontend:** phân hệ mới `phancong` trong `tool/webui/src/lib/modules.ts` (route `/phan-cong/*`, accent `pc` hồng sẫm, `db: GPLX_CDB_CSDT`, sub-nav "Phân công theo khóa" · "Rà soát khóa") + token `pc` trong `tailwind.config.js`; trang `tool/webui/src/pages/phancong/*` bám `ui-mock/phancong.html`.
 - **Luật kiểm chạy ở server** (một nguồn): UI gọi `POST /kiem-tra` (debounce ~250ms) với bản nháp để hiện lỗi sống; `POST /ghi` kiểm lại lần cuối rồi mới ghi. Không nhân đôi luật ở TS.
+- **Bản nháp ở UI** (CHANGES #57, /reviewtdd 11/10/2026): mọi thao tác chỉ sửa bản nháp trong React; **tự giữ** trong `localStorage` theo (`target_key`, `ma_kh`) kèm ảnh chụp hiện trạng CDB lúc mở. Mở lại khóa: hiện trạng CDB đã khác ảnh chụp → bỏ nháp; giống → hỏi Làm tiếp / Bỏ. Server không biết bản nháp, chỉ nhận trạng thái mong muốn khi `/ghi`.
+```
+        mở khóa                     sửa                   bấm Ghi, qua mọi cổng
+ [Không nháp] ─────> [Đang soạn] ──────> [Sẵn sàng ghi] ────────────────> [Đã ghi] ──> làm tươi, xóa nháp
+                      ▲   │  F5/đóng tab     │  còn ⛔                      │ lỗi giữa chừng
+                      │   ▼                  ▼                              ▼
+                      │ [Nháp trên máy]  [Khóa nút Ghi]             [Ghi dở: da_ghi/chua_ghi] ──> gửi lại = làm tiếp
+                      │   │ mở lại: CDB chưa đổi → hỏi Làm tiếp/Bỏ
+                      └───┘ CDB đã đổi → bỏ nháp; khi ghi lệch dấu vân tay → 409 khoa_da_doi
+```
 
 ### 11E.1 Dữ liệu CDB dùng (đã verify)
 | Bảng | Cột chính | Ý nghĩa |
@@ -1430,14 +1440,22 @@ DB **không có** trigger/computed/constraint tính 3 cờ (verify 06/10: 0 trig
 | `XeTap` | `BienSoXe, HangGPLXXe, NgayHHGPXTL, NgayHHGCNKD, TrangThai` | danh mục — chỉ đọc |
 | `KhoaHoc_GiaoVien` | PK `MaLichLV` · `MaKH, MaGV, TenGV, LoaiGV(char2), BienSoXe, SoHV, NgayHL, NgayHetHL, GhiChu(NOT NULL), TrangThai, NguoiTao/Sua, NgayBD, NgayKT, IsKhoaHocGiaoVien, MaMonHoc, TenMonHoc` | cờ `1`=GV thuộc khóa, `0`=phân công |
 | `KhoaHoc_XeTap` | PK `MaLichSD` · `MaKH, BienSoXe, MaGV, MaHV, DiaDiem, GhiChu(NOT NULL), TrangThai, NgayBD, NgayKT, IsKhoaHocXeTap, TenHV, TenGV` | cờ `1`=xe thuộc khóa, `0`=ghép xe |
+```
+ KhoaHoc (MaKH)
+    ├── KhoaHoc_GiaoVien  cờ IsKhoaHocGiaoVien=1 ─ "GV thuộc khóa"      (1 dòng/GV, NgayBD/NgayKT rỗng)
+    │                     cờ =0 ─ "phân công dạy" (môn, NgayBD→NgayKT)   (n dòng/GV)
+    └── KhoaHoc_XeTap     cờ IsKhoaHocXeTap=1 ─ "xe thuộc khóa"         (1 dòng/xe)
+                          cờ =0 ─ "ghép xe" (MaGV + BienSoXe + NgayBD→NgayKT + DiaDiem)
+ Phụ thuộc: ghép xe cần GV thuộc khóa + GV có phân công môn 6 + xe thuộc khóa
+```
 FK: `KhoaHoc_GiaoVien→GiaoVien/KhoaHoc`, `KhoaHoc_XeTap→XeTap/KhoaHoc` (NO ACTION). **Không UNIQUE** (khóa,GV|xe), **không CHECK, không trigger** → mọi luật nằm ở tool.
 - **"Bận" của GV/xe ở khóa khác:** `SELECT … FROM KhoaHoc_GiaoVien g JOIN KhoaHoc k ON k.MaKH=g.MaKH WHERE g.IsKhoaHocGiaoVien=0 AND g.TrangThai=1 AND g.MaGV IN (…)` (tương tự xe, `IsKhoaHocXeTap=0`) — **gồm cả khóa đang sửa** (loại các dòng đang được sửa trong bản nháp theo `MaLichLV`/`MaLichSD`).
 
 ### 11E.2 API (tool, gác session + `target_key` như §11D)
-`GET /local/phancong/khoa?q=` (combobox khóa CSĐT hiện tại, kèm hạng, ngày KG/BG, cờ DKKH qua `dkkh_exists_sql`) · `GET /local/phancong/khoa/{ma_kh}` (hiện trạng: danh sách GV + phân công + xe + ghép, mỗi dòng kèm khóa `MaLichLV/MaLichSD`) · `GET /local/phancong/giao-vien?ma_kh=` (danh mục GV đang hoạt động + "bận" các khóa khác chưa bế giảng) · `GET /local/phancong/xe?ma_kh=` (danh mục xe + hạn + bận) · `POST /local/phancong/kiem-tra` (body = bản nháp; **không ghi**) · `POST /local/phancong/goi-y-ghep-xe` (đề xuất, **không ghi**) · `POST /local/phancong/ghi` (§11E.6) · `GET /local/phancong/ra-soat` (PCG-05) · `GET /local/phancong/nhat-ky?ma_kh=`.
+`GET /local/phancong/khoa?q=` (combobox khóa CSĐT hiện tại, kèm hạng, ngày KG/BG, cờ DKKH qua `dkkh_exists_sql`) · `GET /local/phancong/mon` (danh mục môn `DM_MonHoc`) · `GET /local/phancong/khoa/{ma_kh}` (hiện trạng: danh sách GV + phân công + xe + ghép, mỗi dòng kèm khóa `MaLichLV/MaLichSD`, kèm `dau_van_tay` = băm 20 ký tự của hiện trạng) · `GET /local/phancong/giao-vien?ma_kh=` (danh mục GV đang hoạt động + "bận" các khóa khác chưa bế giảng) · `GET /local/phancong/xe?ma_kh=` (danh mục xe + hạn + bận) · `POST /local/phancong/kiem-tra` (body = bản nháp; **không ghi**) · `POST /local/phancong/goi-y-ghep-xe` (đề xuất, **không ghi**) · `POST /local/phancong/ghi` (§11E.6) · `GET /local/phancong/ra-soat` (PCG-05) · `GET /local/phancong/nhat-ky?ma_kh=`.
 
 ### 11E.3 Danh sách GV / xe của khóa (PCG-01, cờ=1)
-- Thêm GV: chỉ GV `TrangThai=1`; cảnh báo nếu `HangGPLX` khóa ∉ `CacHangGPLXDuocDT`… (khi code **đối chiếu** trường hạng dạy được; mock dùng danh sách hạng) hoặc GV đang có phân công ở khóa khác chưa bế giảng (`NgayBG+1 >= hôm nay`, như `usp_CheckWarningGiaoVien`).
+- Thêm GV: chỉ GV `TrangThai=1`; cảnh báo lệch hạng **chỉ khi GV dạy Thực hành**, theo `gv_hop_hang` (§11E.7, CHANGES #56) hoặc GV đang có phân công ở khóa khác chưa bế giảng (`NgayBG >= hôm nay`, CHANGES #58 — không cộng thêm 1 ngày như `usp_CheckWarningGiaoVien`).
 - Gỡ GV: xóa **mọi dòng của GV trong khóa này** (cờ=1 và cờ=0) **từng dòng theo `MaLichLV`**; kèm xóa ghép xe (`KhoaHoc_XeTap` cờ=0) có `MaGV` đó **theo `MaLichSD`**. Hộp xác nhận liệt kê đúng các dòng này.
 - Xe: thêm = dòng cờ=1 (`MaGV` NULL, `MaHV` NULL); gỡ = xóa dòng cờ=1 và các ghép xe cờ=0 của xe trong khóa.
 
@@ -1445,39 +1463,58 @@ FK: `KhoaHoc_GiaoVien→GiaoVien/KhoaHoc`, `KhoaHoc_XeTap→XeTap/KhoaHoc` (NO A
 - **Lưu môn:** `TenMonHoc` = mã môn nối dấu phẩy sắp tăng (`"1,8"`), `MaMonHoc` = NULL. Môn Thực hành = mã `6`. Đọc lại dòng cũ: nếu `MaMonHoc` có giá trị (định dạng trước 07/2026) → hiển thị theo `MaMonHoc`; nếu `TenMonHoc` là chuỗi mã → tách theo dấu phẩy; nếu là tên → giữ nguyên.
 - **Thời gian:** `NgayBD/NgayKT` datetime; "Theo ngày" = `00:00`; chọn giờ bước 30 phút. Bản ghi cũ có phút lẻ giữ nguyên khi không sửa.
 - **Ngày bắt đầu thực hành của khóa** chỉ là trạng thái giao diện (không lưu CDB); khóa đã có phân công TH → suy ra từ `MIN(NgayBD)` của các dòng môn 6.
-- **Hàng loạt:** server nhận danh sách GV + 1 phân công mẫu, trả kết quả từng GV (hợp lệ / cảnh báo / bỏ qua + lý do); chỉ tạo các GV không bị chặn.
+- **Hàng loạt chạy ở UI** (không có endpoint riêng): với mỗi GV được tích, UI áp phân công mẫu vào bản nháp rồi gọi `POST /kiem-tra`; hộp xem trước hiện từng GV (hợp lệ / cảnh báo / bỏ qua + lý do), GV có ⛔ bị bỏ qua, các GV còn lại vào bản nháp. Gồm "Phân công cho N GV", "Dời ngày kết thúc thực hành cho N GV", "Áp Thực hành lái xe cho N GV TH chưa có". Ghi vẫn qua một `POST /ghi`.
 - Insert bằng `usp_LichLV_KhoaHoc_GiaoVien_Insert` (SP tự lấy `TenGV` và `LoaiGV` từ `GiaoVien.LoaiHinh_DaoTao`, ghi `BienSoXe=''`, cờ=0); sửa bằng `usp_LichLV_KhoaHoc_GiaoVien_Update` (theo `MaLichLV`); xóa bằng `usp_LLV_KhoaHoc_GiaoVien_Delete(@MaLichLV)`.
 
 ### 11E.5 Ghép xe (PCG-03, cờ=0)
-- 1 GV thực hành – 1 xe trong khoảng thời gian; ngày ghép mặc định = khoảng phân công TH của GV (`00:00`); `DiaDiem` điền sẵn; `MaHV/TenHV` để trống.
+- 1 GV thực hành – 1 xe trong khoảng thời gian; ngày ghép mặc định = từ `MIN(NgayBD)` đến `MAX(NgayKT)` của các phân công môn 6 của GV (`00:00`; GV có hai đợt cách quãng thì chiếm cả khoảng nghỉ, nhân viên chỉnh nếu muốn nhả xe — CHANGES #58); `DiaDiem` điền sẵn; `MaHV/TenHV` để trống.
 - Insert `LichSD_KhoaHoc_XeTap_Insert` (SP đặt cờ=0, tự lấy `TenGV`); sửa `usp_LichSD_KhoaHoc_XeTap_Update` (theo `MaLichSD`, ghi lại cờ=0); xóa `usp_LSD_KhoaHoc_Xetap_Delete(@MaLichSD)`. Thêm xe vào khóa (cờ=1): `usp_KhoaHoc_XeTap_Insert`; thêm GV vào khóa (cờ=1): `usp_KhoaHoc_GiaoVien_Insert` (truyền `@BienSoXe=''`, `@SoHV=NULL`, `@NgayHL/@NgayHetHL=NULL`).
-- **Gợi ý ghép xe:** với mỗi GV TH chưa có xe, chọn xe trong danh sách khóa chưa ghép, không bị chặn bởi luật §11E.7, sắp ưu tiên đúng hạng (không cảnh báo) rồi theo biển số; trả danh sách `{ma_gv, xe, tu, den, canh_bao[]}` để UI duyệt.
+- **Gợi ý ghép xe:** với mỗi **GV dạy thực hành** (§11E.7) chưa có xe, chọn xe trong danh sách khóa chưa ghép, không bị chặn bởi luật §11E.7, sắp ưu tiên đúng hạng (không cảnh báo) rồi theo biển số; trả danh sách `{ma_gv, xe, tu, den, canh_bao[]}` để UI duyệt.
 
 ### 11E.6 `POST /ghi` — thứ tự và an toàn
-1. Nhận **trạng thái mong muốn của cả khóa** (`gv_khoa[]`, `pc[]`, `xe_khoa[]`, `ghep[]`; dòng đã có ở CDB mang `id` = `MaLichLV`/`MaLichSD`, dòng mới mang id tạm `"n1"`…) + `da_xem_canh_bao: bool` + `xac_nhan_csdl_that: true`; thiếu `xac_nhan_csdl_that` → 400. **Server tự suy ra thay đổi** (`gv_them/gv_go`, `pc_them/pc_sua/pc_xoa`, `xe_them/xe_go`, `gh_them/gh_sua/gh_xoa`) bằng cách so với hiện trạng CDB đọc lại lúc ghi — client không phải tính diff (tránh lệch khi hai người cùng sửa). *Đổi so với bản đầu (nhận thay đổi) khi code task 87, 10/10/2026.*
-2. **Kiểm lại toàn bộ luật** trên trạng thái CDB hiện tại (dòng GIỮ NGUYÊN như CDB mà vi phạm → hạ ⛔ xuống ⚠ "dữ liệu cũ" để không chặn một thay đổi nhỏ vì lệch sẵn của khóa cũ; dòng mới/sửa vẫn chặn đủ) (đọc lại hiện trạng + bận); còn lỗi chặn → 409 kèm danh sách; có cảnh báo mà `da_xem_canh_bao=false` → 409.
+1. Nhận **trạng thái mong muốn của cả khóa** (`gv_khoa[]`, `pc[]`, `xe_khoa[]`, `ghep[]`; dòng đã có ở CDB mang `id` = `MaLichLV`/`MaLichSD`, dòng mới mang id tạm `"n1"`…) + `da_xem_canh_bao: bool` + `xac_nhan_csdl_that: true`; thiếu `xac_nhan_csdl_that` → 400. **Server tự suy ra thay đổi** (`gv_them/gv_go`, `pc_them/pc_sua/pc_xoa`, `xe_them/xe_go`, `gh_them/gh_sua/gh_xoa`) bằng cách so với hiện trạng CDB đọc lại lúc ghi — client không phải tính diff. Body kèm `dau_van_tay` (băm hiện trạng lúc mở khóa): **CDB đã khác → 409 `khoa_da_doi`** (không có cổng này, bản nháp cũ sẽ xóa lặng lẽ dòng người khác vừa ghi ở phần mềm CDB; CHANGES #59). Khóa ghi theo `ma_kh` trong bộ nhớ: request thứ hai trong lúc đang ghi → 409 `dang_ghi` (CDB không có UNIQUE nên ghi chồng sẽ nhân đôi dòng). Ghép xe có `xe` rỗng nghĩa là **Bỏ ghép**: có `id` CDB → xóa dòng đó; id tạm → bỏ qua. *Đổi so với bản đầu (nhận thay đổi) khi code task 87, 10/10/2026.*
+2. **Diff rỗng → 200 "Không có thay đổi để ghi"** (kể cả khóa đã DKKH, trước cổng cảnh báo; CHANGES #58). Ngược lại **kiểm lại toàn bộ luật** trên trạng thái CDB hiện tại (đọc lại hiện trạng + bận): ⛔ trên dòng **giữ nguyên** chỉ hạ ⚠ "dữ liệu cũ" khi chỗ phụ thuộc (GV ∈ danh sách / có thực hành / xe ∈ danh sách) **đã hỏng sẵn trong CDB** (CHANGES #59); "giữ nguyên" = phân công: cùng id + GV + tập môn + từ + đến · ghép xe: cùng GV + xe + từ + đến (địa điểm không tính) — sửa bất kỳ cột nào trong đó thì dòng thành "sửa", hết được hạ mức. Còn ⛔ → 409 kèm danh sách; có ⚠ mà `da_xem_canh_bao=false` → 409.
 3. Ghi theo thứ tự phụ thuộc: **xóa** (ghép xe → phân công → GV/xe) → **thêm** (GV/xe vào khóa → phân công → ghép xe) → **sửa**. Mỗi dòng một lệnh SP (autocommit, như §11D); đọc lại `MaLichLV/MaLichSD` mới bằng `SELECT` sau insert.
-4. Lỗi giữa chừng → dừng, trả `{da_ghi:[…], chua_ghi:[…], loi}`; UI làm tươi hiện trạng để nhân viên làm tiếp.
-5. Ghi **nhật ký** vào sqlite phía tool trước/sau (`phancong_nhat_ky`: id, thời gian, người, `ma_kh`, tóm tắt, JSON thay đổi, kết quả). `NguoiTao/NguoiSua` = tên đăng nhập tool; `GhiChu=''`.
+4. Lỗi giữa chừng → dừng, trả `{da_ghi:[…], chua_ghi:[…], loi}`; **không rollback** phần đã ghi (mỗi SP một giao dịch). Gửi lại cùng bản nháp là làm tiếp: server tính lại diff từ CDB nên chỉ ghi phần còn thiếu. UI làm tươi hiện trạng (kể cả `dau_van_tay`) để làm tiếp.
+5. Ghi **nhật ký** vào sqlite phía tool trước/sau (`phancong_nhat_ky`: id, thời gian, người, `ma_kh`, tóm tắt, JSON thay đổi, kết quả). Bản ghi `dang_ghi` quá 1 giờ coi là "gián đoạn" khi hiển thị (tool chết giữa chừng). `NguoiTao/NguoiSua` = tên đăng nhập tool; `GhiChu=''`.
 - **KHÔNG** dùng `usp_KhoaHoc_GiaoVien_Delete`, `usp_KhoaHoc_XeTap_Delete`, `usp_VoHieuLucKhoaHoc*` (xóa lan nhiều dòng/nhiều khóa).
+```
+ Nhân viên        Giao diện (React)                 Server tool (FastAPI)             CDB đích
+    │  mở khóa        │  GET /khoa/{ma_kh}                │  đọc hiện trạng ────────────>│
+    │────────────────>│──────────────────────────────────>│<─────────────────────────────│
+    │                 │<──────── hien_trang + dau_van_tay │                              │
+    │  sửa bản nháp   │  POST /kiem-tra (debounce 250ms)  │  luật thuần, không ghi       │
+    │────────────────>│──────────────────────────────────>│                              │
+    │  bấm Ghi        │  POST /ghi {nháp, dau_van_tay}    │  khóa theo ma_kh ──> 409 dang_ghi
+    │────────────────>│──────────────────────────────────>│  băm CDB ≠ dau_van_tay ──> 409 khoa_da_doi
+    │                 │                                   │  diff rỗng ──> 200 "Không có thay đổi"
+    │                 │                                   │  ⛔ ──> 409 · ⚠ chưa xác nhận ──> 409
+    │                 │                                   │  xóa → thêm → sửa, mỗi dòng một SP ──>│
+    │                 │<── {ok, da_ghi, chua_ghi, loi} ───│  nhật ký sqlite              │
+    │  thấy kết quả   │  làm tươi hiện trạng, xóa nháp    │                              │
+```
 
 ### 11E.7 Luật kiểm (`phancong_rules.py`) — công thức đúng CDB
 Với khoảng `[bd, kt)` (datetime): **trùng** ⇔ `NOT (kt <= bd_cũ OR bd >= kt_cũ)`.
+**Thuật ngữ:** **GV loại TH/AL** = nhãn danh mục `LoaiHinh_DaoTao`; **GV dạy thực hành** = có ≥1 phân công môn 6 trong bản nháp. Mọi luật ghép xe, "GV thực hành chưa có xe", gợi ý ghép xe xét theo **GV dạy thực hành**; nút "Chọn GV TH hợp hạng" xét theo **loại TH và AL**.
 | Mức | Luật |
 |---|---|
-| ⛔ Chặn | thiếu môn · thiếu ngày · `bd >= kt` · `bd <= NgayKG(00:00)` · `kt >= NgayBG + 23:59:59` · GV chưa thuộc khóa · GV/xe `TrangThai=0` · ghép xe: xe ∉ danh sách xe khóa · GV không có phân công môn 6 · xe có `min(NgayHHGPXTL, NgayHHGCNKD) < NgayBG` |
-| ⚠ Cảnh báo | GV/xe trùng thời gian với **mọi dòng cờ=0 `TrangThai=1`** (khóa khác **và cùng khóa**, loại chính dòng đang sửa; cùng ngày khác giờ **không** trùng) · 1 xe 2 GV / 1 GV 2 xe chồng giờ (**đổi từ ⛔ sang ⚠ ngày 10/10/2026** — CDB chỉ trả câu cảnh báo, user chốt vẫn cho phân; CHANGES #55) · hạng GV không hợp hạng khóa **khi GV có phân công môn 6** (`gv_hop_hang`: khóa B/B.01/C1 nhận mọi `CacHangGPLXDuocDT ∈ {B, C1, C, D1, D2, D, E}` — GV có chứng chỉ thực hành B dạy được khóa C1; khóa hạng khác: hạng khóa ∈ hạng được dạy; GV chỉ dạy lý thuyết không xét hạng) · hạng xe ≠ hạng xe của khóa · phân công môn 6: **tính theo cả GV** — đợt môn 6 kết thúc xa nhất vẫn trước `NgayBG` thì báo 1 lần/GV (ở dòng đó; CHANGES #58) · GV loại `LT` được phân công môn 6 (`gv_lt_day_thuc_hanh`; AL/TH không báo) · GV trong khóa chưa có phân công · GV TH chưa có xe · khóa đã có gói `DANG_KY_KHOA_HOC` (DKKH) |
+| ⛔ Chặn | thiếu môn · môn ∉ `DM_MonHoc` (`mon_khong_ton_tai`) · thiếu ngày · `bd >= kt` · `bd <= NgayKG(00:00)` · `kt >= NgayBG + 23:59:59` · GV chưa thuộc khóa · GV/xe `TrangThai=0` · ghép xe: xe ∉ danh sách xe khóa · GV không có phân công môn 6 · xe có `min(NgayHHGPXTL, NgayHHGCNKD) < NgayBG` |
+| ⚠ Cảnh báo | GV/xe trùng thời gian với **mọi dòng cờ=0 `TrangThai=1`** (khóa khác **và cùng khóa**, loại chính dòng đang sửa; cùng ngày khác giờ **không** trùng) · 1 xe 2 GV / 1 GV 2 xe chồng giờ (**đổi từ ⛔ sang ⚠ ngày 10/10/2026** — CDB chỉ trả câu cảnh báo, user chốt vẫn cho phân; CHANGES #55) · hạng GV không hợp hạng khóa **khi GV có phân công môn 6** (`gv_hop_hang`: khóa B/B.01/C1 nhận mọi `CacHangGPLXDuocDT ∈ {B, C1, C, D1, D2, D, E}` — GV có chứng chỉ thực hành B dạy được khóa C1; khóa hạng khác: hạng khóa ∈ hạng được dạy; GV chỉ dạy lý thuyết không xét hạng) · hạng xe ≠ hạng xe của khóa · phân công môn 6: **tính theo cả GV** — đợt môn 6 kết thúc xa nhất vẫn trước `NgayBG` thì báo 1 lần/GV (ở dòng đó; CHANGES #58) · GV loại `LT` được phân công môn 6 (`gv_lt_day_thuc_hanh`; AL/TH không báo) · GV trong khóa chưa có phân công · GV dạy thực hành chưa có xe · khóa đã có gói `DANG_KY_KHOA_HOC` (DKKH) |
 | ℹ Thông tin | xe thuộc khóa chưa ghép (**không** làm khóa thành "Cần xử lý" ở rà soát — CHANGES #58) |
 - **Không còn cảnh báo "đang dạy/chạy khóa khác chưa kết thúc" ở cột Kiểm tra khóa** (10/10/2026): `usp_CheckWarningGiaoVien`/`…XeTap` của CDB chỉ báo lúc **chọn** GV/xe vào khóa, không so ngày/giờ; ở tool nó là huy hiệu "Đang ở khóa Y" + hộp xác nhận khi thêm (BuocGiaoVien) và ghi chú trong hộp "Thêm xe". Gợi ý ghép xe vẫn ưu tiên xe ít cảnh báo (xe trùng bị đẩy xuống cuối, không bị loại). Ghi chú "đang ở khóa Y" còn tới **hết ngày bế giảng** (`NgayBG >= hôm nay`, CHANGES #58 — không cộng thêm 1 ngày như CDB).
-- **Bản nháp không đổi gì → `POST /ghi` trả 200 "Không có thay đổi để ghi" TRƯỚC cổng cảnh báo** (kể cả khóa đã DKKH; CHANGES #58). **Luật "dữ liệu cũ"** (`ha_muc_du_lieu_cu`): chỉ hạ ⛔→⚠ khi dòng giữ nguyên **và** chỗ phụ thuộc (GV ∈ danh sách / có thực hành / xe ∈ danh sách) đã hỏng sẵn trong CDB; ghép xe phân biệt theo (GV, xe) (CHANGES #58).
+- **Giới hạn đầu vào** (422 trước khi vào luật): `ma_kh/ma/xe` ≤ 30 · `dia_diem` ≤ 255 (cột `nvarchar(255)`) · `mon` ≤ 20 phần tử · `tu/den` ≤ 25 ký tự — để lỗi độ dài không nổ giữa lúc ghi.
+- **`xac_nhan_csdl_that` là cổng thao tác (chống bấm nhầm), không phải kiểm soát an ninh.** An ninh thật = phiên đăng nhập tool + `target_key` lấy từ cấu hình phía server + tool chỉ nghe `127.0.0.1`.
+- **Hiệu năng** (đo 10/10/2026, CDB dev): `/kiem-tra` 12 ms ở khóa lớn nhất (54 dòng); xem lại nếu một khóa vượt ~500 dòng.
 - **Mở:** gói DKKH/BC1 có chứa GV/xe hay không chưa xác minh (chuỗi XML của phần mềm CDB có `MA_GIAO_VIEN`, `BIEN_SO_XE`, `NGAY_HIEU_LUC`) → hiện đặt mức ⚠; nếu hóa ra có thì nâng lên yêu cầu kết xuất lại.
 
 ### 11E.8 Rà soát khóa (PCG-05)
-Một truy vấn tổng hợp theo `MaKH`: số GV cờ=1; số GV có ≥1 dòng cờ=0 ∈ danh sách; số GV cờ=0 ngoài danh sách; số xe cờ=1; số xe cờ=1 chưa có dòng cờ=0; số xe cờ=0 ngoài danh sách. Chỉ đọc.
+Một truy vấn tổng hợp theo `MaKH`: số GV cờ=1; số GV có ≥1 dòng cờ=0 ∈ danh sách; số GV cờ=0 ngoài danh sách; số xe cờ=1; số xe cờ=1 chưa có dòng cờ=0; số xe cờ=0 ngoài danh sách. Chỉ đọc. **Kết luận `Cần xử lý`** ⇔ không có GV nào trong danh sách · hoặc có GV chưa phân công · hoặc có phân công/ghép xe ngoài danh sách. **Xe chưa ghép chỉ là thông tin** (CHANGES #58).
 
 ### 11E.9 Kiểm thử
 - Unit `phancong_rules` (thuần): nửa mở (chạm đầu mút), cùng ngày khác giờ, lịch 00:00 chiếm mọi giờ, phạm vi khóa (00:00 KG, 23:59:59 BG), cùng khóa chặn, 1-1 GV–xe, hết hạn giấy phép.
 - API `kiem-tra`/`ghi` bằng cursor giả (mẫu `test_ketqua_sua_sau_gui.py`): 409 khi còn lỗi chặn, 409 khi thiếu xác nhận cảnh báo, thứ tự ghi, lỗi giữa chừng trả đã/chưa ghi, không bao giờ gọi SP xóa lan.
+- `tests/test_phancong_kiemthu.py` (/kiemthu 10–11/10/2026): thứ tự ghi giữa các nhóm · luật "dữ liệu cũ" không hạ nhầm dòng mới/mồ côi · cổng 400 trước 409 · `dau_van_tay` → 409 `khoa_da_doi` · khóa ghi → 409 `dang_ghi` · giới hạn đầu vào · `mon_khong_ton_tai` · bản nháp không đổi → 200.
 - Ghi thật vào CDB → nghiệm thu máy CSDT (mức 1).
 
 > **Phục vụ:** PCG-01/02/03/04/05. Quyết định: TDD-decisions §22. Liên quan: §11D (cùng DB đích, cùng cổng DKKH).
@@ -1623,6 +1660,7 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 | --- | --- | --- |
+| 11/10/2026 | 6.5 | **Sửa sau /reviewtdd §11E** (biên bản `tdd-review-11-10-2026-pcg.md`, CHANGES #59): §11E.0 +bản nháp ở UI + sơ đồ vòng đời · §11E.1 +sơ đồ hai tầng cờ · §11E.2 +`GET /mon`, +`dau_van_tay` · §11E.3 khớp #56/#58 · §11E.4 hàng loạt ở UI · §11E.5 ghép xe min–max + thuật ngữ · §11E.6 **+`dau_van_tay` → 409 `khoa_da_doi`, +khóa ghi → 409 `dang_ghi`**, diff rỗng → 200, định nghĩa "giữ nguyên", không rollback + sơ đồ luồng ghi · §11E.7 +thuật ngữ GV loại TH/AL ≠ GV dạy thực hành, +`mon_khong_ton_tai`, +giới hạn đầu vào, +ghi chú `xac_nhan_csdl_that` không phải an ninh · §11E.8 +công thức kết luận · §11E.9 +test. |
 | 10/10/2026 | 6.4 | **+§11E Phân công giáo viên – xe cho khóa** (CHANGES #54, PCG-01..05): phân hệ #4 tool; router `phancong.py` + `phancong_rules.py` (luật thuần: datetime nửa mở, phạm vi khóa, 1 GV–1 xe, hạn giấy phép) + `phancong_service.py`; 9 endpoint (`/kiem-tra` không ghi, `/goi-y-ghep-xe`, `/ghi` kiểm lại + thứ tự xóa→thêm→sửa + trả đã/chưa ghi); dùng SP `usp_KhoaHoc_GiaoVien_Insert`, `usp_LichLV_KhoaHoc_GiaoVien_Insert/_Update`, `usp_KhoaHoc_XeTap_Insert`, `LichSD_KhoaHoc_XeTap_Insert`, `usp_LichSD_KhoaHoc_XeTap_Update`, xóa theo `MaLichLV/MaLichSD`; **KHÔNG** dùng SP xóa lan; lưu môn `TenMonHoc="1,8"`, `MaMonHoc` NULL; nhật ký sqlite `phancong_nhat_ky`. Không bảng CDB mới. decisions §22. Cần /reviewtdd (API + nghiệp vụ mới). |
 | 10/10/2026 | 6.3 | **KQD-05 mở rộng "Sửa sau gửi" chọn từng HV** (CHANGES #53): §11D.7b mới — điều kiện bật (hết gói chưa gửi), `POST /mo-sua-sau-gui` (lùi đúng HV được chọn, không xóa gói, nhật ký sqlite `sua_sau_gui` ghi trước) + `GET /sua-sau-gui` (khối đỏ KQD-03); §11D.6 +2 endpoint; decisions §21 (đổi quyết định M1 khóa cứng §19). Verify DB 10/10: SP tiếp nhận phản hồi Sở chỉ nhận `TT_XuLy='12'`. Cần /reviewtdd (API + bảng sqlite mới). |
 | 08/10/2026 | 6.2 | **Loạt UX form xác nhận desktop** (CHANGES #52, THU-01/THU-02): §6.8 mới — 10 cải tiến nhập liệu thuần client `Quet.tsx` (nới khung 3xl; sắp lại ô CCCD+ngày cấp cùng hàng; chặn/đếm 12 số; in hoa tên; nút gạt Nam/Nữ; **gợi ý Nơi thường trú từ file tĩnh `data/dvhc-2025.json` 34 tỉnh+3.321 xã 2 cấp 2025, nạp lười, khớp không dấu, không ép chọn**; phím mũi tên nhảy ô; icon nhãn; trạng thái ✓/đỏ + dòng "còn thiếu"; tự suy giới tính/năm sinh từ CCCD `suyTuCccd`). KHÔNG đổi endpoint/schema/payload — ràng buộc lưu trữ vẫn ở `kiemFields`. Khác §3.3 (SQLite `DM_DVHC` của tool sinh mã). Code+build+34 test pass, commit `5087ceb`. |

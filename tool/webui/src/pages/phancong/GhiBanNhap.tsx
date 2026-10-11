@@ -169,7 +169,7 @@ function Dong({ dau, nhan, n, sp }: { dau: "+" | "~" | "−"; nhan: string; n: n
 }
 
 export default function GhiBanNhap({
-  khoa, goc, ban, canhBao, coChan, dangKiem, targetKey, onHuy, onDaGhi, tenGv, tenMon,
+  khoa, goc, ban, canhBao, coChan, dangKiem, targetKey, dauVanTay, onHuy, onDaGhi, tenGv, tenMon,
 }: {
   khoa: KhoaPC;
   goc: BanNhapPC;
@@ -178,6 +178,7 @@ export default function GhiBanNhap({
   coChan: boolean;
   dangKiem: boolean;
   targetKey: string;
+  dauVanTay?: string; // hiện trạng CDB lúc mở/ghi gần nhất — server so lại khi ghi
   onHuy: () => void;
   onDaGhi: (kq: GhiPCKetQua) => void;
   tenGv: (ma: string) => string;
@@ -206,7 +207,7 @@ export default function GhiBanNhap({
     setDangGhi(true);
     setLoi(null);
     try {
-      const r = await ghiPC(khoa.ma_kh, ban, { da_xem_canh_bao: tichCanhBao || canhBao.length === 0, xac_nhan_csdl_that: tichThat }, targetKey);
+      const r = await ghiPC(khoa.ma_kh, ban, { da_xem_canh_bao: tichCanhBao || canhBao.length === 0, xac_nhan_csdl_that: tichThat, dau_van_tay: dauVanTay }, targetKey);
       setKq(r);
       setHop("ketqua");
       onDaGhi(r);

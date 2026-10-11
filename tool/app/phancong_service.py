@@ -7,6 +7,9 @@ TDD §11E.1/§11E.2. Schema đã verify 10/10/2026: `KhoaHoc_GiaoVien` (cờ `Is
 from __future__ import annotations
 
 import re
+import hashlib
+import json
+import threading
 from datetime import date, datetime
 from typing import Any, Iterable
 
@@ -159,7 +162,25 @@ def hien_trang(conn, ma_kh: str, mons: list[dict]) -> dict:
         else:
             ghep.append({"id": int(r["MaLichSD"]), "ma": (r["MaGV"] or "").strip(), "xe": r["BienSoXe"].strip(),
                          "tu": iso_dt(r["NgayBD"]), "den": iso_dt(r["NgayKT"]), "dia_diem": (r["DiaDiem"] or "").strip()})
-    return {"gv_khoa": gv_khoa, "pc": pc, "xe_khoa": xe_khoa, "ghep": ghep}
+    out = {"gv_khoa": gv_khoa, "pc": pc, "xe_khoa": xe_khoa, "ghep": ghep}
+    out["dau_van_tay"] = dau_van_tay(out)
+    return out
+
+
+def dau_van_tay(hien: dict) -> str:
+    """Băm nội dung hiện trạng (id + cột nghiệp vụ). Client giữ lúc mở khóa, gửi lại ở `/ghi`: CDB đã bị ai
+    đó sửa từ lúc mở thì băm khác → 409, tránh bản nháp cũ xóa/đè dòng người khác vừa ghi (CHANGES #59)."""
+    gon = {k: hien[k] for k in ("gv_khoa", "pc", "xe_khoa", "ghep")}
+    return hashlib.sha1(json.dumps(gon, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()[:20]
+
+
+_KHOA_GHI: dict[str, threading.Lock] = {}
+_KHOA_GHI_MU = threading.Lock()
+
+
+def _khoa_ghi(ma_kh: str) -> threading.Lock:
+    with _KHOA_GHI_MU:
+        return _KHOA_GHI.setdefault(ma_kh, threading.Lock())
 
 
 def _gv_row(r: dict) -> dict:
@@ -538,8 +559,23 @@ def ghi(conn, ma: str, ma_kh: str, ban_nhap: dict, nguoi: str, da_xem_canh_bao: 
     trả `da_ghi`/`chua_ghi`. Không tự rollback phần đã ghi (mỗi SP một giao dịch riêng)."""
     if not xac_nhan_csdl_that:
         raise LoiNghiepVu("thieu_xac_nhan_csdl_that", "Cần xác nhận đây là CSDL thật trước khi ghi.", http=400)
+    khoa_ghi = _khoa_ghi(ma_kh)
+    if not khoa_ghi.acquire(blocking=False):        # CHANGES #59: chống ghi chồng (bấm đúp/hai tab) → trùng dòng
+        raise LoiNghiepVu("dang_ghi", "Khóa này đang được ghi, đợi xong rồi thử lại.")
+    try:
+        return _ghi_trong_khoa(conn, ma, ma_kh, ban_nhap, nguoi, da_xem_canh_bao, nhat_ky, hom_nay)
+    finally:
+        khoa_ghi.release()
+
+
+def _ghi_trong_khoa(conn, ma: str, ma_kh: str, ban_nhap: dict, nguoi: str, da_xem_canh_bao: bool,
+                    nhat_ky, hom_nay: str | None) -> dict:
     mons = ds_mon(conn)
     hien = hien_trang(conn, ma_kh, mons)
+    goc = ban_nhap.get("dau_van_tay")
+    if goc and goc != hien["dau_van_tay"]:
+        raise LoiNghiepVu("khoa_da_doi", "Khóa đã bị sửa ở CDB từ lúc bạn mở. Tải lại khóa rồi làm tiếp "
+                          "(bản nháp trên máy vẫn giữ).", {"hien_trang": hien})
     gv_khoa = [s.strip() for s in ban_nhap.get("gv_khoa", [])]
     pc = [{"id": p.get("id"), "ma": p["ma"].strip(), "mon": [int(i) for i in p.get("mon", [])],
            "tu": iso_dt(p.get("tu")), "den": iso_dt(p.get("den"))} for p in ban_nhap.get("pc", [])]
