@@ -25,6 +25,8 @@ export default function BuocXacNhan({
   onXong: () => void;
 }) {
   const loId = useRef(taoLoId());
+  // Nội dung ĐÃ XÁC NHẬN ở lần gửi đầu: "Làm tiếp" luôn gửi lại đúng nội dung này (form có thể mount lại và đổi số gợi ý).
+  const daXacNhan = useRef<{ so_bao_cao: string; ngay_bao_cao: string; ghi_chu: string } | null>(null);
   const coBc2 = tt.maBc2 !== "";
   const [form, setForm] = useState<GiaTriFormBc2 | null>(null);
   const [hop, setHop] = useState(false);
@@ -67,13 +69,16 @@ export default function BuocXacNhan({
     setDang("lap");
     let dangTheoDoi = false;   // đã gửi lệnh ghi: từ đây mọi lỗi đều là "chưa biết ghi tới đâu" → Làm tiếp
     try {
+      daXacNhan.current ??= {
+        so_bao_cao: form?.so_bao_cao ?? "",
+        ngay_bao_cao: form?.ngay_bao_cao ?? "",
+        ghi_chu: form?.ghi_chu ?? "",
+      };
       const t0 = await lapBc2({
         lo_id: loId.current,
         ma_kh: tt.maKh,
         ma_bc2: tt.maBc2,
-        so_bao_cao: form?.so_bao_cao ?? "",
-        ngay_bao_cao: form?.ngay_bao_cao ?? "",
-        ghi_chu: form?.ghi_chu ?? "",
+        ...daXacNhan.current,
         ds_ma_dk: tt.dsMaDk,
         da_xem_canh_bao: daXemCanhBao,
       });

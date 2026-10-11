@@ -11,7 +11,7 @@ interface Mo {
   taoKieu?: "ok" | "trung" | "mat_ket_noi" | "loi_500";
   /** Bước ③: body các lần POST /bc2/lap. */
   lap?: Record<string, unknown>[];
-  lapKieu?: "ok" | "loi_giua_chung" | "409" | "poll_loi" | "that_bai";
+  lapKieu?: "ok" | "loi_giua_chung" | "409" | "poll_loi" | "that_bai" | "409_dang_ghi" | "409_bc2_khac_khoa" | "409_bc2_da_dong" | "404_bc2_khong_ton_tai" | "abort_dau" | "dang_chay_mai" | "canh_bao";
   hoanTacLoId?: string;
   polls?: number;
   /** TNB-05: chi tiết BC2 đang xem (giả), body các lần gỡ / xóa. */
@@ -21,6 +21,14 @@ interface Mo {
   goKieu?: "ok" | "409_canh_bao" | "that_bai";
   hoanTacKieu?: "ok" | "loi" | "that_bai";
   hoanTacLan?: number;
+  /** Checkpoint 26 */
+  tre?: number;                  // ms trễ của POST /bc2/lap (cho double-click)
+  soSan?: number;                // số HV nhóm Sẵn sàng của mock ung-vien
+  lapTong?: number;
+  bumpSo?: boolean;              // gợi ý số lần gọi thứ hai nhảy sang 82/2026
+  goiYLan?: number;
+  dsExtra?: Record<string, unknown>[];
+  xoaKieu?: "409" | "abort";
 }
 
 const KHOA = [
@@ -74,6 +82,10 @@ async function giaBackend(page: Page, mo: Mo) {
   await page.route(/\/local\/tnbc2\/bc2\/[^/?]+(\?.*)?$/, async (r) => {
     const req = r.request();
     if (req.method() === "DELETE") {
+      if (mo.xoaKieu === "abort") return r.abort("connectionreset");
+      if (mo.xoaKieu === "409") {
+        return r.fulfill({ status: 409, json: { detail: { ma: "con_hoc_vien", noi_dung: "BC2 số 80/2026 còn 2 học viên — gỡ hết trước khi xóa" } } });
+      }
       (mo.xoa ??= []).push(decodeURIComponent(new URL(req.url()).pathname.split("/").pop() ?? ""));
       return r.fulfill({ json: { ma_bc2: "80/2026", da_xoa: true } });
     }
@@ -96,6 +108,25 @@ async function giaBackend(page: Page, mo: Mo) {
     const b = r.request().postDataJSON();
     (mo.lap ??= []).push(b);
     mo.polls = 0;
+    mo.lapTong = b.ds_ma_dk.length;
+    if (mo.tre) await new Promise((res) => setTimeout(res, mo.tre));
+    if (mo.lapKieu === "abort_dau" && mo.lap.length === 1) return r.abort("connectionreset");
+    const LOI_DONG_BO: Record<string, [number, string, string]> = {
+      "409_dang_ghi": [409, "dang_ghi", "Đang có thao tác ghi khác của phân hệ — đợi vài giây rồi thử lại"],
+      "409_bc2_khac_khoa": [409, "bc2_khac_khoa", "BC2 số 80/2026 không thuộc BC1 của khóa này"],
+      "409_bc2_da_dong": [409, "bc2_da_dong", "BC2 số 80/2026 đã đóng — không thêm học viên được"],
+      "404_bc2_khong_ton_tai": [404, "bc2_khong_ton_tai", "Không có BC2 số 80/2026"],
+    };
+    const ld = mo.lapKieu ? LOI_DONG_BO[mo.lapKieu] : undefined;
+    if (ld) return r.fulfill({ status: ld[0], json: { detail: { ma: ld[1], noi_dung: ld[2] } } });
+    if ((!mo.lapKieu || mo.lapKieu === "ok") && !b.ma_bc2) {
+      // BC2 mới được lập: danh sách và chi tiết phản ánh đúng N học viên (Checkpoint 26 — liên thông lập → xem)
+      const n = b.ds_ma_dk.length;
+      mo.chiTiet = { ...CHI_TIET, ma_bc2: b.so_bao_cao, so_bao_cao: b.so_bao_cao, tong_ghi: n, hv_thuc_te: n, lech: false,
+        hoc_vien: b.ds_ma_dk.map((m: string, i: number) => hvTrong(m, `Học Viên Mới ${i + 1}`)) };
+      (mo.dsExtra ??= []).push({ ma_bc2: b.so_bao_cao, so_bao_cao: b.so_bao_cao, ma_kh: b.ma_kh, ten_kh: "Khóa B2-01/2026",
+        ngay_bao_cao: b.ngay_bao_cao, tong_ghi: n, hv_thuc_te: n, loai: "oto", dang_mo: true, dong: false });
+    }
     if (mo.lapKieu === "409") {
       return r.fulfill({ status: 409, json: { detail: { ma: "khoa_chua_co_bc1", noi_dung: "Khóa K001 chưa có BC1 — chưa lập BC2 được" } } });
     }
@@ -133,7 +164,9 @@ async function giaBackend(page: Page, mo: Mo) {
       return r.fulfill({ json: { lo_id: loId, trang_thai: "xong", xu_ly: 1, tong: 1, xong: true, ma_bc2: "81/2026",
         da_go: ["T-0001"], bo_qua: [], loi: null } });
     }
-    if (mo.polls === 1) return r.fulfill({ json: { lo_id: loId, trang_thai: "dang_chay", xu_ly: 0, tong: 1, xong: false } });
+    if (mo.polls === 1 || mo.lapKieu === "dang_chay_mai") {
+      return r.fulfill({ json: { lo_id: loId, trang_thai: "dang_chay", xu_ly: 0, tong: mo.lapTong ?? 1, xong: false } });
+    }
     const lanDau = (mo.lap?.length ?? 0) === 1;
     if (mo.lapKieu === "poll_loi" && lanDau) {
       return r.fulfill({ status: 500, json: { detail: { ma: "khong_truy_van_duoc", noi_dung: "Không truy vấn được SQL Server" } } });
@@ -152,27 +185,34 @@ async function giaBackend(page: Page, mo: Mo) {
     return r.fulfill({ json: { lo_id: loId, trang_thai: "xong", xu_ly: 1, tong: 2, xong: true, ma_bc2: sau ? "81/2026" : maCo || "81/2026",
       da_tao_bc2: !sau && !maCo, da_them: sau ? ["T-0002"] : ["T-0001"], da_co_tu_truoc: sau ? ["T-0001"] : [],
       bo_qua: sau ? [] : [{ ma_dk: "T-0003", ma_ly_do: "doi_giua_chung", ly_do: "Phần mềm cũ vừa đổi học viên này — không ghi đè" }],
-      chua_ghi: [], canh_bao: [], loi: null } });
+      chua_ghi: [],
+      canh_bao: mo.lapKieu === "canh_bao"
+        ? [{ ma_dk: "T-0001", ma: "trang_thai_cu_la_11", noi_dung: "Trạng thái cũ đang là 'Đã vào BC2' — gỡ ra sẽ không về đúng" }]
+        : [],
+      loi: null } });
   });
   await page.route("**/local/tnbc2/bc2/ung-vien?**", async (r) => {
     const u = new URL(r.request().url());
     mo.ungVien.push(u.search);
     const thang = Number(u.searchParams.get("thi_lai_thang") || 12);
     const thi = THI.map((h) => ({ ...h, trong_nguong: (h.tuoi_thang ?? 99) <= thang }));
+    const san = SAN.slice(0, mo.soSan ?? SAN.length);
     await r.fulfill({ json: { ma_kh: u.searchParams.get("ma_kh"), ten_kh: "Khóa B2-01/2026", loai: "oto", hom_nay: "2026-10-11",
       thi_lai_thang: thang, ma_bc2: u.searchParams.get("ma_bc2") || "", bc1: { ma_bci: "BCI-1", so_bao_cao: "112/BCI/2026", so_hoc_sinh: 150 },
-      bc2_cua_khoa: [], nhom: { san_sang: SAN, thi_lai: thi, can_xem: XEM, khong_duoc: KHONG },
-      dem: { san_sang: SAN.length, thi_lai: thi.length, thi_lai_trong_nguong: thi.filter((h) => h.trong_nguong).length,
+      bc2_cua_khoa: [], nhom: { san_sang: san, thi_lai: thi, can_xem: XEM, khong_duoc: KHONG },
+      dem: { san_sang: san.length, thi_lai: thi.length, thi_lai_trong_nguong: thi.filter((h) => h.trong_nguong).length,
         can_xem: XEM.length, khong_duoc: KHONG.length } } });
   });
   await page.route("**/local/tnbc2/bc2/goi-y-so?**", async (r) => {
     const maKh = new URL(r.request().url()).searchParams.get("ma_kh");
     const moto = maKh === "M001";
+    mo.goiYLan = (mo.goiYLan ?? 0) + 1;
+    const soGoiY = mo.bumpSo && (mo.lap?.length ?? 0) > 0 ? "82/2026" : "81/2026";   // nhảy SAU lần gửi đầu
     await r.fulfill({ json: moto
       ? { ma_kh: "M001", ten_kh: "Khóa A1-05/2026", loai: "moto", nam: 2026, so: "870/26-TTTĐ", co_bc1: true,
           bc1: { ma_bci: "BCI-9", so_bao_cao: "A1A2870/26-TTTĐ", so_hoc_sinh: 74 },
           bc2_cua_khoa: [{ ma: "861/26-TTTĐ", trang_thai: 0, tong_ghi: 74 }], trung: false }
-      : { ma_kh: "K001", ten_kh: "Khóa B2-01/2026", loai: "oto", nam: 2026, so: "81/2026", co_bc1: true,
+      : { ma_kh: "K001", ten_kh: "Khóa B2-01/2026", loai: "oto", nam: 2026, so: soGoiY, co_bc1: true,
           bc1: { ma_bci: "BCI-1", so_bao_cao: "112/BCI/2026", so_hoc_sinh: 150, ngay_bao_cao: "2026-09-30" }, bc2_cua_khoa: [], trung: false } });
   });
   await page.route(/\/local\/tnbc2\/bc2(\?.*)?$/, async (r) => {
@@ -195,6 +235,7 @@ async function giaBackend(page: Page, mo: Mo) {
         so_bao_cao: b.so_bao_cao, ngay_bao_cao: b.ngay_bao_cao || "2026-10-11", tong_so_thi_sinh: 0, trang_thai: 0, canh_bao: [] } });
     }
     await r.fulfill({ json: { loai: "", dong: "", tong: 2, dang_mo: 1, da_dong: 1, lech: 0, bc2: [
+      ...(mo.dsExtra ?? []),
       { ma_bc2: "80/2026", so_bao_cao: "80/2026", ma_kh: "K001", ten_kh: "Khóa B2-01/2026", ngay_bao_cao: "2026-09-30",
         tong_ghi: 25, hv_thuc_te: 3, loai: "oto", dang_mo: true, dong: false },
       { ma_bc2: "861/26-TTÐ", so_bao_cao: "861/26-TTĐ", ma_kh: "M001", loai: "moto", dang_mo: true, dong: false },
@@ -689,5 +730,195 @@ test.describe("TNB-05 — Xem / gỡ / xóa BC2", () => {
     await hop.getByRole("button", { name: "Hoàn tác", exact: true }).click();
     await expect(hop.getByText(/đã đóng — không gỡ được/)).toBeVisible();
     await expect(hop.getByText(/Đã gỡ 0/)).toHaveCount(0);
+  });
+});
+
+test.describe("TNB-03 → TNB-04 → TNB-05 — Checkpoint 26: lập BC2 và xem/gỡ đầu–cuối", () => {
+  async function vaoBuoc2(page: Page, mo: Mo) {
+    await giaBackend(page, mo);
+    await page.goto("/tot-nghiep-bc2/bao-cao-2");
+    await page.getByRole("button", { name: "Lập BC2 mới" }).click();
+    await page.getByTestId("khoa-K001").getByRole("button", { name: "Chọn khóa này →" }).click();
+    await expect(page.getByTestId("dai-tom-tat")).toBeVisible();
+  }
+  async function chonMotHocVienVaTiep(page: Page) {
+    await page.getByRole("button", { name: "Bỏ chọn tất cả" }).click();
+    await page.getByLabel("Tìm học viên").fill("nguyen thi hoa");
+    await page.getByLabel("Tìm học viên").press("Enter");
+    await page.getByRole("button", { name: /Tiếp tục/ }).click();
+  }
+  async function ghi(page: Page, nut: RegExp) {
+    await page.getByRole("button", { name: nut }).click();
+    const hop = page.getByRole("dialog", { name: "Xác nhận ghi" });
+    await hop.getByLabel(/xác nhận đây là CSDL thật/).check();
+    return hop;
+  }
+
+  test("C26-A liên thông: lập BC2 xong → mở BC2 vừa lập thấy đúng N học viên, Tổng ghi = HV thực tế", async ({ page }) => {
+    await vaoBuoc2(page, { cacLanGoi: [], ungVien: [] });
+    await chonMotHocVienVaTiep(page);
+    const hop = await ghi(page, /^Lập BC2 và thêm 1 học viên$/);
+    await hop.getByRole("button", { name: "Lập BC2 và thêm" }).click();
+    await expect(page.getByText(/Đã thêm 1 học viên vào BC2 số 81\/2026/)).toBeVisible();
+    await page.getByRole("button", { name: "Xong" }).click();
+    await page.getByRole("button", { name: "Xem BC2 81/2026" }).click();
+    await expect(page.getByText(/Tổng ghi\s*1\s*·\s*Học viên thực tế\s*1/)).toBeVisible();
+    await expect(page.getByLabel("Chọn Học Viên Mới 1")).toBeEnabled();
+  });
+
+  test("C26-B bấm 'Lập' hai lần nhanh → mọi lệnh cùng một lo_id (server chỉ chạy một lô)", async ({ page }) => {
+    const mo: Mo = { cacLanGoi: [], ungVien: [], tre: 700 };
+    await vaoBuoc2(page, mo);
+    await chonMotHocVienVaTiep(page);
+    const hop = await ghi(page, /^Lập BC2 và thêm 1 học viên$/);
+    await hop.getByRole("button", { name: "Lập BC2 và thêm" }).dblclick();
+    await expect(page.getByText(/Đã thêm 1 học viên/)).toBeVisible();
+    expect(new Set(mo.lap!.map((b) => b.lo_id)).size).toBe(1);
+  });
+
+  test("C26-C F5 giữa lúc đang ghi: về danh sách, không tự gửi lại lệnh, không có Làm tiếp mồ côi", async ({ page }) => {
+    const mo: Mo = { cacLanGoi: [], ungVien: [], lapKieu: "dang_chay_mai" };
+    await vaoBuoc2(page, mo);
+    await chonMotHocVienVaTiep(page);
+    const hop = await ghi(page, /^Lập BC2 và thêm 1 học viên$/);
+    await hop.getByRole("button", { name: "Lập BC2 và thêm" }).click();
+    await expect(page.getByText(/Đang ghi/)).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole("button", { name: "Lập BC2 mới" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Làm tiếp" })).toHaveCount(0);
+    expect(mo.lap).toHaveLength(1);                           // không có lệnh ghi nào tự phát sau F5
+  });
+
+  test("C26-D xóa BC2 mà server báo còn học viên (409): hiện lý do, không báo 'Đã xóa'", async ({ page }) => {
+    const mo: Mo = { cacLanGoi: [], ungVien: [], xoaKieu: "409", chiTiet: { ...CHI_TIET, hv_thuc_te: 0, xoa_duoc: true, hoc_vien: [] } };
+    await giaBackend(page, mo);
+    await page.goto("/tot-nghiep-bc2/bao-cao-2");
+    await page.getByRole("button", { name: "Xem BC2 80/2026" }).click();
+    await page.getByRole("button", { name: "Xóa BC2 rỗng" }).click();
+    const hop = page.getByRole("dialog", { name: "Xóa BC2 rỗng" });
+    await hop.getByLabel(/xác nhận đây là CSDL thật/).check();
+    await hop.getByRole("button", { name: "Xóa BC2", exact: true }).click();
+    await expect(hop.getByText(/còn 2 học viên/)).toBeVisible();
+    await expect(hop.getByText(/Đã xóa BC2 số/)).toHaveCount(0);
+  });
+
+  test("C26-01 máy chủ đang bận ghi (409 dang_ghi): nêu lý do, chưa ghi gì, không Làm tiếp, bấm lại được", async ({ page }) => {
+    const mo: Mo = { cacLanGoi: [], ungVien: [], lapKieu: "409_dang_ghi" };
+    await vaoBuoc2(page, mo);
+    await chonMotHocVienVaTiep(page);
+    const hop = await ghi(page, /^Lập BC2 và thêm 1 học viên$/);
+    await hop.getByRole("button", { name: "Lập BC2 và thêm" }).click();
+    await expect(hop.getByText(/đợi vài giây rồi thử lại/)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Làm tiếp" })).toHaveCount(0);
+    await expect(hop.getByRole("button", { name: "Lập BC2 và thêm" })).toBeEnabled();
+    await expect(page.getByText(/Đã thêm/)).toHaveCount(0);
+  });
+
+  for (const [kieu, mong] of [
+    ["409_bc2_khac_khoa", /không thuộc BC1 của khóa này/],
+    ["409_bc2_da_dong", /đã đóng — không thêm học viên được/],
+    ["404_bc2_khong_ton_tai", /Không có BC2 số 80\/2026/],
+  ] as const) {
+    test(`C26-02 server từ chối ngay (${kieu}): hiện đúng lý do nghiệp vụ, chưa ghi gì`, async ({ page }) => {
+      const mo: Mo = { cacLanGoi: [], ungVien: [], lapKieu: kieu };
+      await vaoBuoc2(page, mo);
+      await chonMotHocVienVaTiep(page);
+      const hop = await ghi(page, /^Lập BC2 và thêm 1 học viên$/);
+      await hop.getByRole("button", { name: "Lập BC2 và thêm" }).click();
+      await expect(hop.getByText(mong)).toBeVisible();
+      await expect(page.getByText(/Đã thêm/)).toHaveCount(0);
+    });
+  }
+
+  test("C26-04 mất kết nối ngay ở lệnh lập: Làm tiếp gửi lại ĐÚNG số, ngày và danh sách đã xác nhận (số gợi ý nhảy cũng không đổi)", async ({ page }) => {
+    const mo: Mo = { cacLanGoi: [], ungVien: [], lapKieu: "abort_dau", bumpSo: true };
+    await vaoBuoc2(page, mo);
+    await chonMotHocVienVaTiep(page);
+    const hop = await ghi(page, /^Lập BC2 và thêm 1 học viên$/);
+    await hop.getByRole("button", { name: "Lập BC2 và thêm" }).click();
+    await expect(page.getByText(/Mất kết nối khi ghi/)).toBeVisible();
+    // form mount lại và hỏi gợi ý số lần hai (mock trả 82/2026): chờ nó hiện RỒI mới Làm tiếp, để bắt đúng lỗi
+    await expect(page.getByLabel("Số BC2 (= mã báo cáo)")).toHaveValue("82/2026");
+    await page.getByRole("button", { name: "Làm tiếp" }).click();
+    await expect(page.getByText(/Đã thêm 1 học viên/)).toBeVisible();
+    expect(mo.lap).toHaveLength(2);
+    expect(mo.lap![0].so_bao_cao).toBe("81/2026");
+    expect(mo.lap![1]).toMatchObject({
+      lo_id: mo.lap![0].lo_id, so_bao_cao: mo.lap![0].so_bao_cao, ngay_bao_cao: mo.lap![0].ngay_bao_cao,
+      ds_ma_dk: mo.lap![0].ds_ma_dk, ma_kh: mo.lap![0].ma_kh,
+    });
+  });
+
+  test("C26-05 dải tóm tắt = số gửi đi: 3.450 + 3 thi lại = 3.453; HV Cần xem / Không đưa được không lọt vào danh sách", async ({ page }) => {
+    const mo: Mo = { cacLanGoi: [], ungVien: [] };
+    await vaoBuoc2(page, mo);
+    await page.getByRole("button", { name: /Thêm 3 HV thi lại ≤ 12 tháng/ }).click();
+    await expect(page.getByTestId("dai-tom-tat")).toContainText("= 3.453");
+    await page.getByRole("button", { name: /Tiếp tục/ }).click();
+    const hop = await ghi(page, /^Lập BC2 và thêm 3\.453 học viên$/);
+    await hop.getByRole("button", { name: "Lập BC2 và thêm" }).click();
+    await expect(page.getByText(/Đã thêm/)).toBeVisible();
+    const ds = mo.lap![0].ds_ma_dk as string[];
+    expect(ds).toHaveLength(3453);
+    expect(ds).not.toContain("X-0001");                       // Cần xem
+    expect(ds).not.toContain("N-0001");                       // Không đưa được
+    expect(ds).toContain("T-0001");
+    expect(ds).not.toContain("T-0004");                       // thi lại cũ hơn ngưỡng: không tích sẵn
+  });
+
+  test("C26-06 lô có cảnh báo TT_XuLy_Old='11': hiện tên + nội dung, vẫn Hoàn tác được", async ({ page }) => {
+    const mo: Mo = { cacLanGoi: [], ungVien: [], lapKieu: "canh_bao" };
+    await vaoBuoc2(page, mo);
+    await chonMotHocVienVaTiep(page);
+    const hop = await ghi(page, /^Lập BC2 và thêm 1 học viên$/);
+    await hop.getByRole("button", { name: "Lập BC2 và thêm" }).click();
+    await expect(page.getByText(/Nguyễn Thị Hoà:/)).toBeVisible();
+    await expect(page.getByText(/gỡ ra sẽ không về đúng/)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Hoàn tác lần vừa rồi" })).toBeVisible();
+  });
+
+  for (const [soHv, coThanh] of [[199, false], [200, true]] as const) {
+    test(`C26-07 biên thanh tiến độ: ${soHv} học viên ${coThanh ? "CÓ" : "KHÔNG có"} thanh`, async ({ page }) => {
+      const mo: Mo = { cacLanGoi: [], ungVien: [], soSan: soHv, lapKieu: "dang_chay_mai" };
+      await vaoBuoc2(page, mo);
+      await page.getByRole("button", { name: /Tiếp tục/ }).click();
+      const hop = await ghi(page, new RegExp(`^Lập BC2 và thêm ${soHv} học viên$`));
+      await hop.getByRole("button", { name: "Lập BC2 và thêm" }).click();
+      if (coThanh) await expect(page.getByText(new RegExp(`Đang ghi \\d+/${soHv} học viên`))).toBeVisible();
+      else {
+        await expect(page.getByText(`Đang ghi ${soHv} học viên…`)).toBeVisible();
+        await expect(page.getByText(/Đang ghi \d+\/\d+ học viên/)).toHaveCount(0);
+      }
+    });
+  }
+
+  test("C26-10 BC2 đã đóng: chỉ xem — khóa Thêm/Gỡ/Hoàn tác/Xóa và không có nút 'Đóng BC2' nào", async ({ page }) => {
+    const mo: Mo = { cacLanGoi: [], ungVien: [], chiTiet: { ...CHI_TIET, trang_thai: 1, dang_mo: false, xoa_duoc: false,
+      hoc_vien: CHI_TIET.hoc_vien.map((h) => ({ ...h, go_duoc: false, ly_do_khoa: "BC2 đã đóng — không gỡ được" })) } };
+    await giaBackend(page, mo);
+    await page.goto("/tot-nghiep-bc2/bao-cao-2");
+    await expect(page.getByRole("button", { name: /Đóng BC2/ })).toHaveCount(0);
+    await page.getByRole("button", { name: "Xem BC2 80/2026" }).click();
+    await expect(page.getByText("Đã đóng — chỉ xem")).toBeVisible();
+    await expect(page.getByRole("button", { name: "+ Thêm học viên" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Hoàn tác lần thêm vừa rồi" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: /Gỡ 0 học viên khỏi BC2/ })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Xóa BC2 rỗng" })).toBeDisabled();
+    await expect(page.getByLabel("Chọn Nguyễn Thị Hoà")).toBeDisabled();
+    await expect(page.getByRole("button", { name: /Đóng BC2/ })).toHaveCount(0);
+  });
+
+  test("C26-11 xóa BC2 mất kết nối: nêu 'kiểm lại rồi thử', không báo đã xóa, vẫn bấm lại được", async ({ page }) => {
+    const mo: Mo = { cacLanGoi: [], ungVien: [], xoaKieu: "abort", chiTiet: { ...CHI_TIET, hv_thuc_te: 0, xoa_duoc: true, hoc_vien: [] } };
+    await giaBackend(page, mo);
+    await page.goto("/tot-nghiep-bc2/bao-cao-2");
+    await page.getByRole("button", { name: "Xem BC2 80/2026" }).click();
+    await page.getByRole("button", { name: "Xóa BC2 rỗng" }).click();
+    const hop = page.getByRole("dialog", { name: "Xóa BC2 rỗng" });
+    await hop.getByLabel(/xác nhận đây là CSDL thật/).check();
+    await hop.getByRole("button", { name: "Xóa BC2", exact: true }).click();
+    await expect(hop.getByText(/kiểm BC2 đã xóa chưa rồi thử lại/)).toBeVisible();
+    await expect(hop.getByText(/Đã xóa BC2 số/)).toHaveCount(0);
+    await expect(hop.getByRole("button", { name: "Xóa BC2", exact: true })).toBeEnabled();
   });
 });

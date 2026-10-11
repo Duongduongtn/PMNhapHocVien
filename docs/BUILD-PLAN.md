@@ -432,9 +432,9 @@
 
 ### ✅ Checkpoint 26 — sau task 109-113 (lập BC2 + xem/gỡ đầu–cuối)
 - [ ] Luồng ô tô và mô tô: ① chọn khóa → ② 4 nhóm (Sẵn sàng tích sẵn, Thi lại không tích, dán 10 CMT khớp đúng) → ③ "Lập BC2 và thêm N" → thấy tiến độ → mở BC2 thấy đúng N HV.
-- [ ] HV ở BC2 mở khác nằm "Không đưa được" kèm "gỡ khỏi BC2 … trước"; khóa chưa có BC1 mờ không chọn được.
-- [ ] "Hoàn tác lần vừa rồi" gỡ đúng lô; gỡ HV có kết quả bị khóa; xóa BC2 còn HV bị chặn.
-- [ ] Bấm "Lập" hai lần/F5 giữa chừng không tạo đôi.
+- [x] HV ở BC2 mở khác nằm "Không đưa được" kèm "gỡ khỏi BC2 … trước"; khóa chưa có BC1 mờ không chọn được.
+- [x] "Hoàn tác lần vừa rồi" gỡ đúng lô; gỡ HV có kết quả bị khóa; xóa BC2 còn HV bị chặn.
+- [x] Bấm "Lập" hai lần/F5 giữa chừng không tạo đôi.
 
 ### ✅ Checkpoint 27 — sau task 114-115 (cứu + danh sách + nhật ký) — **nghiệm thu máy CSDT**
 - [ ] Cứu trạng thái: nguồn `11/16/19` bị chặn; đích `09` thiếu số giấy bị chặn; hoàn tác về `03` được.
