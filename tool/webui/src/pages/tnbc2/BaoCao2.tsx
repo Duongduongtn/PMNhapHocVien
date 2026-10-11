@@ -2,7 +2,9 @@ import { useState } from "react";
 import ChuGiaiTrangThai from "../../components/ChuGiaiTrangThai";
 import BuocChonHocVien from "../../components/tnbc2/BuocChonHocVien";
 import BuocXacNhan from "../../components/tnbc2/BuocXacNhan";
+import DanhSachBc2 from "../../components/tnbc2/DanhSachBc2";
 import TaoBc2Rong from "../../components/tnbc2/TaoBc2Rong";
+import XemBc2 from "../../components/tnbc2/XemBc2";
 import { BuocChonKhoa, DauWizard, type TrangThaiWizard } from "../../components/tnbc2/WizardBc2";
 import type { LoaiHang } from "../../lib/tnbc2Api";
 
@@ -14,6 +16,22 @@ export default function BaoCao2() {
   const [wiz, setWiz] = useState<TrangThaiWizard | null>(null);
   const [thongBao, setThongBao] = useState("");
   const [rong, setRong] = useState(false);
+  const [xem, setXem] = useState<string | null>(null);
+
+  if (xem) {
+    return (
+      <XemBc2
+        maBc2={xem}
+        onVe={() => setXem(null)}
+        onThem={(ct) => {
+          setXem(null);
+          setThongBao(`Thêm học viên vào BC2 ${ct.ma_bc2}.`);
+          setWiz({ loai: ct.loai === "moto" ? "moto" : "oto", buoc: 2, maKh: ct.ma_kh, tenKh: ct.ten_kh, maBc2: ct.ma_bc2,
+            dsMaDk: [], nSan: 0, nThi: 0, tenHv: {} });
+        }}
+      />
+    );
+  }
 
   if (rong) {
     return (
@@ -96,6 +114,15 @@ export default function BaoCao2() {
           Tạo BC2 rỗng
         </button>
       </div>
+      <DanhSachBc2
+        loai={loai}
+        onXem={(b) => setXem(b.ma_bc2)}
+        onThem={(b) => {
+          setThongBao(`Thêm học viên vào BC2 ${b.ma_bc2}.`);
+          setWiz({ loai: b.loai === "moto" ? "moto" : "oto", buoc: 2, maKh: b.ma_kh, tenKh: b.ten_kh, maBc2: b.ma_bc2,
+            dsMaDk: [], nSan: 0, nThi: 0, tenHv: {} });
+        }}
+      />
     </div>
   );
 }

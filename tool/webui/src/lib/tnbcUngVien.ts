@@ -3,7 +3,7 @@ import { boDau } from "./format";
 import type { HvUngVien } from "./tnbc2Api";
 
 /** Khớp tên không dấu / CMT / mã đăng ký; rỗng = giữ tất cả. */
-export function khopTim(h: HvUngVien, q: string): boolean {
+export function khopTim(h: Pick<HvUngVien, "ten" | "cmt" | "ma_dk">, q: string): boolean {
   const t = q.trim();
   if (!t) return true;
   const k = boDau(t);

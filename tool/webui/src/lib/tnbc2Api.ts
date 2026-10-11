@@ -348,12 +348,50 @@ export const tienDoLo = (loId: string) => goi<LoTn>("GET", `/bc2/lo/${encodeURIC
 
 // ── Báo cáo 2: xem / gỡ / xóa / hoàn tác ──
 const duongBc2 = (ma: string) => `/bc2/${encodeURIComponent(ma)}`;
-export const chiTietBc2 = (ma: string) => goi("GET", duongBc2(ma));
+export interface HvTrongBc2 {
+  ma_dk: string;
+  so_ho_so: string;
+  ten: string;
+  ngay_sinh: string; // dd/mm/yyyy
+  cmt: string;
+  hang: string;
+  ma_kh: string;
+  ten_kh: string;
+  tt: string;
+  ten_trang_thai: string;
+  tt_cu: string;
+  ten_trang_thai_cu: string;
+  go_duoc: boolean;
+  ly_do_khoa: string;
+  /** `TT_XuLy_Old` rỗng: gỡ ra sẽ về giá trị rỗng — cần xác nhận đã xem. */
+  canh_bao_tt_cu: boolean;
+  khac_khoa_bc1: boolean;
+}
+export interface ChiTietBc2 {
+  ma_bc2: string;
+  so_bao_cao: string;
+  ngay_bao_cao: string;
+  trang_thai: number;
+  dang_mo: boolean;
+  nguoi_tao: string;
+  ngay_tao: string;
+  ma_bci: string;
+  ma_kh: string;
+  ten_kh: string;
+  loai: LoaiHang | "";
+  tong_ghi: number | null;
+  hv_thuc_te: number;
+  lech: boolean;
+  hoc_vien: HvTrongBc2[];
+  xoa_duoc: boolean;
+}
+export const chiTietBc2 = (ma: string) => goi<ChiTietBc2>("GET", duongBc2(ma));
 export const goHvKhoiBc2 = (ma: string, loId: string, dsMaDk: string[], daXemCanhBao: boolean) =>
-  goi("POST", `${duongBc2(ma)}/go`, {
+  goi<LoTn>("POST", `${duongBc2(ma)}/go`, {
     body: { lo_id: loId, ds_ma_dk: dsMaDk, da_xem_canh_bao: daXemCanhBao, xac_nhan_csdl_that: true },
   });
-export const xoaBc2 = (ma: string) => goi("DELETE", duongBc2(ma), { query: { xac_nhan_csdl_that: true } });
+export const xoaBc2 = (ma: string) =>
+  goi<{ ma_bc2: string; da_xoa: boolean }>("DELETE", duongBc2(ma), { query: { xac_nhan_csdl_that: true } });
 export const hoanTacLoThem = (ma: string, loId: string) =>
   goi<LoTn>("POST", `${duongBc2(ma)}/hoan-tac`, { body: { lo_id: loId, xac_nhan_csdl_that: true } });
 

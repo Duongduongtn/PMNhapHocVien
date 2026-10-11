@@ -1148,7 +1148,7 @@
 
 #### [TNB-04] Thêm học viên vào BC2
 
-**Trạng thái:** 🔄 In Progress — 6/6 task đã có code (96 luật, 97 đọc ứng viên, 99 lập + thêm + hoàn tác, 109 UI bước ①, 110 UI bước ② mới xong lõi, 112 UI bước ③ lập + thêm + làm tiếp + hoàn tác; kiểm bằng kết nối giả + Playwright giả backend, chưa ghi thật). **Còn:** "Dán danh sách CMT" + xử lý ngoại lệ tại chỗ (mini-form số giấy / Cứu trạng thái) — task 110b; lối vào "Thêm học viên" từ dòng BC2 đang mở + công tắc "Hiện BC2 đã đóng" — task 115; nghiệm thu ghi thật ở máy CSDT (Checkpoint 27)
+**Trạng thái:** 🔄 In Progress — 6/6 task đã có code (96 luật, 97 đọc ứng viên, 99 lập + thêm + hoàn tác, 109 UI bước ①, 110 UI bước ② mới xong lõi, 112 UI bước ③ lập + thêm + làm tiếp + hoàn tác; kiểm bằng kết nối giả + Playwright giả backend, chưa ghi thật). Lối vào "+ Thêm học viên" từ dòng BC2 đang mở và lọc đang mở/đã đóng đã có (task 113). **Còn:** "Dán danh sách CMT" + xử lý ngoại lệ tại chỗ (mini-form số giấy / Cứu trạng thái) — task 110b; nghiệm thu ghi thật ở máy CSDT (Checkpoint 27)
 **Story:** Là nhân viên cơ sở, tôi muốn đưa đúng các học viên đủ điều kiện (kể cả HV rớt/vắng từ khóa cũ) vào một BC2 đang mở.
 
 **Done khi:**
@@ -1171,7 +1171,7 @@
 
 #### [TNB-05] Bỏ học viên khỏi BC2
 
-**Trạng thái:** 🔄 In Progress — 1/2 task xong (100 backend xem/gỡ/xóa BC2, kiểm bằng kết nối giả, chưa ghi thật); còn 113 UI
+**Trạng thái:** ⚠️ Partial — 2/2 task xong (100 backend, 113 UI xem/gỡ/xóa/hoàn tác); mức 1 pass bằng kết nối giả + Playwright giả backend, **chưa ghi thật DB Nạp** (nghiệm thu máy CSDT, Checkpoint 27)
 **Story:** Là nhân viên cơ sở, tôi muốn gỡ học viên thêm nhầm khỏi BC2 đang mở.
 
 **Done khi:**
