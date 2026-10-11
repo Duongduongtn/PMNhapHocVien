@@ -1116,7 +1116,7 @@
 
 #### [TNB-02] Sửa / hủy kết quả tốt nghiệp
 
-**Trạng thái:** 🔄 In Progress — 1/2 task xong (103 backend hủy tốt nghiệp; sửa nhầm số giấy đã làm ở 102; kiểm bằng kết nối giả, chưa ghi thật); còn 108 UI
+**Trạng thái:** ⚠️ Partial — 2/2 task xong (103 backend hủy, 108 UI; sửa nhầm số giấy ở 102); mức 1 pass bằng kết nối giả + Playwright giả backend, **chưa ghi thật DB Nạp** (nghiệm thu máy CSDT, Checkpoint 27)
 **Story:** Là nhân viên cơ sở, tôi muốn sửa số giấy hoặc hủy tốt nghiệp khi chọn nhầm, để dữ liệu đúng trước khi lập BC2.
 
 **Done khi:**

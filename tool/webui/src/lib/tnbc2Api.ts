@@ -173,6 +173,8 @@ export interface LoTn {
   bi_gian_doan?: boolean;
   da_ghi?: { ma_dk: string; ket_qua: string }[];
   da_ghi_truoc?: string[];
+  da_huy?: { ma_dk: string; so_giay_cu: string }[];
+  da_huy_truoc?: { ma_dk: string; so_giay_cu: string }[];
   bo_qua?: { ma_dk: string; ma_ly_do: string; ly_do: string }[];
   chua_ghi?: string[];
   canh_bao?: { ma_dk?: string; ma: string; noi_dung: string }[];

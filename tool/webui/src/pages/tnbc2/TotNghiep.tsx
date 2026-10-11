@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ChuGiaiTrangThai from "../../components/ChuGiaiTrangThai";
 import DanSoGiayDialog from "../../components/tnbc2/DanSoGiayDialog";
 import HopGhiTotNghiep from "../../components/tnbc2/HopGhiTotNghiep";
+import HopHuyTotNghiep from "../../components/tnbc2/HopHuyTotNghiep";
 import { soVN } from "../../lib/format";
 import { danhLienTiep, khoaSoGiay } from "../../lib/tnbcSoGiay";
 import {
@@ -17,7 +18,8 @@ import {
 } from "../../lib/tnbc2Api";
 
 // TNB-01 (3/3) — màn Tốt nghiệp (ô tô): chọn khóa → điền chung sổ/quyết định → số giấy liên tiếp / dán Excel /
-// sửa tay (kiểm trùng ngay khi gõ) → Xem lại → Ghi. Bám ui-mock/tnbc2.html. Hủy/sửa tốt nghiệp: TNB-02 (task 108).
+// sửa tay (kiểm trùng ngay khi gõ) → Xem lại → Ghi. Bám ui-mock/tnbc2.html. TNB-02: sửa nhầm (HV đã tốt nghiệp
+// vẫn tích + nhập lại được) và "Hủy tốt nghiệp" (chỉ HV 09 chưa vào BC2).
 
 const CHUNG_TRONG: ChungTn = { so_so_tn: "", ngay_vao_so: "", so_quyet_dinh: "", ngay_ra_qd: "", ngay_in: "" };
 const NHAN_TRANG_THAI = [
@@ -29,7 +31,13 @@ const NHAN_TRANG_THAI = [
 
 const isoSangVN = (iso: string | null | undefined) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "");
 const ngayVN = (iso: string | null | undefined) => isoSangVN(iso);
-const chonDuoc = (h: HvTn) => h.sua_duoc && (h.trang_thai_tn === "chua_tot_nghiep" || (h.trang_thai_tn === "da_vao_bc2" && !h.so_giay));
+// Chọn được: chưa tốt nghiệp (cấp giấy) · đã tốt nghiệp (sửa nhầm / hủy) · đã vào BC2 nhưng chưa có số giấy (ca đặc biệt).
+const chonDuoc = (h: HvTn) =>
+  h.sua_duoc &&
+  (h.trang_thai_tn === "chua_tot_nghiep" ||
+    h.trang_thai_tn === "da_tot_nghiep" ||
+    (h.trang_thai_tn === "da_vao_bc2" && !h.so_giay));
+const huyDuoc = (h: HvTn) => h.trang_thai_tn === "da_tot_nghiep" && !h.ma_bc2 && h.sua_duoc;
 
 function Huy({ children, kieu }: { children: string; kieu: "warn" | "ok" | "gray" | "red" }) {
   const lop = {
@@ -60,6 +68,7 @@ export default function TotNghiep() {
   const [loiDanh, setLoiDanh] = useState("");
   const [dan, setDan] = useState(false);
   const [hop, setHop] = useState<{ dong: DongTn[]; chung: ChungTn } | null>(null);
+  const [hopHuy, setHopHuy] = useState<HvTn[] | null>(null);
   const [kiem, setKiem] = useState<Record<string, DongXemLaiTn>>({});
 
   const hvDaThay = useRef<Map<string, HvTn>>(new Map());
@@ -163,7 +172,7 @@ export default function TotNghiep() {
     setSel((s) => { const n = new Set(s); if (bat) n.add(h.ma_dk); else n.delete(h.ma_dk); return n; });
   }
   function chonTatCa(bat: boolean) {
-    setSel((s) => { const n = new Set(s); ds.filter(chonDuoc).forEach((h) => (bat ? n.add(h.ma_dk) : n.delete(h.ma_dk))); return n; });
+    setSel((s) => { const n = new Set(s); ds.filter(thuocNhomChonTatCa).forEach((h) => (bat ? n.add(h.ma_dk) : n.delete(h.ma_dk))); return n; });
   }
   function chonChuaGiay() {
     // chỉ nhóm "Đã học xong, chưa tốt nghiệp" (03); HV đã vào BC2 thiếu giấy là ca đặc biệt — tích tay
@@ -185,11 +194,16 @@ export default function TotNghiep() {
   const tenHv = useMemo(() => Object.fromEntries([...hvDaThay.current.values()].map((h) => [h.ma_dk, h.ten])),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [data]);
+  // "Chọn tất cả" không tích lẫn: đang lọc "Đã tốt nghiệp" thì chọn nhóm đó (để hủy/sửa nhầm hàng loạt), ngược lại chỉ nhóm
+  // "chưa tốt nghiệp" — HV đã tốt nghiệp tích tay để khỏi bị bộ sổ điền chung đè nhầm.
+  const thuocNhomChonTatCa = (h: HvTn) =>
+    trangThai === "da_tot_nghiep" ? huyDuoc(h) : h.trang_thai_tn === "chua_tot_nghiep" && chonDuoc(h);
   const ghiDuocKhoa = !!data?.ghi_duoc;
   const khoaChon = khoa?.khoa.find((k) => k.ma_kh === maKh);
   const soDanDuoc = ds.filter((h) => sel.has(h.ma_dk) && chonDuoc(h)).length;
-  const tatCaDaChon = ds.filter(chonDuoc).length > 0 && ds.filter(chonDuoc).every((h) => sel.has(h.ma_dk));
+  const tatCaDaChon = ds.filter(thuocNhomChonTatCa).length > 0 && ds.filter(thuocNhomChonTatCa).every((h) => sel.has(h.ma_dk));
   const khongTrungCucBo = hvChon.every((h) => !trungCucBo(h));
+  const huyDuocCa = hvChon.length > 0 && hvChon.every(huyDuoc);
   const setC = (k: keyof ChungTn, v: string) => setChung((c) => ({ ...c, [k]: v }));
 
   return (
@@ -247,9 +261,9 @@ export default function TotNghiep() {
                 <th className="py-2 pr-3 font-semibold">Tên học viên</th>
                 <th className="py-2 pr-3 font-semibold">Ngày sinh</th>
                 <th className="py-2 pr-3 font-semibold">Số CMT</th>
-                <th className="py-2 pr-3 font-semibold">Tên khóa học</th>
+                <th className="py-2 pr-3 font-semibold hidden min-[1400px]:table-cell">Tên khóa học</th>
                 <th className="py-2 pr-3 font-semibold">Trạng thái</th>
-                <th className="py-2 pr-3 font-semibold w-[170px]">Số giấy CNTN</th>
+                <th className="py-2 pr-3 font-semibold min-w-[170px]">Số giấy CNTN</th>
               </tr>
             </thead>
             <tbody>
@@ -279,19 +293,21 @@ export default function TotNghiep() {
                     </td>
                     <td className="py-1.5 pr-3 tabular-nums whitespace-nowrap">{h.ngay_sinh}</td>
                     <td className="py-1.5 pr-3 font-mono text-[12px] whitespace-nowrap">{h.cmt}</td>
-                    <td className="py-1.5 pr-3 max-w-[130px] truncate" title={khoa?.khoa.find((x) => x.ma_kh === h.ma_kh)?.ten_kh ?? data?.ten_kh}>
+                    <td className="py-1.5 pr-3 max-w-[130px] truncate hidden min-[1400px]:table-cell" title={khoa?.khoa.find((x) => x.ma_kh === h.ma_kh)?.ten_kh ?? data?.ten_kh}>
                       {khoa?.khoa.find((x) => x.ma_kh === h.ma_kh)?.ten_kh ?? data?.ten_kh}
                     </td>
-                    <td className="py-1.5 pr-3">
+                    <td className="py-1.5 pr-3 max-w-[230px]">
                       <Huy kieu={h.trang_thai_tn === "da_tot_nghiep" ? "ok" : h.trang_thai_tn === "khac" ? "red" : h.trang_thai_tn === "da_vao_bc2" ? "gray" : "warn"}>
                         {h.ten_trang_thai}
                       </Huy>
                       {h.ly_do_khoa && <div className="text-[11px] text-warning mt-0.5">{h.ly_do_khoa}</div>}
-                      {!h.ly_do_khoa && h.trang_thai_tn === "da_tot_nghiep" && (
-                        <div className="text-[11px] text-muted-foreground mt-0.5">Sửa / hủy ở bước riêng</div>
+                      {!h.ly_do_khoa && h.trang_thai_tn === "da_vao_bc2" && h.so_giay && (
+                        <div className="text-[11px] text-warning mt-0.5">
+                          Đã vào BC2{h.ma_bc2 ? ` số ${h.ma_bc2}` : ""} — gỡ khỏi BC2 trước
+                        </div>
                       )}
                     </td>
-                    <td className="py-1.5 pr-3">
+                    <td className="py-1.5 pr-3 min-w-[170px]">
                       {duoc ? (
                         <>
                           <input aria-label={`Số giấy của ${h.ten}`} placeholder="N1|…"
@@ -385,15 +401,35 @@ export default function TotNghiep() {
           className="h-9 px-3 rounded-lg border border-transparent text-[13px] font-semibold text-primary hover:bg-accent">
           Làm tươi
         </button>
+        <button type="button" disabled={!ghiDuocKhoa || !huyDuocCa}
+          title="Chỉ hủy được học viên đã tốt nghiệp và chưa vào BC2"
+          onClick={() => setHopHuy(hvChon)}
+          className="ml-auto h-9 px-4 rounded-lg border border-destructive/50 text-destructive text-[13px] font-semibold hover:bg-destructive/10 disabled:opacity-45 disabled:cursor-not-allowed">
+          Hủy tốt nghiệp
+        </button>
         <button type="button"
           disabled={sel.size === 0 || !ghiDuocKhoa || !khongTrungCucBo}
           title={!khongTrungCucBo ? "Có số giấy trùng trong danh sách — sửa trước" : undefined}
           onClick={() => setHop({ dong: dongGhi(), chung: { ...chung } })}
-          className="ml-auto h-9 px-4 rounded-lg bg-tn text-white text-[13px] font-semibold disabled:opacity-45 disabled:cursor-not-allowed">
+          className="h-9 px-4 rounded-lg bg-tn text-white text-[13px] font-semibold disabled:opacity-45 disabled:cursor-not-allowed">
           Xem lại &amp; ghi {soVN(sel.size)} học viên
         </button>
       </div>
 
+      {hopHuy && (
+        <HopHuyTotNghiep
+          maKh={maKh}
+          hocVien={hopHuy.map((h) => ({ ma_dk: h.ma_dk, ten: h.ten, so_giay: h.so_giay }))}
+          onDong={() => setHopHuy(null)}
+          onXong={() => {
+            setHopHuy(null);
+            setSel(new Set());
+            setGiay({});
+            setKiem({});
+            setLamTuoi((n) => n + 1);
+          }}
+        />
+      )}
       {dan && <DanSoGiayDialog soHocVien={soDanDuoc} onAp={apDan} onDong={() => setDan(false)} />}
       {hop && (
         <HopGhiTotNghiep
