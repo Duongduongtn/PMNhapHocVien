@@ -1,24 +1,29 @@
 """Tốt nghiệp & Báo cáo 2 (TNB) — router tool máy CSDT. TDD §11F.
 
-Task 97: CHỈ ĐỌC (lập BC2 / thêm HV: nguồn ứng viên). Ghi (tạo BC2, thêm/gỡ HV, tốt nghiệp,
-cứu trạng thái) thêm ở task 98+. Mount kèm `require_session` ở main.py (collector không có
+Task 97: đọc (nguồn ứng viên). Task 98: tạo BC2. Ghi tiếp (thêm/gỡ HV, tốt nghiệp, cứu trạng thái)
+ở task 99+. Mọi `POST` ghi cần `xac_nhan_csdl_that: true` (cổng thao tác chống bấm nhầm, KHÔNG phải
+kiểm soát an ninh — an ninh = phiên tool + chỉ nghe 127.0.0.1). Mount kèm `require_session` ở main.py (collector không có
 session cục bộ → 403). Đọc DB Nạp `GPLX_CSDT` bằng `sqlserver_cursor()` — KHÔNG đụng CDB.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app import tn_bc2_rules as rules
 from app import tn_bc2_service as svc
-from app.db import ConfigChuaDay, sqlserver_cursor
+from app.db import ConfigChuaDay, sqlserver_conn, sqlserver_cursor
+from app.session import Phien, require_session
 
 router = APIRouter(prefix="/local/tnbc2", tags=["tnbc2"])
 
 
 def _loi(e: Exception) -> HTTPException:
     if isinstance(e, svc.LoiNghiepVu):
-        return HTTPException(status_code=e.http, detail={"ma": e.ma, "noi_dung": e.noi_dung})
+        d = {"ma": e.ma, "noi_dung": e.noi_dung}
+        if e.du_lieu:
+            d.update(e.du_lieu)
+        return HTTPException(status_code=e.http, detail=d)
     if isinstance(e, ConfigChuaDay):
         return HTTPException(status_code=400, detail={"ma": "chua_cau_hinh_db", "noi_dung": str(e)})
     return HTTPException(status_code=502, detail={
@@ -76,5 +81,39 @@ def khop_danh_sach(body: KhopIn):
         with sqlserver_cursor() as cur:
             ngoai_tap = svc.doc_ngoai_tap_cua_khoa(cur, body.ma_kh)
         return svc.khop_danh_sach(tap, khoa, body.dong, body.ma_bc2, ngoai_tap)
+    except Exception as e:  # noqa: BLE001
+        raise _loi(e)
+
+
+@router.get("/bc2/goi-y-so")
+def goi_y_so(ma_kh: str = Query(..., min_length=1, max_length=30)):
+    """Số BC2 gợi ý (nhân viên sửa được) + BC1 của khóa + BC2 đã có của BC1 đó."""
+    try:
+        with sqlserver_cursor() as cur:
+            return svc.goi_y_so(cur, ma_kh)
+    except Exception as e:  # noqa: BLE001
+        raise _loi(e)
+
+
+class TaoBc2In(BaseModel):
+    ma_kh: str = Field(min_length=1, max_length=30)
+    so_bao_cao: str = Field(min_length=1, max_length=60)      # kiểm ≤ 13 ký tự ở luật (MaBCII varchar 13)
+    ngay_bao_cao: str = Field(default="", max_length=10)       # YYYY-MM-DD; rỗng = hôm nay
+    ghi_chu: str = Field(default="", max_length=1000)
+    da_xem_canh_bao: bool = False
+    thu_lai: bool = False            # True = gửi lại sau khi không biết kết quả lần trước (mất kết nối)
+    xac_nhan_csdl_that: bool = False
+
+
+@router.post("/bc2")
+def tao_bc2(body: TaoBc2In, phien: Phien = Depends(require_session)):
+    """Tạo BC2 rỗng (hoặc dùng lại cho `/bc2/lap`): `usp_BaoCaoII_Insert`, `TrangThai=0`."""
+    if not body.xac_nhan_csdl_that:
+        raise HTTPException(status_code=400, detail={
+            "ma": "thieu_xac_nhan_csdl_that", "noi_dung": "Cần xác nhận đây là CSDL thật trước khi ghi."})
+    try:
+        with sqlserver_conn() as conn:
+            return svc.tao_bc2(conn, body.ma_kh, body.so_bao_cao, body.ngay_bao_cao, body.ghi_chu,
+                               phien.username, da_xem_canh_bao=body.da_xem_canh_bao, thu_lai=body.thu_lai)
     except Exception as e:  # noqa: BLE001
         raise _loi(e)

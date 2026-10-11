@@ -281,3 +281,13 @@ def test_gioi_han_danh_sach_dan():
 def test_co_chan():
     assert r.co_chan(r.kiem_so_bc2("", [])) is True
     assert r.co_chan([]) is False
+
+
+def test_so_bc2_gop_eth_va_d_gach():
+    """DB lưu MaBCII varchar (Latin1): `…TTTĐ` đọc ra `…TTTÐ` — hai dạng là MỘT số (khóa chính coi như nhau)."""
+    assert ma_loi(r.kiem_so_bc2("870/26-TTTĐ", ["870/26-TTTÐ"])) == {"trung_so"}
+    assert ma_loi(r.kiem_so_bc2("870/26-tttđ", ["870/26-TTTÐ"])) == {"trung_so"}
+    assert r.kiem_so_bc2("871/26-TTTĐ", ["870/26-TTTÐ"]) == []
+    assert r.khoa_so_bc2("870/26-TTTĐ") == r.khoa_so_bc2("870/26-TTTÐ")
+    assert r.dang_luu_ma_bcii("870/26-TTTĐ") == "870/26-TTTÐ"
+    assert r.dang_luu_ma_bcii("80/2026") == "80/2026"

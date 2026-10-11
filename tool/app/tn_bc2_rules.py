@@ -263,15 +263,28 @@ def goi_y_so_bc2(loai: str, cac_ma_bcii: Iterable[str], nam: int, so_bc1: str | 
     return f"{cao_nhat + 1}/{int(nam)}"
 
 
+def khoa_so_bc2(so: str | None) -> str:
+    """Khóa so sánh số BC2: không phân biệt hoa/thường và coi `Ð` (U+00D0, dạng đọc ra từ cột
+    `MaBCII` varchar, Latin1) = `Đ` (U+0110, dạng nhân viên gõ / cột nvarchar) — cùng một byte 0xD0
+    trong DB (collation Latin1_General_CI_AS), nên khóa chính coi chúng là một."""
+    return _s(so).replace("Ð", "Đ").replace("ð", "đ").casefold()
+
+
+def dang_luu_ma_bcii(so: str | None) -> str:
+    """Dạng của `MaBCII` (varchar) khi đọc/ghi qua pymssql: `Đ` → `Ð` (như DB trả ra)."""
+    return _s(so).replace("Đ", "Ð").replace("đ", "ð")
+
+
 def kiem_so_bc2(so: str | None, da_co: Iterable[str]) -> list[dict]:
-    """Số BC2 (= `MaBCII`): không rỗng, ≤ 13 ký tự (varchar 13), không trùng (không phân biệt hoa/thường)."""
+    """Số BC2 (= `MaBCII`): không rỗng, ≤ 13 ký tự (varchar 13), không trùng (không phân biệt
+    hoa/thường, `Ð` = `Đ`)."""
     s = _s(so)
     if not s:
         return [_vd(CHAN, "thieu_so", "Cần nhập số báo cáo")]
     vde: list[dict] = []
     if len(s) > DO_DAI_COT["ma_bcii"]:
         vde.append(_vd(CHAN, "so_qua_dai", f"Số báo cáo tối đa {DO_DAI_COT['ma_bcii']} ký tự"))
-    if s.casefold() in {_s(x).casefold() for x in da_co}:
+    if khoa_so_bc2(s) in {khoa_so_bc2(x) for x in da_co}:
         vde.append(_vd(CHAN, "trung_so", f"Số BC2 {s} đã tồn tại — đổi số khác"))
     return vde
 

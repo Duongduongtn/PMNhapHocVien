@@ -1131,7 +1131,7 @@
 
 #### [TNB-03] Tạo BC2 (ô tô / mô tô)
 
-**Trạng thái:** ⏳ Todo
+**Trạng thái:** 🔄 In Progress — 1/2 task xong (98 backend tạo BC2, kiểm bằng kết nối giả, chưa ghi thật); còn 111 UI form
 **Story:** Là nhân viên cơ sở, tôi muốn tạo phiếu BC2 đúng số và đúng BC1 của khóa, để thêm học viên vào báo cáo.
 
 **Done khi:**

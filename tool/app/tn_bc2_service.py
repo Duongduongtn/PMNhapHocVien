@@ -1,7 +1,8 @@
 """Tốt nghiệp & Báo cáo 2 (TNB, task 97) — ĐỌC DB Nạp `GPLX_CSDT` cho "Lập BC2 / Thêm HV".
 
-Chỉ ĐỌC: một lần `EXEC usp_NguoiLX_HoSo_ThemHS_BC2` (cả CSĐT, `@MaKH=''`) + vài `SELECT`
-bổ sung; phân nhóm bằng `tn_bc2_rules` (luật thuần). KHÔNG ghi gì (ghi ở task 98+).
+ĐỌC (task 97): một lần `EXEC usp_NguoiLX_HoSo_ThemHS_BC2` (cả CSĐT, `@MaKH=''`) + vài `SELECT`
+bổ sung; phân nhóm bằng `tn_bc2_rules` (luật thuần).
+GHI (task 98+): chỉ qua SP có sẵn, trong khóa chung `tnbc2_ghi`, luôn đọc lại trước khi ghi.
 TDD §11F.4 (v6.8): SP lọc khóa bằng `LIKE '%'+@MaKH+'%'` và KHÔNG trả `TT_XuLy`/`MaBC2`/hạng/
 `NgayBG` → gọi một lần cho cả CSĐT rồi bổ sung cột; đo 11/10/2026 ≈ 3.450 HV trong 0,07–0,12 giây.
 """
@@ -10,16 +11,21 @@ from __future__ import annotations
 import calendar
 import threading
 import time
-from datetime import date
+from contextlib import contextmanager
+from datetime import date, datetime
 from typing import Any, Callable, Iterable
 
+from app import tn_bc2_nhat_ky as nhat_ky
 from app import tn_bc2_rules as rules
+
+TEN_KHOA_GHI = "tnbc2_ghi"       # sp_getapplock chung cho MỌI thao tác ghi của phân hệ (TDD §11F.0)
+CHO_KHOA_GHI_MS = 15000
 
 CACHE_GIAY = 30
 TOI_DA_KHONG_DUOC = 500          # trần số dòng "Không đưa được" của khóa chọn, trả về một lần
 _KHOI_IN = 900                   # pymssql: tối đa ~2100 tham số → chia khối
 
-_Q_BC1 = "SELECT MaBCI, MaKH, SoBaoCao, SoHocSinh FROM BaoCaoI"
+_Q_BC1 = "SELECT MaBCI, MaKH, MaCSDT, SoBaoCao, SoHocSinh FROM BaoCaoI"
 _Q_BC2 = "SELECT MaBCII, MaBCI, SoBaoCao, TrangThai, TongSoThiSinh FROM BaoCaoII"
 _Q_KHOA = "SELECT MaKH, TenKH, HangGPLX, NgayBG FROM KhoaHoc"
 _Q_HANG_KHOA = "SELECT MaKH, TenKH, HangGPLX, NgayBG FROM KhoaHoc WHERE MaKH = %s"
@@ -36,9 +42,9 @@ _SP_UNG_VIEN = "EXEC usp_NguoiLX_HoSo_ThemHS_BC2 %s,%s,%s,%s,%s,%s,%s,%s,%s"
 class LoiNghiepVu(Exception):
     """Lỗi người dùng gây ra (router đổi thành HTTP 4xx)."""
 
-    def __init__(self, ma: str, noi_dung: str, http: int = 400):
+    def __init__(self, ma: str, noi_dung: str, http: int = 400, du_lieu: dict | None = None):
         super().__init__(noi_dung)
-        self.ma, self.noi_dung, self.http = ma, noi_dung, http
+        self.ma, self.noi_dung, self.http, self.du_lieu = ma, noi_dung, http, du_lieu
 
 
 # ── Tiện ích ──
@@ -90,6 +96,26 @@ def bo_cache() -> None:
         _cache.clear()
 
 
+def doc_bc(cur) -> tuple[dict, dict, dict, dict]:
+    """Đọc BC1 + BC2 hiện có: (bc1_theo_khoa, bc2_map, bc2_bci, bc2_theo_bc1). Không cache."""
+    cur.execute(_Q_BC1)
+    bc1_theo_khoa = {_s(r["MaKH"]): {"ma_bci": _s(r["MaBCI"]), "ma_csdt": _s(r.get("MaCSDT")),
+                                     "so_bao_cao": _s(r["SoBaoCao"]), "so_hoc_sinh": r.get("SoHocSinh")}
+                     for r in cur.fetchall()}
+    cur.execute(_Q_BC2)
+    bc2_map: dict[str, int] = {}
+    bc2_bci: dict[str, str] = {}
+    bc2_theo_bc1: dict[str, list[dict]] = {}
+    for r in cur.fetchall():
+        ma = _s(r["MaBCII"])
+        tt = 1 if r.get("TrangThai") in (1, True, "1") else 0
+        bc2_map[ma] = tt
+        bc2_bci[ma] = _s(r["MaBCI"])
+        bc2_theo_bc1.setdefault(_s(r["MaBCI"]), []).append(
+            {"ma": ma, "trang_thai": tt, "tong_ghi": r.get("TongSoThiSinh")})
+    return bc1_theo_khoa, bc2_map, bc2_bci, bc2_theo_bc1
+
+
 def tai_tap(cur, loai: str, hom_nay: str) -> dict:
     """Đọc từ DB (không cache): HV trong SP + cột bổ sung + BC1/BC2/khóa."""
     hang_dt = "A1" if loai == "moto" else ""
@@ -116,20 +142,7 @@ def tai_tap(cur, loai: str, hom_nay: str) -> dict:
             "tt": _s(b.get("TT_XuLy")), "ma_bc2": _s(b.get("MaBC2")), "bg": _ngay_iso(b.get("NgayBG")),
         })
 
-    cur.execute(_Q_BC1)
-    bc1_theo_khoa = {_s(r["MaKH"]): {"ma_bci": _s(r["MaBCI"]), "so_bao_cao": _s(r["SoBaoCao"]),
-                                     "so_hoc_sinh": r.get("SoHocSinh")} for r in cur.fetchall()}
-    cur.execute(_Q_BC2)
-    bc2_map: dict[str, int] = {}
-    bc2_bci: dict[str, str] = {}
-    bc2_theo_bc1: dict[str, list[dict]] = {}
-    for r in cur.fetchall():
-        ma = _s(r["MaBCII"])
-        tt = 1 if r.get("TrangThai") in (1, True, "1") else 0
-        bc2_map[ma] = tt
-        bc2_bci[ma] = _s(r["MaBCI"])
-        bc2_theo_bc1.setdefault(_s(r["MaBCI"]), []).append(
-            {"ma": ma, "trang_thai": tt, "tong_ghi": r.get("TongSoThiSinh")})
+    bc1_theo_khoa, bc2_map, bc2_bci, bc2_theo_bc1 = doc_bc(cur)
     cur.execute(_Q_KHOA)
     khoa = {_s(r["MaKH"]): {"ten_kh": _s(r["TenKH"]), "hang": _s(r["HangGPLX"]), "bg": _ngay_iso(r["NgayBG"])}
             for r in cur.fetchall()}
@@ -333,3 +346,136 @@ def khop_danh_sach(tap: dict, khoa_chon: dict, dong: Iterable[str], ma_bc2: str 
                                        "goi_y_xu_ly": g.get("goi_y_xu_ly")})
     return {"ma_kh": ma_kh, "tong_dong": len(ds), "so_khop": len(khop), "khop": khop,
             "khong_dua_duoc": khong_dua_duoc, "khong_khop": khong_khop}
+
+
+# ══════════════════════════ GHI (task 98+) ══════════════════════════
+@contextmanager
+def khoa_ghi(conn, cho_ms: int = CHO_KHOA_GHI_MS):
+    """Khóa ghi chung `tnbc2_ghi` (sp_getapplock, mức Session) cho MỌI thao tác ghi của phân hệ.
+
+    Khóa theo BC2 / khóa học KHÔNG đủ: hai BC2 cùng ghi một HV không loại trừ nhau. Hết hạn chờ →
+    409 `dang_ghi` (không ghi gì). Luôn nhả ở `finally`; đóng kết nối cũng tự nhả."""
+    cur = conn.cursor(as_dict=True)
+    cur.execute("DECLARE @r INT; EXEC @r = sp_getapplock @Resource=%s, @LockMode='Exclusive', "
+                "@LockOwner='Session', @LockTimeout=%s; SELECT @r AS r", (TEN_KHOA_GHI, cho_ms))
+    r = cur.fetchone() or {}
+    if r.get("r") is None or int(r["r"]) < 0:
+        raise LoiNghiepVu("dang_ghi", "Đang có thao tác ghi khác của phân hệ này — đợi xong rồi thử lại.", 409)
+    try:
+        yield cur
+    finally:
+        try:
+            cur.execute("EXEC sp_releaseapplock @Resource=%s, @LockOwner='Session'", (TEN_KHOA_GHI,))
+        except Exception:  # noqa: BLE001 — kết nối hỏng thì khóa Session tự nhả khi đóng
+            pass
+
+
+def goi_y_so(cur, ma_kh: str, hom_nay: str | None = None) -> dict:
+    """Số BC2 gợi ý cho khóa + BC1 + BC2 đã có của BC1 đó (để giao diện cảnh báo). Đọc mới, không cache."""
+    hom_nay = hom_nay or hom_nay_iso()
+    khoa = loai_cua_khoa(cur, ma_kh)
+    bc1_map, bc2_map, _bci, bc2_theo_bc1 = doc_bc(cur)
+    bc1 = bc1_map.get(ma_kh)
+    so = rules.goi_y_so_bc2(khoa["loai"], list(bc2_map), int(hom_nay[:4]), bc1["so_bao_cao"] if bc1 else None)
+    return {
+        "ma_kh": ma_kh, "ten_kh": khoa["ten_kh"], "loai": khoa["loai"], "nam": int(hom_nay[:4]), "so": so,
+        "co_bc1": bc1 is not None,
+        "bc1": ({"ma_bci": bc1["ma_bci"], "so_bao_cao": bc1["so_bao_cao"], "so_hoc_sinh": bc1["so_hoc_sinh"]}
+                if bc1 else None),
+        "bc2_cua_khoa": bc2_theo_bc1.get(bc1["ma_bci"], []) if bc1 else [],
+        "trung": rules.khoa_so_bc2(so) in {rules.khoa_so_bc2(m) for m in bc2_map} if so else False,
+    }
+
+
+def _loi_trung_so(e: Exception) -> bool:
+    t = str(e)
+    return "2627" in t or "PRIMARY KEY" in t.upper() or "duplicate key" in t.lower()
+
+
+def tao_bc2(conn, ma_kh: str, so_bao_cao: str, ngay_bao_cao: str, ghi_chu: str, nguoi: str, *,
+            da_xem_canh_bao: bool = False, tong_so_thi_sinh: int | None = None, thu_lai: bool = False,
+            hom_nay: str | None = None, now: datetime | None = None) -> dict:
+    """Tạo BC2 (`usp_BaoCaoII_Insert`, `TrangThai=0` = đang mở), đúng như PM cũ ghi.
+
+    PM cũ: `MaBCII = SoBaoCao`, `NgayBaoCao` 00:00, `GhiChu`/`NguoiSua` NULL, `NgayTao = NgaySua`,
+    `MaCSDT` lấy từ BC1. `TongSoThiSinh`: mô tô LUÔN = `BaoCaoI.SoHocSinh`; ô tô = 0 (BC2 rỗng) hoặc
+    số HV lúc lập do `/bc2/lap` truyền vào. Đọc lại mọi thứ TRONG khóa ghi.
+    Trùng số = chặn (PRD TNB-03). Chỉ khi client báo `thu_lai=True` (gửi lại sau khi không biết
+    kết quả lần trước, vd mất kết nối) mà BC2 đó đã có đúng BC1 này thì coi là đã tạo xong
+    (`da_ton_tai`) — chống tạo đôi (TDD §11F.3) mà không biến lỗi gõ trùng thành thành công.
+    """
+    hom_nay = hom_nay or hom_nay_iso()
+    so = _s(so_bao_cao)
+    # 1) kiểm đầu vào (không cần DB)
+    vde = (rules.kiem_do_dai("so_bao_cao", so) + rules.kiem_do_dai("ghi_chu", ghi_chu)
+           + rules.kiem_do_dai("nguoi_tao", nguoi))
+    if not so:
+        vde.append({"muc": rules.CHAN, "ma": "thieu_so", "ref": "", "noi_dung": "Cần nhập số báo cáo"})
+    elif len(so) > rules.DO_DAI_COT["ma_bcii"]:
+        vde.append({"muc": rules.CHAN, "ma": "so_qua_dai", "ref": "",
+                    "noi_dung": f"Số báo cáo tối đa {rules.DO_DAI_COT['ma_bcii']} ký tự"})
+    if vde:
+        raise LoiNghiepVu(vde[0]["ma"], vde[0]["noi_dung"], 400)
+    try:
+        ngay = datetime.strptime((ngay_bao_cao or hom_nay)[:10], "%Y-%m-%d")
+    except ValueError:
+        raise LoiNghiepVu("ngay_khong_hop_le", "Ngày báo cáo không hợp lệ (dd/mm/yyyy)", 400)
+
+    with khoa_ghi(conn) as cur:
+        # 2) đọc lại trong khóa ghi
+        khoa = loai_cua_khoa(cur, ma_kh)
+        bc1_map, bc2_map, bc2_bci, bc2_theo_bc1 = doc_bc(cur)
+        bc1 = bc1_map.get(ma_kh)
+        if bc1 is None:
+            raise LoiNghiepVu("khoa_chua_co_bc1", f"Khóa {ma_kh} chưa có BC1 — chưa lập BC2 được", 409)
+        ma_bcii = rules.dang_luu_ma_bcii(so)   # dạng DB (varchar): Đ → Ð
+        # 3) trùng số / thử lại sau khi mất kết nối
+        co = next((m for m in bc2_map if rules.khoa_so_bc2(m) == rules.khoa_so_bc2(so)), None)
+        if co is not None:
+            if thu_lai and bc2_bci.get(co) == bc1["ma_bci"]:
+                nhat_ky.ket_thuc(nhat_ky.bat_dau(nguoi, nhat_ky.TAO_BC2, ma_kh, co, 0, f"BC2 {co} đã có"), "da_ton_tai",
+                                 {"ma_bc2": co})
+                return {"ma_bc2": co, "da_ton_tai": True, "ma_kh": ma_kh, "loai": khoa["loai"],
+                        "ma_bci": bc1["ma_bci"], "canh_bao": []}
+            raise LoiNghiepVu("trung_so", f"Số BC2 {so} đã tồn tại — đổi số khác", 409)
+        # 4) cảnh báo: khóa mô tô đã có BC2 (1 khóa = 1 BC1 = 1 BC2)
+        canh_bao = []
+        if khoa["loai"] == "moto" and bc2_theo_bc1.get(bc1["ma_bci"]):
+            so_da_co = ", ".join(b["ma"] for b in bc2_theo_bc1[bc1["ma_bci"]])
+            canh_bao.append({"ma": "bc1_da_co_bc2_moto", "noi_dung": f"Khóa này đã có BC2 số {so_da_co}"})
+        if canh_bao and not da_xem_canh_bao:
+            raise LoiNghiepVu("can_xac_nhan_canh_bao", canh_bao[0]["noi_dung"], 409, {"canh_bao": canh_bao})
+        # 5) tổng thí sinh đúng PM cũ (không đếm lại về sau)
+        if khoa["loai"] == "moto":
+            tong = int(bc1["so_hoc_sinh"] or 0)          # mô tô: luôn = SoHocSinh của BC1 (PRD TNB-03)
+        else:
+            tong = int(tong_so_thi_sinh or 0)
+        # 6) GHI — nhật ký trước, SP có sẵn
+        nk = nhat_ky.bat_dau(nguoi, nhat_ky.TAO_BC2, ma_kh, ma_bcii, 0, f"Tạo BC2 {so}",
+                             {"so_bao_cao": so, "ma_bci": bc1["ma_bci"], "tong_so_thi_sinh": tong})
+        luc = now or datetime.now()
+        try:
+            cur.execute("EXEC usp_BaoCaoII_Insert %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s",
+                        (ma_bcii, bc1["ma_bci"], bc1["ma_csdt"], so, ngay, tong, _s(ghi_chu) or None, 0,
+                         _s(nguoi), None, luc, luc))
+        except Exception as e:  # noqa: BLE001
+            nhat_ky.ket_thuc(nk, "that_bai", {"loi": str(e)[:200]})
+            if _loi_trung_so(e):
+                raise LoiNghiepVu("trung_so", f"Số BC2 {so} đã tồn tại — đổi số khác", 409)
+            raise
+        try:   # SP đã chạy: lỗi ở bước đọc lại KHÔNG có nghĩa là chưa ghi → loi_giua_chung
+            cur.execute("SELECT MaBCII, MaBCI, TrangThai, TongSoThiSinh FROM BaoCaoII WHERE MaBCII = %s", (ma_bcii,))
+            dong = cur.fetchone()
+        except Exception as e:  # noqa: BLE001
+            bo_cache()
+            nhat_ky.ket_thuc(nk, "loi_giua_chung", {"loi": str(e)[:200], "ghi_chu": "đã gọi SP, chưa đọc lại được"})
+            raise
+        if not dong or _s(dong.get("MaBCI")) != bc1["ma_bci"]:
+            bo_cache()
+            nhat_ky.ket_thuc(nk, "loi_giua_chung", {"loi": "không thấy dòng vừa tạo"})
+            raise RuntimeError("Tạo BC2 không thấy dòng vừa ghi — kiểm lại ở danh sách BC2")
+        bo_cache()
+        nhat_ky.ket_thuc(nk, "xong", {"ma_bc2": ma_bcii, "tong_so_thi_sinh": tong})
+        return {"ma_bc2": _s(dong["MaBCII"]), "da_ton_tai": False, "ma_kh": ma_kh, "loai": khoa["loai"],
+                "ma_bci": bc1["ma_bci"], "so_bao_cao": so, "ngay_bao_cao": ngay.strftime("%Y-%m-%d"),
+                "tong_so_thi_sinh": tong, "trang_thai": 0, "canh_bao": canh_bao}
