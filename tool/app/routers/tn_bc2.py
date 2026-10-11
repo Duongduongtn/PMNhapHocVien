@@ -305,6 +305,31 @@ def ghi_tot_nghiep(body: GhiTnIn, phien: Phien = Depends(require_session)):
         raise _loi(e)
 
 
+class HuyTnIn(BaseModel):
+    lo_id: str = Field(min_length=1, max_length=80)
+    ma_kh: str = Field(min_length=1, max_length=30)
+    ds_ma_dk: list[str] = Field(default_factory=list, max_length=20000)
+    xac_nhan_csdl_that: bool = False
+
+
+@router.post("/tot-nghiep/huy")
+def huy_tot_nghiep(body: HuyTnIn, phien: Phien = Depends(require_session)):
+    """HỦY tốt nghiệp (HV `09` chưa vào BC2 → `03`, giữ sổ/quyết định, xóa số giấy): kiểm nhanh đồng bộ rồi chạy
+    nền theo `lo_id` (theo dõi bằng `GET /bc2/lo/{lo_id}`). HV đã vào BC2 → phải gỡ khỏi BC2 trước."""
+    _cau_xac_nhan(body.xac_nhan_csdl_that)
+    try:
+        _kiem_lo_id(body.lo_id)
+        ds = svc._chuan_ds(body.ds_ma_dk)
+        if not svc.trang_thai_lo(body.lo_id):
+            with sqlserver_cursor() as cur:
+                svc.kiem_truoc_huy_tn(cur, body.ma_kh, ds)
+        return svc.khoi_chay(body.lo_id, svc.huy_tot_nghiep,
+                             dict(lo_id=body.lo_id, ma_kh=body.ma_kh, ds_ma_dk=ds, nguoi=phien.username),
+                             sqlserver_conn)
+    except Exception as e:  # noqa: BLE001
+        raise _loi(e)
+
+
 # ── Xem / gỡ / xóa BC2 (task 100). Đặt CUỐI file: `{ma:path}` sẽ nuốt `/goi-y-so`, `/ung-vien`, `/lo/…`
 #    nếu khai báo trước các route cố định. Số BC2 có dấu `/` nên dùng `:path`. ──
 @router.get("/bc2/{ma:path}")
