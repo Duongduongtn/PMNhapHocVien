@@ -90,10 +90,14 @@ _cache: dict[str, tuple[float, dict]] = {}
 _khoa_cache = threading.Lock()
 
 
+_cuu_cache: dict[str, tuple[float, list[dict]]] = {}
+
+
 def bo_cache() -> None:
     """"Làm tươi" / sau mỗi lần ghi."""
     with _khoa_cache:
         _cache.clear()
+        _cuu_cache.clear()
 
 
 def doc_bc(cur) -> tuple[dict, dict, dict, dict]:
@@ -1570,3 +1574,169 @@ def _huy_tn_trong_khoa(cur, *, nk, lo_id, ma_kh, ds, bao_tien_do) -> dict:
                         luc_xong=datetime.now().isoformat(timespec="seconds"))
     nhat_ky.ket_thuc(nk, trang_thai, {"da_huy": len(da_huy), "bo_qua": len(bo_qua), "chua_ghi": len(chua_ghi)})
     return kq
+
+
+# ══════════════ Cứu trạng thái (TNB-06, task 104) ══════════════
+CUU_CACHE_GIAY = 60
+CUU_TOI_DA_KET_QUA = 50
+_Q_HV_CUU_TAT_CA = ("SELECT h.MaDK, h.SoHoSo, n.HoVaTen, n.NgaySinh, n.SoCMT, h.HangGPLX, h.TT_XuLy, h.MaBC2, "
+                    "h.MaKhoaHoc, h.SoGiayCNTN, k.TenKH, k.NgayBG "
+                    "FROM NguoiLX_HoSo h LEFT JOIN NguoiLX n ON n.MaDK = h.MaDK "
+                    "LEFT JOIN KhoaHoc k ON k.MaKH = h.MaKhoaHoc")
+
+
+def _hv_cuu(r: dict) -> dict:
+    return {"ma_dk": _s(r["MaDK"]), "so_ho_so": _s(r.get("SoHoSo")), "ten": _s(r.get("HoVaTen")),
+            "ngay_sinh": _ngay_sinh_vn(r.get("NgaySinh")), "cmt": _s(r.get("SoCMT")), "hang": _s(r.get("HangGPLX")),
+            "tt": _s(r.get("TT_XuLy")), "ma_bc2": _s(r.get("MaBC2")), "ma_kh": _s(r.get("MaKhoaHoc")),
+            "so_giay": _s(r.get("SoGiayCNTN")), "ten_kh": _s(r.get("TenKH")), "bg": _ngay_iso(r.get("NgayBG"))}
+
+
+def tim_hv_cuu(cur, q: str, loai: str = "", hom_nay: str | None = None,
+               now: Callable[[], float] = time.monotonic) -> dict:
+    """Tìm HV (tên không dấu / CMT / mã đăng ký) trên TOÀN DB để cứu trạng thái, kèm lý do không có trong danh
+    sách ứng viên và các đích cho phép. Danh sách HV giữ trong bộ nhớ ~60 giây."""
+    hom_nay = hom_nay or hom_nay_iso()
+    tu = _s(q)
+    if len(tu) < 2:
+        raise LoiNghiepVu("thieu_tu_khoa", "Nhập ít nhất 2 ký tự để tìm", 400)
+    with _khoa_cache:
+        c = _cuu_cache.get("all")
+        tat_ca = c[1] if c and now() - c[0] < CUU_CACHE_GIAY else None
+    if tat_ca is None:
+        cur.execute(_Q_HV_CUU_TAT_CA)
+        tat_ca = [_hv_cuu(r) for r in cur.fetchall()]
+        with _khoa_cache:
+            _cuu_cache["all"] = (now(), tat_ca)
+    k = rules.bo_dau(tu)
+    khop = [h for h in tat_ca if k in rules.bo_dau(h["ten"]) or tu in h["cmt"]
+            or tu.casefold() in h["ma_dk"].casefold()]
+    _b1, bc2_map, _bci, _t = doc_bc(cur)
+    out = []
+    for h in khop[:CUU_TOI_DA_KET_QUA]:
+        loai_hv = rules.loai_hang(h["hang"])
+        if loai and loai_hv != loai:
+            gt = {"ma": "khac_loai", "noi_dung": "Khác loại hạng với loại đang chọn"}
+        else:
+            gt = rules.giai_thich_khong_hien(h, loai_hv, {"hom_nay": hom_nay, "ma_kh_chon": h["ma_kh"],
+                                                           "bc2_map": bc2_map, "ma_bc2_dang_them": ""})
+        dich = rules.dich_cho_phep(h, loai or loai_hv)
+        out.append({**h, "loai": loai_hv, "khac_loai": bool(loai) and loai_hv != loai,
+                    "ten_trang_thai": rules.ten_trang_thai(h["tt"], loai_hv), "khong_hien": gt,
+                    "dich": dich, "cuu_duoc": any(d["cho_phep"] for d in dich)
+                    and not (bool(loai) and loai_hv != loai)})
+    return {"q": tu, "loai": loai, "tong_khop": len(khop), "hien_toi_da": CUU_TOI_DA_KET_QUA, "hoc_vien": out}
+
+
+def _doc_hv_cuu_mot(cur, ma_dk: str) -> dict | None:
+    cur.execute(_Q_HV_TN_IN.format(ph="%s"), (ma_dk,))
+    r = cur.fetchone()
+    return _hv_tn(r) if r else None
+
+
+def cuu_chuyen(conn, *, lo_id: str, ma_dk: str, dich: str, ly_do: str, loai: str, nguoi: str) -> dict:
+    """Chuyển `TT_XuLy` MỘT HV (cứu HV không tìm thấy khi lập BC2) bằng `usp_NguoiLX_HoSo_UpdateTTXLy`.
+
+    SP không kiểm điều kiện nào và GHI ĐÈ `TT_XuLy_Old` → mọi cổng chặn nằm ở đây (`rules.kiem_cuu`), và
+    trạng thái cũ để hoàn tác được lưu trong NHẬT KÝ tool (không dựa vào `TT_XuLy_Old` của DB).
+    Idempotent theo `lo_id`."""
+    ma_dk, dich, ly_do = _s(ma_dk), _s(dich), _s(ly_do)
+    cu = nhat_ky.lo_lay(lo_id)
+    if cu is not None and cu["trang_thai"] == "xong":
+        kq_cu = cu.get("ket_qua") or {}
+        if cu["loai"] != nhat_ky.LO_CUU or kq_cu.get("ma_dk") != ma_dk or kq_cu.get("tt_moi") != dich:
+            raise LoiNghiepVu("lo_id_khong_khop", "lo_id này đã dùng cho một thao tác khác — tạo lo_id mới", 409)
+        return {**kq_cu, "lo_id": lo_id, "da_ton_tai": True}
+    with khoa_ghi(conn) as cur:
+        hv = _doc_hv_cuu_mot(cur, ma_dk)
+        if hv is None:
+            raise LoiNghiepVu("hv_khong_ton_tai", f"Không có học viên {ma_dk}", 404)
+        vde = rules.kiem_cuu(hv, dich, loai or rules.loai_hang(hv["hang"]), ly_do)
+        if vde:
+            raise LoiNghiepVu("khong_cuu_duoc", vde[0]["noi_dung"], 409, {"chan": vde})
+        nhat_ky.lo_bat_dau(lo_id, nguoi, nhat_ky.LO_CUU, hv["ma_kh"], "", 1)
+        nk = nhat_ky.bat_dau(nguoi, nhat_ky.CUU, hv["ma_kh"], "", 1, f"Cứu trạng thái {hv['tt']} → {dich}",
+                             {"ma_dk": ma_dk, "tt_cu": hv["tt"], "tt_moi": dich, "ly_do": ly_do}, lo_id=lo_id)
+        try:
+            cur.execute("EXEC usp_NguoiLX_HoSo_UpdateTTXLy %s,%s,%s", (ma_dk, hv["so_ho_so"], dich))
+        except Exception as e:  # noqa: BLE001
+            nhat_ky.ket_thuc(nk, "that_bai", {"loi": str(e)[:200]})
+            nhat_ky.lo_cap_nhat(lo_id, trang_thai="that_bai", ket_qua={"loi": str(e)[:200]})
+            raise
+        canh_bao = []
+        try:   # SP đã chạy: lỗi đọc lại chỉ là cảnh báo
+            sau = _doc_hv_cuu_mot(cur, ma_dk)
+            if sau is None or sau["tt"] != dich:
+                canh_bao.append({"ma": "khong_khop_sau_ghi", "noi_dung": "Sau khi chuyển, trạng thái không như mong đợi — kiểm lại"})
+        except Exception:  # noqa: BLE001
+            canh_bao.append({"ma": "khong_doc_lai_duoc", "noi_dung": "Đã chuyển nhưng chưa đọc lại được học viên — kiểm lại"})
+        bo_cache()
+        loai_hv = rules.loai_hang(hv["hang"])
+        kq = {"ma_dk": ma_dk, "tt_cu": hv["tt"], "tt_moi": dich, "ten_trang_thai_cu": rules.ten_trang_thai(hv["tt"], loai_hv),
+              "ten_trang_thai_moi": rules.ten_trang_thai(dich, loai_hv), "ly_do": ly_do, "canh_bao": canh_bao,
+              "trang_thai": "xong"}
+        try:   # SP đã chạy: lỗi nhật ký sqlite KHÔNG làm thao tác thành "chưa làm"
+            nhat_ky.lo_ghi_hv(lo_id, ma_dk, "da_cuu", f"{hv['tt']}>{dich}")
+            nhat_ky.lo_cap_nhat(lo_id, trang_thai="xong", ket_qua=kq,
+                                luc_xong=datetime.now().isoformat(timespec="seconds"))
+            nhat_ky.ket_thuc(nk, "xong", {"tt_cu": hv["tt"], "tt_moi": dich})
+        except Exception:  # noqa: BLE001
+            kq["canh_bao"].append({"ma": "khong_ghi_duoc_nhat_ky",
+                                   "noi_dung": "Đã chuyển nhưng chưa lưu được nhật ký — ghi lại thủ công nếu cần hoàn tác"})
+        return {**kq, "lo_id": lo_id, "da_ton_tai": False}
+
+
+def cuu_hoan_tac(conn, *, lo_id_cuu: str, lo_id: str, nguoi: str) -> dict:
+    """Hoàn tác MỘT lần cứu: về trạng thái cũ ghi trong nhật ký, MIỄN luật đích (về `03` là hợp lệ), chỉ khi HV
+    vẫn đang đúng trạng thái vừa cứu (PM cũ chưa đổi tiếp). Idempotent theo `lo_id`."""
+    cu = nhat_ky.lo_lay(lo_id)
+    if cu is not None and cu["trang_thai"] == "xong":
+        if cu["loai"] != nhat_ky.LO_CUU_HOAN_TAC or cu.get("lo_goc") != lo_id_cuu:
+            raise LoiNghiepVu("lo_id_khong_khop", "lo_id này đã dùng cho một thao tác khác — tạo lo_id mới", 409)
+        return {**(cu.get("ket_qua") or {}), "lo_id": lo_id, "da_ton_tai": True}
+    goc = nhat_ky.lo_lay(lo_id_cuu)
+    if goc is None or goc["loai"] != nhat_ky.LO_CUU or goc["trang_thai"] != "xong":
+        raise LoiNghiepVu("khong_co_lan_cuu", "Không có lần cứu trạng thái này để hoàn tác", 404)
+    if goc.get("hoan_tac_boi"):
+        raise LoiNghiepVu("da_hoan_tac", "Lần cứu này đã được hoàn tác", 409)
+    kq_goc = goc.get("ket_qua") or {}
+    ma_dk, tt_cu, tt_moi = _s(kq_goc.get("ma_dk")), _s(kq_goc.get("tt_cu")), _s(kq_goc.get("tt_moi"))
+    with khoa_ghi(conn) as cur:
+        hv = _doc_hv_cuu_mot(cur, ma_dk)
+        if hv is None:
+            raise LoiNghiepVu("hv_khong_ton_tai", f"Không có học viên {ma_dk}", 404)
+        vde = rules.kiem_hoan_tac_cuu(hv["tt"], tt_moi, tt_cu)
+        if vde:
+            raise LoiNghiepVu(vde[0]["ma"], vde[0]["noi_dung"], 409, {"chan": vde})
+        nhat_ky.lo_bat_dau(lo_id, nguoi, nhat_ky.LO_CUU_HOAN_TAC, hv["ma_kh"], "", 1, lo_goc=lo_id_cuu)
+        nk = nhat_ky.bat_dau(nguoi, nhat_ky.CUU, hv["ma_kh"], "", 1, f"Hoàn tác cứu {tt_moi} → {tt_cu}",
+                             {"ma_dk": ma_dk, "tt_cu": tt_moi, "tt_moi": tt_cu, "lo_goc": lo_id_cuu}, lo_id=lo_id)
+        try:
+            cur.execute("EXEC usp_NguoiLX_HoSo_UpdateTTXLy %s,%s,%s", (ma_dk, hv["so_ho_so"], tt_cu))
+        except Exception as e:  # noqa: BLE001
+            nhat_ky.ket_thuc(nk, "that_bai", {"loi": str(e)[:200]})
+            nhat_ky.lo_cap_nhat(lo_id, trang_thai="that_bai", ket_qua={"loi": str(e)[:200]})
+            raise
+        canh_bao = []
+        try:   # đọc lại SAU SP chỉ để cảnh báo (đối xứng với cuu_chuyen)
+            sau = _doc_hv_cuu_mot(cur, ma_dk)
+            if sau is None or sau["tt"] != tt_cu:
+                canh_bao.append({"ma": "khong_khop_sau_ghi",
+                                 "noi_dung": "Sau khi hoàn tác, trạng thái không như mong đợi — kiểm lại"})
+        except Exception:  # noqa: BLE001
+            canh_bao.append({"ma": "khong_doc_lai_duoc",
+                             "noi_dung": "Đã hoàn tác nhưng chưa đọc lại được học viên — kiểm lại"})
+        bo_cache()
+        loai_hv = rules.loai_hang(hv["hang"])
+        kq = {"ma_dk": ma_dk, "tt_cu": tt_moi, "tt_moi": tt_cu, "lo_goc": lo_id_cuu,
+              "ten_trang_thai_moi": rules.ten_trang_thai(tt_cu, loai_hv), "canh_bao": canh_bao, "trang_thai": "xong"}
+        try:   # SP đã chạy: lỗi nhật ký sqlite chỉ là cảnh báo
+            nhat_ky.lo_cap_nhat(lo_id_cuu, hoan_tac_boi=lo_id)
+            nhat_ky.lo_ghi_hv(lo_id, ma_dk, "da_hoan_tac", f"{tt_moi}>{tt_cu}")
+            nhat_ky.lo_cap_nhat(lo_id, trang_thai="xong", ket_qua=kq,
+                                luc_xong=datetime.now().isoformat(timespec="seconds"))
+            nhat_ky.ket_thuc(nk, "xong", {"tt_cu": tt_moi, "tt_moi": tt_cu})
+        except Exception:  # noqa: BLE001
+            kq["canh_bao"].append({"ma": "khong_ghi_duoc_nhat_ky",
+                                   "noi_dung": "Đã hoàn tác nhưng chưa lưu được nhật ký"})
+        return {**kq, "lo_id": lo_id, "da_ton_tai": False}

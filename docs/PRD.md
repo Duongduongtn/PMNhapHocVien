@@ -1189,7 +1189,7 @@
 
 #### [TNB-06] Chuyển trạng thái học viên (cứu HV không tìm thấy)
 
-**Trạng thái:** ⏳ Todo
+**Trạng thái:** 🔄 In Progress — 1/2 task xong (104 backend tìm/chuyển/hoàn tác, kiểm bằng kết nối giả, chưa ghi thật); còn 114 UI
 **Story:** Là nhân viên cơ sở, khi một học viên đã tốt nghiệp hoặc vắng/rớt sát hạch không hiện trong danh sách để thêm vào BC2, tôi muốn đưa trạng thái của họ về đúng nhóm chờ lập BC2.
 
 **Done khi:**

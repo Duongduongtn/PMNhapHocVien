@@ -330,6 +330,59 @@ def huy_tot_nghiep(body: HuyTnIn, phien: Phien = Depends(require_session)):
         raise _loi(e)
 
 
+# ── Cứu trạng thái (TNB-06, task 104): một HV một lần, đồng bộ, idempotent theo `lo_id`. ──
+@router.get("/cuu/tim")
+def cuu_tim(q: str = Query(..., min_length=2, max_length=60), loai: str = Query("", pattern="^(|moto|oto)$")):
+    """Tìm HV (tên không dấu / CMT / mã đăng ký) trên toàn DB kèm lý do không có trong danh sách ứng viên."""
+    try:
+        with sqlserver_cursor() as cur:
+            return svc.tim_hv_cuu(cur, q, loai)
+    except Exception as e:  # noqa: BLE001
+        raise _loi(e)
+
+
+class CuuIn(BaseModel):
+    lo_id: str = Field(min_length=1, max_length=80)
+    ma_dk: str = Field(min_length=1, max_length=40)
+    dich: str = Field(min_length=1, max_length=10)               # chỉ nhận 09/14/17/18 (kiểm ở luật)
+    ly_do: str = Field(default="", max_length=1000)              # bắt buộc, ≤ 255 (kiểm ở luật)
+    loai: str = Field(default="", pattern="^(|moto|oto)$")
+    xac_nhan_csdl_that: bool = False
+
+
+@router.post("/cuu/chuyen")
+def cuu_chuyen(body: CuuIn, phien: Phien = Depends(require_session)):
+    """Chuyển `TT_XuLy` một HV bằng `usp_NguoiLX_HoSo_UpdateTTXLy`; chặn nguồn `11/16/19`, đích ngoài
+    `09/14/17/18`, `09` thiếu số giấy; lý do bắt buộc. Cùng `lo_id` gọi lại → trả kết quả cũ."""
+    _cau_xac_nhan(body.xac_nhan_csdl_that)
+    try:
+        _kiem_lo_id(body.lo_id)
+        with sqlserver_conn() as conn:
+            return svc.cuu_chuyen(conn, lo_id=body.lo_id, ma_dk=body.ma_dk, dich=body.dich, ly_do=body.ly_do,
+                                  loai=body.loai, nguoi=phien.username)
+    except Exception as e:  # noqa: BLE001
+        raise _loi(e)
+
+
+class CuuHoanTacIn(BaseModel):
+    lo_id_cuu: str = Field(min_length=1, max_length=80)
+    lo_id: str = Field(min_length=1, max_length=80)
+    xac_nhan_csdl_that: bool = False
+
+
+@router.post("/cuu/hoan-tac")
+def cuu_hoan_tac(body: CuuHoanTacIn, phien: Phien = Depends(require_session)):
+    """Hoàn tác một lần cứu (về trạng thái cũ trong nhật ký, miễn luật đích; chỉ khi HV chưa bị đổi tiếp)."""
+    _cau_xac_nhan(body.xac_nhan_csdl_that)
+    try:
+        _kiem_lo_id(body.lo_id)
+        _kiem_lo_id(body.lo_id_cuu)
+        with sqlserver_conn() as conn:
+            return svc.cuu_hoan_tac(conn, lo_id_cuu=body.lo_id_cuu, lo_id=body.lo_id, nguoi=phien.username)
+    except Exception as e:  # noqa: BLE001
+        raise _loi(e)
+
+
 # ── Xem / gỡ / xóa BC2 (task 100). Đặt CUỐI file: `{ma:path}` sẽ nuốt `/goi-y-so`, `/ung-vien`, `/lo/…`
 #    nếu khai báo trước các route cố định. Số BC2 có dấu `/` nên dùng `:path`. ──
 @router.get("/bc2/{ma:path}")

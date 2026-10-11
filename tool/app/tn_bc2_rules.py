@@ -490,3 +490,21 @@ def phan_tich_dong_tn(hv: dict, so_giay: str | None, chung: dict | None, ctx: di
         ket_qua = KQ_CHAN
     return {"ma_dk": _s(hv.get("ma_dk")), "ket_qua": ket_qua, "ghi_duoc": ket_qua in KQ_GHI_DUOC,
             "hieu_luc": hl, "chan": chan, "canh_bao": canh_bao, "thong_tin": thong_tin}
+
+
+def dich_cho_phep(hv: dict, loai: str = "") -> list[dict]:
+    """Các đích cứu trạng thái của một HV (TNB-06): luôn liệt kê đủ `09/14/17/18`, mỗi đích kèm `cho_phep`
+    và lý do khi không cho (nguồn bị chặn / thiếu số giấy / mô tô không có 09 / khác loại). Dùng cho giao diện
+    (không cho gõ mã tự do)."""
+    loai_hv = loai_hang(hv.get("hang"))
+    out = []
+    for dich in DICH_CUU:
+        vde = [v for v in kiem_cuu(hv, dich, loai or loai_hv, "x")
+               if v["ma"] not in ("khong_doi",)]
+        out.append({"ma": dich, "ten": ten_trang_thai(dich, loai_hv), "cho_phep": not vde,
+                    "ly_do": vde[0]["noi_dung"] if vde else ""})
+    if _s(hv.get("tt")) in DICH_CUU:                  # đích trùng nguồn: không cho (không đổi gì)
+        for d in out:
+            if d["ma"] == _s(hv.get("tt")):
+                d["cho_phep"], d["ly_do"] = False, "Học viên đang ở trạng thái này"
+    return out
