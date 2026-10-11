@@ -457,5 +457,29 @@ export const cuuHoanTac = (loIdCuu: string, loId: string) =>
 export const dsBc1 = (loai: LoaiHang | "" = "") => goi("GET", "/bc1", { query: { loai } });
 export const dsBc2 = (loai: LoaiHang | "" = "", dong: "mo" | "dong" | "" = "") =>
   goi<DsBc2Resp>("GET", "/bc2", { query: { loai, dong } });
+export interface DongNhatKy {
+  id: number;
+  /** ISO `YYYY-MM-DDTHH:mm:ss`, giờ máy CSĐT. */
+  luc: string;
+  nguoi: string;
+  /** `tao_bc2` | `them_hv` | `go_hv` | `xoa_bc2` | `tot_nghiep` | `huy_tot_nghiep` | `cuu_trang_thai` */
+  loai: string;
+  ten_loai: string;
+  ma_kh: string;
+  ma_bc2: string;
+  lo_id: string;
+  so_hv: number;
+  tom_tat_thao_tac: string;
+  /** `xong` | `loi_giua_chung` | `that_bai` | `bat_dau` | `da_ton_tai` */
+  trang_thai: string;
+  ten_trang_thai: string;
+  ket_qua: { da_ghi: number; chua_ghi: number; bo_qua: number; tom_tat: string };
+}
+export interface NhatKyResp {
+  loai: string;
+  ma_bc2: string;
+  tong: number;
+  nhat_ky: DongNhatKy[];
+}
 export const dsNhatKy = (loai = "", maBc2 = "", gioiHan = 100) =>
-  goi("GET", "/nhat-ky", { query: { loai, ma_bc2: maBc2, gioi_han: gioiHan } });
+  goi<NhatKyResp>("GET", "/nhat-ky", { query: { loai, ma_bc2: maBc2, gioi_han: gioiHan } });
