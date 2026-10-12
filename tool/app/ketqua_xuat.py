@@ -12,6 +12,7 @@ import re
 from datetime import date, datetime
 
 from openpyxl import Workbook
+from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
@@ -51,6 +52,25 @@ HANG_TIEU_DE = 9           # hàng tiêu đề bảng; dữ liệu từ hàng 10
 _FONT = "Times New Roman"
 _VIEN = Side(style="thin", color="999999")
 _KHUNG = Border(left=_VIEN, right=_VIEN, top=_VIEN, bottom=_VIEN)
+
+
+_TOI_DA_CHU = 32000                                   # giới hạn 1 ô của Excel
+_DAU_CONG_THUC = ("=", "+", "-", "@", "\t", "\r")      # Excel/Sheets coi là đầu công thức
+
+
+def _sach(v) -> str:
+    """Chuỗi từ DB/cấu hình → chuỗi an toàn để ghi ô: bỏ ký tự điều khiển XML không hợp lệ (openpyxl
+    sẽ ném IllegalCharacterError làm hỏng cả file), cắt tối đa 32.000 ký tự."""
+    return ILLEGAL_CHARACTERS_RE.sub("", str(v))[:_TOI_DA_CHU]
+
+
+def _ghi_chu(c, v) -> None:
+    """Ghi ô chữ. Chuỗi bắt đầu `= + - @` được ÉP KIỂU CHỮ (không thành công thức, tránh formula injection:
+    họ tên/ghi chú/tên cơ sở có thể do người ngoài khai). `quotePrefix` để Excel không tự diễn giải lại."""
+    c.value = v
+    if isinstance(v, str) and v[:1] in _DAU_CONG_THUC:
+        c.data_type = "s"
+        c.quotePrefix = True
 
 
 def _so(v, nd: int | None = None) -> float | None:
@@ -113,10 +133,10 @@ def dong_hv(h: dict, ngay_thi: date | None) -> dict:
         ghi_chu.append(f"{ten} {cb['gia_tri']:g} < {cb['goi_y']}")
     tt = (h.get("TT_XuLy") or "").strip()
     return {
-        "ma_dk": h.get("MaDK"), "ho_ten": h.get("HoVaTen"),
+        "ma_dk": _sach(h.get("MaDK") or ""), "ho_ten": _sach(h.get("HoVaTen") or ""),
         "ngay_sinh": _ngay_luu(h.get("NgaySinh")),
-        "cccd": (h.get("SoCMT") or "").strip(),
-        "hang": ((h.get("MaHangMoi") or h.get("HangGPLX") or "").strip()),
+        "cccd": _sach(h.get("SoCMT") or "").strip(),
+        "hang": _sach(h.get("MaHangMoi") or h.get("HangGPLX") or "").strip(),
         "diem": diem,
         "diem_lt": _tb(diem["ly_thuyet"], diem["mo_phong"]),
         "diem_th": _tb(diem["hinh"], diem["tien_lui"], diem["duong"]),
@@ -124,9 +144,9 @@ def dong_hv(h: dict, ngay_thi: date | None) -> dict:
         "gio_duong": gio_d, "km_duong": km_d,
         "ket_qua": {"dat": HOAN_THANH, "khong_dat": CHUA_HOAN_THANH}.get(kl or "", ""),
         "ngay_xet": ngay_thi if kl == "dat" else None,
-        "trang_thai": TT_NHAN.get(tt, tt),
-        "so_giay": (h.get("SoGiayCNTN") or "").strip(),
-        "ghi_chu": "; ".join(ghi_chu),
+        "trang_thai": _sach(TT_NHAN.get(tt, tt)),
+        "so_giay": _sach(h.get("SoGiayCNTN") or "").strip(),
+        "ghi_chu": _sach("; ".join(ghi_chu)),
     }
 
 
@@ -162,23 +182,24 @@ def dung_workbook(khoa: dict, hv_rows: list[dict], co_so: dict, nguoi_lap: str,
     def khoi(hang: int, text: str, *, dam=False, co=12, can="left") -> None:
         ws.merge_cells(f"A{hang}:{cuoi}{hang}")
         c = ws[f"A{hang}"]
-        c.value = text
+        _ghi_chu(c, _sach(text))
         c.font = Font(name=_FONT, size=co, bold=dam)
         c.alignment = Alignment(horizontal=can, vertical="center", wrap_text=True)
 
     ct = "Cũ (TT12/2025)" if chuong_trinh != "moi" else "Mới (TT108/2026)"
     hang_moi = [(h.get("MaHangMoi") or "").strip() for h in hv_rows if (h.get("MaHangMoi") or "").strip()]
-    hang_khoa = (max(set(hang_moi), key=hang_moi.count) if hang_moi else (khoa.get("HangGPLX") or "").strip())
-    khoi(1, (co_so.get("co_quan_chu_quan") or "").strip(), dam=True)
-    khoi(2, (co_so.get("ten_co_so_dao_tao") or "").strip(), dam=True)
+    hang_khoa = (max(sorted(set(hang_moi)), key=hang_moi.count) if hang_moi   # hòa → theo chữ cái, ổn định
+                 else _sach(khoa.get("HangGPLX") or "").strip())
+    khoi(1, _sach(co_so.get("co_quan_chu_quan") or "").strip(), dam=True)
+    khoi(2, _sach(co_so.get("ten_co_so_dao_tao") or "").strip(), dam=True)
     khoi(3, "KẾT QUẢ HỌC TẬP CỦA HỌC VIÊN", dam=True, co=15, can="center")
-    khoi(4, f"Khóa học: {(khoa.get('TenKH') or '').strip()} ({khoa.get('MaKH')})"
+    khoi(4, f"Khóa học: {_sach(khoa.get('TenKH') or '').strip()} ({_sach(khoa.get('MaKH') or '')})"
             f"   ·   Hạng: {hang_khoa}   ·   Chương trình: {ct}")
     khoi(5, f"Khai giảng: {khoa.get('NgayKG') or ''}   ·   Bế giảng: {khoa.get('NgayBG') or ''}"
             f"   ·   Ngày thi: {khoa.get('NgayThi') or ''}")
-    khoi(6, f"Ngày lập: {ngay_lap:%d/%m/%Y %H:%M}   ·   Người lập: {nguoi_lap}")
+    khoi(6, f"Ngày lập: {ngay_lap:%d/%m/%Y %H:%M}   ·   Người lập: {_sach(nguoi_lap)}")
     khoi(7, f"Tổng {len(dong)} học viên   ·   Hoàn thành {n_ht}   ·   Chưa hoàn thành {n_chua}"
-            f"   ·   Chưa đủ điểm {n_thieu}", dam=True)
+            f"   ·   Chưa có kết luận {n_thieu}", dam=True)
     ws.row_dimensions[3].height = 24
 
     # --- Tiêu đề bảng
@@ -208,7 +229,8 @@ def dung_workbook(khoa: dict, hv_rows: list[dict], co_so: dict, nguoi_lap: str,
             d["ket_qua"], d["ngay_xet"], d["trang_thai"], d["so_giay"], d["ghi_chu"],
         ]
         for i, v in enumerate(gia_tri, start=1):
-            c = ws.cell(row=r, column=i, value=v if v != "" else None)
+            c = ws.cell(row=r, column=i)
+            _ghi_chu(c, v if v != "" else None)
             c.font = thuong
             c.border = _KHUNG
             c.alignment = trai if i in (2, 3, 22) else giua

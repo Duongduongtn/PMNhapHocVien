@@ -51,7 +51,7 @@ def test_khoi_dau_du_thong_tin():
     assert "Cũ (TT12/2025)" in ws["A4"].value
     assert "Khai giảng: 30/07/2026" in ws["A5"].value and "Ngày thi: 20/09/2026" in ws["A5"].value
     assert "12/10/2026 14:05" in ws["A6"].value and "Người lập: Nhân viên Hòa" in ws["A6"].value
-    assert ws["A7"].value == "Tổng 3 học viên   ·   Hoàn thành 1   ·   Chưa hoàn thành 1   ·   Chưa đủ điểm 1"
+    assert ws["A7"].value == "Tổng 3 học viên   ·   Hoàn thành 1   ·   Chưa hoàn thành 1   ·   Chưa có kết luận 1"
 
 
 def test_chuong_trinh_moi_va_co_so_trong_thi_de_trong():
@@ -259,3 +259,44 @@ def test_put_co_so_chi_gop_2_khoa_khong_lam_roi_khoa_khac(monkeypatch, auth_head
     assert r.status_code == 200
     assert luu["co_quan_chu_quan"] == "CÔNG TY A" and luu["ten_co_so_dao_tao"] == "TRUNG TÂM B"
     assert luu["sqlserver_host"] == "H" and luu["kqd_chuong_trinh"] == {"K1": "moi"}   # khóa khác còn nguyên
+
+
+# ---- sau /reviewtdd §11D.11 (CHANGES #73) ----------------------------------------------------------
+@pytest.mark.parametrize("doc_hai", [
+    '=HYPERLINK("http://e.x","click")', "=cmd|' /C calc'!A0", "+1+1", "-2+3", "@SUM(1)", "\t=1+1",
+])
+def test_formula_injection_o_chu_bi_ep_kieu_chuoi(doc_hai):
+    ws = _mo([_hv(ten=doc_hai, SoGiayCNTN=doc_hai)], co_so={"co_quan_chu_quan": doc_hai, "ten_co_so_dao_tao": doc_hai})
+    for o in (ws["A1"], ws["A2"], ws.cell(row=x.HANG_TIEU_DE + 1, column=3),
+              ws.cell(row=x.HANG_TIEU_DE + 1, column=_cot(ws, "Số giấy HTKH"))):
+        assert o.data_type == "s", (o.coordinate, o.data_type)       # KHÔNG phải 'f' (công thức)
+        assert o.quotePrefix is True
+
+
+def test_ky_tu_dieu_khien_khong_lam_hong_ca_file():
+    ws = _mo([_hv(ten="NGUYỄN \x00VĂN\x0b A"), _hv(ma="2", so="2")])
+    assert ws.cell(row=x.HANG_TIEU_DE + 1, column=3).value == "NGUYỄN VĂN A"       # ký tự lạ bị bỏ
+    assert ws.cell(row=x.HANG_TIEU_DE + 2, column=3).value == "Nguyễn Thị Hòa"    # dòng khác vẫn đủ
+
+
+def test_chuoi_qua_dai_bi_cat_32000():
+    ws = _mo([_hv(ten="A" * 40000)])
+    assert len(ws.cell(row=x.HANG_TIEU_DE + 1, column=3).value) == 32000
+
+
+def test_hang_hoa_phieu_lay_theo_chu_cai_on_dinh():
+    rows = [_hv(MaHangMoi="B"), _hv(ma="2", so="2", MaHangMoi="B.01")]
+    for _ in range(5):                                    # chạy nhiều lần: kết quả không đổi
+        data = x.dung_workbook(dict(KHOA, HangGPLX="B11"), list(reversed(rows)), CO_SO, "NV", LUC_LAP)
+        assert "Hạng: B   ·" in load_workbook(io.BytesIO(data)).active["A4"].value   # "B" < "B.01"
+
+
+def test_ten_khoa_co_ky_tu_dieu_khien_van_dung_duoc():
+    khoa = dict(KHOA, TenKH="K40\x00 \x07 đặc biệt")
+    data = x.dung_workbook(khoa, [_hv()], CO_SO, "NV", LUC_LAP)
+    assert "K40  đặc biệt" in load_workbook(io.BytesIO(data)).active["A4"].value
+
+
+def test_put_co_so_can_phien(monkeypatch):
+    r = client.put("/local/config/co-so", json={"co_quan_chu_quan": "A", "ten_co_so_dao_tao": "B"})
+    assert r.status_code in (401, 403)

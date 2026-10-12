@@ -5,10 +5,11 @@ Lưu ý: guard token operator cho /local/* được gắn ở Phase 2 (task 17) 
 from __future__ import annotations
 
 import httpx
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from app import config_store
+from app.session import require_session
 
 router = APIRouter(prefix="/local/config", tags=["config"])
 
@@ -60,9 +61,12 @@ class CoSoIn(BaseModel):
     ten_co_so_dao_tao: str = ""
 
 
-@router.put("/co-so")
+@router.put("/co-so", dependencies=[Depends(require_session)])
 def put_co_so(body: CoSoIn) -> dict:
-    """KQD-09: chỉ ghi 2 ô tên cơ quan/cơ sở (gộp vào cấu hình đã có, không đụng khóa kết nối)."""
+    """KQD-09: chỉ ghi 2 ô tên cơ quan/cơ sở (gộp vào cấu hình đã có, không đụng khóa kết nối).
+
+    GÁC PHIÊN (khác `PUT /local/config` là bước mồi lần đầu): tên này đi vào file nộp ra ngoài, chỉ
+    người đã đăng nhập tool được sửa."""
     data = config_store.load_config()
     data["co_quan_chu_quan"] = body.co_quan_chu_quan.strip()[:200]
     data["ten_co_so_dao_tao"] = body.ten_co_so_dao_tao.strip()[:200]

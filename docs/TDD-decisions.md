@@ -342,4 +342,10 @@
 - **Đánh đổi:** thêm phụ thuộc `openpyxl` vào exe; không có sổ in đúng mẫu Phụ lục VI (nếu cần sau này thêm sheet thứ hai).
 - **Phạm vi:** chỉ tool máy CSĐT, nhóm KQD; không đụng app web/VPS/Sync/Phân công/TNB.
 - **Nguồn:** user 12/10/2026; `thamkhao/So_theo_doi_ket_qua_hoc_tap_DTLX_TT17.xlsx`; PRD KQD-09; TDD §11D.11; CHANGES #72.
+- **Cập nhật 12/10/2026 (sau `/reviewtdd` §11D.11, CHANGES #73):**
+  - **Nhãn tóm tắt "Chưa có kết luận"** (user chốt A, thay "Chưa đủ điểm"): số đếm là HV chưa có `KetLuanCSDT`, không phải HV thiếu môn; giữ đúng quyết định kết quả theo kết luận đã lưu. Đã cân nhắc: (A) đổi nhãn ← chọn · (B) giữ nhãn, đếm theo HV thiếu môn.
+  - **Hệ quả §25 ghi rõ:** "Hoàn thành" có thể nằm cạnh ô điểm trống khi PM cũ lưu kết luận mà thiếu môn; Ghi chú nêu môn thiếu.
+  - **Chống formula injection + làm sạch ký tự điều khiển:** file đi nộp ra ngoài, họ tên có thể do học viên khai; chuỗi bắt đầu `= + - @` ép kiểu chữ, ký tự điều khiển bị bỏ.
+  - **`PUT /local/config/co-so` gác phiên:** khác `PUT /local/config` (bước mồi lần đầu); tên này đi vào file nộp ra ngoài.
+  - **Hạng khối đầu hòa phiếu → theo chữ cái:** xuất hai lần ra cùng hạng.
 

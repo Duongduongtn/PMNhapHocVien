@@ -91,8 +91,12 @@ export default function CauHinhForm({ active, onBlock1Test, onBlock1Saved }: Pro
       // Giữ cfg khối ① đang sửa dở; chỉ đồng bộ 2 ô vừa lưu để lần "Lưu kết nối" sau không ghi lại giá trị cũ.
       setCfg({ ...cfg, co_quan_chu_quan: saved.co_quan_chu_quan ?? "", ten_co_so_dao_tao: saved.ten_co_so_dao_tao ?? "" });
       setMsg3("Đã lưu thông tin cơ sở.");
-    } catch {
-      setErr3("Lưu thông tin cơ sở thất bại.");
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "";
+      // Chưa đăng nhập tool (vd đang ở bước thiết lập lần đầu) → endpoint này gác phiên.
+      setErr3(/(401|403)|đăng nhập|phiên/i.test(m)
+        ? "Cần đăng nhập tool trước — đăng nhập xong mở lại Cấu hình để nhập thông tin cơ sở."
+        : "Lưu thông tin cơ sở thất bại.");
     }
   };
 

@@ -1474,22 +1474,51 @@ DB **không có** trigger/computed/constraint tính 3 cờ (verify 06/10: 0 trig
   - **PDF không giới hạn số trang:** `extract_tables()` chạy mọi trang; file ≤ 5 MB, tool localhost, một người dùng, file tự tải từ DAT (mẫu 1–3 trang). Chấp nhận; nếu về sau nhận PDF từ nguồn lạ thì thêm giới hạn (đề xuất ≤ 30 trang).
 - **Kiểm thử:** unit `doc_gio`/`doc_km` (`16:19`, `0:59`, `28:26`, rỗng, `20:75`, `1.008,19`) · đọc 4 PDF mẫu (60/30/64/32 dòng; 2 dòng chưa chạy DAT) · API bằng cursor giả (sai khóa → 400; HV 12/13 bỏ qua; dòng lỗi không làm hỏng dòng khác) · vitest `gioThucHanh.ts`.
 
-### 11D.11 Xuất Excel kết quả học tập theo khóa (KQD-09, CHANGES #72) — chỉ đọc
-> Bổ sung 12/10/2026. Quyết định: TDD-decisions §25. **Không đổi schema CDB, không ghi DB.**
+### 11D.11 Xuất Excel kết quả học tập theo khóa (KQD-09, CHANGES #72, #73) — chỉ đọc
+> Bổ sung 12/10/2026, soát `/reviewtdd` cùng ngày (biên bản `tdd-review-12-10-2026-kqd09.md`). Quyết định: TDD-decisions §25. **Không đổi schema CDB, không ghi DB.**
 
-- **Nguồn dữ liệu:** `NguoiLX_HoSo` + `NguoiLX` của đúng 1 khóa — dùng lại `_doc_hv_khoa(ma_kh, None, target_key)` (không viết SELECT thứ hai; thêm `B.SoGiayCNTN` vào `_SQL_HV`, đọc bằng `.get` để các test cũ không vỡ). Thông tin khóa (`TenKH`, hạng, `NgayKG`/`NgayBG`/`NgayThi`) đọc 1 truy vấn `KhoaHoc`; chương trình Cũ/Mới từ `config_store.get_kqd_chuong_trinh(ma_kh)`.
-- **Endpoint:** `GET /local/ketqua/xuat-excel?ma_kh=&target_key=` (cùng phiên + `target_key` như §11D.6). Trả `Response` `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`, `Content-Disposition: attachment; filename="KetQuaHocTap_<MaKH>_<dd-mm-yyyy>.xlsx"` kèm `filename*=UTF-8''…`. Khóa không có HV hoạt động → **404** "Khóa chưa có học viên". **Chỉ SELECT.**
-- **Hàm thuần** (`tool/app/ketqua_xuat.py`, không DB): `dung_workbook(khoa, hv_rows, co_so, nguoi_lap, ngay_lap) -> bytes` bằng `openpyxl`; `ten_file(khoa, ngay)` (ASCII). Luật:
+```
+ Nhân viên       Giao diện (React)            Tool (FastAPI)                       CDB đích
+    │ bấm Xuất Excel │ GET /xuat-excel?ma_kh=… │ require_session ──► 401                │
+    │───────────────►│────────────────────────►│ SELECT KhoaHoc ───────────────────────►│
+    │                │                         │  không có ──► 404 "Không tìm thấy khóa"│
+    │                │                         │ SELECT HV của khóa (_doc_hv_khoa) ────►│
+    │                │                         │  rỗng ──► 404 "Khóa chưa có học viên"  │
+    │                │                         │ cấu hình: cơ quan / cơ sở              │
+    │                │                         │ dung_workbook(): làm sạch chuỗi,       │
+    │                │                         │  ép kiểu chữ ô bắt đầu = + - @ ──► 500 │
+    │                │◄── 200 xlsx + Content-Disposition (+ Expose-Headers)             │
+    │ nhận file ◄────│ Blob → <a download> → toast (tên dự phòng nếu thiếu header)      │
+```
+
+| Cột | Nguồn | Luật |
+|---|---|---|
+| STT | thứ tự | sắp theo `CAST(SoHoSo AS INT)` |
+| Mã đăng ký, Họ tên, CCCD, Ngày sinh | `NguoiLX` | CCCD ép chuỗi; `NgaySinh` yyyymmdd → ô ngày |
+| Hạng | `MaHangMoi`, dự phòng `HangGPLX` | theo từng học viên |
+| 5 điểm | `DiemKQ*` | 1 chữ số; < 5 chữ đỏ |
+| Điểm LT / TH | tính | TB(LT, MP) / TB(Hình, Chữ chi, Đường); trống nếu thiếu môn |
+| Giờ/km sân, đường | `TGThucHanh*`, `QD*` | 2 chữ số |
+| Kết quả, Ngày xét | `KetLuanCSDT`, `KhoaHoc.NgayThi` | 1 → Hoàn thành, 0 → Chưa HT, NULL → trống |
+| Trạng thái, Số giấy, Ghi chú | `TT_XuLy`, `SoGiayCNTN`, tính | `Thiếu: …` / `Chưa có điểm` / cảnh báo giờ-km |
+
+- **Nguồn dữ liệu:** `NguoiLX_HoSo` + `NguoiLX` của đúng 1 khóa — dùng lại `_doc_hv_khoa(ma_kh, None, target_key)` (không viết SELECT thứ hai; thêm `B.SoGiayCNTN` vào `_SQL_HV`, đọc bằng `.get`). Thông tin khóa (`TenKH`, hạng, `NgayKG`/`NgayBG`/`NgayThi`) đọc 1 truy vấn `KhoaHoc`; chương trình Cũ/Mới từ `config_store.get_kqd_chuong_trinh(ma_kh)`.
+- **Endpoint:** `GET /local/ketqua/xuat-excel?ma_kh=&target_key=` (gác phiên + `target_key` như §11D.6). Trả `Response` `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` + `Content-Disposition: attachment; filename="KetQuaHocTap_<MaKH>_<dd-mm-yyyy>.xlsx"` kèm `filename*=UTF-8''…` và **`Access-Control-Expose-Headers: Content-Disposition`** (UI dev chạy khác cổng với API nên JS mới đọc được tên file). **Lỗi:** khóa không tồn tại → **404** "Không tìm thấy khóa học ở CSDL đích."; khóa không có HV hoạt động → **404** "Khóa chưa có học viên — không có gì để xuất."; mất kết nối DB → lỗi chuẩn của `_loi_db`; dựng workbook lỗi → **500** thông báo chung (không lộ chi tiết nội bộ). UI lấy tên từ `filename*`, thiếu thì tự dựng `KetQuaHocTap_<MaKH>_<dd-mm-yyyy>.xlsx`. **Chỉ SELECT.**
+- **Hàm thuần** (`tool/app/ketqua_xuat.py`, không DB): `dung_workbook(khoa, hv_rows, co_so, nguoi_lap, ngay_lap, chuong_trinh) -> bytes` bằng `openpyxl`; `ten_file(ma_kh, ngay)` (chỉ `[A-Za-z0-9_-]`). Luật:
   - Điểm Lý thuyết = `round(TB(LT, MP), 1)`, Điểm Thực hành = `round(TB(Hinh, TienLui, ThucHanh), 1)`; **trống nếu thiếu môn** (theo sổ mẫu TT17).
-  - Kết quả: `KetLuanCSDT` 1 → "Hoàn thành", 0 → "Chưa hoàn thành", NULL → trống. Ngày xét hoàn thành = `NgayThi` khóa, chỉ khi "Hoàn thành".
-  - Ghi chú: `Thiếu: <môn>` (từng môn trống) + `canh_bao_duong` (dùng chung luật KQD-02/07).
-  - Giờ/km làm tròn 2 chữ số (cột DB là `real`). Ngày sinh `yyyymmdd` → ô ngày thật. CCCD ghi dạng chuỗi.
-- **Cấu hình:** thêm `co_quan_chu_quan`, `ten_co_so_dao_tao` (không bí mật) vào `ConfigIn` + `config_store` + màn Cấu hình; trống thì ô đầu sổ để trống.
-- **UI:** nút "Xuất Excel" ở `CapNhatKQDT.tsx` (sau khi chọn khóa); `fetch` kèm `authHeaders()` → `Blob` → `<a download>` (thẻ `<a>` thuần không gửi được phiên). Toast `Đã xuất N học viên → <tên file>`.
-- **Phụ thuộc mới:** `openpyxl` (kéo `et_xmlfile`) — thêm vào requirements + `tool.spec` (`collect_all`); thêm phép dựng workbook nhỏ vào `--selftest`.
-- **Hiệu năng:** một SELECT cả khóa (vài trăm dòng), dựng workbook trong bộ nhớ, đồng bộ vài giây là cùng; không cần chạy nền.
-- **Bất biến:** không ghi DB; không đổi `TT_XuLy`; dữ liệu cá nhân (họ tên, CCCD, ngày sinh) chỉ nằm trong file tải về máy người dùng đã đăng nhập, không ghi log.
-- **Kiểm thử:** pytest dựng workbook từ hàng giả rồi đọc lại bằng `openpyxl` (khối đầu, cột, STT, ngày thật, CCCD chuỗi, Hoàn thành/Chưa/trống, TB lý thuyết/thực hành, thiếu môn, cảnh báo giờ/km, HV 12/13 vẫn có, khóa rỗng 404, tiếng Việt có dấu, tên file ASCII, endpoint chỉ SELECT) · Playwright: bấm nút → bắt sự kiện tải về + tên file + API gọi đúng khóa; lỗi 404 hiện thông báo.
+  - **Kết quả** lấy từ `KetLuanCSDT` (TDD-decisions §25): 1 → "Hoàn thành", 0 → "Chưa hoàn thành", NULL → trống. **Hệ quả đã chấp nhận:** học viên PM cũ lưu "Đạt" mà thiếu môn thì thấy "Hoàn thành" cạnh ô điểm trống, cột Ghi chú nêu `Thiếu: …` (khác sổ mẫu TT17 chỉ xét khi đủ 5 điểm). Ngày xét hoàn thành = `NgayThi` khóa, chỉ khi "Hoàn thành"; khóa chưa có `NgayThi` → ô để trống, không báo lỗi.
+  - **Ghi chú:** thiếu 1–4 môn → `Thiếu: <các môn>`; trống cả 5 → `Chưa có điểm`; kèm cảnh báo giờ/km đường dưới mức gợi ý (dùng chung `ketqua_quydoi.canh_bao_duong`).
+  - **Dòng tóm tắt:** `Tổng N · Hoàn thành X · Chưa hoàn thành Y · Chưa có kết luận Z` (Z = HV `KetLuanCSDT` NULL).
+  - **Hạng khối đầu:** `MaHangMoi` xuất hiện nhiều nhất trong các HV của khóa (**hòa → theo thứ tự chữ cái**, ổn định giữa các lần xuất); không HV nào có thì `KhoaHoc.HangGPLX` (mã cũ, vd `B11`).
+  - Giờ/km làm tròn 2 chữ số (cột DB là `real`). Ngày sinh `yyyymmdd` → ô ngày thật; CCCD ghi dạng chuỗi.
+- **An toàn dữ liệu trong file:** mọi chuỗi từ DB/cấu hình đi qua `_sach()` (bỏ ký tự điều khiển XML không hợp lệ — một học viên có ký tự lạ không được làm hỏng cả file — và cắt tối đa 32.000 ký tự) rồi `_ghi_chu()`: **chuỗi bắt đầu `= + - @` hoặc tab/CR bị ép kiểu chữ + `quotePrefix`**, không thành công thức (chống formula injection — họ tên có thể do học viên khai ở app web, file đi nộp ra ngoài).
+- **Cấu hình:** `co_quan_chu_quan`, `ten_co_so_dao_tao` (không bí mật; tối đa 200 ký tự) lưu bằng `PUT /local/config/co-so` — **gác phiên** (khác `PUT /local/config` là bước mồi lần đầu), gộp vào `config.enc`, không đụng khóa khác; thêm vào `ConfigIn` để lưu khối ① không làm rơi 2 ô này. Trống thì ô đầu sổ để trống.
+- **UI:** nút "Xuất Excel" ở `CapNhatKQDT.tsx` (sau khi chọn khóa); `fetch` kèm `authHeaders()` → `Blob` → `<a download>` (thẻ `<a>` thuần không gửi được phiên). Toast `Đã xuất kết quả học tập khóa <mã> → <tên file>`; nút khóa khi đang xuất.
+- **Phụ thuộc mới:** `openpyxl` (kéo `et_xmlfile`) — thêm vào requirements + `tool.spec` (`collect_all`); `--selftest` dựng workbook nhỏ.
+- **Hiệu năng:** một SELECT cả khóa, dựng workbook đồng bộ trong bộ nhớ; **5.000 học viên ≈ 4 giây (đo 12/10/2026)**, CSĐT thực tế vài chục đến vài trăm nên không cần chạy nền.
+- **Ghi nhận (rà soát):** hai truy vấn riêng (khóa rồi HV) có thể lệch vài mili giây nếu đang ghi — file là ảnh chụp tại lúc xuất · `ngay_lap` là giờ máy CSĐT (VN) · `ORDER BY CAST(SoHoSo AS INT)` của `_SQL_HV` (dùng chung từ trước) lỗi nếu `SoHoSo` không phải số — chưa thấy dữ liệu như vậy.
+- **Bất biến:** không ghi DB; không đổi `TT_XuLy`; họ tên/CCCD/ngày sinh chỉ nằm trong file tải về máy người đã đăng nhập, không ghi log, không lọt vào thông báo lỗi.
+- **Kiểm thử:** pytest dựng workbook từ hàng giả rồi đọc lại bằng `openpyxl` (khối đầu, 22 cột, STT, ngày thật, CCCD chuỗi, Hoàn thành/Chưa/trống, TB, thiếu môn, cảnh báo giờ/km, HV 12/13 vẫn có, khóa rỗng 404, tiếng Việt có dấu, tên file ASCII, hạng hòa phiếu, **công thức `=…`/`+…`/`-…`/`@…` bị ép chuỗi, ký tự điều khiển không làm hỏng file, chuỗi > 32.000 bị cắt, `PUT /co-so` cần phiên**, endpoint chỉ SELECT) · Playwright: bấm nút → tải về + tên file + API đúng khóa; 404 hiện thông báo; nút khóa khi đang xuất; lưu tên cơ sở.
 
 > **Phục vụ:** KQD-01/02/03/04/05/06/07/08/09. Dừng ở `TT_XuLy` 09/10/12 — kết xuất XML/gửi Sở thuộc PM cũ. Quy đổi điểm/giờ/km: nguồn `thamkhao/` (TT17 + Sổ theo dõi). Quyết định: TDD-decisions §17 (quy đổi) + §19 (mở khóa).
 
@@ -1925,6 +1954,7 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 | --- | --- | --- |
+| 12/10/2026 | 6.18 | **Sửa sau /reviewtdd §11D.11** (KQD-09, CHANGES #73, biên bản `tdd-review-12-10-2026-kqd09.md`; subagent soát độc lập: 2 Chặn · 6 Nên sửa · 5 Ghi nhận): chốt lỗi 404/500 + Expose-Headers + tên file dự phòng · ghi chú `Thiếu`/`Chưa có điểm` · nhãn "Chưa có kết luận" · hệ quả §25 (Hoàn thành cạnh điểm trống) · hạng hòa phiếu theo chữ cái · **chống formula injection + làm sạch ký tự điều khiển (sửa code)** · `PUT /co-so` gác phiên (sửa code) · sơ đồ luồng + bảng cột→nguồn · số đo hiệu năng. |
 | 12/10/2026 | 6.17 | **+§11D.11 Xuất Excel kết quả học tập theo khóa (KQD-09)** (CHANGES #72): endpoint `GET /xuat-excel` chỉ đọc, hàm thuần `ketqua_xuat.py` (openpyxl), form 1 sheet 22 cột + khối đầu, cấu hình tên cơ quan/cơ sở, thêm vào §11D.6; TDD-decisions §25. |
 | 12/10/2026 | 6.16 | **Sửa sau /reviewtdd §11D.10** (KQD-08/KQD-02, CHANGES #71, biên bản `tdd-review-12-10-2026-kqd08.md`; subagent soát độc lập, 0 Chặn · 4 Nên sửa · 3 Ghi nhận): chốt endpoint `/dat/*` theo code (đủ field, 6 giá trị `tinh_trang`, 400/413/422) + thêm vào §11D.6 · chèn sơ đồ luồng + bảng tình trạng · "Chọn tất cả" chỉ tick `khop` (sửa code) · định nghĩa chưa chạy DAT khớp code · trần tra lý do 500 mã/50 tên + câu hiển thị dòng vượt trần (sửa code) · ghi nhận 3 rủi ro (rowcount, ghi sau thắng, PDF không giới hạn trang). |
 | 12/10/2026 | 6.15 | **§11D.10 chốt sau /kiemthu** (CHANGES #70): `UPDATE` thêm `TrangThai = 1` (cùng điều kiện xem trước); regex mã khóa chữ+số; tick tay dòng chưa chạy DAT điền sẵn `0`; giờ nhận `hh:mm:ss`; vector giờ/km dùng chung pytest + vitest. |
