@@ -296,3 +296,25 @@
   - **"Làm tiếp" gửi đúng nội dung đã xác nhận** (payload chốt ở lần gửi đầu): vì form mount lại có thể đổi số gợi ý → tạo BC2 thứ hai. Phát hiện bởi E2E Checkpoint 26.
   - **Hoàn tất lô cứu dở từ nhật ký** (user chốt A): tool ngắt giữa lúc cứu không để HV mất nút Hoàn tác. Đã cân nhắc: (A) sửa backend ← chọn · (B) để nhân viên tự làm tươi/kiểm tra.
   - **Chưa chốt (để ngỏ):** nhóm "đã ở BC2 này"; khôi phục lô sau F5; giữ/tích sẵn lựa chọn sau Làm tươi.
+
+## 24. Nạp giờ/km đường từ PDF DAT theo khóa (12/10/2026)
+
+- **Đã chốt (user, 12/10/2026):**
+  - Nạp giờ đường + km đường **cho cả khóa từ file DAT**, ra bảng xác nhận rồi lưu, thay cho gõ tay từng HV.
+  - **Nhận thẳng PDF DAT**, không qua Excel (file DAT user có là PDF).
+  - Ô Giờ đường trên lưới nhận `hh:mm` → đổi thập phân; số đã có ở DB **là giờ thập phân**, hiển thị nguyên.
+- **Vì sao:**
+  - **PDF đọc được bằng `pdfplumber`:** 4/4 file mẫu ra bảng sạch, 186 dòng, đủ cột; không cần OCR.
+  - **UPDATE thẳng 2 cột, không qua SP `_CapNhat`:** SP ghi đè điểm, kết luận và `TT_XuLy` (kéo HV 12 lùi về 09). Nạp giờ/km không được đụng những thứ đó.
+  - **Kiểm mã khóa trong file:** chống nạp nhầm file khóa khác — nhầm là ghi sai giờ/km cả khóa.
+  - **Dòng chưa chạy DAT (giờ trống, km 0,00) bỏ tick sẵn:** ghi `0` đè giá trị đã có là mất dữ liệu.
+  - **Giữ nguyên số đã lưu khi mở:** đoán "20,3 = 20 giờ 3 phút" sẽ đổi nhầm dữ liệu cũ đã là thập phân.
+- **Phương án đã cân nhắc:**
+  - *Loại file:* (A) PDF DAT ← chọn · (B) PDF + Excel · (C) chỉ Excel (người dùng tự chuyển).
+  - *Số cũ ở DB:* (A) đã là giờ thập phân, giữ nguyên ← chọn · (B) phần lẻ là phút, đổi lại khi mở.
+  - *Cách ghi:* (A) UPDATE 2 cột ← chọn · (B) gọi SP `_CapNhat` từng HV.
+- **Đánh đổi:** thêm phụ thuộc `pdfplumber` (+ `pdfminer.six`) vào tool/exe; phụ thuộc bố cục PDF của DAT (đổi mẫu báo cáo là phải sửa bộ đọc).
+- **Còn mở (xác minh khi code):** "Mã học viên" trong PDF có là `MaDK` không; UPDATE trực tiếp 2 cột có bỏ sót cột phụ nào của SP không.
+- **Phạm vi:** chỉ tool máy CSDT, nhóm KQD; không đụng app web/VPS/Sync/Phân công/TNB.
+- **Nguồn:** user 12/10/2026; 4 file `thamkhao/DAT *.pdf`; PRD KQD-08 + KQD-02; TDD §11D.10; CHANGES #69.
+

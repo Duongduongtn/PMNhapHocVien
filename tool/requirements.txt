@@ -12,3 +12,4 @@ rembg>=2.0             # xóa phông → nền trắng (u2net)   (NAP-04, task 8
 onnxruntime>=1.17      # backend cho rembg               (NAP-04, task 8)
 python-multipart>=0.0.9 # nhận upload ảnh (POST /local/anh/xu-ly) (NAP-04)
 pystray>=0.19          # khay hệ thống bản đóng gói .exe  (DGT-02, task 67)
+pdfplumber>=0.11,<1.0   # đọc PDF báo cáo DAT (KQD-08)

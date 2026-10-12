@@ -15,10 +15,10 @@ from __future__ import annotations
 import json
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 
-from app import config_store, ketqua_quydoi, sua_sau_gui, sync_helpers
+from app import config_store, ketqua_dat, ketqua_quydoi, sua_sau_gui, sync_helpers
 from app.db import sqlserver_conn_dich, ConfigChuaDay
 from app.routers.hoso import ngay_sinh_hien
 from app.routers.sync import _db_dich, _loi_db
@@ -139,6 +139,11 @@ def _diem(v) -> float | None:
     return float(v) if v is not None else None
 
 
+def _so2(v) -> float | None:
+    """Giờ/km đường: cột real của CDB trả 18.399999618… → làm tròn 2 chữ số để hiển thị đúng 18,4."""
+    return round(float(v), 2) if v is not None else None
+
+
 def _ket_luan(v) -> str | None:
     """KetLuanCSDT (bit) → 'dat' | 'khong_dat' | None (chưa có kết luận)."""
     if v is None or (isinstance(v, str) and not v.strip()):
@@ -193,6 +198,8 @@ def ds_hoc_vien(
                 "tien_lui": _diem(r["DiemKQTienLui"]),
                 "duong": _diem(r["DiemKQThucHanh"]),
             },
+            "gio_duong": _so2(r["TGThucHanhDuong"]),
+            "km_duong": _so2(r["TongQDThucHanh"]),
         }
         for r in rows
     ]
@@ -247,6 +254,89 @@ def luat_kqd() -> dict:
 
     Một nguồn ở backend để hai màn không lệch nhau; UI đọc một lần khi mở màn."""
     return {"mon_bat_buoc": list(ketqua_quydoi.MON)}
+
+
+# ── KQD-08: nạp giờ/km đường từ PDF DAT (TDD §11D.10) ──
+_DAT_TOI_DA = 5 * 1024 * 1024    # PDF DAT 60 dòng chỉ ~vài chục KB; 5 MB là dư
+
+
+@router.post("/dat/xem-truoc")
+def dat_xem_truoc(
+    ma_kh: str = Form(..., min_length=1),
+    file: UploadFile = File(...),
+    target_key: str | None = None,
+) -> dict:
+    """Đọc PDF DAT → bảng xác nhận (giờ/km cũ → mới) cho ĐÚNG khóa `ma_kh`. KHÔNG ghi DB.
+
+    Mã khóa trong file khác `ma_kh` → 400 (chống nạp nhầm khóa). Khớp HV theo MaDK."""
+    if not (file.filename or "").lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Chỉ nhận file PDF báo cáo DAT.")
+    data = file.file.read(_DAT_TOI_DA + 1)
+    if len(data) > _DAT_TOI_DA:
+        raise HTTPException(status_code=413, detail="File quá lớn (tối đa 5 MB).")
+    if not data.startswith(b"%PDF"):
+        raise HTTPException(status_code=400, detail="File không phải PDF.")
+    try:
+        pdf = ketqua_dat.doc_pdf_dat(data)
+    except ketqua_dat.LoiDat as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if pdf["ma_kh"].strip().upper() != ma_kh.strip().upper():
+        raise HTTPException(
+            status_code=400,
+            detail=f"File thuộc khóa {pdf['ma_kh']}, khác khóa đang chọn ({ma_kh}). Chọn đúng file của khóa này.",
+        )
+    hv = _doc_hv_khoa(ma_kh, None, target_key)
+    kq = ketqua_dat.doi_chieu(pdf["dong"], hv)
+    return {"ma_kh": ma_kh, "hang": pdf["hang"], "tong_file": len(pdf["dong"]), **kq}
+
+
+class DatDongIn(BaseModel):
+    ma_dk: str
+    gio_duong: float = Field(ge=0, le=999)
+    km_duong: float = Field(ge=0, le=99999)
+
+
+class DatLuuIn(BaseModel):
+    ma_kh: str
+    dong: list[DatDongIn] = Field(min_length=1, max_length=1000)
+
+
+@router.post("/dat/luu")
+def dat_luu(body: DatLuuIn, target_key: str | None = None,
+            phien: Phien = Depends(require_session)) -> dict:
+    """Ghi giờ đường + km đường cho các HV đã tick — MỘT transaction, chỉ 2 cột này.
+
+    KHÔNG gọi SP `_CapNhat` (SP ghi đè điểm/kết luận/trạng thái). Chỉ HV thuộc `ma_kh` và chưa
+    `12`/`13`; dòng không đủ điều kiện → `bo_qua` kèm lý do. Hỏng giữa chừng → rollback cả lô."""
+    db = _db_dich(target_key)
+    da_luu = 0
+    bo_qua: list[dict] = []
+    try:
+        with sqlserver_conn_dich(db, autocommit=False) as conn:
+            cur = conn.cursor(as_dict=True)
+            try:
+                for d in body.dong:
+                    cur.execute(
+                        "UPDATE dbo.NguoiLX_HoSo SET TGThucHanhDuong=%s, TongQDThucHanh=%s, NgaySua=GETDATE() "
+                        "WHERE MaDK=%s AND MaKhoaHoc=%s AND ISNULL(TT_XuLy,'') NOT IN ('12','13')",
+                        (d.gio_duong, d.km_duong, d.ma_dk, body.ma_kh),
+                    )
+                    if cur.rowcount == 1:
+                        da_luu += 1
+                    else:
+                        bo_qua.append({"ma_dk": d.ma_dk,
+                                       "ly_do": "Không thuộc khóa này hoặc đã kết xuất/hoàn thành (12/13)."})
+                conn.commit()
+            except Exception:
+                conn.rollback()
+                raise
+    except HTTPException:
+        raise
+    except ConfigChuaDay as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail="Không ghi được giờ/km — kiểm kết nối rồi thử lại, chưa có dòng nào được lưu.")
+    return {"ok": True, "da_luu": da_luu, "bo_qua": bo_qua}
 
 
 # ── KQD-02: cờ chương trình CŨ/MỚI theo khóa (lưu phía tool) ──

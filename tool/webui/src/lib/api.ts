@@ -978,6 +978,8 @@ export interface HocVienKQD {
   tt_xuly: string | null;
   ket_luan: "dat" | "khong_dat" | null;
   diem: DiemKQD;
+  gio_duong: number | null; // giờ đường đã lưu ở DB đích (thập phân, làm tròn 2 chữ số)
+  km_duong: number | null;
 }
 // Nhóm lọc trạng thái (khớp _NHOM_TT backend) + 'all'. ketxuat=12 (KQD-03 "đã kết xuất").
 export type TrangThaiKQD = "all" | "dangky" | "capnhat" | "tuchoi" | "giaitrinh" | "ketxuat";
@@ -1007,6 +1009,52 @@ export const kiemTruocKQD = (maKh: string, targetKey?: string) =>
   fetch(`${BASE}/local/ketqua/kiem-truoc?${qs({ ma_kh: maKh, target_key: targetKey })}`, {
     headers: authHeaders(),
   }).then(json<KiemTruocKQD>);
+// ── KQD-08: nạp giờ/km đường từ PDF DAT (xem trước → lưu hàng loạt, chỉ 2 cột giờ/km) ──
+export type TinhTrangDat =
+  | "khop" | "chua_chay_dat" | "khong_co_trong_khoa" | "da_ket_xuat" | "loi_dong" | "trung_dong";
+export interface DatDong {
+  stt: number;
+  ma_dk: string;
+  ho_ten: string;
+  gio_cu: number | null;
+  km_cu: number | null;
+  gio_moi: number | null;
+  km_moi: number | null;
+  tinh_trang: TinhTrangDat;
+  canh_bao: { loai: string; gia_tri: number; goi_y: number }[];
+  co_thay_doi: boolean;
+  chon_duoc: boolean;
+  tick_san: boolean;
+  ghi_chu: string | null;
+}
+export interface DatXemTruoc {
+  ma_kh: string;
+  hang: string | null;
+  tong_file: number;
+  dong: DatDong[];
+  vang_trong_file: { ma_dk: string; ho_ten: string; so_cccd: string | null }[];
+}
+export const xemTruocDatKQD = (maKh: string, file: File, targetKey?: string) => {
+  const fd = new FormData();
+  fd.append("ma_kh", maKh);
+  fd.append("file", file);
+  return fetch(`${BASE}/local/ketqua/dat/xem-truoc?${qs({ target_key: targetKey })}`, {
+    method: "POST", headers: authHeaders(), body: fd,
+  }).then(json<DatXemTruoc>);
+};
+export interface DatLuuKetQua {
+  ok: boolean;
+  da_luu: number;
+  bo_qua: { ma_dk: string; ly_do: string }[];
+}
+export const luuDatKQD = (
+  body: { ma_kh: string; dong: { ma_dk: string; gio_duong: number; km_duong: number }[] },
+  targetKey?: string,
+) =>
+  fetch(`${BASE}/local/ketqua/dat/luu?${qs({ target_key: targetKey })}`, {
+    method: "POST", headers: authHeaders({ "Content-Type": "application/json" }), body: JSON.stringify(body),
+  }).then(json<DatLuuKetQua>);
+
 export const luatKQD = () =>
   fetch(`${BASE}/local/ketqua/luat`, { headers: authHeaders() }).then(json<{ mon_bat_buoc: string[] }>);
 

@@ -1287,7 +1287,7 @@ Mở exe
 
 > **Phục vụ:** DGT-01/02/03/04. Không chạm nghiệp vụ Nạp/Sync/TCB — thuần đóng gói + khởi chạy + vòng đời phiên của tool. Quyết định kỹ thuật: TDD-decisions §16.
 
-## 11D. Cập nhật kết quả đào tạo (tool — workspace riêng) — KQD-01..07 (CHANGES #42, #45, #53, #65)
+## 11D. Cập nhật kết quả đào tạo (tool — workspace riêng) — KQD-01..08 (CHANGES #42, #45, #53, #65, #69)
 
 > Ghi **CSDL đích** `GPLX_CDB_CSDT` (bảng `NguoiLX_HoSo`) như SYNC/TCB. Chỉ nhập KQĐT (`TT_XuLy` 03→09/10), **không** kết xuất XML. Schema đã probe: `docs/DB-GPLX_CDB_CSDT.md` §5. Quyết định kỹ thuật: TDD-decisions §17.
 
@@ -1424,7 +1424,23 @@ DB **không có** trigger/computed/constraint tính 3 cờ (verify 06/10: 0 trig
 - **Bất biến:** chỉ đọc; không chặn kết xuất; không sinh XML.
 - **Kiểm thử:** unit `hv_chua_du` (đủ 5 môn → đủ; thiếu 1 môn; chưa có điểm; thiếu giờ-km; thiếu kết luận; hạng mô tô không xét — đếm `mo_to_bo_qua`; giờ đường dưới ngưỡng không vào lý do) + API bằng cursor giả (HV 12/13 không vào danh sách).
 
-> **Phục vụ:** KQD-01/02/03/04/05/06/07. Dừng ở `TT_XuLy` 09/10/12 — kết xuất XML/gửi Sở thuộc PM cũ. Quy đổi điểm/giờ/km: nguồn `thamkhao/` (TT17 + Sổ theo dõi). Quyết định: TDD-decisions §17 (quy đổi) + §19 (mở khóa).
+### 11D.10 Nạp giờ/km đường từ PDF DAT (KQD-08, CHANGES #69) + giờ `hh:mm` ở lưới (KQD-02)
+> Bổ sung 12/10/2026. Quyết định: TDD-decisions §24. **Không đổi schema CDB**; ghi 2 cột có sẵn.
+
+- **Nguồn:** PDF "Báo cáo kết quả đào tạo thực hành lái xe trên đường của khóa học" (DAT). Đã đọc thử 4 file mẫu `thamkhao/DAT *.pdf` (186 dòng) bằng `pdfplumber`: đầu file có `Mã khóa học:<mã> (<tên>)` + `Hạng đào tạo`; bảng 7 cột `STT · Mã học viên · Họ và tên · Ngày sinh · Tổng thời gian · Tổng quãng đường · Ghi chú`, trải nhiều trang; giờ `16:19` / `0:59` / `28:26` (có thể ≥ 24), km `725,63` / `1.008,19`; dòng chưa chạy DAT có giờ trống + km `0,00`.
+- **Hàm thuần** (file mới `tool/app/ketqua_dat.py`, không DB): `doc_gio("16:19") → 16.32` (h + m/60, làm tròn 2 chữ số; trống → `None`; phút ≥ 60 hoặc rác → lỗi dòng) · `doc_km("1.008,19") → 1008.19` · `doc_pdf_dat(bytes) → {ma_kh, hang, dong:[{stt, ma_hv, ho_ten, ngay_sinh, gio, km, ghi_chu, loi}]}`. Cùng luật `hh:mm` ở phía UI (`gioThucHanh.ts`) cho ô Giờ đường KQD-02.
+- **Endpoint (đề xuất, chốt khi code)**, gác session + `target_key` như §11D.6:
+  - `POST /local/ketqua/dat/xem-truoc` (multipart: file + `ma_kh`; chỉ `.pdf`, ≤ 5 MB) — đọc file, **so mã khóa** với `ma_kh` (khác → 400), khớp từng dòng với HV của khóa (dùng lại `_doc_hv_khoa`, không viết SELECT thứ hai), trả `{dong:[{ma_dk, ho_ten, gio_cu, gio_moi, km_cu, km_moi, tinh_trang, canh_bao[], tick_san}], vang_trong_file:[…]}`. **Không ghi DB.** Cảnh báo dưới ngưỡng dùng lại `canh_bao_duong`.
+  - `POST /local/ketqua/dat/luu` (`{ma_kh, dong:[{ma_dk, gio_duong, km_duong}]}`, cần phiên) — **một transaction**: `UPDATE dbo.NguoiLX_HoSo SET TGThucHanhDuong=%s, TongQDThucHanh=%s, NgaySua=GETDATE() WHERE MaDK=%s AND MaKhoaHoc=%s AND ISNULL(TT_XuLy,'') NOT IN ('12','13')`. Trả `{da_luu, bo_qua:[{ma_dk, ly_do}]}`. **Không gọi SP `_CapNhat`** (SP ghi đè điểm/kết luận/trạng thái — quá tay cho việc chỉ nạp giờ/km).
+  - `GET /local/ketqua/hoc-vien` trả thêm `gio_duong`, `km_duong` (cột đã có sẵn trong `_SQL_HV`) để lưới KQD-02 nạp sẵn giá trị đã lưu.
+- **Sửa lỗi ngầm KQD-02:** hiện lưu sửa lẻ điểm khi ô giờ trống gửi `gio_duong=null` và SP ghi NULL đè giờ cũ. Sau thay đổi: ô nạp sẵn giá trị đã lưu → không gõ thì gửi đúng giá trị cũ.
+- **Đã xác minh 12/10/2026:** (1) "Mã học viên" trong PDF **=** `NguoiLX.MaDK` — DB dev có 2/4 khóa mẫu (B.01-K40, C1-K11), 62/62 dòng khớp và `MaKhoaHoc` trùng mã khóa trong file; 2 khóa còn lại (B.01-K39, C1-K10) không có trong DB dev nên chưa đối chiếu được. (2) SP `_CapNhat` ngoài 2 cột giờ/km chỉ đặt thêm **`NgaySua = GETDATE()`** (và điểm/kết luận/`TT_XuLy`/ngày) — UPDATE của KQD-08 đặt `NgaySua` như SP, không đụng phần còn lại.
+- **Số lưu ở DB là `real`** (đọc ra `18.399999618530273`): `/hoc-vien` và bảng xác nhận làm tròn 2 chữ số; so "có thay đổi" sau làm tròn.
+- **Phụ thuộc mới:** `pdfplumber` (kéo `pdfminer.six`) — thêm vào requirements tool + `tool.spec`; kiểm đọc được trong exe đóng gói.
+- **Bất biến:** chỉ ghi `TGThucHanhDuong`/`TongQDThucHanh`; không đụng điểm/kết luận/`TT_XuLy`; HV `12`/`13` không ghi; không sinh XML.
+- **Kiểm thử:** unit `doc_gio`/`doc_km` (`16:19`, `0:59`, `28:26`, rỗng, `20:75`, `1.008,19`) · đọc 4 PDF mẫu (60/30/64/32 dòng; 2 dòng chưa chạy DAT) · API bằng cursor giả (sai khóa → 400; HV 12/13 bỏ qua; dòng lỗi không làm hỏng dòng khác) · vitest `gioThucHanh.ts`.
+
+> **Phục vụ:** KQD-01/02/03/04/05/06/07/08. Dừng ở `TT_XuLy` 09/10/12 — kết xuất XML/gửi Sở thuộc PM cũ. Quy đổi điểm/giờ/km: nguồn `thamkhao/` (TT17 + Sổ theo dõi). Quyết định: TDD-decisions §17 (quy đổi) + §19 (mở khóa).
 
 ---
 
@@ -1858,6 +1874,7 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 | --- | --- | --- |
+| 12/10/2026 | 6.14 | **+§11D.10 Nạp giờ/km đường từ PDF DAT (KQD-08) + giờ `hh:mm` & nạp sẵn giờ/km đã lưu ở lưới (KQD-02)** (CHANGES #69): hàm thuần đọc PDF (`ketqua_dat.py`), 2 endpoint xem-trước/lưu (UPDATE thẳng 2 cột, một transaction, không qua SP), `/hoc-vien` trả thêm `gio_duong`/`km_duong`, sửa lỗi ngầm SP ghi NULL đè giờ cũ. Thêm phụ thuộc `pdfplumber`. 2 điểm còn mở ghi tại §11D.10. TDD-decisions §24. |
 | 12/10/2026 | 6.13 | **Đồng bộ §11D.9 (KQD-07) và §11E.10 (PCG-06) với code + quyết định đã chốt** (CHANGES #68): `hv_chua_du(hv)` bỏ tham số `hang`, mô tô lọc ở router và đếm `mo_to_bo_qua`; môn bắt buộc = 5 môn mọi hạng ô tô; response thêm `mon_thieu`/`mo_to_bo_qua`/`ma_kh`, `cccd`→`so_cccd`; UI chốt qua mock (ẩn chip giờ/km khi chưa có điểm, thông điệp khóa mô tô). PCG-06 đọc ở `phancong_hangiayto.py`, lọc `TrangThai=1`. Không đổi schema. |
 | 12/10/2026 | 6.12 | **Sửa §11.6 đổi nền cả khóa (QLY-07, CHANGES #67):** ghi đè đúng file ở `DuongDanAnh` hiện có (2 DB dùng chung 1 file), không dùng `ghi_anh_update` (không tạo file mới/không đổi `DuongDanAnh`); chỉ UPDATE `ChatLuongAnh/NgayThuNhanAnh/NguoiThuNhanAnh`; sao lưu `<tên>_BACKUP.jp2` cùng thư mục thay `<khóa>\_BACKUP\<MaDK>.jp2`. |
 | 12/10/2026 | 6.11 | **+§11D.9 Kiểm trước kết xuất (KQD-07) và +§11E.10 Hạn giấy tờ + GV/xe ngưng còn phân công (PCG-06)** (CHANGES #65, #66): hai endpoint chỉ đọc `GET /local/ketqua/kiem-truoc` và `GET /local/phancong/han-giay-to`; luật thuần `hv_chua_du` / `phan_loai_han`; cột đã verify trực tiếp trên DB đích 12/10/2026 (kể cả `GiaoVien.NgayHHGPLX`). Không đổi schema, không ghi DB. |

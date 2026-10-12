@@ -26,8 +26,12 @@ import {
   type ChuongTrinh,
   type DiemGocKQD,
   luatKQD,
+  luuDatKQD,
+  type DatLuuKetQua,
 } from "../../lib/api";
 import KiemTruocKetXuat from "./KiemTruocKetXuat";
+import NapDatModal from "./NapDatModal";
+import { bangNhau, chuanHoaGio, parseGio, soHien } from "./gioThucHanh";
 
 // KQD-01 (lưới + lọc) + KQD-02 (nhập điểm gốc → quy đổi → ghi CDB). Ghi CSDL ĐÍCH qua
 // /local/ketqua/*. Bám mockup ui-mock/ketqua.html: nhập điểm THẲNG trên lưới, quy đổi &
@@ -91,6 +95,8 @@ const MON_NHAN: Record<string, string> = {
 };
 type NhapRow = { ly_thuyet: string; mo_phong: string; hinh: string; tien_lui: string; duong: string; gio_duong: string; km_duong: string };
 const NHAP_RONG: NhapRow = { ly_thuyet: "", mo_phong: "", hinh: "", tien_lui: "", duong: "", gio_duong: "", km_duong: "" };
+// KQD-02: HV đã có giờ/km ở DB đích → ô nạp sẵn đúng giá trị đó (không để trống rồi ghi NULL đè khi lưu).
+const gocNhap = (h: HocVienKQD): NhapRow => ({ ...NHAP_RONG, gio_duong: soHien(h.gio_duong), km_duong: soHien(h.km_duong) });
 
 function parseNum(v: string): number | null {
   const t = (v || "").trim().replace(",", ".");
@@ -154,6 +160,7 @@ export default function CapNhatKQDT() {
   // KQD-07: luật môn bắt buộc dùng chung với khung "Kiểm trước kết xuất" (đọc 1 lần; lỗi → mặc định 5 môn).
   const [monBatBuoc, setMonBatBuoc] = useState<readonly string[]>(MON5);
   const [moKiemTruoc, setMoKiemTruoc] = useState(false);
+  const [moNapDat, setMoNapDat] = useState(false); // KQD-08: hộp thoại nạp giờ/km từ PDF DAT
 
   const [loc, setLoc] = useState<TrangThaiKQD>("all");
   const [qHv, setQHv] = useState("");
@@ -264,8 +271,22 @@ export default function CapNhatKQDT() {
     try { await setChuongTrinhKQD(khoa.ma_kh, v); } catch { /* giữ UI, lần ghi sau server đọc lại */ }
   }
 
-  function setNhapO(maDk: string, k: keyof NhapRow, v: string) {
-    setNhap((cur) => ({ ...cur, [maDk]: { ...(cur[maDk] ?? NHAP_RONG), [k]: v } }));
+  function setNhapO(h: HocVienKQD, k: keyof NhapRow, v: string) {
+    setNhap((cur) => ({ ...cur, [h.ma_dk]: { ...(cur[h.ma_dk] ?? gocNhap(h)), [k]: v } }));
+  }
+
+  // KQD-08: nạp xong → làm tươi lưới; ô giờ/km đang nháp của HV vừa ghi lấy theo giá trị đã lưu.
+  function sauNapDat(r: DatLuuKetQua, daGui: { ma_dk: string; gio_duong: number; km_duong: number }[]) {
+    setMoNapDat(false);
+    setNhap((cur) => {
+      const c = { ...cur };
+      for (const d of daGui) {
+        if (c[d.ma_dk]) c[d.ma_dk] = { ...c[d.ma_dk], gio_duong: soHien(d.gio_duong), km_duong: soHien(d.km_duong) };
+      }
+      return c;
+    });
+    setToast(`Đã lưu giờ/km đường cho ${r.da_luu} học viên${r.bo_qua.length > 0 ? ` · bỏ qua ${r.bo_qua.length} (${r.bo_qua[0].ly_do})` : ""}.`);
+    if (khoa) void taiHoSo(khoa, loc);
   }
 
   function moDrawer(h: HocVienKQD) {
@@ -290,7 +311,25 @@ export default function CapNhatKQDT() {
   }
 
   async function luu(h: HocVienKQD) {
-    const nr = nhap[h.ma_dk] ?? NHAP_RONG;
+    const nr = nhap[h.ma_dk] ?? gocNhap(h);
+    const gio = parseGio(nr.gio_duong);
+    if (gio === "sai") { setToast("Giờ đường sai dạng — gõ số (20,5) hoặc hh:mm (20:30), phút phải nhỏ hơn 60."); return; }
+    const km = parseNum(nr.km_duong);
+    // Không gõ điểm mới mà chỉ sửa giờ/km → ghi RIÊNG 2 cột này (không đụng điểm/kết luận/ngày), như nạp PDF DAT.
+    if (!MON5.some((m) => parseNum(nr[m]) != null)) {
+      if (bangNhau(gio, h.gio_duong) && bangNhau(km, h.km_duong)) { setToast("Chưa nhập điểm hay giờ/km mới nào để lưu."); return; }
+      if (gio == null || km == null || !khoa) { setToast("Giờ đường và km đường phải nhập đủ cả hai để lưu."); return; }
+      setLuuBusy(h.ma_dk); setToast("");
+      try {
+        const r = await luuDatKQD({ ma_kh: khoa.ma_kh, dong: [{ ma_dk: h.ma_dk, gio_duong: gio, km_duong: km }] }, targetKey ?? undefined);
+        setToast(r.da_luu > 0 ? `Đã lưu giờ/km đường của ${h.ho_ten}.` : (r.bo_qua[0]?.ly_do ?? "Không lưu được."));
+        await taiHoSo(khoa, loc);
+        setNhap((cur) => { const c = { ...cur }; delete c[h.ma_dk]; return c; });
+      } catch (e) {
+        setToast(e instanceof Error ? e.message : "Không lưu được giờ/km.");
+      } finally { setLuuBusy(null); }
+      return;
+    }
     const cat = phanLoaiHang(h.ma_hang_moi, h.ma_hang);
     const t = tinhDong(nr, cat, ct, monBatBuoc);
     if (MON5.some((m) => t.over[m])) { setToast("Có điểm vượt khung, sửa lại trước khi lưu."); return; }
@@ -314,8 +353,8 @@ export default function CapNhatKQDT() {
         diem_goc,
         giu_quydoi: coGiu ? giu : undefined,
         km_san: parseNum(ct_detail.km_san),
-        gio_duong: parseNum(nr.gio_duong),
-        km_duong: parseNum(nr.km_duong),
+        gio_duong: gio,
+        km_duong: km,
         ngay_ra_qdtn: ct_detail.ngay_htkh || undefined,
         tg_bat_dau: ct_detail.tg_bat_dau || undefined,
         tg_ket_thuc: ct_detail.tg_ket_thuc || undefined,
@@ -378,6 +417,10 @@ export default function CapNhatKQDT() {
         <KiemTruocKetXuat khoa={khoa} targetKey={targetKey} onDong={() => setMoKiemTruoc(false)}
           onMoHV={(soCccd) => { setMoKiemTruoc(false); setLoc("all"); setQHv(soCccd); setTrang(0); if (hoSo == null || loc !== "all") void taiHoSo(khoa, "all"); }} />
       )}
+      {moNapDat && khoa && (
+        <NapDatModal maKh={khoa.ma_kh} tenKh={khoa.ten_kh} targetKey={targetKey ?? undefined}
+          onClose={() => setMoNapDat(false)} onDone={sauNapDat} />
+      )}
       {/* Khung chọn khóa + chương trình + lọc */}
       <div className="shrink-0 bg-card border-b border-border">
         <div className="px-4 pt-3 pb-2 flex items-center gap-2 flex-wrap">
@@ -389,6 +432,10 @@ export default function CapNhatKQDT() {
               <button onClick={() => setMoKiemTruoc(true)} className="inline-flex items-center gap-1.5 h-8 px-3 mr-2 rounded-lg border border-kq-border bg-kq-soft text-kq text-[12.5px] font-semibold hover:brightness-95">
                 <Icon name="check" className="w-4 h-4" /> Kiểm trước kết xuất
                 <span className="text-[10px] font-semibold border border-kq-border rounded-full px-1.5">KQD-07</span>
+              </button>
+              <button onClick={() => setMoNapDat(true)} className="inline-flex items-center gap-1.5 h-8 px-3 mr-2 rounded-lg border border-kq-border bg-kq-soft text-kq text-[12.5px] font-semibold hover:brightness-95" title="Nạp giờ/km thực hành đường của cả khóa từ file PDF báo cáo DAT">
+                <Icon name="file" className="w-4 h-4" /> Nạp giờ/km từ PDF DAT
+                <span className="text-[10px] font-semibold border border-kq-border rounded-full px-1.5">KQD-08</span>
               </button>
               <span>Chương trình khóa:</span>
               <label className="inline-flex items-center gap-1 cursor-pointer"><input type="radio" name="ct" checked={ct === "cu"} onChange={() => doiCt("cu")} /> Cũ (TT12/2025)</label>
@@ -498,7 +545,7 @@ export default function CapNhatKQDT() {
                     const khoaDong = h.tt_xuly === "12" || h.tt_xuly === "13";
                     const cat = phanLoaiHang(h.ma_hang_moi, h.ma_hang);
                     const gk = cat ? GIO_KM[cat] : null;
-                    const nr = nhap[h.ma_dk] ?? NHAP_RONG;
+                    const nr = nhap[h.ma_dk] ?? gocNhap(h);
                     const t = tinhDong(nr, cat, ct, monBatBuoc);
                     const stt = trang * coTrang + i + 1;
                     if (khoaDong) {
@@ -536,7 +583,7 @@ export default function CapNhatKQDT() {
                       const col = t.over[m] ? "text-destructive" : qd == null ? "text-muted-foreground" : qd >= 5 ? "text-success" : "text-destructive";
                       return (
                         <td key={m} className="px-1 py-2 text-center align-top">
-                          <input value={nr[m]} onChange={(e) => setNhapO(h.ma_dk, m, e.target.value)} inputMode="decimal"
+                          <input value={nr[m]} onChange={(e) => setNhapO(h, m, e.target.value)} inputMode="decimal"
                             data-kqd-r={i} data-kqd-c={MON5.indexOf(m)} onKeyDown={(e) => navGrid(e, i, MON5.indexOf(m))}
                             className={"w-[50px] h-7 text-center tabular-nums text-[13px] font-semibold rounded-md border bg-card focus:outline-none focus:border-kq " + (t.over[m] || (t.thieu[m] && h.diem[m] == null) ? "border-destructive" : "border-input")} />
                           <div className={"text-[11px] tabular-nums mt-0.5 leading-none " + col}>{hintDiem(t.over[m], qd, h.diem[m])}</div>
@@ -544,7 +591,10 @@ export default function CapNhatKQDT() {
                       );
                     };
                     const gyGio = gk?.gyGio, gyKm = gk?.gyKm;
-                    const gioVal = parseNum(nr.gio_duong), kmVal = parseNum(nr.km_duong);
+                    const gioP = parseGio(nr.gio_duong);
+                    const gioSai = gioP === "sai";
+                    const gioVal = typeof gioP === "number" ? gioP : null, kmVal = parseNum(nr.km_duong);
+                    const gioKmDoi = !bangNhau(gioSai ? null : gioVal, h.gio_duong) || !bangNhau(kmVal, h.km_duong);
                     return (
                       <tr key={h.ma_dk} className="border-b border-border/80 hover:bg-kq-soft/40 align-top">
                         <td className="px-2 py-2 text-center tabular-nums text-muted-foreground">{stt}</td>
@@ -553,12 +603,13 @@ export default function CapNhatKQDT() {
                         <td className="px-2 py-2 text-center">{h.hang ?? "—"}</td>
                         {MON5.map(cell)}
                         <td className="px-1 py-2 text-center align-top">
-                          <input value={nr.gio_duong} onChange={(e) => setNhapO(h.ma_dk, "gio_duong", e.target.value)} inputMode="decimal" placeholder={gyGio ? `≥${gyGio}` : ""}
+                          <input value={nr.gio_duong} onChange={(e) => setNhapO(h, "gio_duong", e.target.value)} onBlur={(e) => { const v = chuanHoaGio(e.target.value); if (v !== e.target.value) setNhapO(h, "gio_duong", v); }}
+                            inputMode="decimal" placeholder={gyGio ? `≥${gyGio}` : ""} title={gioSai ? "Gõ số (20,5) hoặc hh:mm (20:30), phút < 60" : "Số thập phân hoặc hh:mm (vd 20:30 → 20,5)"}
                             data-kqd-r={i} data-kqd-c={5} onKeyDown={(e) => navGrid(e, i, 5)}
-                            className={"w-[50px] h-7 text-center tabular-nums text-[12.5px] rounded-md border bg-card focus:outline-none focus:border-kq " + (gyGio != null && gioVal != null && gioVal < gyGio ? "border-warning bg-warning/5" : "border-input")} />
+                            className={"w-[50px] h-7 text-center tabular-nums text-[12.5px] rounded-md border bg-card focus:outline-none focus:border-kq " + (gioSai ? "border-destructive" : gyGio != null && gioVal != null && gioVal < gyGio ? "border-warning bg-warning/5" : "border-input")} />
                         </td>
                         <td className="px-1 py-2 text-center align-top">
-                          <input value={nr.km_duong} onChange={(e) => setNhapO(h.ma_dk, "km_duong", e.target.value)} inputMode="decimal" placeholder={gyKm ? `≥${gyKm}` : ""}
+                          <input value={nr.km_duong} onChange={(e) => setNhapO(h, "km_duong", e.target.value)} inputMode="decimal" placeholder={gyKm ? `≥${gyKm}` : ""}
                             data-kqd-r={i} data-kqd-c={6} onKeyDown={(e) => navGrid(e, i, 6)}
                             className={"w-[56px] h-7 text-center tabular-nums text-[12.5px] rounded-md border bg-card focus:outline-none focus:border-kq " + (gyKm != null && kmVal != null && kmVal < gyKm ? "border-warning bg-warning/5" : "border-input")} />
                         </td>
@@ -576,7 +627,7 @@ export default function CapNhatKQDT() {
                         </td>
                         <td className="px-2 py-2 align-top">
                           <div className="flex items-center justify-center gap-1.5">
-                            <button disabled={!MON5.some((m) => parseNum(nr[m]) != null) || luuBusy === h.ma_dk} onClick={() => luu(h)}
+                            <button disabled={!(MON5.some((m) => parseNum(nr[m]) != null) || gioKmDoi) || luuBusy === h.ma_dk} onClick={() => luu(h)}
                               className="h-7 px-2.5 rounded-md bg-kq text-white text-[12px] font-medium hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1 whitespace-nowrap">
                               {luuBusy === h.ma_dk ? <Icon name="refresh" className="w-3.5 h-3.5 animate-spin" /> : null} Lưu
                             </button>
