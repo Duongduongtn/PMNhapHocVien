@@ -51,6 +51,20 @@ hiddenimports += ["pymssql", "_mssql", "uvicorn", "uvicorn.loops.auto",
 hiddenimports += collect_submodules("pystray")
 hiddenimports += ["pystray._win32", "PIL.ImageDraw"]
 
+# pdfplumber (KQD-08 đọc PDF DAT): pdfminer có file dữ liệu cmap, pypdfium2 có DLL → kéo đủ.
+for _pkg in ("pdfplumber", "pdfminer", "pypdfium2"):
+    _d, _b, _h = collect_all(_pkg)
+    datas += _d
+    binaries += _b
+    hiddenimports += _h
+
+# openpyxl (KQD-09 xuất Excel kết quả học tập) + et_xmlfile: kéo đủ submodule.
+for _pkg in ("openpyxl", "et_xmlfile"):
+    _d, _b, _h = collect_all(_pkg)
+    datas += _d
+    binaries += _b
+    hiddenimports += _h
+
 a = Analysis(
     ["run_tool.py"],
     pathex=[],
@@ -74,27 +88,6 @@ exe = EXE(
     name="pmcsdtlx-tool",
     debug=False,
     bootloader_ignore_signals=False,
-# pdfplumber (KQD-08 đọc PDF DAT): pdfminer có file dữ liệu cmap, pypdfium2 có DLL → kéo đủ.
-for _pkg in ("pdfplumber", "pdfminer", "pypdfium2"):
-    _d, _b, _h = collect_all(_pkg)
-    datas += _d
-    binaries += _b
-    hiddenimports += _h
-
-# openpyxl (KQD-09 xuất Excel kết quả học tập) + et_xmlfile: kéo đủ submodule.
-for _pkg in ("openpyxl", "et_xmlfile"):
-    _d, _b, _h = collect_all(_pkg)
-    datas += _d
-    binaries += _b
-    hiddenimports += _h
-
-# pdfplumber (KQD-08 đọc PDF DAT): pdfminer có file dữ liệu cmap, pypdfium2 có DLL → kéo đủ.
-for _pkg in ("pdfplumber", "pdfminer", "pypdfium2"):
-    _d, _b, _h = collect_all(_pkg)
-    datas += _d
-    binaries += _b
-    hiddenimports += _h
-
     strip=False,
     upx=False,                   # không UPX: tránh antivirus báo nhầm
     console=False,               # DGT-02: windowed (không cửa sổ console đen) — dùng khay hệ thống
