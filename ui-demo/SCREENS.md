@@ -40,7 +40,7 @@ Prototype là tham chiếu **style/layout**, không phải scaffold thật.
 | 12 | Nạp/thay ảnh cho HV đã có (+ click avatar/ảnh ở Tra cứu DB mở trình chỉnh — CHANGES #22) | QLY-05 | `/tool/nap` (lọc tình trạng ảnh + drawer → dialog Nạp/thay ảnh) | ⬜ Chưa có route | — |
 | 13 | Nạp lô + IA 2 chế độ (hàng chờ VPS badge ⚪🔴🟢) | NAP-01 | `/tool/nap` (chế độ Nạp hồ sơ / Tra cứu DB) | ✅ Xong (+⬜ "Bỏ khỏi hàng đợi" & "Nạp lại nhanh" CHANGES #22) | 5 |
 | 14 | Tra cứu DB: avatar lưới (3 ca: có ảnh/chưa ảnh/mất file) + xem ảnh lớn+đường dẫn + thống kê đầu khóa + thao tác nhanh | QLY-01 | `/tool/nap` (tab DB) | ✅ Xong | 13 |
-| 15 | Đổi nền trắng cả khóa (phạm vi + sao lưu _BACKUP + thanh tiến độ) | QLY-07 | `/tool/nap` (tab DB → dialog) | ✅ Xong | 13 |
+| 15 | Đổi nền trắng cả khóa (phạm vi + sao lưu `<tên>_BACKUP.jp2` + thanh tiến độ) | QLY-07 | `/tool/nap` (tab DB → dialog) | ⚠️ Giao diện giữ nguyên; backend ghi ảnh phải sửa lại (CHANGES #67, QLY-07 ⏳ Todo) | 13 |
 | 16 | Sync · Bàn đồng bộ (chọn khóa nguồn/đích · ngày nhập HS · bảng HV đối chiếu đích · SYNC + tiến trình SSE) | SYNC-01 | `/sync/ban-dong-bo` | ⬜ Đã dựng (task 57-59) — **làm đẹp lại** combobox + danh sách HV (CHANGES #34, impeccable/ui-ux-pro-max) | — |
 | 17 | Sync · Quản lý DB đích → **dời vào khối ② của panel ⚙ header** (xem màn #4/HTG-07) | SYNC-02, HTG-07 | header ⚙ (bỏ route `/sync/db-dich`) | ⬜ Làm lại (CHANGES #34) | — |
 | 18 | Sync · Lịch sử & Hủy sync khóa (log JSON + rollback dual-mode) | SYNC-03 | `/sync/lich-su` | ⬜ Chưa có route (dựng thẳng `tool/webui`) | — |
@@ -58,6 +58,8 @@ Prototype là tham chiếu **style/layout**, không phải scaffold thật.
 | 30 | **Tốt nghiệp & BC2 · Xem / gỡ học viên trong BC2** (tìm, chọn nhiều, "Gỡ N học viên", HV đã có kết quả bị khóa kèm lý do, "Hoàn tác lần thêm vừa rồi") | TNB-05 | `/tot-nghiep-bc2/bao-cao-2` (màn Xem BC2, trong tab) | ✅ Đã dựng thật (`tool/webui/src/pages/tnbc2/`, E2E `tool/webui/e2e/`) | — |
 | 31 | **Tốt nghiệp & BC2 · Cứu trạng thái** (tìm HV · lý do không hiện · đích 09/14/17/18 · lý do · xem lại · hoàn tác) | TNB-06 | `/tot-nghiep-bc2/cuu-trang-thai` | ✅ Đã dựng thật (`tool/webui/src/pages/tnbc2/`, E2E `tool/webui/e2e/`) | — |
 | 32 | **Tốt nghiệp & BC2 · Nhật ký thao tác** | TNB-07 | `/tot-nghiep-bc2/nhat-ky` | ✅ Đã dựng thật (`tool/webui/src/pages/tnbc2/`, E2E `tool/webui/e2e/`) | — |
+| 33 | **Kết quả đào tạo · Kiểm trước kết xuất** (khung trong màn Cập nhật KQĐT sau khi chọn khóa: tóm tắt đủ/thiếu · dòng HV kèm chip Chưa có điểm / Thiếu môn / Thiếu giờ-km thực hành / Thiếu kết luận · bấm dòng mở HV ở lưới nhập điểm; chỉ đọc) | KQD-07 | `/ket-qua/cap-nhat` (khung trong màn) | ⬜ Chưa dựng (chưa có mock; cần `/prototype-next` trước khi code) | — |
+| 34 | **Phân công GV – xe · Hạn giấy tờ** (tab thứ 3, toàn cơ sở, chỉ đọc: nhóm Xe hết hạn/≤30 ngày · nhóm Giáo viên hạn GPLX · nhóm GV/xe ngưng còn phân công ở khóa chưa bế giảng; mỗi dòng kèm khóa chưa bế giảng đang dùng; bấm khóa mở màn Phân công theo khóa) | PCG-06 | `/phan-cong/han-giay-to` (dự kiến) | ⬜ Chưa có route (chưa có mock; cần `/prototype-next`) | — |
 | — | Hàng đợi VPS + xóa PII 30 ngày | HTG-02 | (backend, không có UI) | ⬜ Không dựng | — |
 | — | Kết xuất Excel (NICE) | QLY-04 | (mới có nút, chưa luồng) | ⬜ NICE — sau | — |
 | — | Offline app web (NICE) | THU-03 | — | ⬜ NICE — sau | — |

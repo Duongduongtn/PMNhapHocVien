@@ -495,13 +495,14 @@
 
 #### [QLY-07] Đổi nền trắng ảnh cho cả khóa
 
-**Trạng thái:** ⚠️ Partial — chờ verify máy CSDT. task 39 (backend) + task 40 (UI) XONG. Backend: job đổi nền cả khóa chạy thread + tiến độ (`POST`/`GET /local/khoa/:ma_kh/doi-nen`) · applock `sp_getapplock` · `_BACKUP` chỉ-nếu-chưa-có (`<khóa>/_BACKUP/`) · heuristic 4 góc · giữ `TT_XuLy` · HV không ảnh bỏ qua · 1 HV lỗi không hỏng lô. UI: `DoiNenDialog` (chọn phạm vi chỉ-chưa-trắng/tất cả + sao lưu + thanh tiến độ polling 1.5s + ds lỗi + chặn đóng khi đang chạy + làm tươi lưới). Kiểm: 146 pytest (+14 doinen) · build · 29 vitest · review-nghiepvu task 39+40 đủ. **Chờ verify máy CSDT:** chạy rembg đổi nền 1 khóa thật (ảnh trắng · tiến độ · `_BACKUP` không đè lần 2 · `TT_XuLy` giữ cho khóa đã BC2). Thêm mới 02/10/2026 (CHANGES #22).
+**Trạng thái:** ⏳ Todo — yêu cầu đổi 12/10/2026 (CHANGES #67): đổi nền phải **ghi đè đúng file ở `DuongDanAnh` hiện có** (2 DB dùng chung 1 file vật lý), không tạo file mới và không đổi đường dẫn; sao lưu thống nhất `<tên>_BACKUP.jp2` cùng thư mục. *Trước đó ⚠️ Partial:* task 39 (backend) + task 40 (UI) đã code, chạy nền + tiến độ polling, applock, heuristic 4 góc, giữ `TT_XuLy`, HV không ảnh bỏ qua, 146 pytest (+14 doinen) · build · 29 vitest · review-nghiepvu đủ — nhưng ghi file vào `<IMG_PATH_CSDT>\<MaKH>\<MaDK>.jp2` và UPDATE `DuongDanAnh`, nên phần ghi file/sao lưu phải sửa lại. Còn chờ verify máy CSĐT.
 **Story:** Là nhân viên nạp DB, tôi muốn đổi nền trắng hàng loạt cho ảnh của cả một khóa, để chuẩn hóa ảnh cũ (nạp từ app cũ, nền chưa trắng) mà không phải xử lý từng học viên.
 
 **Done khi:**
 - ⬜ Từ màn Tra cứu DB, chọn 1 khóa → "Đổi nền trắng cả khóa" → chạy xử lý rembg (crop 3:4 + nền trắng như NAP-04) cho ảnh từng HV.
 - ⬜ **Chạy nền + thanh tiến độ** (N/tổng, số lỗi), không treo giao diện (ước ~1-3 giây/ảnh × ~100 HV ≈ vài phút).
-- ⬜ **Sao lưu ảnh gốc vào `_BACKUP` trước khi ghi đè** (tùy chọn, mặc định bật) — ghi đè `.jp2` không khôi phục được nếu không sao lưu.
+- ⬜ **Ghi đè ĐÚNG file ở `DuongDanAnh` hiện có** (user chốt 12/10/2026): ảnh là một file vật lý **dùng chung** giữa DB Nạp và DB đích (sync sao chép `DuongDanAnh` nguyên văn), nên đổi nền **không tạo file ở thư mục khác và không đổi `DuongDanAnh`**; chỉ cập nhật `ChatLuongAnh`/`NgayThuNhanAnh`/`NguoiThuNhanAnh` của bản ghi.
+- ⬜ **Sao lưu ảnh gốc `<tên>_BACKUP.jp2` CÙNG thư mục với file ảnh, chỉ tạo nếu chưa có** (tùy chọn, mặc định bật; cùng kiểu với thay ảnh ở TCB-02) — ghi đè `.jp2` không khôi phục được nếu không sao lưu; chạy lần 2 không đè bản gốc thật.
 - ⬜ **Phạm vi mặc định "chỉ ảnh chưa nền trắng"** (ảnh nạp qua tool đã trắng sẵn) — phát hiện bằng heuristic lấy mẫu pixel 4 góc (DB không có cờ); sai sót nhỏ bù bằng tùy chọn "tất cả HV có ảnh".
 - ⬜ **Giữ `TT_XuLy`** như QLY-05 (không hạ về `'03'` cho HV đã Báo cáo) — nếu không, cả khóa đã BC2 biến mất khỏi báo cáo cùng lúc.
 - ⬜ HV không có ảnh → bỏ qua, không báo lỗi.
@@ -513,8 +514,10 @@
 | File ảnh bị app cũ khóa | Bỏ qua HV đó, ghi vào danh sách lỗi, chạy tiếp các HV khác |
 | Khóa đã BC1/BC2 | Vẫn chạy (ảnh không nằm trong nội dung báo cáo), nhưng BẮT BUỘC giữ `TT_XuLy` |
 | Tắt tool/mất điện giữa chừng | Ảnh đã xử lý giữ nguyên; chạy lại bỏ qua ảnh đã trắng |
+| Ảnh của HV nằm ở gốc khác `IMG_PATH_CSDT` (vd `\\192.168.1.15\GPLXCSDT\ANHCDUNG`, `...\Capmoi\70004`) | Vẫn ghi đè **tại chỗ**, giữ nguyên `DuongDanAnh`; thư mục không ghi được → ghi vào danh sách lỗi, chạy tiếp HV khác |
 
 > Nguồn: user 02/10/2026 (CHANGES #22) · dùng lại NAP-04 · liên quan QLY-05 · bảo toàn Báo cáo 1/2 (schema DBcu: `NguoiLX_HoSo.MaBC1/MaBC2`, `usp_BaoCao2_DSHS` lọc `TT_XuLy`)
+> **Sửa 12/10/2026 (CHANGES #67):** user xác nhận ảnh dùng chung 1 đường dẫn của DB Nạp cho cả 2 DB · đọc DB 12/10/2026: DB đích 741 ảnh, 668 đường dẫn trùng đường dẫn ở Nạp; DB Nạp 39.927 ảnh, trong đó 154 ảnh ở `\\192.168.1.15\GPLXCSDT\ANHCDUNG` và 87 ảnh ở `\\192.168.0.10\...\Capmoi\70004` (khác gốc `D:\GPLXCSDT\ANHCDUNG`) · TDD §11.6.
 
 #### [QLY-08] Gỡ học viên về chờ nạp (nạp nhầm khóa)
 
@@ -914,6 +917,26 @@
 
 > Nguồn: user 07/10/2026 (sau khi dùng thử KQD-02) · SP không reset được → UPDATE trực tiếp (verify DB 07/10) · điểm lưu là quy đổi /10 → giữ môn cũ bằng truyền lại quy đổi · TDD §11D.8
 
+#### [KQD-07] Kiểm trước kết xuất (theo từng khóa, chỉ đọc)
+
+**Trạng thái:** ⏳ Todo — story mới (CHANGES #65, 12/10/2026). Chưa code.
+**Story:** Là nhân viên nạp DB, trước khi sang phần mềm CDB cũ bấm kết xuất, tôi muốn một danh sách các học viên của khóa còn thiếu điểm, thiếu giờ thực hành hoặc thiếu kết luận, để sửa hết một lượt rồi mới kết xuất, không phải gửi Sở xong mới phát hiện thiếu rồi mở khóa sửa lại.
+
+**Done khi:**
+- ⬜ Ở màn Cập nhật KQĐT, sau khi chọn khóa có nút **"Kiểm trước kết xuất"**; bấm ra khung kết quả của **đúng khóa đang chọn** (không quét cả cơ sở).
+- ⬜ Đầu khung hiện tóm tắt: **N học viên đủ điều kiện kết xuất · M học viên còn thiếu**, kèm đếm theo từng loại thiếu.
+- ⬜ Mỗi học viên còn thiếu hiện một dòng (họ tên · CCCD · trạng thái) kèm **chip lý do**, một học viên có thể có nhiều chip: **Chưa có điểm** (chưa nhập môn nào) · **Thiếu môn** (có điểm nhưng thiếu môn bắt buộc của hạng, nêu rõ môn nào) · **Thiếu giờ/km thực hành** (giờ sân/km sân/giờ đường/km đường còn trống) · **Thiếu kết luận** (đã có trạng thái cập nhật mà chưa có kết luận Đạt/Không đạt — bất thường).
+- ⬜ "Môn bắt buộc" lấy **đúng luật của KQD-02** (5 môn theo hạng, mô tô ẩn bớt ô thực hành) — không tạo luật thứ hai.
+- ⬜ Giờ/km đường **thấp hơn mức gợi ý tối thiểu** (KQD-02) chỉ hiện **cảnh báo vàng**, không tính là "thiếu".
+- ⬜ Bấm một dòng → mở đúng học viên đó ở lưới nhập điểm (KQD-02) để sửa.
+- ⬜ Chỉ xét học viên `TT_XuLy` 03/04 (chưa có điểm) và 09/10 (đã cập nhật, chưa kết xuất). HV đã `12`/`13`/`14`/`90` không đưa vào danh sách.
+- ⬜ Khung có ghi chú: *"Kiểm tra này chỉ nhắc, không chặn. Kết xuất do phần mềm CDB cũ làm."*
+- ❌ Không ghi DB; không chặn kết xuất; không tự sửa điểm; không sinh XML; không quét nhiều khóa một lượt.
+
+**Edge cases:** khóa không có học viên → "Khóa chưa có học viên" · mọi học viên đều đủ → "Khóa đủ điều kiện kết xuất" (không hiện danh sách rỗng) · mất kết nối DB đích → báo, không treo · học viên vừa được sửa ở lưới → bấm "Kiểm lại" làm tươi.
+
+> Nguồn: user 12/10/2026 (tư vấn bổ sung theo schema DB đích, chốt "theo từng khóa" + "theo môn bắt buộc của hạng") · luật ô bắt buộc/giờ-km: KQD-02 · TDD §11D.9
+
 ---
 
 ### 🟣 Phân công giáo viên – xe cho khóa (workspace riêng — tool máy CSDT)
@@ -1009,6 +1032,24 @@
 **Edge cases:** khóa chưa có GV nào → "Cần xử lý" · khóa cũ chỉ có lịch xe không có danh sách xe (dữ liệu trước khi dùng danh sách) → hiện ở cột "Ghép xe ngoài danh sách".
 
 > Nguồn: user 10/10/2026 · số liệu mẫu từ rà soát DB 10/10/2026 · TDD §11E.7
+
+#### [PCG-06] Hạn giấy tờ xe, hạn GPLX giáo viên và GV/xe ngưng còn phân công (tab thứ 3, chỉ đọc)
+
+**Trạng thái:** ⏳ Todo — story mới (CHANGES #66, 12/10/2026). Chưa code.
+**Story:** Là nhân viên cơ sở, tôi muốn một bảng cho thấy xe nào sắp hết hạn giấy phép, giáo viên nào sắp hết hạn GPLX và GV/xe nào đã ngưng mà vẫn còn trong khóa chưa bế giảng, để xử lý trước khi ảnh hưởng khóa học, thay vì chỉ thấy cảnh báo khi mở từng khóa.
+
+**Done khi:**
+- ⬜ Tab mới **"Hạn giấy tờ"** ở màn Phân công GV–xe (cạnh "Phân công theo khóa" và "Rà soát khóa"), phạm vi **toàn bộ cơ sở**, chỉ đọc.
+- ⬜ **Nhóm Xe:** liệt kê xe **đang hoạt động** có giấy phép xe tập lái (`NgayHHGPXTL`) hoặc giấy chứng nhận kiểm định (`NgayHHGCNKD`) **đã hết hạn (đỏ)** hoặc **còn ≤ 30 ngày (vàng)**; mỗi dòng: biển số · hạng xe · loại giấy · ngày hết hạn · số ngày còn/quá · **các khóa chưa bế giảng đang dùng xe đó**.
+- ⬜ **Nhóm Giáo viên:** liệt kê GV **đang hoạt động** có GPLX (`NgayHHGPLX`) **đã hết hạn (đỏ)** hoặc **còn ≤ 30 ngày (vàng)**; mỗi dòng: mã · họ tên · hạng · ngày hết hạn · số ngày còn/quá · **các khóa chưa bế giảng đang có GV đó**.
+- ⬜ **Nhóm "Đã ngưng nhưng còn phân công":** GV/xe `TrangThai=0` mà vẫn còn dòng thuộc khóa chưa bế giảng — nêu khóa nào.
+- ⬜ Đầu tab hiện đếm theo nhóm và theo mức đỏ/vàng; bấm một khóa trong dòng → mở khóa đó ở màn Phân công theo khóa.
+- ⬜ Ngày hết hạn trống → xếp thành mục thông tin **"Chưa khai ngày hết hạn"**, không tính đỏ/vàng.
+- ❌ Không ghi DB; không đổi `TrangThai` GV/xe; không thay luật chặn "xe hết hạn trước bế giảng" của PCG-04 (luật đó vẫn xét theo từng khóa lúc ghi); không gửi thông báo ra ngoài.
+
+**Edge cases:** không có GV/xe nào sắp hết hạn → "Không có giấy tờ nào sắp hết hạn trong 30 ngày" · xe/GV hết hạn nhưng không ở khóa nào → vẫn hiện, ô khóa ghi "Chưa dùng ở khóa nào" · giấy phép và kiểm định cùng ngày → gộp một dòng nêu cả hai loại.
+
+> Nguồn: user 12/10/2026 (tư vấn bổ sung theo schema DB đích; chốt ngưỡng 30 ngày, đặt trong Phân công, gộp nhóm ngưng-còn-phân-công, thêm hạn GPLX giáo viên) · số liệu thật đọc DB đích 12/10/2026: 5 xe còn ≤ 30 ngày, 3 GV đã hết hạn GPLX, 1 GV còn ≤ 30 ngày, chưa có GV/xe ngưng còn phân công · TDD §11E.10
 
 ---
 
@@ -1373,3 +1414,5 @@
 | 11/10/2026 | v4.6 — **TNB đồng bộ PRD với TDD §11F v6.8 sau /reviewtdd** (CHANGES #62): TNB-04 bỏ "HV đang ở BC2 khác sẽ bị chuyển" → nhóm "Không đưa được" kèm "gỡ khỏi BC2 đó trước" (SP không trả HV đang `11`; chuyển làm HV kẹt `11` không BC2); Thi lại tính cả cùng khóa; ô tô `09` cần có số giấy; TNB-03 BC1 suy từ khóa, khóa chưa có BC1 hiện mờ; TNB-05 sửa dòng "từng ở BC2 cũ". Số story giữ 56. | BA/PM |
 | 11/10/2026 | v4.7 — **TNB ghi lại hành vi thực tế sau backend task 96–105** (CHANGES #63, không đổi yêu cầu, không đổi mã/trạng thái): TNB-01 trùng số giấy chỉ chặn khi đổi sang số của HV khác + bộ sổ/QĐ/ngày chung cho cả lượt; TNB-05 xóa BC2 chỉ khi còn mở, gỡ tay HV `Old='11'` bị chặn; TNB-06 hoàn tác dựa nhật ký tool. Số story giữ 56. | BA/PM |
 | 11/10/2026 | v4.8 — **TNB ghi lại hành vi thực tế khi dựng UI task 106-115** (CHANGES #64, không đổi yêu cầu, trạng thái story giữ nguyên vì code đã chạy đúng điều được ghi): TNB-02 tích lẫn + luật nút Hủy/Chọn tất cả · TNB-03 hiện ngày BC1, ngày bắt buộc, Gửi lại `thu_lai` · TNB-04 chốt payload bước ③, tự làm tươi, hạn chế F5 + 2 điểm chưa quyết · TNB-05 lỗi lô · TNB-06 mục IT, khóa chưa bế giảng, hoàn tất lô dở · TNB-07 "chọn loại hạng" thay "tab", nhật ký không PII. Số story giữ 56. | BA/PM |
+| 12/10/2026 | v4.9 — **+2 story chỉ đọc theo tư vấn bổ sung từ schema DB đích** (CHANGES #65, #66): `KQD-07` Kiểm trước kết xuất (theo từng khóa; chip Chưa có điểm / Thiếu môn / Thiếu giờ-km thực hành / Thiếu kết luận; dùng luật ô bắt buộc của KQD-02) · `PCG-06` Hạn giấy tờ (tab thứ 3 màn Phân công, toàn cơ sở: xe hết hạn/≤30 ngày, GPLX giáo viên hết hạn/≤30 ngày, GV/xe ngưng còn phân công ở khóa chưa bế giảng). Cả hai ⏳ Todo, không ghi DB, không đổi schema. **Số story 56→58.** | BA/PM |
+| 12/10/2026 | v4.10 — **QLY-07 sửa nguyên tắc ghi ảnh** (CHANGES #67): đổi nền cả khóa ghi đè đúng file ở `DuongDanAnh` (2 DB dùng chung 1 file), không tạo file/không đổi đường dẫn; sao lưu thống nhất `<tên>_BACKUP.jp2` cùng thư mục, chỉ-nếu-chưa-có. QLY-07 hạ ⚠️ → ⏳ Todo. Số story giữ 58. | BA/PM |

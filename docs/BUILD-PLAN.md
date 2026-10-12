@@ -2,7 +2,7 @@
 
 > File do `/kehoach` sinh. `/tieptheo` đọc file này để biết làm gì tiếp theo.
 > **Thứ tự code** nằm ở đây. **Yêu cầu và trạng thái story** nằm ở `docs/PRD.md`.
-> Cập nhật lần cuối: 11/10/2026 (v24 — thêm task 116-117 (110b) + Checkpoint 28; trước đó v23 — Phase 10 Tốt nghiệp & Báo cáo 2 TNB-01..07, task 96-115, CHANGES #60-#62, TDD §11F v6.8. Trước đó v22 — Phase 9 Phân công GV – xe PCG-01..05, task 85-95, CHANGES #54. Trước đó v21 — KQD-05 mở rộng "Sửa sau gửi" #53, task 83-84. Trước đó v20 — Phase 8 NAP-01 #51 "Bỏ khỏi hàng đợi" dòng chờ/lỗi + tombstone, task 81-82. Trước đó v19 — THU-06 chỉ OCR 5 trường (CHANGES #50); v18 — Phase 7 THU-06 task 79-80)
+> Cập nhật lần cuối: 12/10/2026 (v25 — thêm task 118-122 + Checkpoint 29-31 cho QLY-07 sửa ghi ảnh, KQD-07, PCG-06; trước đó v24 — thêm task 116-117 (110b) + Checkpoint 28; trước đó v23 — Phase 10 Tốt nghiệp & Báo cáo 2 TNB-01..07, task 96-115, CHANGES #60-#62, TDD §11F v6.8. Trước đó v22 — Phase 9 Phân công GV – xe PCG-01..05, task 85-95, CHANGES #54. Trước đó v21 — KQD-05 mở rộng "Sửa sau gửi" #53, task 83-84. Trước đó v20 — Phase 8 NAP-01 #51 "Bỏ khỏi hàng đợi" dòng chờ/lỗi + tombstone, task 81-82. Trước đó v19 — THU-06 chỉ OCR 5 trường (CHANGES #50); v18 — Phase 7 THU-06 task 79-80)
 
 ## Quyết định về thứ tự
 
@@ -150,6 +150,7 @@
 | 52 | **NAP-01 nháp bền (3/3) — nạp chặn/cảnh báo** (CHANGES #32): thiếu địa chỉ → CHẶN dòng (loại khỏi lô, chip ✗) · thiếu ảnh → vẫn nạp + cảnh báo "N học viên nạp thiếu ảnh" trước lô · sau lô lối tắt mở Tra cứu DB lọc "chưa ảnh" (reuse "Xem trong DB") | `NAP-01` | S | 51,47 | 1 | [x] 04/10 — chặn địa chỉ sẵn có (dòng thiếu → boQua); NapLoDialog +cảnh báo "N thiếu ảnh" pha xác nhận + nút "Bổ sung ảnh (N)" pha báo cáo → `xemTrongDB(ma_kh, [], "chua")`; TraCuuDB +prop `locAnhBanDau` (áp bộ lọc chưa-ảnh, reset theo moNonce). build+tsc+34 vitest |
 | 53 | **QLY-05 bổ sung ảnh HV thiếu ảnh — 2 nguồn** (CHANGES #32, TDD §11.5): AnhModal mở với (a) `chonFile` / (b) kéo ảnh thô VPS (`vps.tra_uuid`→`vps.tai_anh`→`AnhModal.napTuUrl`), ẩn (b) khi ảnh thô hết ~30 ngày → cùng luồng QLY-05 (đổi nền→`.jp2`→`nap_anh`, nâng `TT_XuLy '01'→'03'`). Thuần wiring | `QLY-05` | M | 27,35,43 | 1 | [x] 04/10 — nguồn (a) chọn-file sẵn có; +nguồn (b) `GET /local/ho-so/anh-vps?ma_dk=` (resolve uuid staging→VPS tra-uuid → tai_anh, 404 khi hết hạn) + client `taiAnhVps` + nút "Kéo ảnh máy chủ" trong panel (chỉ HV chưa ảnh), seed AnhModal qua `anhBanDau`. tool 181 pytest (+6 /anh-vps) · webui build+34 vitest. Playwright chờ chạy tool |
 | 26 | **DGT-01** Đóng gói tool PyInstaller (.exe): one-folder + `--add-data` (webui/dist, dvhc_map.sqlite, SQL/mẫu) + **FastAPI mount StaticFiles phục vụ `webui/dist` cùng cổng** (SPA fallback, giữ `/local/*`) + **chuyển gốc dữ liệu → `%APPDATA%` khi `sys.frozen`** (config/key.bin, staging.sqlite, ảnh tạm) + test **máy sạch** (pymssql/FreeTDS); cân nhắc bỏ rembg (exe to). + đối chiếu bảo mật OG (không `sa`, không log CCCD, HTTPS). Thuộc **Phase 5 (DGT)** — xem dưới | `DGT-01` | M | tất cả | 1 | → PRD |
+| 118 | **Sửa ghi ảnh đổi nền cả khóa (QLY-07, CHANGES #67):** `tool/app/doinen.py` (`xu_ly_mot`, `_backup_neu_chua`) ghi đè atomic **tại `DuongDanAnh` hiện có** (rút chung hàm ghi đè của `thay_anh_ghi_de` — `routers/sync_tracuu.py` — ra module dùng chung, KHÔNG import router), bỏ `ghi_anh_update` + bỏ UPDATE `DuongDanAnh`; sao lưu `<tên>_BACKUP.jp2` cùng thư mục, chỉ-nếu-chưa-có (bỏ thư mục `<khóa>\_BACKUP\`); chỉ UPDATE `ChatLuongAnh`/`NgayThuNhanAnh`/`NguoiThuNhanAnh`, giữ `TT_XuLy`; cập nhật `tests/test_doinen.py` (ảnh ở gốc khác vẫn ghi đúng chỗ, `DuongDanAnh` không đổi, backup chỉ-nếu-chưa-có, `TT_XuLy` giữ). `nap.py` `ghi_anh_update` giữ nguyên (chạy `impact` trước) | `QLY-07` | M | 40, 64 | 1+2 | → PRD |
 
 ### ✅ Checkpoint 6 — sau task 33-38 (quản lý ảnh Tra cứu DB + bảo toàn Báo cáo)
 - [ ] `pnpm build` (webui) + tool chạy sạch.
@@ -191,6 +192,11 @@
 - [ ] Bổ sung ảnh 2 nguồn (file + ảnh thô VPS); ảnh thô hết hạn → ẩn nguồn VPS, chỉ còn file.
 - [ ] Nút "Xóa nháp" dọn nháp (gồm ảnh PII) chủ động.
 - [ ] Playwright 3vp (375/800/1440) màn Nạp lô + drawer — 0 tràn.
+
+### ✅ Checkpoint 29 — sau task 118 (QLY-07 ghi đè tại `DuongDanAnh`, CHANGES #67)
+- [ ] **Mức 2:** ảnh ở gốc khác `IMG_PATH_CSDT` (UNC / `Capmoi`) ghi đè TẠI CHỖ, `DuongDanAnh` **không đổi**; backup `<tên>_BACKUP.jp2` chỉ-nếu-chưa-có (chạy lần 2 không đè); `TT_XuLy` giữ nguyên (kể cả khóa đã BC2); HV không file → bỏ qua.
+- [ ] `pytest` toàn bộ pass; nạp/thay ảnh HV mới (QLY-05) vẫn dùng `ghi_anh_update` như cũ.
+- [ ] **Nghiệm thu máy CSĐT:** chạy 1 khóa thật → mở ảnh ở **cả 2 DB** thấy cùng ảnh nền trắng; kiểm máy CSĐT xem bản cũ đã sinh file/thư mục `_BACKUP` theo khóa chưa (không tự xóa).
 
 ## Phase 4 — Đồng bộ CDB (workspace mới, tách khỏi Nạp)
 
@@ -282,6 +288,8 @@
 | 78 | **KQD-06** sửa lẻ / xóa điểm đã lưu (HV chưa kết xuất 09/10): **sửa lẻ** — `ket_qua_hon_hop` ghi lại 1/vài môn, các môn không sửa **GIỮ điểm quy đổi đã lưu** (truyền lại quy đổi /10, KHÔNG tính ngược ra gốc để tránh lệch làm tròn); Lưu không bắt đủ 5 ô + **xóa điểm** `POST /local/ketqua/xoa-diem` đưa HV về `TT_XuLy='03'` + NULL 5 `DiemKQ*` + 3 cờ (`KQLyThuyet`/`KQThucHanh`/`KetLuanCSDT`) + `SoGiayCNTN` bằng **UPDATE trực tiếp tham số hóa** (SP `_CapNhat` chỉ đặt 09/10, không lùi 03 — verify 07/10); chỉ 09/10 (**409** nếu 12/13/14/90). UI `CapNhatKQDT.tsx`: Lưu nhận sửa lẻ + nút "Xóa điểm" có xác nhận. +4 unit test (340 pytest). `routers/ketqua.py` + `ketqua_quydoi.py` | `KQD-06` | M | 72,73 | 1 | [x] |
 | 83 | **KQD-05 mở rộng (1/2) backend "sửa sau gửi"** (CHANGES #53): `POST /local/ketqua/mo-sua-sau-gui` (body `ma_dk[]` ≤200 + `ly_do` ≤1000) — còn gói chưa gửi → **409** `con_goi_chua_gui`; ghi nhật ký sqlite `sua_sau_gui` (điểm trước · lý do · người · giờ) **TRƯỚC**; rồi UPDATE tham số hóa từng `MaDK` lùi `12`→09/10 theo `KetLuanCSDT`, guard `TT_XuLy='12' AND KetLuanCSDT IS NOT NULL`, `13`→409, ghi `GiaiTrinh`, **không xóa gói**; `GET /local/ketqua/sua-sau-gui` (nhật ký ∩ HV chưa về `12`, tự đánh đã-kết-xuất-lại). Tái dùng `_SQL_GOI_KQDT` (task 76) + mẫu `xoa_diem` (SELECT trước, không tin `rowcount`); +unit test guard/409/nhật-ký-trước. `routers/ketqua.py` + module sqlite nhật ký | `KQD-05 (+1/2)` | M | 76,78 | 1+2 | [x] |
 | 84 | **KQD-05 mở rộng (2/2) UI "sửa sau gửi"**: lưới KQD-02 — ô tích HV `12` + chip xám "Đã gửi Sở" + thanh "Mở sửa điểm" + hộp xác nhận (danh sách HV+điểm, cảnh báo, lý do bắt buộc, tích "sẽ kết xuất lại ngay") + chip cam "Sửa sau gửi — chưa kết xuất lại" + băng cam đầu khóa; tab KQD-03 — khối đỏ "chờ kết xuất lại" (HV·khóa·người·lúc mở·lý do·điểm trước→sau); sửa `MoKhoaModal` ca "gói đã gửi hết" dẫn sang lối này thay khóa cứng M1. Chạy `impeccable`+`ui-ux-pro-max`. `CapNhatKQDT.tsx`, `TheoDoiKetXuat.tsx`, `MoKhoaModal.tsx`, `lib/api.ts` | `KQD-05 (+2/2)` | M | 83,77,73,74 | 1 | [x] |
+| 119 | **KQD-07 backend (CHANGES #65, TDD §11D.9):** luật thuần `hv_chua_du` cạnh `ketqua_quydoi.py` (chưa có điểm · thiếu môn bắt buộc theo hạng · thiếu giờ/km thực hành · thiếu kết luận; giờ/km đường dưới ngưỡng gợi ý KHÔNG vào lý do) + **nguồn chung "môn bắt buộc theo hạng" ở backend** + `GET /local/ketqua/kiem-truoc?ma_kh` (chỉ đọc, dùng lại hàm đọc HV của `/hoc-vien`, chỉ HV `TT_XuLy` 03/04/09/10) + unit test | `KQD-07 (1/2)` | M | 73 | 1+2 | [ ] |
+| 120 | **KQD-07 UI (cần mock `/prototype-next` trước):** nút "Kiểm trước kết xuất" ở màn Cập nhật KQĐT sau khi chọn khóa + khung kết quả (tóm tắt đủ/thiếu, chip lý do, bấm dòng mở HV ở lưới nhập điểm, "Kiểm lại") bám mock; **KQD-02 chuyển sang dùng chung nguồn luật ở backend** thay bản đang ở `CapNhatKQDT.tsx` (ô đỏ vẫn đúng như cũ) | `KQD-07 (2/2)` | M | 119, mock | 1 | → PRD |
 
 > KQD-02 cắt 2 task (72/73) cùng trỏ 1 story → PRD `KQD-02` chỉ ✅ khi xong cả 2. Tái dùng SP đã verify 07/10 trên `GPLX_CDB_CSDT` (biên bản `tdd-review-07-10-2026.md`): SP ghi 18 tham số, SP không bảo vệ `12`, cột `GiaiTrinh nvarchar(1000)` ghi ngoài SP.
 > KQD-05 cắt 2 task (76/77) cùng trỏ 1 story → PRD `KQD-05` chỉ ✅ khi xong cả 2. Thao tác **mức CƠ SỞ** (user chốt phương án A sau /reviewtdd 07/10 — DB không nối HV↔gói nên xóa gói buộc quét cả CSĐT; biên bản `tdd-review-07-10-2026-kqd05.md`, TDD §11D.7, decisions §19). Ghi/xóa thật ở CDB → **nghiệm thu máy CSDT**.
@@ -309,6 +317,12 @@
 - [ ] **Mức 2** unit test: guard `12`/`KetLuanCSDT`, 409 còn gói chưa gửi, nhật ký ghi trước UPDATE.
 - [ ] Playwright 1280/1440 lưới + hộp xác nhận + khối đỏ — 0 tràn.
 - [ ] **Ghi thật → nghiệm thu máy CSDT** (HV `12` khóa B01-K40); hỏi hỗ trợ CDB/Sở việc nhận 2 bản KQĐT cùng HV.
+
+### ✅ Checkpoint 30 — sau task 119-120 (KQD-07 Kiểm trước kết xuất, CHANGES #65)
+- [ ] **Mức 2:** đủ 5 môn → đủ · thiếu 1 môn (nêu đúng môn) · chưa có điểm · thiếu giờ/km · thiếu kết luận (09/10 mà `KetLuanCSDT` NULL) · giờ/km đường dưới ngưỡng gợi ý **không** vào lý do · HV `12/13/14/90` không vào danh sách · hạng mô tô ẩn thực hành.
+- [ ] KQD-02 và KQD-07 dùng **cùng một nguồn luật** (đổi môn bắt buộc của một hạng thì cả hai đổi theo); test KQD-02 hiện có vẫn xanh.
+- [ ] Bấm một dòng → mở đúng HV ở lưới nhập điểm; khóa đủ hết → thông báo "đủ điều kiện kết xuất".
+- [ ] Playwright 1280/1440 khung kết quả — 0 tràn.
 
 ## Phase 7 — Lối nhập OCR dự phòng (THU-06)
 
@@ -363,6 +377,8 @@
 | 93 | **Bước ③ xe + ghép:** dải chip "Xe của khóa" + hộp "Thêm xe" (hạng, hạn giấy phép, xe ở khóa khác; xe ngừng không thêm được) · bảng ghép 1 GV–1 xe (chọn xe, từ–đến theo ngày, địa điểm điền sẵn, lỗi dưới ô) · đổi xe/gỡ xe/bỏ ghép có xác nhận | `PCG-03 (1/2)` | M | 91 | 1 | [x] |
 | 94 | **Gợi ý ghép xe:** `POST /goi-y-ghep-xe` (xe còn trống, thuộc khóa, không bị chặn, ưu tiên đúng hạng; **không ghi**) + hộp xem trước/sửa/tích từng dòng → "Áp" vào bản nháp | `PCG-03 (2/2)` | S | 93 | 1+2 | → PRD |
 | 95 | **Rà soát khóa:** `GET /ra-soat` (`phancong_rasoat.py`) + tab 2 `RaSoat.tsx` (bảng mọi khóa, bấm dòng mở khóa đó) | `PCG-05` | S | 88 | 1 | → PRD |
+| 121 | **PCG-06 backend (CHANGES #66, TDD §11E.10):** `phan_loai_han` (đỏ/vàng/chưa khai) trong `phancong_rules.py` + `GET /local/phancong/han-giay-to?ngay=30` (3 nhóm: xe `NgayHHGPXTL`/`NgayHHGCNKD` · GV `NgayHHGPLX` · GV/xe `TrangThai=0` còn dòng ở khóa `NgayBG >= hôm nay`; lọc `MaCSDT`; kèm khóa chưa bế giảng đang dùng) + unit test (ngày biên, NULL, ngưỡng); tái dùng `gp_het_som_nhat` lấy ngày sớm nhất | `PCG-06 (1/2)` | M | 85, 86 | 1+2 | [ ] |
+| 122 | **PCG-06 UI (cần mock `/prototype-next` trước):** tab thứ 3 "Hạn giấy tờ" — `modules.ts` sub-nav + route `App.tsx` + `HanGiayTo.tsx` (3 nhóm, đếm đỏ/vàng, dòng kèm khóa, bấm khóa mở màn Phân công theo khóa) | `PCG-06 (2/2)` | M | 121, mock | 1 | → PRD |
 
 > PCG-04 cắt 4 task (85→86→87→90) cùng trỏ 1 story → PRD `PCG-04` chỉ ✅ khi xong cả 4. PCG-02 cắt 2 (91/92), PCG-03 cắt 2 (93/94). Mô tả chi tiết từng story ở PRD; thiết kế ở TDD §11E; **ghi thật chỉ nghiệm thu ở máy CSDT** (dev không ghi happy-path vào CDB thật).
 
@@ -385,6 +401,12 @@
 - [ ] Rà soát khóa khớp số liệu rà soát DB 10/10/2026 (vd B-K149 11 xe chưa ghép).
 - [ ] Ngày bắt đầu thực hành **trống** → nút Thực hành khóa; không có gợi ý ngầm.
 - [ ] **Ghi thật CDB production + đối chiếu phần mềm CDB (GV/xe/lịch hiện đúng) → nghiệm thu máy CSDT**; hỏi hỗ trợ CDB việc gói DKKH có chứa GV/xe.
+
+### ✅ Checkpoint 31 — sau task 121-122 (PCG-06 Hạn giấy tờ, CHANGES #66)
+- [ ] **Mức 2:** hết hạn (đỏ) · đúng hôm nay · đúng +30 ngày (vàng) · +31 không hiện · NULL → "chưa khai" · ngưỡng đổi được · xe/GV `TrangThai=0` chỉ vào nhóm ngưng khi còn dòng ở khóa `NgayBG >= hôm nay`.
+- [ ] Đối chiếu số liệu DB đích 12/10/2026: **5 xe ≤ 30 ngày**, **3 GV hết hạn GPLX**, 1 GV ≤ 30 ngày, nhóm ngưng = 0.
+- [ ] Bấm khóa trong dòng → mở đúng khóa ở Phân công theo khóa; sub-nav có đủ 3 tab, các màn cũ không đổi.
+- [ ] Playwright 1280/1440 — 0 tràn.
 
 ## Phase 10 — Tốt nghiệp & Báo cáo 2 (phân hệ #5, TNB-01..07)
 
@@ -469,6 +491,10 @@
 - Task 85 → 94 (Phase 9) — tuần tự, cùng đụng `routers/phancong.py` / `phancong_rules.py` / `PhanCongTheoKhoa.tsx`; task 88 sửa `modules.ts` + `App.tsx` (shell dùng chung).
 - Task 96 → 105 (Phase 10 backend) — tuần tự, cùng đụng `routers/tn_bc2.py` / `tn_bc2_service.py` / `tn_bc2_rules.py`; task 106 sửa `modules.ts` + `App.tsx` (shell dùng chung) → chạy một mình.
 - **Nhóm song song duy nhất Phase 10 (nếu mở phiên thứ hai):** task 113, 114, 115 — khác file (`XemBc2.tsx`, `CuuTrangThai.tsx`, `DanhSachBc2.tsx`), chỉ an toàn sau 106 và backend tương ứng (100/104/105) xong; chốt hợp đồng endpoint trước.
+- Task 118 (QLY-07 sửa ghi ảnh) — chạy một mình: đụng ghi ảnh ra đĩa dùng chung 2 DB, tách hàm dùng chung với `sync_tracuu.py`.
+- Task 119 → 120 (KQD-07) — tuần tự, cùng đụng `routers/ketqua.py` + `CapNhatKQDT.tsx`; 120 sửa luật KQD-02 đang chạy.
+- Task 121 → 122 (PCG-06) — tuần tự; 122 sửa `modules.ts` + `App.tsx` (shell dùng chung) → chạy một mình.
+- **Nhóm song song (nếu mở phiên thứ hai):** nhánh 119–120 và nhánh 121–122 khác file hoàn toàn (`ketqua*` so với `phancong*`) — an toàn sau khi chốt hợp đồng endpoint; 118 luôn một mình.
 - **Nhóm song song duy nhất Phase 9:** task 95 với 91–94 — an toàn nếu tách file riêng (`phancong_rasoat.py`, `RaSoat.tsx`); chốt hợp đồng `GET /ra-soat` trước.
 
 ## Chờ chốt (chưa lên lịch code)
@@ -503,20 +529,23 @@
 | PM cũ không dùng khóa `tnbc2_ghi` → khe nhỏ ghi chồng giữa lúc tool đọc lại và gọi SP (task 99) | Thấp | Chấp nhận (TDD §16.1): tool một máy, ghi ngắn; đọc lại sát trước SP + kiểm sau ghi |
 | `usp_BaoCaoII_Delete` không kiểm HV, `MaBC2` không có FK → xóa nhầm để HV mồ côi (task 100) | Cao | Đếm `MaBC2` mọi `TT_XuLy` = 0 trong khóa, ngay trước SP; thi hành ở máy chủ |
 | Sửa server VPS đang chạy prod (task 41/42/44) làm gãy luồng thu thập đang live | Cao | Deploy giờ thấp điểm + verify login/gửi/kéo ngay sau deploy (Checkpoint 8); đổi thêm endpoint, không đổi endpoint cũ |
+| Đổi nền cả khóa cũ (task 39/40) từng tạo file mới ở `<IMG_PATH_CSDT>\<MaKH>\` + `_BACKUP` theo khóa và đổi `DuongDanAnh` ở Nạp, DB đích còn trỏ file cũ (task 118) | Trung bình | Chưa biết đã chạy trên khóa thật chưa — kiểm ở máy CSĐT khi nghiệm thu Checkpoint 29; không tự xóa file |
+| Task 120 chuyển luật "môn bắt buộc theo hạng" từ UI lên backend, có thể làm lệch ô đỏ của KQD-02 đang chạy (task 119/120) | Trung bình | Unit test đối chiếu luật cũ/mới theo từng hạng + chạy lại test KQD-02 trước khi đóng (Checkpoint 30) |
 
 ## Nguồn đối chiếu
 
 > `/tieptheo` so mục này với PRD mỗi buổi để biết kế hoạch còn khớp không. Lệch thì báo user chạy lại `/kehoach` chế độ bổ sung. **Không tự sửa kế hoạch.**
 
-- **Số story trong PRD khi cập nhật:** 56 (thêm `TNB-01..07` từ CHANGES #60; `PCG-01..05` từ CHANGES #54; thêm `THU-06` từ CHANGES #49; `KQD-06` #48; `KQD-05` #45; trước đó `KQD-01/02/03/04` #42; `DGT-01/02/03/04` #38/#39; `TCB-01/02/03/04` #35; `HTG-07` #34; `SYNC-01/02/03` #33; chưa tính NICE `QLY-04`, `THU-03`)
-- **Mã story đã đưa vào kế hoạch:** `HTG-01`, `HTG-02`, `HTG-03`, `HTG-07`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `THU-06`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `SYNC-01`, `SYNC-02`, `SYNC-03`, `TCB-01`, `TCB-02`, `TCB-03`, `TCB-04`, `DGT-01`, `DGT-02`, `DGT-03`, `DGT-04`, `KQD-01`, `KQD-02`, `KQD-03`, `KQD-04`, `KQD-05`, `KQD-06`, `PCG-01`, `PCG-02`, `PCG-03`, `PCG-04`, `PCG-05`, `TNB-01`, `TNB-02`, `TNB-03`, `TNB-04`, `TNB-05`, `TNB-06`, `TNB-07`
+- **Số story trong PRD khi cập nhật:** 58 (thêm `KQD-07` từ CHANGES #65 + `PCG-06` từ CHANGES #66; `TNB-01..07` từ CHANGES #60; `PCG-01..05` từ CHANGES #54; thêm `THU-06` từ CHANGES #49; `KQD-06` #48; `KQD-05` #45; trước đó `KQD-01/02/03/04` #42; `DGT-01/02/03/04` #38/#39; `TCB-01/02/03/04` #35; `HTG-07` #34; `SYNC-01/02/03` #33; chưa tính NICE `QLY-04`, `THU-03`)
+- **Mã story đã đưa vào kế hoạch:** `HTG-01`, `HTG-02`, `HTG-03`, `HTG-07`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `THU-06`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `SYNC-01`, `SYNC-02`, `SYNC-03`, `TCB-01`, `TCB-02`, `TCB-03`, `TCB-04`, `DGT-01`, `DGT-02`, `DGT-03`, `DGT-04`, `KQD-01`, `KQD-02`, `KQD-03`, `KQD-04`, `KQD-05`, `KQD-06`, `KQD-07`, `PCG-01`, `PCG-02`, `PCG-03`, `PCG-04`, `PCG-05`, `PCG-06`, `TNB-01`, `TNB-02`, `TNB-03`, `TNB-04`, `TNB-05`, `TNB-06`, `TNB-07`
 - **Mã story chưa đưa vào:** `QLY-04`, `THU-03` (NICE, chưa đủ chi tiết) · **`HTG-04/05/06`** (thêm ở CHANGES #18, đã code thẳng — chưa có task trong plan; cần `/kehoach` bổ sung riêng nếu muốn khớp sổ)
-- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 11/10/2026 (#63)
+- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 12/10/2026 (#67)
 
 ## Changelog
 
 | Ngày | Thay đổi |
 |---|---|
+| 12/10/2026 | v25 — bổ sung (CHANGES #65, #66, #67; PRD v4.9–v4.10, TDD v6.11–v6.12): thêm **task 118** sửa ghi ảnh đổi nền cả khóa `QLY-07` (ghi đè tại `DuongDanAnh`, sao lưu `<tên>_BACKUP.jp2` cùng thư mục; cuối Phase 3) · **119-120** `KQD-07` Kiểm trước kết xuất (backend luật thuần + endpoint chỉ đọc / UI + KQD-02 dùng chung luật; cuối Phase 6) · **121-122** `PCG-06` Hạn giấy tờ (backend + tab thứ 3; cuối Phase 9) + **Checkpoint 29-31** + 2 rủi ro. Giao diện của 120 và 122 chờ mock `/prototype-next`. +2 story (56→58). 122 task. |
 | 11/10/2026 | v24 — bổ sung (không đổi PRD/TDD): thêm **task 116** dán danh sách CMT/mã đăng ký ở bước ② + **task 117** xử lý ngoại lệ tại chỗ ở bước ② (nốt phần "110b" của `TNB-04`; 116 S, 117 M, tuần tự vì cùng sửa `BuocChonHocVien.tsx`) + **Checkpoint 28** |
 | 11/10/2026 | v23 — bổ sung (CHANGES #60-#62, PRD v4.6, TDD §11F v6.8 sau /reviewtdd 25 phát hiện): thêm **Phase 10 Tốt nghiệp & Báo cáo 2** (feature mới, prefix `TNB`, 7 story, phân hệ #5, DB Nạp) — task **96** luật thuần + test · **97** backend đọc ứng viên (SP `@MaKH=''` + SELECT bổ sung) · **98** tạo BC2 + nhật ký + khóa `tnbc2_ghi` · **99** `/bc2/lap` chạy nền + `lo_id` + hoàn tác · **100** xem/gỡ/xóa BC2 · **101-103** tốt nghiệp đọc/ghi/hủy · **104** cứu trạng thái · **105** danh sách BC1/BC2 + nhật ký · **106** khung phân hệ #5 · **107-108** UI tốt nghiệp · **109-112** UI lập BC2 3 bước (+ form BC2) · **113** UI xem/gỡ · **114** UI cứu · **115** UI danh sách + nhật ký, + Checkpoint 23-27 + 3 Prerequisite + 5 rủi ro. Chỉ gọi SP có sẵn, không bảng/cột mới. +7 story (49→56). 115 task. |
 | 10/10/2026 | v22 — bổ sung (CHANGES #54, PRD v4.3, TDD v6.4 §11E): thêm **Phase 9 Phân công giáo viên – xe** (feature mới, prefix `PCG`, 5 story) — task **85** luật thuần + test · **86** backend đọc + `/kiem-tra` · **87** backend `/ghi` + nhật ký (rủi ro cao làm trước UI) · **88** khung phân hệ #4 · **89** PCG-01 bước ① · **90** bản nháp + Ghi vào CDB · **91-92** PCG-02 bước ② (từng GV + hàng loạt) · **93-94** PCG-03 bước ③ (xe + ghép, gợi ý) · **95** PCG-05 rà soát + Checkpoint 20/21/22. Chỉ ghi `KhoaHoc_GiaoVien`/`KhoaHoc_XeTap`, không bảng mới; không dùng SP xóa lan. +5 story (44→49). 95 task. |

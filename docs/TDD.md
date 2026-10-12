@@ -1009,11 +1009,12 @@ Vòng đời TT_XuLy & quy tắc thay ảnh (QLY-05/QLY-07):
 ```
 
 ### 11.6 Đổi nền trắng cả khóa (QLY-07) — CHANGES #22
-Xử lý hàng loạt ảnh của 1 khóa (chủ yếu ảnh cũ từ app cũ chưa nền trắng). **Dùng lại `ghi_anh_update` với quy tắc giữ `TT_XuLy` của §11.5** — bắt buộc, vì bulk chạm MỌI HV trong khóa cùng lúc; nếu hạ `'03'` thì **cả khóa đã BC2 biến mất khỏi báo cáo** trong một lần chạy.
+Xử lý hàng loạt ảnh của 1 khóa (chủ yếu ảnh cũ từ app cũ chưa nền trắng). **Giữ `TT_XuLy`** — bắt buộc, vì bulk chạm MỌI HV trong khóa cùng lúc; nếu hạ `'03'` thì **cả khóa đã BC2 biến mất khỏi báo cáo** trong một lần chạy.
+- **Ghi ảnh = ghi đè ĐÚNG file ở `DuongDanAnh` hiện có (sửa 12/10/2026, CHANGES #67).** Hai DB Nạp và đích dùng chung một file vật lý (sync sao chép `DuongDanAnh` nguyên văn; đọc DB 12/10: 668/741 đường dẫn ở đích trùng đường dẫn ở Nạp), nên đổi nền **không** dùng `ghi_anh_update` (hàm đó ghi vào `<IMG_PATH_CSDT>\<MaKH>\<MaDK>.jp2` và UPDATE `DuongDanAnh` — với ảnh ở gốc khác sẽ tạo file mới + lệch đường dẫn giữa 2 DB). Đổi nền dùng cùng kiểu ghi với `thay_anh_ghi_de` (TCB-02): file tạm cùng thư mục → `os.replace` ghi đè, **giữ nguyên tên và `DuongDanAnh`**; chỉ `UPDATE ChatLuongAnh, NgayThuNhanAnh, NguoiThuNhanAnh` (không đụng `DuongDanAnh`, không đụng `TT_XuLy`). `ghi_anh_update` giữ nguyên cho nạp/thay ảnh HV mới (QLY-05).
 - **Chạy nền + tiến độ:** endpoint khởi tạo job (vd `POST /local/khoa/:ma_kh/doi-nen`) → xử lý tuần tự từng HV, UI hỏi tiến độ (N/tổng, số lỗi) qua polling hoặc SSE. ~1-3 giây/ảnh (rembg) × ~100 HV ≈ vài phút → KHÔNG làm đồng bộ (treo UI).
-- **Sao lưu trước ghi đè:** tùy chọn (mặc định bật) chép `.jp2` gốc sang `<IMG_PATH_CSDT>\<MaKhoaHoc>\_BACKUP\<MaDK>.jp2` — **CHỈ chép nếu `_BACKUP\<MaDK>.jp2` CHƯA tồn tại** (giữ bản gốc đầu tiên; lần chạy sau KHÔNG ghi đè backup, tránh backup thành bản đã xử lý → mất bản gốc thật). Ghi ảnh **atomic** (file tạm → `os.replace`).
+- **Sao lưu trước ghi đè:** tùy chọn (mặc định bật) chép `.jp2` gốc sang `<tên>_BACKUP.jp2` **CÙNG thư mục với file ảnh** (cùng kiểu TCB-02) — **CHỈ chép nếu `<tên>_BACKUP.jp2` CHƯA tồn tại** (giữ bản gốc đầu tiên; lần chạy sau KHÔNG ghi đè backup, tránh backup thành bản đã xử lý → mất bản gốc thật). *Đã từng chốt (CHANGES #22):* `<IMG_PATH_CSDT>\<MaKH>\_BACKUP\<MaDK>.jp2` — bỏ 12/10/2026 vì tạo thêm thư mục ở gốc khác và lệch với TCB-02. Ghi ảnh **atomic** (file tạm → `os.replace`).
 - **Phạm vi:** mặc định "chỉ ảnh chưa nền trắng" — phát hiện bằng **heuristic lấy mẫu pixel 4 góc** (gần trắng → coi đã trắng, bỏ qua; DB không có cờ đánh dấu); sai sót nhỏ bù bằng tùy chọn **"tất cả HV có ảnh"** (luôn cho đổi). HV không ảnh → bỏ qua.
-- *Ca lỗi từng HV* (file bị khóa app cũ, ghi lỗi) → bỏ qua HV đó, ghi danh sách lỗi, chạy tiếp — 1 HV lỗi không hỏng cả lô.
+- *Ca lỗi từng HV* (file bị khóa app cũ, thư mục không ghi được, ghi lỗi) → bỏ qua HV đó, ghi danh sách lỗi, chạy tiếp — 1 HV lỗi không hỏng cả lô.
 - *Chống chạy trùng:* bọc job bằng `sp_getapplock(MaKhoaHoc)` (như nạp lô §10.3) để 2 tool không cùng xử lý một khóa (hiếm — thường 1 máy CSDT).
 
 ### 11.7 Gỡ HV về chờ nạp (QLY-08) + đồng bộ xóa khi kéo (NAP-01/THU-05) — CHANGES #24
@@ -1286,7 +1287,7 @@ Mở exe
 
 > **Phục vụ:** DGT-01/02/03/04. Không chạm nghiệp vụ Nạp/Sync/TCB — thuần đóng gói + khởi chạy + vòng đời phiên của tool. Quyết định kỹ thuật: TDD-decisions §16.
 
-## 11D. Cập nhật kết quả đào tạo (tool — workspace riêng) — KQD-01..06 (CHANGES #42, #45, #53)
+## 11D. Cập nhật kết quả đào tạo (tool — workspace riêng) — KQD-01..07 (CHANGES #42, #45, #53, #65)
 
 > Ghi **CSDL đích** `GPLX_CDB_CSDT` (bảng `NguoiLX_HoSo`) như SYNC/TCB. Chỉ nhập KQĐT (`TT_XuLy` 03→09/10), **không** kết xuất XML. Schema đã probe: `docs/DB-GPLX_CDB_CSDT.md` §5. Quyết định kỹ thuật: TDD-decisions §17.
 
@@ -1371,7 +1372,7 @@ DB **không có** trigger/computed/constraint tính 3 cờ (verify 06/10: 0 trig
 `SoGiayCNTN` = `MaDK + '-' + MaHangMoi` (verify 100% mẫu thật, vd `75032-20260803-000001-B`), tự sinh khi Đạt. `NgayRaQDTN`, `TGBatDau`, `TGKetThuc` điền sẵn từ ngày khóa (`KhoaHoc.NgayKG/NgayBG/NgayThi`), cho sửa.
 
 ### 11D.6 API (tool, đề xuất — chốt khi code)
-`GET /local/ketqua/khoa?q=` (gợi ý khóa đã BC1, kèm đếm HV 5 nhóm trạng thái gồm **`ketxuat`=12**) · `GET /local/ketqua/hoc-vien?ma_kh&trang_thai&q` (lưới; `trang_thai` nhận cả `ketxuat` (12) cho KQD-03) · `POST /local/ketqua/cap-nhat` (1 HV: điểm gốc + hạng + cờ chương trình → app quy đổi → ghi `GiaiTrinh` trước (nếu có) → gọi SP) · **`GET /local/ketqua/mo-khoa`** (KQD-05/03 — cổng B-1 **chỉ đọc**: trả `mo_duoc` + `goi_chua_gui`/`goi_da_gui` (mỗi gói: id·ten_file·ngay_tao·kich_thuoc) + `so_hv_mo`/`so_hv_bo_qua`/`so_khoa`; panel gói KQD-03 + modal mở khóa KQD-05 dùng chung) · `POST /local/ketqua/mo-khoa` (KQD-05, §11D.7) · `POST /local/ketqua/xoa-diem` (KQD-06, §11D.8 — reset HV 09/10 về chưa có điểm; sửa lẻ dùng lại `/cap-nhat` với quy-đổi môn cũ) · **`POST /local/ketqua/mo-sua-sau-gui`** (KQD-05 #53, §11D.7b — body `ma_dk[]` + `ly_do`; lùi đúng các HV được chọn, không xóa gói) · **`GET /local/ketqua/sua-sau-gui`** (khối đỏ KQD-03: nhật ký ∩ HV chưa về `12`). **KQD-03 "Theo dõi kết xuất" KHÔNG có endpoint `ket-xuat` riêng** (chốt khi code): tiến độ khóa ghép từ `/khoa` (đếm sẵn), panel gói từ `GET /mo-khoa` (CSĐT-wide, tải 1 lần), lưới HV từ `/hoc-vien?trang_thai=ketxuat|capnhat` — tránh thừa endpoint + khỏi nhồi danh sách gói vào mỗi lần chọn khóa. Tất cả gác session + `target_key` như §11B. **Combobox khóa:** debounce ~300ms + giới hạn ~20 gợi ý, chỉ đếm HV-theo-trạng-thái cho khóa thực sự hiển thị (tránh aggregate nặng mỗi phím gõ).
+`GET /local/ketqua/khoa?q=` (gợi ý khóa đã BC1, kèm đếm HV 5 nhóm trạng thái gồm **`ketxuat`=12**) · `GET /local/ketqua/hoc-vien?ma_kh&trang_thai&q` (lưới; `trang_thai` nhận cả `ketxuat` (12) cho KQD-03) · `POST /local/ketqua/cap-nhat` (1 HV: điểm gốc + hạng + cờ chương trình → app quy đổi → ghi `GiaiTrinh` trước (nếu có) → gọi SP) · **`GET /local/ketqua/mo-khoa`** (KQD-05/03 — cổng B-1 **chỉ đọc**: trả `mo_duoc` + `goi_chua_gui`/`goi_da_gui` (mỗi gói: id·ten_file·ngay_tao·kich_thuoc) + `so_hv_mo`/`so_hv_bo_qua`/`so_khoa`; panel gói KQD-03 + modal mở khóa KQD-05 dùng chung) · `POST /local/ketqua/mo-khoa` (KQD-05, §11D.7) · `POST /local/ketqua/xoa-diem` (KQD-06, §11D.8 — reset HV 09/10 về chưa có điểm; sửa lẻ dùng lại `/cap-nhat` với quy-đổi môn cũ) · **`POST /local/ketqua/mo-sua-sau-gui`** (KQD-05 #53, §11D.7b — body `ma_dk[]` + `ly_do`; lùi đúng các HV được chọn, không xóa gói) · **`GET /local/ketqua/sua-sau-gui`** (khối đỏ KQD-03: nhật ký ∩ HV chưa về `12`) · **`GET /local/ketqua/kiem-truoc?ma_kh=`** (KQD-07, §11D.9, chỉ đọc). **KQD-03 "Theo dõi kết xuất" KHÔNG có endpoint `ket-xuat` riêng** (chốt khi code): tiến độ khóa ghép từ `/khoa` (đếm sẵn), panel gói từ `GET /mo-khoa` (CSĐT-wide, tải 1 lần), lưới HV từ `/hoc-vien?trang_thai=ketxuat|capnhat` — tránh thừa endpoint + khỏi nhồi danh sách gói vào mỗi lần chọn khóa. Tất cả gác session + `target_key` như §11B. **Combobox khóa:** debounce ~300ms + giới hạn ~20 gợi ý, chỉ đếm HV-theo-trạng-thái cho khóa thực sự hiển thị (tránh aggregate nặng mỗi phím gõ).
 
 ### 11D.7 Mở khóa để sửa sau kết xuất (KQD-05) — gỡ chặn `12` có kiểm soát
 > Nghiệp vụ + lý do (DB không nối HV↔gói): TDD-decisions §19. Verify DB live 07/10/2026 trên `GPLX_CDB_CSDT`.
@@ -1409,11 +1410,25 @@ DB **không có** trigger/computed/constraint tính 3 cờ (verify 06/10: 0 trig
 - **Xóa điểm (reset về chưa có điểm):** `POST /local/ketqua/xoa-diem` (body `ma_dk`). UPDATE trực tiếp tham số hóa (SP không reset được): `UPDATE NguoiLX_HoSo SET DiemKQLyThuyet=NULL, DiemKQMoPhong=NULL, DiemKQHinh=NULL, DiemKQTienLui=NULL, DiemKQThucHanh=NULL, KQLyThuyet=NULL, KQThucHanh=NULL, KetLuanCSDT=NULL, SoGiayCNTN=NULL, TT_XuLy='03', NgaySua=GETDATE() WHERE MaDK=@MaDK AND TT_XuLy IN ('09','10')`. **Kiểm `TT_XuLy` bằng SELECT TRƯỚC** (ngoài 09/10 → 409; không tìm thấy → 404) rồi mới UPDATE — KHÔNG dựa `rowcount` (pymssql có thể trả -1 khi bảng có trigger/NOCOUNT → báo nhầm thất bại dù điểm đã xóa); mệnh đề `IN ('09','10')` trong UPDATE giữ lại làm lưới chống đua (TOCTOU). UI: nút "Xóa điểm" mỗi dòng 09/10 + **hộp xác nhận** (đổi dữ liệu thật). Giờ/km thực hành (`TGThucHanh*`/`QDThucHanh*`): *chốt khi code có xóa kèm không* — mặc định giữ (không thuộc "điểm").
 - **Bất biến:** chỉ 09/10; mọi SQL tham số hóa; xóa phải xác nhận; reset về `'03'` (đã đăng ký) — không đoán lại 03 vs 04.
 
-> **Phục vụ:** KQD-01/02/03/04/05/06. Dừng ở `TT_XuLy` 09/10/12 — kết xuất XML/gửi Sở thuộc PM cũ. Quy đổi điểm/giờ/km: nguồn `thamkhao/` (TT17 + Sổ theo dõi). Quyết định: TDD-decisions §17 (quy đổi) + §19 (mở khóa).
+### 11D.9 Kiểm trước kết xuất (KQD-07, CHANGES #65) — chỉ đọc
+> Bổ sung 12/10/2026 từ tư vấn theo schema DB đích. Không đổi schema, không ghi DB; kết xuất vẫn thuộc PM cũ.
+
+- **Endpoint (đề xuất, chốt khi code):** `GET /local/ketqua/kiem-truoc?ma_kh=` — gác session + `target_key` như §11D.6. Đọc HV của đúng khóa `ma_kh` có `TT_XuLy IN ('03','04','09','10')` (cùng nguồn với `/hoc-vien`, nên dùng lại hàm đọc có sẵn, không viết SELECT thứ hai). Trả `{tong, du, thieu:[{ma_dk, ho_ten, cccd, tt_xuly, ly_do:[…]}], dem:{chua_co_diem, thieu_mon, thieu_gio_km, thieu_ket_luan}}`.
+- **Luật thuần (backend, không DB), hàm `hv_chua_du(hv, hang)`** đặt cạnh luật quy đổi trong `ketqua_quydoi.py`:
+  - `chua_co_diem` ⇔ `TT_XuLy ∈ {03,04}` và cả 5 `DiemKQ*` rỗng;
+  - `thieu_mon` ⇔ có ≥1 điểm nhưng thiếu ≥1 môn trong **danh sách môn bắt buộc theo hạng** (liệt kê môn thiếu trong `ly_do`);
+  - `thieu_gio_km` ⇔ `TGThucHanhHinh`/`QDThucHanhHinh`/`TGThucHanhDuong`/`TongQDThucHanh` còn rỗng khi hạng có thực hành (giờ/km đường **dưới ngưỡng gợi ý** KQD-02 chỉ là cảnh báo, **không** vào `ly_do`);
+  - `thieu_ket_luan` ⇔ `TT_XuLy ∈ {09,10}` mà `KetLuanCSDT IS NULL` (bất thường).
+- **Danh sách môn bắt buộc theo hạng hiện nằm ở phía UI** (`CapNhatKQDT.tsx`, ô đỏ KQD-02). Khi code **chuyển lên một nguồn chung ở backend rồi cho UI KQD-02 gọi lại cùng nguồn đó**, để KQD-07 và KQD-02 không có hai luật khác nhau (rủi ro đã biết nếu chép).
+- **UI:** nút "Kiểm trước kết xuất" ở màn KQD-02 (sau khi chọn khóa) → khung kết quả; bấm dòng → mở HV ở lưới KQD-02. HV `12/13/14/90` không đưa vào.
+- **Bất biến:** chỉ đọc; không chặn kết xuất; không sinh XML.
+- **Kiểm thử:** unit `hv_chua_du` (đủ 5 môn → đủ; thiếu 1 môn; chưa có điểm; thiếu giờ-km; thiếu kết luận; hạng mô tô ẩn thực hành; giờ đường dưới ngưỡng không vào lý do) + API bằng cursor giả (HV 12/13 không vào danh sách).
+
+> **Phục vụ:** KQD-01/02/03/04/05/06/07. Dừng ở `TT_XuLy` 09/10/12 — kết xuất XML/gửi Sở thuộc PM cũ. Quy đổi điểm/giờ/km: nguồn `thamkhao/` (TT17 + Sổ theo dõi). Quyết định: TDD-decisions §17 (quy đổi) + §19 (mở khóa).
 
 ---
 
-## 11E. Phân công giáo viên – xe cho khóa (tool — workspace riêng) — PCG-01..05 (CHANGES #54)
+## 11E. Phân công giáo viên – xe cho khóa (tool — workspace riêng) — PCG-01..06 (CHANGES #54, #66)
 
 > Ghi **CSDL đích** `GPLX_CDB_CSDT` (bảng `KhoaHoc_GiaoVien`, `KhoaHoc_XeTap`) như SYNC/TCB/KQD. Không đụng học viên, không kết xuất XML. Schema + SP + dữ liệu đã probe 10/10/2026; mock: `ui-mock/phancong.html`. Quyết định: TDD-decisions §22.
 
@@ -1452,7 +1467,7 @@ FK: `KhoaHoc_GiaoVien→GiaoVien/KhoaHoc`, `KhoaHoc_XeTap→XeTap/KhoaHoc` (NO A
 - **"Bận" của GV/xe ở khóa khác:** `SELECT … FROM KhoaHoc_GiaoVien g JOIN KhoaHoc k ON k.MaKH=g.MaKH WHERE g.IsKhoaHocGiaoVien=0 AND g.TrangThai=1 AND g.MaGV IN (…)` (tương tự xe, `IsKhoaHocXeTap=0`) — **gồm cả khóa đang sửa** (loại các dòng đang được sửa trong bản nháp theo `MaLichLV`/`MaLichSD`).
 
 ### 11E.2 API (tool, gác session + `target_key` như §11D)
-`GET /local/phancong/khoa?q=` (combobox khóa CSĐT hiện tại, kèm hạng, ngày KG/BG, cờ DKKH qua `dkkh_exists_sql`) · `GET /local/phancong/mon` (danh mục môn `DM_MonHoc`) · `GET /local/phancong/khoa/{ma_kh}` (hiện trạng: danh sách GV + phân công + xe + ghép, mỗi dòng kèm khóa `MaLichLV/MaLichSD`, kèm `dau_van_tay` = băm 20 ký tự của hiện trạng) · `GET /local/phancong/giao-vien?ma_kh=` (danh mục GV đang hoạt động + "bận" các khóa khác chưa bế giảng) · `GET /local/phancong/xe?ma_kh=` (danh mục xe + hạn + bận) · `POST /local/phancong/kiem-tra` (body = bản nháp; **không ghi**) · `POST /local/phancong/goi-y-ghep-xe` (đề xuất, **không ghi**) · `POST /local/phancong/ghi` (§11E.6) · `GET /local/phancong/ra-soat` (PCG-05) · `GET /local/phancong/nhat-ky?ma_kh=`.
+`GET /local/phancong/khoa?q=` (combobox khóa CSĐT hiện tại, kèm hạng, ngày KG/BG, cờ DKKH qua `dkkh_exists_sql`) · `GET /local/phancong/mon` (danh mục môn `DM_MonHoc`) · `GET /local/phancong/khoa/{ma_kh}` (hiện trạng: danh sách GV + phân công + xe + ghép, mỗi dòng kèm khóa `MaLichLV/MaLichSD`, kèm `dau_van_tay` = băm 20 ký tự của hiện trạng) · `GET /local/phancong/giao-vien?ma_kh=` (danh mục GV đang hoạt động + "bận" các khóa khác chưa bế giảng) · `GET /local/phancong/xe?ma_kh=` (danh mục xe + hạn + bận) · `POST /local/phancong/kiem-tra` (body = bản nháp; **không ghi**) · `POST /local/phancong/goi-y-ghep-xe` (đề xuất, **không ghi**) · `POST /local/phancong/ghi` (§11E.6) · `GET /local/phancong/ra-soat` (PCG-05) · `GET /local/phancong/nhat-ky?ma_kh=` · `GET /local/phancong/han-giay-to?ngay=30` (PCG-06, §11E.10, chỉ đọc).
 
 ### 11E.3 Danh sách GV / xe của khóa (PCG-01, cờ=1)
 - Thêm GV: chỉ GV `TrangThai=1`; cảnh báo lệch hạng **chỉ khi GV dạy Thực hành**, theo `gv_hop_hang` (§11E.7, CHANGES #56) hoặc GV đang có phân công ở khóa khác chưa bế giảng (`NgayBG >= hôm nay`, CHANGES #58 — không cộng thêm 1 ngày như `usp_CheckWarningGiaoVien`).
@@ -1517,7 +1532,18 @@ Một truy vấn tổng hợp theo `MaKH`: số GV cờ=1; số GV có ≥1 dòn
 - `tests/test_phancong_kiemthu.py` (/kiemthu 10–11/10/2026): thứ tự ghi giữa các nhóm · luật "dữ liệu cũ" không hạ nhầm dòng mới/mồ côi · cổng 400 trước 409 · `dau_van_tay` → 409 `khoa_da_doi` · khóa ghi → 409 `dang_ghi` · giới hạn đầu vào · `mon_khong_ton_tai` · bản nháp không đổi → 200.
 - Ghi thật vào CDB → nghiệm thu máy CSDT (mức 1).
 
-> **Phục vụ:** PCG-01/02/03/04/05. Quyết định: TDD-decisions §22. Liên quan: §11D (cùng DB đích, cùng cổng DKKH).
+### 11E.10 Hạn giấy tờ + GV/xe ngưng còn phân công (PCG-06, CHANGES #66) — chỉ đọc
+> Bổ sung 12/10/2026. Cột đã **verify trực tiếp trên DB đích 12/10/2026**: `XeTap.NgayHHGPXTL`, `XeTap.NgayHHGCNKD`, `XeTap.TrangThai` (bit) · `GiaoVien.NgayHHGPLX`, `GiaoVien.TrangThai` (bit) · `KhoaHoc.NgayBG`. Số liệu mẫu: 89 xe (82 hoạt động; 5 còn ≤ 30 ngày) · 87 GV (3 hết hạn GPLX, 1 còn ≤ 30 ngày) · chưa có GV/xe ngưng còn trong khóa chưa bế giảng.
+
+- **Endpoint:** `GET /local/phancong/han-giay-to?ngay=30` — gác session + `target_key` như §11E.2. Một truy vấn cho mỗi nhóm, lọc `MaCSDT` = mã CSĐT của máy (như rà soát PCG-05), `ngay` mặc định 30, giới hạn 1..365.
+- **Nhóm xe:** `XeTap` có `TrangThai=1` và (`NgayHHGPXTL` hoặc `NgayHHGCNKD`) `< hôm nay` → `het_han`; `BETWEEN hôm nay AND hôm nay+ngay` → `sap_het`; cả hai ngày NULL → mục thông tin `chua_khai`. Mỗi dòng kèm các khóa `KhoaHoc.NgayBG >= hôm nay` có dòng `KhoaHoc_XeTap` (mọi cờ) của xe đó.
+- **Nhóm giáo viên:** tương tự với `GiaoVien.NgayHHGPLX`, khóa lấy từ `KhoaHoc_GiaoVien` (mọi cờ).
+- **Nhóm ngưng còn phân công:** `GiaoVien`/`XeTap` `TrangThai=0` JOIN `KhoaHoc_GiaoVien`/`KhoaHoc_XeTap` JOIN `KhoaHoc` có `NgayBG >= hôm nay`.
+- **Luật thuần:** `phan_loai_han(ngay_hh, hom_nay, nguong)` đặt trong `phancong_rules.py` (thuần, không DB). `gp_het_som_nhat` đã có ở `phancong_service.py` chỉ chọn ngày hết hạn sớm nhất của xe — tái dùng để lấy ngày, không viết lại. **Khác §11E.7:** luật ⛔ "hết hạn trước bế giảng" xét theo từng khóa lúc ghi; PCG-06 chỉ xét theo **hôm nay** trên toàn cơ sở.
+- **Bất biến:** chỉ đọc; mọi SQL tham số hóa; không đổi `TrangThai`.
+- **Kiểm thử:** unit `phan_loai_han` (đúng ngày hôm nay, ngày biên, NULL, ngưỡng) + API bằng cursor giả.
+
+> **Phục vụ:** PCG-01/02/03/04/05/06. Quyết định: TDD-decisions §22. Liên quan: §11D (cùng DB đích, cùng cổng DKKH).
 
 ---
 
@@ -1832,6 +1858,8 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 | --- | --- | --- |
+| 12/10/2026 | 6.12 | **Sửa §11.6 đổi nền cả khóa (QLY-07, CHANGES #67):** ghi đè đúng file ở `DuongDanAnh` hiện có (2 DB dùng chung 1 file), không dùng `ghi_anh_update` (không tạo file mới/không đổi `DuongDanAnh`); chỉ UPDATE `ChatLuongAnh/NgayThuNhanAnh/NguoiThuNhanAnh`; sao lưu `<tên>_BACKUP.jp2` cùng thư mục thay `<khóa>\_BACKUP\<MaDK>.jp2`. |
+| 12/10/2026 | 6.11 | **+§11D.9 Kiểm trước kết xuất (KQD-07) và +§11E.10 Hạn giấy tờ + GV/xe ngưng còn phân công (PCG-06)** (CHANGES #65, #66): hai endpoint chỉ đọc `GET /local/ketqua/kiem-truoc` và `GET /local/phancong/han-giay-to`; luật thuần `hv_chua_du` / `phan_loai_han`; cột đã verify trực tiếp trên DB đích 12/10/2026 (kể cả `GiaoVien.NgayHHGPLX`). Không đổi schema, không ghi DB. |
 | 11/10/2026 | 6.10 | **Ghi lại hành vi thực tế khi dựng UI TNB task 106-115 + 2 sửa backend** (CHANGES #64, không đổi yêu cầu): §11F.3 tích lẫn/Chọn tất cả/nút Hủy · §11F.4 `bc1.ngay_bao_cao`, form bắt buộc ngày, `thu_lai` · §11F.5 chốt payload bước ③, lỗi sau khi gửi → Làm tiếp, lô that_bai/loi_giua_chung, tự làm tươi, hạn chế F5 · §11F.6 `cuu_chuyen` hoàn tất lô dở từ nhật ký + mục IT. |
 | 11/10/2026 | 6.9 | **Ghi lại hành vi thực tế của backend TNB task 96–105** (CHANGES #63, không đổi yêu cầu): §11F.0 +nhật ký/lô sqlite, +chạy nền & `GET /bc2/lo/{lo_id}` dùng chung · §11F.1 +hành vi thật của 4 SP, +collation `Ð`/`Đ` · §11F.2 +API tốt nghiệp, luật A/B/C, bộ sổ chung, dãy `N1\|<n>`, hủy giữ ngày in · §11F.4 +nguồn nhóm Không đưa được, `kiem_dau_vao`, `POST /bc2` (`thu_lai`), gỡ tay (Old='11' chặn), xóa BC2 (không xóa BC2 đã đóng), `{ma:path}` · §11F.5 hoàn tác cứu bằng nhật ký tool, API cứu · §11F.6 bảng API + mã lỗi · §11F.7 luật mới. |
 | 11/10/2026 | 6.8 | **Sửa sau /reviewtdd §11F** (biên bản `tdd-review-11-10-2026-tnb.md`): §11F.0 +khóa ghi chung `tnbc2_ghi`, nhật ký không lưu CMT/họ tên · §11F.1 +độ dài cột, +hành vi thật của SP (`ThemHS_BC2` không trả cột trạng thái/lọc khóa bằng LIKE, `ThemHSBC2` không điều kiện, `BaoCaoII_Delete` không kiểm HV) · §11F.2 sơ đồ vòng đời đủ ô tô+mô tô+thi lại+cứu, +`xem-lai`, kiểm trùng loại trừ chính HV · §11F.3 BC1 suy từ khóa, `TongSoThiSinh` tính trước Insert · §11F.4 **bỏ "chuyển HV từ BC2 mở khác"**, `thi_lai` bất kể khóa, SP gọi một lần `@MaKH=''`, `lo_id` idempotent + chạy nền + `GET /bc2/lo/{lo_id}`, thứ tự ghi, hoàn tác theo BC2, +sơ đồ nhóm + sơ đồ luồng ghi · §11F.5 hoàn tác cứu miễn luật đích · §11F.6 xóa BC2 đếm theo `MaBC2` · §11F.7 ⛔ thi hành ở máy chủ, +BC2 đã đóng, +giới hạn đầu vào · §11F.8 +test, +chỉ tiêu đo được · §16.1 +khe ghi chồng PM cũ. |
