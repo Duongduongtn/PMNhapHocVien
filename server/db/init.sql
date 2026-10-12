@@ -83,7 +83,7 @@ CREATE INDEX IF NOT EXISTS idx_refresh_user ON refresh_token(user_id);
 CREATE TABLE IF NOT EXISTS audit_log (
   id         BIGSERIAL PRIMARY KEY,
   actor_id   UUID REFERENCES users(id),
-  hanh_dong  VARCHAR(30) NOT NULL,               -- 'gui','keo','nap','xoa_pii','dang_nhap'
+  hanh_dong  VARCHAR(30) NOT NULL,               -- 'gui','xoa','nap','unlock','tra_ve_cho_nap','xoa_pii','xoa_pii_tay'
   uuid_hs    UUID,
   chi_tiet   JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

@@ -1,9 +1,7 @@
-"""Dịch vụ VPS — khung FastAPI (task 12).
+"""Dịch vụ VPS — FastAPI.
 
-Chỉ có health/readiness ở bước này. Router thật thêm sau:
-  - task 14: auth JWT + 3 vai trò  → app.routers.auth
-  - task 15: hàng đợi ho_so_thu_thap → app.routers.ho_so
-  - task 16: job xóa PII 30 ngày    → app.jobs.pii
+Router: auth (JWT + 3 vai trò) · admin / admin_users (quản trị, tài khoản) · ho_so (hàng đợi thu thập) ·
+nap (tool kéo/nạp qua X-Tool-Key). Job nền: xóa PII sau PII_RETENTION_DAYS ngày (app.jobs). Có health/ready/version.
 """
 from contextlib import asynccontextmanager
 

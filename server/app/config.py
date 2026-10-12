@@ -14,13 +14,13 @@ class Settings(BaseSettings):
     # ── Backend VPS (TDD §15) ──
     app_domain: str = "http://localhost:8000"
     database_url: str = "postgresql+psycopg://thunhan:thunhan@localhost:5432/thunhan_db"
-    jwt_secret: str = "doi-bien-nay-o-moi-truong-that"  # dùng ở task 14 (auth)
+    jwt_secret: str = "doi-bien-nay-o-moi-truong-that"  # khóa ký JWT (auth)
     anh_tho_dir: str = "/data/anh-tho"
     pii_retention_days: int = 30
     tool_api_key: str = "doi-key-nay-o-moi-truong-that"  # tool gửi qua X-Tool-Key (task 15)
 
     # ── Hàng đợi thu thập (task 15 — HTG-02, TDD §7) ──
-    import_lock_timeout_min: int = 15          # khóa importing quá hạn → job mở (EC-002, dùng ở task 16)
+    import_lock_timeout_min: int = 15          # khóa importing quá hạn → job mở (EC-002) — CHƯA có job dùng giá trị này
     max_anh_bytes: int = 8 * 1024 * 1024       # ảnh thô ≤ 8 MB (TDD §7.4)
     max_anh_pixels: int = 25_000_000           # chặn ảnh "bung nén" ~25 MP (TDD §7.4)
 

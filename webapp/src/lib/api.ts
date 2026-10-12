@@ -52,8 +52,6 @@ export const dangNhap = (username: string, password: string) =>
     body: JSON.stringify({ username, password }),
   }).then(json<DangNhapKetQua>);
 
-export const layMe = () => fetch(`${BASE}/api/auth/me`, { headers: authHeaders() }).then(json<NguoiDung>);
-
 export const dangXuat = () =>
   fetch(`${BASE}/api/auth/logout`, { method: "POST", headers: authHeaders() });
 
