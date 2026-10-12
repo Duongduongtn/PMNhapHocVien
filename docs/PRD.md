@@ -1035,7 +1035,7 @@
 
 #### [PCG-06] Hạn giấy tờ xe, hạn GPLX giáo viên và GV/xe ngưng còn phân công (tab thứ 3, chỉ đọc)
 
-**Trạng thái:** ⏳ Todo — story mới (CHANGES #66, 12/10/2026). Chưa code.
+**Trạng thái:** 🔄 In Progress — task 121 (backend) xong 12/10/2026: `phan_loai_han` + `phancong_hangiayto.py` + `GET /local/phancong/han-giay-to?ngay=30` (chỉ đọc, 3 nhóm), tool 690 pytest. Còn task 122 (UI tab thứ 3 "Hạn giấy tờ"; cần mock `/prototype-next`).
 **Story:** Là nhân viên cơ sở, tôi muốn một bảng cho thấy xe nào sắp hết hạn giấy phép, giáo viên nào sắp hết hạn GPLX và GV/xe nào đã ngưng mà vẫn còn trong khóa chưa bế giảng, để xử lý trước khi ảnh hưởng khóa học, thay vì chỉ thấy cảnh báo khi mở từng khóa.
 
 **Done khi:**

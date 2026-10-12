@@ -11,6 +11,9 @@ from pydantic import BaseModel, Field
 
 from fastapi import Depends
 
+from datetime import date
+
+from app import phancong_hangiayto as hangiayto
 from app import phancong_nhat_ky as nhat_ky
 from app import phancong_rasoat as rasoat
 from app import phancong_rules as rules
@@ -162,6 +165,21 @@ def ra_soat(target_key: str | None = None) -> list[dict]:
     try:
         with sqlserver_conn_dich(db) as conn:
             return rasoat.ra_soat(conn, _csdt(conn))
+    except HTTPException:
+        raise
+    except ConfigChuaDay as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:  # noqa: BLE001
+        raise _loi_db(e)
+
+
+@router.get("/han-giay-to")
+def han_giay_to(ngay: int = Query(30, ge=1, le=365), target_key: str | None = None) -> dict:
+    """PCG-06 — hạn giấy tờ xe/GPLX giáo viên + GV/xe ngưng còn phân công, toàn cơ sở (chỉ đọc)."""
+    db = _db_dich(target_key)
+    try:
+        with sqlserver_conn_dich(db) as conn:
+            return hangiayto.han_giay_to(conn, _csdt(conn), date.today(), ngay)
     except HTTPException:
         raise
     except ConfigChuaDay as e:

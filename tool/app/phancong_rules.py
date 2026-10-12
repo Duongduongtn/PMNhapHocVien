@@ -13,11 +13,18 @@ TRẢ danh sách vấn đề. Đọc DB nằm ở `phancong_service.py` (task 86
 """
 from __future__ import annotations
 
+from datetime import date
 from typing import Iterable
 
 CHAN = "chan"            # ⛔ không lưu/ghi được
 CANH_BAO = "canh_bao"    # ⚠ ghi được sau khi xác nhận
 THONG_TIN = "thong_tin"  # ℹ chỉ báo
+
+# PCG-06 — phân loại hạn giấy tờ (xét theo HÔM NAY, toàn cơ sở; không phải luật "hết hạn trước bế giảng")
+HAN_HET = "het_han"      # đỏ: đã quá hạn (ngày hết hạn < hôm nay)
+HAN_SAP = "sap_het"      # vàng: còn 0..nguong ngày
+HAN_CON = "con_han"      # còn hạn xa hơn ngưỡng
+HAN_CHUA = "chua_khai"   # chưa khai ngày hết hạn (thông tin, không đỏ/vàng)
 
 MON_THUC_HANH = 6        # DM_MonHoc.MaMH = "Thực hành lái xe"
 
@@ -305,3 +312,16 @@ def tom_tat(vde: list[dict]) -> dict[str, int]:
 
 def co_chan(vde: list[dict]) -> bool:
     return any(v["muc"] == CHAN for v in vde)
+
+
+def phan_loai_han(ngay_hh: str | None, hom_nay: date, nguong: int = 30) -> str:
+    """Ngày hết hạn ISO `YYYY-MM-DD` (rỗng/None = chưa khai) → het_han | sap_het | con_han | chua_khai.
+
+    Đúng ngày hôm nay vẫn dùng được → `sap_het` (0 ngày); quá hạn = trước hôm nay.
+    Đúng biên `hom_nay + nguong` vẫn là `sap_het`."""
+    if not ngay_hh:
+        return HAN_CHUA
+    con = (date.fromisoformat(ngay_hh[:10]) - hom_nay).days
+    if con < 0:
+        return HAN_HET
+    return HAN_SAP if con <= nguong else HAN_CON
