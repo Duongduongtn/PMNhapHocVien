@@ -262,4 +262,19 @@ test.describe("KQD-08 — hộp thoại nạp PDF DAT: chặn sớm, lưu xong, 
     const body = luu.body as { dong: { ma_dk: string; gio_duong: number; km_duong: number }[] };
     expect(body.dong.find((d) => d.ma_dk === "A3")).toEqual({ ma_dk: "A3", gio_duong: 0, km_duong: 0 });
   });
+
+  test("F3 'Chọn tất cả' chỉ tick dòng Khớp: dòng chưa chạy DAT không bị tick, không điền 0", async ({ page }) => {
+    await giaBackend(page, { body: null });
+    await moHopThoai(page);
+    const b = bangModal(page);
+    const dongA3 = b.locator("tr", { hasText: "TRẦN VĂN CƯỜNG" });
+    const tatCa = b.locator("thead").locator('input[type="checkbox"]');
+    await tatCa.uncheck().catch(() => undefined);
+    await tatCa.check();
+    await expect(dongA3.locator('input[type="checkbox"]')).not.toBeChecked();   // chưa chạy DAT vẫn không tick
+    await expect(dongA3.locator("input").nth(1)).toHaveValue("");               // không điền sẵn 0
+    await expect(nutLuuModal(page, 2)).toBeEnabled();                           // chỉ A1 + A2 (khớp)
+    await dongA3.locator('input[type="checkbox"]').check();                     // tick tay mới điền 0
+    await expect(dongA3.locator("input").nth(1)).toHaveValue("0");
+  });
 });

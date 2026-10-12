@@ -305,7 +305,7 @@ def test_ly_do_khong_thay_o_dau_va_loi_ket_noi():
 def test_xem_truoc_gan_ly_do_cho_dong_khong_co(monkeypatch, auth_headers):
     _gia_lap(monkeypatch, [_hv("1", gio=10.0, km=500.0)], [])
     monkeypatch.setattr(k, "_tra_cuu_khong_co", lambda items, tk: (
-        {"9": [{"MaDK": "9", "MaKhoaHoc": "K2", "TrangThai": 1, "TenKH": "Khóa 2"}]}, {}))
+        {"9": [{"MaDK": "9", "MaKhoaHoc": "K2", "TrangThai": 1, "TenKH": "Khóa 2"}]}, {}, set()))
     pdf = {"ma_kh": "KX", "hang": "B", "dong": [_dong("1", 16.32, 725.63), _dong("9", 20.0, 800.0, stt=2)]}
     j = _post_xem(monkeypatch, auth_headers, pdf).json()
     kc = [x for x in j["dong"] if x["tinh_trang"] == "khong_co_trong_khoa"][0]
@@ -317,7 +317,7 @@ def test_tra_cuu_loi_ket_noi_khong_lam_hong_xem_truoc(monkeypatch):
         raise RuntimeError("mất kết nối")
     monkeypatch.setattr(k, "_db_dich", lambda tk: "DB")
     monkeypatch.setattr(k, "sqlserver_conn_dich", hong)
-    assert k._tra_cuu_khong_co([_item()], None) == (None, None)
+    assert k._tra_cuu_khong_co([_item()], None) == (None, None, set())
 
 
 # =============================================================================
@@ -574,3 +574,65 @@ def test_luu_chi_ghi_ho_so_dang_hoat_dong_cung_dieu_kien_voi_xem_truoc(monkeypat
     assert _luu(auth_headers, [{"ma_dk": "1", "gio_duong": 10, "km_duong": 500}]).status_code == 200
     sql = log[0][0]
     assert "TrangThai = 1" in sql and "NOT IN ('12','13')" in sql
+
+
+# ---- sau /reviewtdd §11D.10 (CHANGES #71): F6 trần tra cứu ------------------------------------
+def test_f6_dong_vuot_tran_tra_ten_khong_bi_bao_khong_tim_thay():
+    items = [_item(ma=f"M{i}", ten=f"HV {i}") for i in range(3)]
+    d.gan_ly_do_khong_co(items, {}, {}, "K1", chua_tra={"M2"})
+    assert "chưa nạp/đồng bộ" in items[0]["ghi_chu"] and "chưa nạp/đồng bộ" in items[1]["ghi_chu"]
+    assert items[2]["ghi_chu"] == d.LY_DO_CHUA_TRA and items[2]["khoa_khac"] is None
+
+
+def test_f6_tra_cuu_chi_tra_50_ten_va_danh_dau_phan_con_lai(monkeypatch):
+    truy_van: list[str] = []
+
+    class _C:
+        def execute(self, sql, params=()):
+            truy_van.append(sql)
+
+        def fetchall(self):
+            return []
+
+    @contextmanager
+    def conn(_db, **_kw):
+        class X:
+            def cursor(self, as_dict=False):
+                return _C()
+        yield X()
+
+    monkeypatch.setattr(k, "_db_dich", lambda tk: "DB")
+    monkeypatch.setattr(k, "sqlserver_conn_dich", conn)
+    items = [_item(ma=f"M{i:03d}", ten=f"HV {i}") for i in range(60)]
+    theo_ma, theo_ten, chua_tra = k._tra_cuu_khong_co(items, None)
+    assert sum("a.HoVaTen" in s for s in truy_van) == 50          # đúng trần 50 truy vấn theo tên
+    assert chua_tra == {f"M{i:03d}" for i in range(50, 60)}        # 10 dòng cuối chưa được tra
+    d.gan_ly_do_khong_co(items, theo_ma, theo_ten, "K1", chua_tra)
+    assert items[49]["ghi_chu"].startswith("Không tìm thấy")
+    assert items[50]["ghi_chu"] == d.LY_DO_CHUA_TRA
+
+
+def test_f6_vuot_tran_500_ma_chi_gui_500_tham_so_va_phan_du_la_chua_tra(monkeypatch):
+    cau_hoi: list[tuple] = []
+
+    class _C:
+        def execute(self, sql, params=()):
+            cau_hoi.append((sql, params))
+
+        def fetchall(self):
+            return []
+
+    @contextmanager
+    def conn(_db, **_kw):
+        class X:
+            def cursor(self, as_dict=False):
+                return _C()
+        yield X()
+
+    monkeypatch.setattr(k, "_db_dich", lambda tk: "DB")
+    monkeypatch.setattr(k, "sqlserver_conn_dich", conn)
+    items = [{"ma_dk": f"M{i:04d}", "ho_ten": "", "ngay_sinh": ""} for i in range(503)]
+    _, _, chua_tra = k._tra_cuu_khong_co(items, None)
+    sql_ma, tham_so = cau_hoi[0]
+    assert len(tham_so) == 500 and sql_ma.count("%s") == 500         # IN (...) đúng 500 mã
+    assert {"M0500", "M0501", "M0502"} <= chua_tra                    # 3 mã vượt trần mã chưa hề được tra

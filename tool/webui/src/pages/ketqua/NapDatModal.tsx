@@ -124,7 +124,9 @@ export default function NapDatModal({
     } finally { setBusy(false); }
   }
 
-  const tatCaDuocChon = chonDuoc.length > 0 && chonDuoc.every((d) => chon.has(d.ma_dk));
+  // "Chọn tất cả" chỉ động tới dòng KHỚP. Dòng "chưa chạy DAT" (ghi 0 có thể đè giá trị đang có) luôn tick tay.
+  const choTatCa = chonDuoc.filter((d) => d.tinh_trang === "khop");
+  const tatCaDuocChon = choTatCa.length > 0 && choTatCa.every((d) => chon.has(d.ma_dk));
 
   return (
     <div className="fixed inset-0 z-50">
@@ -169,9 +171,13 @@ export default function NapDatModal({
                     <thead className="bg-muted/60 text-muted-foreground sticky top-0">
                       <tr className="text-left">
                         <th className="px-2 py-1.5 w-8">
-                          <input type="checkbox" checked={tatCaDuocChon} disabled={chonDuoc.length === 0 || busy}
-                            title="Chọn / bỏ chọn các dòng có thể ghi"
-                            onChange={(e) => { setChon(e.target.checked ? new Set(chonDuoc.map((d) => d.ma_dk)) : new Set()); if (e.target.checked) dienSan0(chonDuoc); }} />
+                          <input type="checkbox" checked={tatCaDuocChon} disabled={choTatCa.length === 0 || busy}
+                            title="Chọn / bỏ chọn các dòng Khớp (dòng chưa chạy DAT phải tick tay từng dòng)"
+                            onChange={(e) => setChon((cur) => {
+                              const c = new Set(cur);
+                              for (const d of choTatCa) { if (e.target.checked) c.add(d.ma_dk); else c.delete(d.ma_dk); }
+                              return c;
+                            })} />
                         </th>
                         <th className="font-semibold px-2 py-1.5 w-10 text-center">STT</th>
                         <th className="font-semibold px-2 py-1.5">Học viên</th>

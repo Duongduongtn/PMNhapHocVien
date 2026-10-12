@@ -317,4 +317,8 @@
 - **Còn mở (xác minh khi code):** "Mã học viên" trong PDF có là `MaDK` không; UPDATE trực tiếp 2 cột có bỏ sót cột phụ nào của SP không.
 - **Phạm vi:** chỉ tool máy CSDT, nhóm KQD; không đụng app web/VPS/Sync/Phân công/TNB.
 - **Nguồn:** user 12/10/2026; 4 file `thamkhao/DAT *.pdf`; PRD KQD-08 + KQD-02; TDD §11D.10; CHANGES #69.
+- **Cập nhật 12/10/2026 (sau `/reviewtdd` §11D.10, CHANGES #71):**
+  - **"Chọn tất cả" chỉ tick dòng `khop`** (user chốt): ghi `0/0` cho người chưa chạy DAT có thể đè giá trị đang có; muốn ghi 0 thì tick tay từng dòng. Đã cân nhắc: (A) chỉ tick `khop` ← chọn · (B) tick cả chưa chạy DAT rồi điền 0.
+  - **Dòng vượt trần tra lý do hiện "Chưa tra được lý do"**, không báo "không tìm thấy": khóa lớn có nhiều dòng không khớp thì dòng cuối chưa hề được tra.
+  - **Chấp nhận:** đếm `da_luu` bằng `rowcount`; hai phiên nạp cùng khóa ghi sau thắng (không nhật ký); PDF không giới hạn số trang. Lý do và điều kiện xem lại: TDD §11D.10 mục "Rủi ro đã biết".
 

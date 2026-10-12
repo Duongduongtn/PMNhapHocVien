@@ -116,11 +116,16 @@ def _ten_khoa(r: dict) -> str:
     return f"{ten} ({ma})" if ten else ma
 
 
-def gan_ly_do_khong_co(dong: list[dict], theo_ma: dict | None, theo_ten: dict | None, ma_kh: str) -> None:
+LY_DO_CHUA_TRA = "Chưa tra được lý do (quá nhiều dòng không khớp) — kiểm lại khóa/file."
+
+
+def gan_ly_do_khong_co(dong: list[dict], theo_ma: dict | None, theo_ten: dict | None, ma_kh: str,
+                       chua_tra: frozenset | set = frozenset()) -> None:
     """Điền `ghi_chu` (lý do) + `khoa_khac` cho các dòng "không có trong khóa". Sửa tại chỗ.
 
     `theo_ma`: {MaDK: [hàng NguoiLX_HoSo+TenKH của MỌI khóa]} · `theo_ten`: {(HoVaTen, 'yyyymmdd'):
-    [hàng]} — cả hai do router tra DB. None = tra không được (lỗi kết nối) → lý do chung."""
+    [hàng]} — cả hai do router tra DB. None = tra không được (lỗi kết nối) → lý do chung.
+    `chua_tra`: mã KHÔNG được tra vì vượt trần (500 mã / 50 tên) → không được báo "không tìm thấy"."""
     for d in dong:
         d["khoa_khac"] = None
         if theo_ma is None or theo_ten is None:
@@ -134,6 +139,9 @@ def gan_ly_do_khong_co(dong: list[dict], theo_ma: dict | None, theo_ten: dict | 
                 d["ghi_chu"] = f"Mã này đang thuộc khóa {_ten_khoa(r)} — học viên đã đổi khóa. Chọn đúng khóa đó để nạp."
             else:
                 d["ghi_chu"] = "Hồ sơ có trong khóa này nhưng không còn ở trạng thái hoạt động (đã xóa/ngưng) — không ghi được."
+            continue
+        if d["ma_dk"] in chua_tra:
+            d["ghi_chu"] = LY_DO_CHUA_TRA
             continue
         cung_ten = theo_ten.get((d["ho_ten"].strip(), ngay_sinh_luu(d.get("ngay_sinh", "")))) or []
         if cung_ten:
