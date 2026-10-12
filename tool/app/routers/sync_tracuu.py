@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import base64
 import re
-import shutil
 from datetime import datetime
 from pathlib import Path
 
@@ -43,34 +42,15 @@ from app.routers.hoso import (
     _COT_NGUOILX,
     _EXEC_UPDATE,
 )
+from app.anh_file import ghi_de_tai_cho
 from app.session import Phien, require_session
 
 router = APIRouter(prefix="/local/sync/tra-cuu", tags=["sync-tracuu"])
 
 
 def thay_anh_ghi_de(duong_dan: str, jp2_bytes: bytes) -> str:
-    """TCB-02 — ghi đè ĐÚNG file .jp2 cũ (giữ nguyên tên + đường dẫn).
-
-    Trước khi đè, **sao lưu `<stem>_BACKUP.jp2` CÙNG thư mục** — CHỈ nếu chưa có (chạy lần 2 không
-    đè mất bản gốc). Ghi atomic (temp → replace) để crash giữa chừng không để lại .jp2 cụt.
-    Ảnh là file VẬT LÝ dùng chung 2 DB (Nạp + đích) → thao tác này đổi ảnh ở cả hai.
-
-    File không còn → FileNotFoundError. File bị phần mềm CDB khóa → PermissionError (caller → 409).
-    """
-    p = Path(duong_dan)
-    if not p.exists():
-        raise FileNotFoundError(duong_dan)
-    backup = p.with_name(f"{p.stem}_BACKUP{p.suffix}")
-    if not backup.exists():
-        shutil.copy2(p, backup)  # giữ bản gốc đầu tiên (copy2 giữ cả metadata)
-    tmp = p.with_name(f"{p.name}.tmp")
-    tmp.write_bytes(jp2_bytes)
-    try:
-        tmp.replace(p)  # nguyên tử; app CDB còn khóa file → PermissionError
-    except Exception:
-        tmp.unlink(missing_ok=True)
-        raise
-    return str(p)
+    """TCB-02 — ghi đè ĐÚNG file .jp2 cũ + sao lưu `_BACKUP` (logic ở `app.anh_file`)."""
+    return ghi_de_tai_cho(duong_dan, jp2_bytes)
 
 
 class NapAnhCDBIn(BaseModel):

@@ -495,7 +495,7 @@
 
 #### [QLY-07] Đổi nền trắng ảnh cho cả khóa
 
-**Trạng thái:** ⏳ Todo — yêu cầu đổi 12/10/2026 (CHANGES #67): đổi nền phải **ghi đè đúng file ở `DuongDanAnh` hiện có** (2 DB dùng chung 1 file vật lý), không tạo file mới và không đổi đường dẫn; sao lưu thống nhất `<tên>_BACKUP.jp2` cùng thư mục. *Trước đó ⚠️ Partial:* task 39 (backend) + task 40 (UI) đã code, chạy nền + tiến độ polling, applock, heuristic 4 góc, giữ `TT_XuLy`, HV không ảnh bỏ qua, 146 pytest (+14 doinen) · build · 29 vitest · review-nghiepvu đủ — nhưng ghi file vào `<IMG_PATH_CSDT>\<MaKH>\<MaDK>.jp2` và UPDATE `DuongDanAnh`, nên phần ghi file/sao lưu phải sửa lại. Còn chờ verify máy CSĐT.
+**Trạng thái:** ⚠️ Partial — chưa nghiệm thu ghi thật ở máy CSĐT (ổ ảnh `D:\GPLXCSDT` + UNC/`Capmoi` chỉ có ở đó; file khóa app cũ, ghi đè file dùng chung 2 DB, bản cũ đã sinh `_BACKUP` theo khóa chưa). Code xong 12/10/2026 (task 118, CHANGES #67): `doinen.py` ghi đè TẠI `DuongDanAnh` (module chung `anh_file.py`), sao lưu `<tên>_BACKUP.jp2` cùng thư mục chỉ-nếu-chưa-có, chỉ UPDATE `ChatLuongAnh/NgayThuNhanAnh/NguoiThuNhanAnh`; tool 668 pytest · review-nghiepvu đủ tiêu chí 3-8 + 4 edge. Trước đó: task 39 (backend) + 40 (UI) — chạy nền + tiến độ polling, heuristic 4 góc, giữ `TT_XuLy`, HV không ảnh bỏ qua.
 **Story:** Là nhân viên nạp DB, tôi muốn đổi nền trắng hàng loạt cho ảnh của cả một khóa, để chuẩn hóa ảnh cũ (nạp từ app cũ, nền chưa trắng) mà không phải xử lý từng học viên.
 
 **Done khi:**

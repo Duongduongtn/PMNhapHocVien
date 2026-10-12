@@ -4,24 +4,23 @@ Chạy bằng thread (rembg nặng, không chẹn event loop). Tiến độ gi�
 (tool localhost 1 tiến trình). Applock theo khóa: mỗi khóa chỉ 1 job chạy cùng lúc.
 
 Quy tắc nghiệp vụ (PRD/TDD §11.6):
-- Dùng lại `ghi_anh_update` → **giữ TT_XuLy** (KHÔNG hạ '03' cho HV đã Báo cáo), ghi atomic.
-- `_BACKUP` **chỉ chép nếu CHƯA có** → chạy lần 2 không đè bản gốc thật.
+- Ghi đè **TẠI `DuongDanAnh` hiện có** (2 DB dùng chung 1 file; CHANGES #67), atomic — KHÔNG tạo file
+  ở thư mục khác, KHÔNG đổi `DuongDanAnh`, KHÔNG dùng `ghi_anh_update`. Chỉ UPDATE
+  ChatLuongAnh/NgayThuNhanAnh/NguoiThuNhanAnh → **giữ TT_XuLy** (KHÔNG hạ '03' cho HV đã Báo cáo).
+- Sao lưu `<tên>_BACKUP.jp2` CÙNG thư mục, **chỉ chép nếu CHƯA có** → chạy lần 2 không đè bản gốc thật.
 - Phạm vi mặc định 'chua_trang' (heuristic 4 góc); 'tat_ca' xử mọi HV có ảnh.
 - HV không có file ảnh → bỏ qua, KHÔNG tính lỗi. File khóa/hỏng → ghi lỗi, chạy tiếp.
 """
 from __future__ import annotations
 
-import shutil
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
 from app import image
+from app.anh_file import ghi_de_tai_cho
 from app.db import sqlserver_conn
-from app.nap import ghi_anh_update
-
-_TEN_TS_IMG = "IMG_PATH_CSDT"
 
 
 @dataclass
@@ -44,19 +43,11 @@ def tien_do(ma_kh: str) -> TienDo | None:
     return _jobs.get(ma_kh)
 
 
-def _backup_neu_chua(src: Path, ma_kh: str, ma_dk: str, img_base: str) -> None:
-    """Chép ảnh gốc sang <img_base>/<ma_kh>/_BACKUP/<ma_dk>.jp2 (TDD §11.6) — CHỈ nếu chưa tồn tại."""
-    bdir = Path(img_base) / ma_kh / "_BACKUP"
-    bdir.mkdir(parents=True, exist_ok=True)
-    dest = bdir / f"{ma_dk}.jp2"
-    if not dest.exists():  # chạy lần 2 KHÔNG đè backup gốc (mất bản thật)
-        shutil.copy2(src, dest)
-
-
-def xu_ly_mot(cur, ma_dk: str, ma_kh: str, duong_dan: str, img_base: str,
-              pham_vi: str, sao_luu: bool, td: TienDo) -> None:
-    """Xử lý 1 HV: bỏ qua nếu không file / đã trắng (phạm vi chua_trang); còn lại backup →
-    đổi nền → ghi đè + UPDATE (giữ TT_XuLy). Raise để caller gom vào danh sách lỗi."""
+def xu_ly_mot(cur, ma_dk: str, duong_dan: str, pham_vi: str, sao_luu: bool,
+              nguoi: str, td: TienDo) -> None:
+    """Xử lý 1 HV: bỏ qua nếu không file / đã trắng (phạm vi chua_trang); còn lại đổi nền →
+    ghi đè tại `duong_dan` (kèm backup nếu bật) + UPDATE cột ảnh (giữ TT_XuLy, giữ DuongDanAnh).
+    Raise để caller gom vào danh sách lỗi."""
     p = Path(duong_dan)
     if not p.exists():
         td.bo_qua += 1
@@ -65,10 +56,12 @@ def xu_ly_mot(cur, ma_dk: str, ma_kh: str, duong_dan: str, img_base: str,
     if pham_vi == "chua_trang" and image.anh_da_trang(data):
         td.bo_qua += 1
         return
-    if sao_luu:
-        _backup_neu_chua(p, ma_kh, ma_dk, img_base)
     jp2 = image.doi_nen_anh(data)
-    ghi_anh_update(cur, ma_dk, ma_kh, jp2, img_base, datetime.now())
+    ghi_de_tai_cho(duong_dan, jp2, sao_luu)
+    cur.execute(
+        "UPDATE NguoiLX_HoSo SET ChatLuongAnh=1, NgayThuNhanAnh=%s, NguoiThuNhanAnh=%s WHERE MaDK=%s",
+        (datetime.now(), nguoi, ma_dk),
+    )
     td.xong += 1
 
 
@@ -90,12 +83,6 @@ def _chay(ma_kh: str, pham_vi: str, sao_luu: bool, nguoi: str, td: TienDo) -> No
                 td.thong_bao = "Khóa đang được xử lý ở tiến trình khác — thử lại sau."
                 return
             try:
-                cur.execute("SELECT GiaTriTS FROM QTHT_ThamSoHT WHERE TenTS=%s", (_TEN_TS_IMG,))
-                r = cur.fetchone()
-                img_base = (r and r["GiaTriTS"]) or ""
-                if not img_base:
-                    td.thong_bao = "Chưa cấu hình IMG_PATH_CSDT trên DB đích."
-                    return
                 cur.execute(
                     "SELECT MaDK, DuongDanAnh FROM NguoiLX_HoSo "
                     "WHERE MaKhoaHoc=%s AND DuongDanAnh IS NOT NULL AND LTRIM(RTRIM(DuongDanAnh))<>''",
@@ -106,8 +93,8 @@ def _chay(ma_kh: str, pham_vi: str, sao_luu: bool, nguoi: str, td: TienDo) -> No
                 for row in rows:
                     ma_dk = row["MaDK"]
                     try:
-                        xu_ly_mot(cur, ma_dk, ma_kh, (row["DuongDanAnh"] or "").strip(),
-                                  img_base, pham_vi, sao_luu, td)
+                        xu_ly_mot(cur, ma_dk, (row["DuongDanAnh"] or "").strip(),
+                                  pham_vi, sao_luu, nguoi, td)
                     except Exception as e:  # noqa: BLE001 — 1 HV lỗi KHÔNG hỏng cả lô
                         td.loi += 1
                         td.ds_loi.append({"ma_dk": ma_dk, "ly_do": str(e)})
