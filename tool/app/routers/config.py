@@ -45,8 +45,13 @@ def get_config() -> dict:
 
 @router.put("")
 def put_config(cfg: ConfigIn) -> dict:
-    """Lưu cấu hình (mã hóa cục bộ). Trả bản đã che."""
-    config_store.save_config(_resolve_secrets(cfg.model_dump()))
+    """Lưu cấu hình (mã hóa cục bộ). Trả bản đã che.
+
+    GỘP vào cấu hình đã có: chỉ ghi đè các trường kết nối của `ConfigIn`, giữ nguyên khóa khác trong
+    `config.enc` (cấu hình Sync, chương trình KQĐT theo khóa `kqd_chuong_trinh`, …). Trước đây ghi đè
+    toàn bộ nên lưu khối ① làm rơi các khóa đó."""
+    saved = config_store.load_config()
+    config_store.save_config({**saved, **_resolve_secrets(cfg.model_dump())})
     return config_store.masked_config()
 
 
