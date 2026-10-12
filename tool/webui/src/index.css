@@ -32,7 +32,7 @@ body {
   .field-input[readonly] { background: hsl(210 40% 97%); color: hsl(215 16% 35%); }
 
   /* Bộ nút + khung danh sách dùng chung (chuẩn theo Kết quả đào tạo / Tốt nghiệp & BC2):
-     nút chính/phụ h-9, nút trong dòng h-8 (.btn-row), nút nhỏ h-7 (.btn-xs), bo rounded-lg. */
+     nút chính/phụ h-9, nút trong dòng h-8 (.btn-row), bo rounded-lg. */
   .btn {
     @apply inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-lg text-[13px] font-semibold whitespace-nowrap
       transition-colors disabled:opacity-45 disabled:cursor-not-allowed;
@@ -41,7 +41,6 @@ body {
   .btn-secondary { @apply border border-input bg-white text-foreground hover:bg-muted; }
   .btn-danger { @apply border border-destructive/40 bg-white text-destructive hover:bg-destructive/10; }
   .btn-row { @apply h-8 px-3 text-[12.5px]; }
-  .btn-xs { @apply h-7 px-2 text-[12px]; }
   .list-frame { @apply rounded-xl border border-border bg-card overflow-hidden; }
 }
 

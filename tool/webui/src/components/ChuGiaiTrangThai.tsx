@@ -15,16 +15,6 @@ const HANG: { ten: string; ma: string; nghia: string }[] = [
   { ten: "Đạt BC2 / Đạt sát hạch / Đã nhận GPLX", ma: "13 · 16 · 19", nghia: "Đã có kết quả cuối — không đưa vào BC2 nữa" },
 ];
 
-/** Tên trạng thái + mã nhỏ đứng cạnh (dùng ở mọi bảng của phân hệ). */
-export function TrangThaiNhan({ ten, ma }: { ten: string; ma?: string }) {
-  return (
-    <span>
-      {ten}
-      {ma && <span className="ml-1 text-[10px] font-medium opacity-70">{ma}</span>}
-    </span>
-  );
-}
-
 export default function ChuGiaiTrangThai() {
   const [mo, setMo] = useState(false);
   return (

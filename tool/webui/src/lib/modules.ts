@@ -2,7 +2,7 @@
 // (không sửa khung ToolLayout). Mỗi phân hệ có sub-nav riêng, màu nhấn, và
 // CSDL mà nó ghi vào (banner nhắc để tránh thao tác nhầm giữa các phân hệ).
 
-export type Accent = "primary" | "sync" | "kq" | "pc" | "tn";
+export type Accent = "primary" | "sync" | "kq";
 
 /** Nhóm theo CSDL: DB Nạp → cầu nối đồng bộ → DB đích. Màu nhóm = màu nhấn của phân hệ trong nhóm. */
 export type Nhom = "nap" | "cau-noi" | "dich";

@@ -35,22 +35,6 @@ const ACCENT = {
     chip: "text-kq bg-kq-soft",
     hover: "hover:bg-kq-soft/70 hover:text-kq",
   },
-  pc: {
-    activeItem: "bg-pc-soft text-pc",
-    rail: "bg-pc",
-    subActive: "bg-pc-soft text-pc",
-    ring: "focus-visible:ring-pc",
-    chip: "text-pc bg-pc-soft",
-    hover: "hover:bg-pc-soft/70 hover:text-pc",
-  },
-  tn: {
-    activeItem: "bg-tn-soft text-tn",
-    rail: "bg-tn",
-    subActive: "bg-tn-soft text-tn",
-    ring: "focus-visible:ring-tn",
-    chip: "text-tn bg-tn-soft",
-    hover: "hover:bg-tn-soft/70 hover:text-tn",
-  },
 } as const;
 
 export default function ToolLayout() {
