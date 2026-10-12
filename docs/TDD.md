@@ -1287,7 +1287,7 @@ Mở exe
 
 > **Phục vụ:** DGT-01/02/03/04. Không chạm nghiệp vụ Nạp/Sync/TCB — thuần đóng gói + khởi chạy + vòng đời phiên của tool. Quyết định kỹ thuật: TDD-decisions §16.
 
-## 11D. Cập nhật kết quả đào tạo (tool — workspace riêng) — KQD-01..08 (CHANGES #42, #45, #53, #65, #69)
+## 11D. Cập nhật kết quả đào tạo (tool — workspace riêng) — KQD-01..09 (CHANGES #42, #45, #53, #65, #69, #72)
 
 > Ghi **CSDL đích** `GPLX_CDB_CSDT` (bảng `NguoiLX_HoSo`) như SYNC/TCB. Chỉ nhập KQĐT (`TT_XuLy` 03→09/10), **không** kết xuất XML. Schema đã probe: `docs/DB-GPLX_CDB_CSDT.md` §5. Quyết định kỹ thuật: TDD-decisions §17.
 
@@ -1372,7 +1372,7 @@ DB **không có** trigger/computed/constraint tính 3 cờ (verify 06/10: 0 trig
 `SoGiayCNTN` = `MaDK + '-' + MaHangMoi` (verify 100% mẫu thật, vd `75032-20260803-000001-B`), tự sinh khi Đạt. `NgayRaQDTN`, `TGBatDau`, `TGKetThuc` điền sẵn từ ngày khóa (`KhoaHoc.NgayKG/NgayBG/NgayThi`), cho sửa.
 
 ### 11D.6 API (tool, đề xuất — chốt khi code)
-`GET /local/ketqua/khoa?q=` (gợi ý khóa đã BC1, kèm đếm HV 5 nhóm trạng thái gồm **`ketxuat`=12**) · `GET /local/ketqua/hoc-vien?ma_kh&trang_thai&q` (lưới; `trang_thai` nhận cả `ketxuat` (12) cho KQD-03) · `POST /local/ketqua/cap-nhat` (1 HV: điểm gốc + hạng + cờ chương trình → app quy đổi → ghi `GiaiTrinh` trước (nếu có) → gọi SP) · **`GET /local/ketqua/mo-khoa`** (KQD-05/03 — cổng B-1 **chỉ đọc**: trả `mo_duoc` + `goi_chua_gui`/`goi_da_gui` (mỗi gói: id·ten_file·ngay_tao·kich_thuoc) + `so_hv_mo`/`so_hv_bo_qua`/`so_khoa`; panel gói KQD-03 + modal mở khóa KQD-05 dùng chung) · `POST /local/ketqua/mo-khoa` (KQD-05, §11D.7) · `POST /local/ketqua/xoa-diem` (KQD-06, §11D.8 — reset HV 09/10 về chưa có điểm; sửa lẻ dùng lại `/cap-nhat` với quy-đổi môn cũ) · **`POST /local/ketqua/mo-sua-sau-gui`** (KQD-05 #53, §11D.7b — body `ma_dk[]` + `ly_do`; lùi đúng các HV được chọn, không xóa gói) · **`GET /local/ketqua/sua-sau-gui`** (khối đỏ KQD-03: nhật ký ∩ HV chưa về `12`) · **`GET /local/ketqua/kiem-truoc?ma_kh=`** (KQD-07, §11D.9, chỉ đọc). **`POST /local/ketqua/dat/xem-truoc`** + **`POST /local/ketqua/dat/luu`** (KQD-08, §11D.10 — nạp giờ/km đường từ PDF DAT: xem trước chỉ đọc, lưu một transaction chỉ 2 cột) · **KQD-03 "Theo dõi kết xuất" KHÔNG có endpoint `ket-xuat` riêng** (chốt khi code): tiến độ khóa ghép từ `/khoa` (đếm sẵn), panel gói từ `GET /mo-khoa` (CSĐT-wide, tải 1 lần), lưới HV từ `/hoc-vien?trang_thai=ketxuat|capnhat` — tránh thừa endpoint + khỏi nhồi danh sách gói vào mỗi lần chọn khóa. Tất cả gác session + `target_key` như §11B. **Combobox khóa:** debounce ~300ms + giới hạn ~20 gợi ý, chỉ đếm HV-theo-trạng-thái cho khóa thực sự hiển thị (tránh aggregate nặng mỗi phím gõ).
+`GET /local/ketqua/khoa?q=` (gợi ý khóa đã BC1, kèm đếm HV 5 nhóm trạng thái gồm **`ketxuat`=12**) · `GET /local/ketqua/hoc-vien?ma_kh&trang_thai&q` (lưới; `trang_thai` nhận cả `ketxuat` (12) cho KQD-03) · `POST /local/ketqua/cap-nhat` (1 HV: điểm gốc + hạng + cờ chương trình → app quy đổi → ghi `GiaiTrinh` trước (nếu có) → gọi SP) · **`GET /local/ketqua/mo-khoa`** (KQD-05/03 — cổng B-1 **chỉ đọc**: trả `mo_duoc` + `goi_chua_gui`/`goi_da_gui` (mỗi gói: id·ten_file·ngay_tao·kich_thuoc) + `so_hv_mo`/`so_hv_bo_qua`/`so_khoa`; panel gói KQD-03 + modal mở khóa KQD-05 dùng chung) · `POST /local/ketqua/mo-khoa` (KQD-05, §11D.7) · `POST /local/ketqua/xoa-diem` (KQD-06, §11D.8 — reset HV 09/10 về chưa có điểm; sửa lẻ dùng lại `/cap-nhat` với quy-đổi môn cũ) · **`POST /local/ketqua/mo-sua-sau-gui`** (KQD-05 #53, §11D.7b — body `ma_dk[]` + `ly_do`; lùi đúng các HV được chọn, không xóa gói) · **`GET /local/ketqua/sua-sau-gui`** (khối đỏ KQD-03: nhật ký ∩ HV chưa về `12`) · **`GET /local/ketqua/kiem-truoc?ma_kh=`** (KQD-07, §11D.9, chỉ đọc). **`GET /local/ketqua/xuat-excel?ma_kh=`** (KQD-09, §11D.11 — tải file `.xlsx` kết quả học tập của khóa, chỉ đọc) · **`POST /local/ketqua/dat/xem-truoc`** + **`POST /local/ketqua/dat/luu`** (KQD-08, §11D.10 — nạp giờ/km đường từ PDF DAT: xem trước chỉ đọc, lưu một transaction chỉ 2 cột) · **KQD-03 "Theo dõi kết xuất" KHÔNG có endpoint `ket-xuat` riêng** (chốt khi code): tiến độ khóa ghép từ `/khoa` (đếm sẵn), panel gói từ `GET /mo-khoa` (CSĐT-wide, tải 1 lần), lưới HV từ `/hoc-vien?trang_thai=ketxuat|capnhat` — tránh thừa endpoint + khỏi nhồi danh sách gói vào mỗi lần chọn khóa. Tất cả gác session + `target_key` như §11B. **Combobox khóa:** debounce ~300ms + giới hạn ~20 gợi ý, chỉ đếm HV-theo-trạng-thái cho khóa thực sự hiển thị (tránh aggregate nặng mỗi phím gõ).
 
 ### 11D.7 Mở khóa để sửa sau kết xuất (KQD-05) — gỡ chặn `12` có kiểm soát
 > Nghiệp vụ + lý do (DB không nối HV↔gói): TDD-decisions §19. Verify DB live 07/10/2026 trên `GPLX_CDB_CSDT`.
@@ -1474,7 +1474,24 @@ DB **không có** trigger/computed/constraint tính 3 cờ (verify 06/10: 0 trig
   - **PDF không giới hạn số trang:** `extract_tables()` chạy mọi trang; file ≤ 5 MB, tool localhost, một người dùng, file tự tải từ DAT (mẫu 1–3 trang). Chấp nhận; nếu về sau nhận PDF từ nguồn lạ thì thêm giới hạn (đề xuất ≤ 30 trang).
 - **Kiểm thử:** unit `doc_gio`/`doc_km` (`16:19`, `0:59`, `28:26`, rỗng, `20:75`, `1.008,19`) · đọc 4 PDF mẫu (60/30/64/32 dòng; 2 dòng chưa chạy DAT) · API bằng cursor giả (sai khóa → 400; HV 12/13 bỏ qua; dòng lỗi không làm hỏng dòng khác) · vitest `gioThucHanh.ts`.
 
-> **Phục vụ:** KQD-01/02/03/04/05/06/07/08. Dừng ở `TT_XuLy` 09/10/12 — kết xuất XML/gửi Sở thuộc PM cũ. Quy đổi điểm/giờ/km: nguồn `thamkhao/` (TT17 + Sổ theo dõi). Quyết định: TDD-decisions §17 (quy đổi) + §19 (mở khóa).
+### 11D.11 Xuất Excel kết quả học tập theo khóa (KQD-09, CHANGES #72) — chỉ đọc
+> Bổ sung 12/10/2026. Quyết định: TDD-decisions §25. **Không đổi schema CDB, không ghi DB.**
+
+- **Nguồn dữ liệu:** `NguoiLX_HoSo` + `NguoiLX` của đúng 1 khóa — dùng lại `_doc_hv_khoa(ma_kh, None, target_key)` (không viết SELECT thứ hai; thêm `B.SoGiayCNTN` vào `_SQL_HV`, đọc bằng `.get` để các test cũ không vỡ). Thông tin khóa (`TenKH`, hạng, `NgayKG`/`NgayBG`/`NgayThi`) đọc 1 truy vấn `KhoaHoc`; chương trình Cũ/Mới từ `config_store.get_kqd_chuong_trinh(ma_kh)`.
+- **Endpoint:** `GET /local/ketqua/xuat-excel?ma_kh=&target_key=` (cùng phiên + `target_key` như §11D.6). Trả `Response` `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`, `Content-Disposition: attachment; filename="KetQuaHocTap_<MaKH>_<dd-mm-yyyy>.xlsx"` kèm `filename*=UTF-8''…`. Khóa không có HV hoạt động → **404** "Khóa chưa có học viên". **Chỉ SELECT.**
+- **Hàm thuần** (`tool/app/ketqua_xuat.py`, không DB): `dung_workbook(khoa, hv_rows, co_so, nguoi_lap, ngay_lap) -> bytes` bằng `openpyxl`; `ten_file(khoa, ngay)` (ASCII). Luật:
+  - Điểm Lý thuyết = `round(TB(LT, MP), 1)`, Điểm Thực hành = `round(TB(Hinh, TienLui, ThucHanh), 1)`; **trống nếu thiếu môn** (theo sổ mẫu TT17).
+  - Kết quả: `KetLuanCSDT` 1 → "Hoàn thành", 0 → "Chưa hoàn thành", NULL → trống. Ngày xét hoàn thành = `NgayThi` khóa, chỉ khi "Hoàn thành".
+  - Ghi chú: `Thiếu: <môn>` (từng môn trống) + `canh_bao_duong` (dùng chung luật KQD-02/07).
+  - Giờ/km làm tròn 2 chữ số (cột DB là `real`). Ngày sinh `yyyymmdd` → ô ngày thật. CCCD ghi dạng chuỗi.
+- **Cấu hình:** thêm `co_quan_chu_quan`, `ten_co_so_dao_tao` (không bí mật) vào `ConfigIn` + `config_store` + màn Cấu hình; trống thì ô đầu sổ để trống.
+- **UI:** nút "Xuất Excel" ở `CapNhatKQDT.tsx` (sau khi chọn khóa); `fetch` kèm `authHeaders()` → `Blob` → `<a download>` (thẻ `<a>` thuần không gửi được phiên). Toast `Đã xuất N học viên → <tên file>`.
+- **Phụ thuộc mới:** `openpyxl` (kéo `et_xmlfile`) — thêm vào requirements + `tool.spec` (`collect_all`); thêm phép dựng workbook nhỏ vào `--selftest`.
+- **Hiệu năng:** một SELECT cả khóa (vài trăm dòng), dựng workbook trong bộ nhớ, đồng bộ vài giây là cùng; không cần chạy nền.
+- **Bất biến:** không ghi DB; không đổi `TT_XuLy`; dữ liệu cá nhân (họ tên, CCCD, ngày sinh) chỉ nằm trong file tải về máy người dùng đã đăng nhập, không ghi log.
+- **Kiểm thử:** pytest dựng workbook từ hàng giả rồi đọc lại bằng `openpyxl` (khối đầu, cột, STT, ngày thật, CCCD chuỗi, Hoàn thành/Chưa/trống, TB lý thuyết/thực hành, thiếu môn, cảnh báo giờ/km, HV 12/13 vẫn có, khóa rỗng 404, tiếng Việt có dấu, tên file ASCII, endpoint chỉ SELECT) · Playwright: bấm nút → bắt sự kiện tải về + tên file + API gọi đúng khóa; lỗi 404 hiện thông báo.
+
+> **Phục vụ:** KQD-01/02/03/04/05/06/07/08/09. Dừng ở `TT_XuLy` 09/10/12 — kết xuất XML/gửi Sở thuộc PM cũ. Quy đổi điểm/giờ/km: nguồn `thamkhao/` (TT17 + Sổ theo dõi). Quyết định: TDD-decisions §17 (quy đổi) + §19 (mở khóa).
 
 ---
 
@@ -1908,6 +1925,7 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 | --- | --- | --- |
+| 12/10/2026 | 6.17 | **+§11D.11 Xuất Excel kết quả học tập theo khóa (KQD-09)** (CHANGES #72): endpoint `GET /xuat-excel` chỉ đọc, hàm thuần `ketqua_xuat.py` (openpyxl), form 1 sheet 22 cột + khối đầu, cấu hình tên cơ quan/cơ sở, thêm vào §11D.6; TDD-decisions §25. |
 | 12/10/2026 | 6.16 | **Sửa sau /reviewtdd §11D.10** (KQD-08/KQD-02, CHANGES #71, biên bản `tdd-review-12-10-2026-kqd08.md`; subagent soát độc lập, 0 Chặn · 4 Nên sửa · 3 Ghi nhận): chốt endpoint `/dat/*` theo code (đủ field, 6 giá trị `tinh_trang`, 400/413/422) + thêm vào §11D.6 · chèn sơ đồ luồng + bảng tình trạng · "Chọn tất cả" chỉ tick `khop` (sửa code) · định nghĩa chưa chạy DAT khớp code · trần tra lý do 500 mã/50 tên + câu hiển thị dòng vượt trần (sửa code) · ghi nhận 3 rủi ro (rowcount, ghi sau thắng, PDF không giới hạn trang). |
 | 12/10/2026 | 6.15 | **§11D.10 chốt sau /kiemthu** (CHANGES #70): `UPDATE` thêm `TrangThai = 1` (cùng điều kiện xem trước); regex mã khóa chữ+số; tick tay dòng chưa chạy DAT điền sẵn `0`; giờ nhận `hh:mm:ss`; vector giờ/km dùng chung pytest + vitest. |
 | 12/10/2026 | 6.14 | **+§11D.10 Nạp giờ/km đường từ PDF DAT (KQD-08) + giờ `hh:mm` & nạp sẵn giờ/km đã lưu ở lưới (KQD-02)** (CHANGES #69): hàm thuần đọc PDF (`ketqua_dat.py`), 2 endpoint xem-trước/lưu (UPDATE thẳng 2 cột, một transaction, không qua SP), `/hoc-vien` trả thêm `gio_duong`/`km_duong`, sửa lỗi ngầm SP ghi NULL đè giờ cũ. Thêm phụ thuộc `pdfplumber`. 2 điểm còn mở ghi tại §11D.10. TDD-decisions §24. |

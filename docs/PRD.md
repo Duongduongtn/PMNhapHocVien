@@ -960,6 +960,26 @@
 
 > Nguồn: user 12/10/2026 ("cho nạp file ở khóa học … ra bảng để xác nhận … lưu cho nhanh thay vì gõ tay"; chốt nhận thẳng PDF DAT, không qua Excel) · 4 file mẫu `thamkhao/DAT *.pdf` (B.01-K39/K40, C1-K10/K11, 186 dòng) · ngưỡng gợi ý: KQD-02 · TDD §11D.10
 
+#### [KQD-09] Xuất Excel kết quả học tập theo từng khóa
+
+**Trạng thái:** ⏳ Todo — CHANGES #72 (12/10/2026).
+**Story:** Là nhân viên nạp DB, tôi muốn xuất kết quả học tập của cả một khóa ra file Excel, để lưu trữ, đối chiếu hoặc gửi cho người cần mà không phải chép tay từng học viên từ màn hình.
+
+**Done khi:**
+- ⬜ Ở màn Cập nhật KQĐT, sau khi chọn khóa có nút **"Xuất Excel"**; bấm là **tải về một file `.xlsx`** của **đúng khóa đang chọn** (không xuất nhiều khóa một lượt). Tên file `KetQuaHocTap_<MaKH>_<dd-mm-yyyy>.xlsx`.
+- ⬜ File có **1 sheet** `KET_QUA_HOC_TAP`, gồm **khối đầu** rồi **bảng**:
+  - Khối đầu: *Cơ quan chủ quản* · *Tên cơ sở đào tạo* (lấy từ màn Cấu hình tool, trống nếu chưa nhập) · tiêu đề "KẾT QUẢ HỌC TẬP CỦA HỌC VIÊN" · `Khóa học: <tên> (<mã>)` · hạng · chương trình khóa (Cũ TT12/2025 / Mới TT108/2026) · ngày khai giảng / bế giảng / ngày thi · ngày lập `dd/mm/yyyy HH:mm` · người lập (họ tên người đăng nhập tool) · dòng tóm tắt `Tổng N học viên · Hoàn thành X · Chưa hoàn thành Y · Chưa đủ điểm Z`.
+  - Bảng 22 cột: STT · Mã đăng ký · Họ và tên · Ngày sinh · Số CCCD · Hạng · Lý thuyết · Mô phỏng · Sa hình · Chữ chi · Đường trường (5 điểm /10, 1 chữ số thập phân) · Điểm Lý thuyết (TB Lý thuyết + Mô phỏng) · Điểm Thực hành (TB Sa hình + Chữ chi + Đường trường) · Giờ sân · Km sân · Giờ đường · Km đường · Kết quả khóa học · Ngày xét hoàn thành · Trạng thái hồ sơ · Số giấy HTKH · Ghi chú.
+- ⬜ **Học viên:** mọi học viên **đang hoạt động** của khóa (kể cả đã kết xuất `12`/`13`, Sở từ chối, đang giải trình); người chưa có điểm hoặc chưa đủ 5 môn vẫn có dòng, ô điểm/kết quả **để trống** (không điền 0).
+- ⬜ **Kết quả khóa học** lấy từ kết luận đã lưu: Đạt → **Hoàn thành** · Không đạt → **Chưa hoàn thành** · chưa có kết luận → trống. **Ngày xét hoàn thành** = ngày thi của khóa, chỉ hiện với dòng Hoàn thành.
+- ⬜ **Ghi chú:** nêu môn còn thiếu (`Thiếu: Mô phỏng, Chữ chi`); giờ/km đường dưới mức gợi ý của hạng (dùng chung luật cảnh báo KQD-02/KQD-07). Điểm dưới 5,0 chữ đỏ; "Hoàn thành" chữ xanh, "Chưa hoàn thành" chữ đỏ.
+- ⬜ **Định dạng:** ngày là ô ngày thật (`dd/mm/yyyy`); CCCD là **chữ** (không bị Excel đổi thành `1.2E+11`); tiếng Việt có dấu đầy đủ; có bộ lọc và đóng băng hàng tiêu đề; in A4 ngang vừa một trang rộng, lặp hàng tiêu đề mỗi trang.
+- ❌ Không ghi DB; không dựng sổ Phụ lục VI in mẫu (chỉ bảng chi tiết); không xuất nhiều khóa một lượt; không gửi file đi đâu — chỉ tải về máy.
+
+**Edge cases:** khóa không có học viên hoạt động → báo "Khóa chưa có học viên", không tạo file rỗng · chưa nhập tên cơ sở ở Cấu hình → ô đầu sổ để trống, vẫn xuất được · mất kết nối DB đích → báo lỗi, không treo · tên khóa/học viên có ký tự đặc biệt hoặc dấu tiếng Việt → không vỡ file · số học viên lớn (vài trăm) → vẫn xuất trong vài giây.
+
+> Nguồn: user 12/10/2026 ("thêm nút xuất file excel kết quả học tập của từng khóa, đề xuất form"; chốt 1 sheet bảng chi tiết, mọi HV đang hoạt động, cơ sở nhập ở Cấu hình, ngày xét hoàn thành = ngày thi khóa) · form tham chiếu `thamkhao/So_theo_doi_ket_qua_hoc_tap_DTLX_TT17.xlsx` (Phụ lục VI) · TDD §11D.11
+
 ---
 
 ### 🟣 Phân công giáo viên – xe cho khóa (workspace riêng — tool máy CSDT)
@@ -1442,3 +1462,4 @@
 | 12/10/2026 | v4.11 — **KQD-07 ghi quyết định đã chốt** (CHANGES #68): môn bắt buộc = cả 5 môn mọi hạng ô tô, hạng mô tô không xét (thay câu "mô tô ẩn bớt ô thực hành"); chỉ nhắc không chặn, KQD-02 giữ nguyên; chốt UX qua mock: ẩn chip giờ/km khi chưa có điểm, thông điệp khóa mô tô. Mock `ui-mock/ketqua.html` + `ui-mock/phancong.html` ghi vào nguồn KQD-07/PCG-06. Số story giữ 58. |
 | 12/10/2026 | v4.12 — **+`KQD-08` Nạp giờ/km đường từ PDF DAT theo khóa** (CHANGES #69): đọc PDF báo cáo DAT, khớp theo Mã học viên, bảng xác nhận cũ→mới, chặn nạp nhầm khóa, dòng chưa chạy DAT bỏ tick, ghi riêng 2 cột giờ/km (không qua SP). **Sửa `KQD-02`:** ô Giờ đường nhận `hh:mm` tự đổi thập phân; mở lại hiện sẵn giờ/km đã lưu; hạ ⚠️ Partial → ⏳ Todo. Số story 58 → 59. | BA/PM |
 | 12/10/2026 | v4.13 — **Chốt 6 điểm sau /kiemthu KQD-08/KQD-02** (CHANGES #70): KQD-02 chỉ sửa giờ/km ghi riêng 2 cột (đủ cả giờ lẫn km, HV 03/04/09/10/14/90), giờ nhận `hh:mm:ss`, làm tròn 2 chữ số khi mở lại; KQD-08 tick tay dòng chưa chạy DAT tự điền `0` giờ, ghi chỉ hồ sơ đang hoạt động, mã khóa đọc chữ+số. Số story giữ 59. | BA/PM |
+| 12/10/2026 | v4.14 — **+`KQD-09` Xuất Excel kết quả học tập theo từng khóa** (CHANGES #72): 1 sheet bảng chi tiết 22 cột + khối đầu (cơ quan/cơ sở/khóa/ngày lập/người lập), mọi HV đang hoạt động, tên cơ sở nhập ở Cấu hình, chỉ đọc DB. Số story 59 → 60. | BA/PM |

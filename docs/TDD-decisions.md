@@ -322,3 +322,24 @@
   - **Dòng vượt trần tra lý do hiện "Chưa tra được lý do"**, không báo "không tìm thấy": khóa lớn có nhiều dòng không khớp thì dòng cuối chưa hề được tra.
   - **Chấp nhận:** đếm `da_luu` bằng `rowcount`; hai phiên nạp cùng khóa ghi sau thắng (không nhật ký); PDF không giới hạn số trang. Lý do và điều kiện xem lại: TDD §11D.10 mục "Rủi ro đã biết".
 
+## 25. Xuất Excel kết quả học tập theo khóa (12/10/2026)
+
+- **Đã chốt (user, 12/10/2026):**
+  - **Một sheet bảng chi tiết** (không dựng sổ Phụ lục VI in mẫu): lọc/sắp xếp được trong Excel.
+  - **Mọi học viên đang hoạt động** của khóa; người chưa đủ điểm để ô trống.
+  - **Tên cơ quan chủ quản + cơ sở đào tạo nhập một lần ở màn Cấu hình tool**.
+  - **Ngày xét hoàn thành = ngày thi của khóa**, chỉ hiện với học viên Hoàn thành.
+- **Vì sao:**
+  - **Lấy thẳng 5 điểm quy đổi đã lưu** (`DiemKQ*`): DB không lưu điểm gốc nên không cần và không thể tính ngược.
+  - **Kết quả theo `KetLuanCSDT`**, không tính lại từ điểm đã làm tròn: kết luận lúc lưu xét trên điểm thô (KQD-02), tính lại từ điểm tròn có thể lệch ca 4,95 → 5,0.
+  - **Chỉ đọc, không ghi DB:** xuất file không đổi trạng thái học viên.
+  - **Tên cơ sở ở Cấu hình:** CDB không có cột tên cơ sở rõ ràng; hard-code thì đổi cơ sở phải sửa code.
+- **Phương án đã cân nhắc:**
+  - *Form:* (A) 1 sheet chi tiết ← chọn · (B) 2 sheet: sổ Phụ lục VI + chi tiết · (C) chỉ sổ Phụ lục VI.
+  - *Học viên:* (A) mọi HV hoạt động ← chọn · (B) chỉ HV đủ 5 điểm.
+  - *Tên cơ sở:* (A) nhập ở Cấu hình ← chọn · (B) hard-code · (C) để trống gõ tay.
+  - *Thư viện:* `openpyxl` (đọc lại được trong test, dựng được định dạng in) so với `xlsxwriter` (chỉ ghi).
+- **Đánh đổi:** thêm phụ thuộc `openpyxl` vào exe; không có sổ in đúng mẫu Phụ lục VI (nếu cần sau này thêm sheet thứ hai).
+- **Phạm vi:** chỉ tool máy CSĐT, nhóm KQD; không đụng app web/VPS/Sync/Phân công/TNB.
+- **Nguồn:** user 12/10/2026; `thamkhao/So_theo_doi_ket_qua_hoc_tap_DTLX_TT17.xlsx`; PRD KQD-09; TDD §11D.11; CHANGES #72.
+
