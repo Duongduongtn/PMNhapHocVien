@@ -986,6 +986,30 @@ export const dsHocVienKQD = (maKh: string, trangThai: TrangThaiKQD, targetKey?: 
     headers: authHeaders(),
   }).then(json<HocVienKQD[]>);
 
+// ── KQD-07: kiểm trước kết xuất (chỉ đọc, đúng 1 khóa) + luật môn bắt buộc dùng chung với KQD-02 ──
+export interface KiemTruocKQD {
+  ma_kh: string;
+  tong: number;
+  du: number;
+  mo_to_bo_qua: number;
+  dem: { chua_co_diem?: number; thieu_mon?: number; thieu_gio_km?: number; thieu_ket_luan?: number };
+  thieu: {
+    ma_dk: string;
+    ho_ten: string;
+    so_cccd: string;
+    tt_xuly: string | null;
+    ly_do: string[];
+    mon_thieu: string[];
+    canh_bao: { loai: string; gia_tri: number; goi_y: number }[];
+  }[];
+}
+export const kiemTruocKQD = (maKh: string, targetKey?: string) =>
+  fetch(`${BASE}/local/ketqua/kiem-truoc?${qs({ ma_kh: maKh, target_key: targetKey })}`, {
+    headers: authHeaders(),
+  }).then(json<KiemTruocKQD>);
+export const luatKQD = () =>
+  fetch(`${BASE}/local/ketqua/luat`, { headers: authHeaders() }).then(json<{ mon_bat_buoc: string[] }>);
+
 // ── KQD-02: nhập điểm → quy đổi → ghi CDB ──
 export type ChuongTrinh = "cu" | "moi";
 export const getChuongTrinhKQD = (maKh: string) =>

@@ -209,3 +209,19 @@ def hv_chua_du(hv: dict) -> dict:
     if hv.get("tt_xuly") in ("09", "10") and hv.get("ket_luan") is None:
         ly_do.append(LY_DO_THIEU_KET_LUAN)
     return {"ly_do": ly_do, "mon_thieu": thieu}
+
+
+def canh_bao_duong(gio_duong, km_duong, hang_cat: str | None) -> list[dict]:
+    """Cảnh báo VÀNG (KQD-07): giờ/km đường ĐÃ điền nhưng dưới mức gợi ý của hạng. Không vào `ly_do`.
+
+    Trống (None) thì không cảnh báo — trống đã được tính ở `thieu_gio_km`. Hạng không xác định → không có
+    mức gợi ý → không cảnh báo."""
+    gk = _GIO_KM.get(hang_cat or "")
+    if gk is None:
+        return []
+    out: list[dict] = []
+    if gio_duong is not None and float(gio_duong) < gk.goi_y_gio_duong:
+        out.append({"loai": "gio_duong", "gia_tri": float(gio_duong), "goi_y": gk.goi_y_gio_duong})
+    if km_duong is not None and float(km_duong) < gk.goi_y_km_duong:
+        out.append({"loai": "km_duong", "gia_tri": float(km_duong), "goi_y": gk.goi_y_km_duong})
+    return out

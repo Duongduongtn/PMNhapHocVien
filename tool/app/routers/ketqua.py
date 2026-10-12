@@ -234,8 +234,19 @@ def kiem_truoc(ma_kh: str = Query(..., min_length=1), target_key: str | None = N
         thieu.append({
             "ma_dk": r["MaDK"], "ho_ten": r["HoVaTen"], "so_cccd": r["SoCMT"],
             "tt_xuly": hv["tt_xuly"], "ly_do": kq["ly_do"], "mon_thieu": kq["mon_thieu"],
+            "canh_bao": ketqua_quydoi.canh_bao_duong(
+                hv["gio_duong"], hv["km_duong"],
+                ketqua_quydoi.phan_loai_hang(r["MaHangMoi"], r["HangGPLX"])),
         })
     return {"ma_kh": ma_kh, "tong": tong, "du": du, "thieu": thieu, "dem": dem, "mo_to_bo_qua": mo_to}
+
+
+@router.get("/luat")
+def luat_kqd() -> dict:
+    """Luật dùng chung cho KQD-02 (ô đỏ trên lưới) và KQD-07 (kiểm trước kết xuất): danh sách môn bắt buộc.
+
+    Một nguồn ở backend để hai màn không lệch nhau; UI đọc một lần khi mở màn."""
+    return {"mon_bat_buoc": list(ketqua_quydoi.MON)}
 
 
 # ── KQD-02: cờ chương trình CŨ/MỚI theo khóa (lưu phía tool) ──

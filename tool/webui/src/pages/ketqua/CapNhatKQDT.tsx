@@ -25,7 +25,9 @@ import {
   type TrangThaiKQD,
   type ChuongTrinh,
   type DiemGocKQD,
+  luatKQD,
 } from "../../lib/api";
+import KiemTruocKetXuat from "./KiemTruocKetXuat";
 
 // KQD-01 (lưới + lọc) + KQD-02 (nhập điểm gốc → quy đổi → ghi CDB). Ghi CSDL ĐÍCH qua
 // /local/ketqua/*. Bám mockup ui-mock/ketqua.html: nhập điểm THẲNG trên lưới, quy đổi &
@@ -113,7 +115,7 @@ function navGrid(e: RKbd<HTMLInputElement>, r: number, c: number) {
 }
 
 // Tính quy đổi + Đạt cho 1 dòng nhập. over: môn vượt khung.
-function tinhDong(nhap: NhapRow, cat: HangCat, ct: ChuongTrinh) {
+function tinhDong(nhap: NhapRow, cat: HangCat, ct: ChuongTrinh, monBatBuoc: readonly string[] = MON5) {
   const qd: Record<string, number | null> = {};
   const over: Record<string, boolean> = {};
   const thieu: Record<string, boolean> = {};
@@ -121,7 +123,7 @@ function tinhDong(nhap: NhapRow, cat: HangCat, ct: ChuongTrinh) {
   const batDau = MON5.some((m) => parseNum(nhap[m]) != null);
   for (const mon of MON5) {
     const raw = parseNum(nhap[mon]);
-    thieu[mon] = batDau && raw == null;
+    thieu[mon] = batDau && raw == null && monBatBuoc.includes(mon);
     const nm = ngMax(mon, cat, ct);
     if (raw == null || !nm) { qd[mon] = null; over[mon] = false; continue; }
     const [ng, mx] = nm;
@@ -149,6 +151,9 @@ export default function CapNhatKQDT() {
   const [moGoiY, setMoGoiY] = useState(false);
   const [loadingKhoa, setLoadingKhoa] = useState(false);
   const [ct, setCt] = useState<ChuongTrinh>("cu");
+  // KQD-07: luật môn bắt buộc dùng chung với khung "Kiểm trước kết xuất" (đọc 1 lần; lỗi → mặc định 5 môn).
+  const [monBatBuoc, setMonBatBuoc] = useState<readonly string[]>(MON5);
+  const [moKiemTruoc, setMoKiemTruoc] = useState(false);
 
   const [loc, setLoc] = useState<TrangThaiKQD>("all");
   const [qHv, setQHv] = useState("");
@@ -187,6 +192,10 @@ export default function CapNhatKQDT() {
       })
       .catch(() => { if (!huy) setChuaChonDich(true); });
     return () => { huy = true; };
+  }, []);
+
+  useEffect(() => {
+    luatKQD().then((r) => { if (r.mon_bat_buoc.length) setMonBatBuoc(r.mon_bat_buoc); }).catch(() => { /* giữ mặc định 5 môn */ });
   }, []);
 
   const timer = useRef<number | undefined>(undefined);
@@ -283,7 +292,7 @@ export default function CapNhatKQDT() {
   async function luu(h: HocVienKQD) {
     const nr = nhap[h.ma_dk] ?? NHAP_RONG;
     const cat = phanLoaiHang(h.ma_hang_moi, h.ma_hang);
-    const t = tinhDong(nr, cat, ct);
+    const t = tinhDong(nr, cat, ct, monBatBuoc);
     if (MON5.some((m) => t.over[m])) { setToast("Có điểm vượt khung, sửa lại trước khi lưu."); return; }
     // KQD-06 sửa lẻ: môn vừa gõ → điểm GỐC; môn trống mà đã có điểm lưu → giữ quy-đổi cũ.
     const diem_goc: Partial<DiemGocKQD> = {};
@@ -365,6 +374,10 @@ export default function CapNhatKQDT() {
 
   return (
     <div className="h-full flex flex-col">
+      {moKiemTruoc && khoa && (
+        <KiemTruocKetXuat khoa={khoa} targetKey={targetKey} onDong={() => setMoKiemTruoc(false)}
+          onMoHV={(soCccd) => { setMoKiemTruoc(false); setLoc("all"); setQHv(soCccd); setTrang(0); if (hoSo == null || loc !== "all") void taiHoSo(khoa, "all"); }} />
+      )}
       {/* Khung chọn khóa + chương trình + lọc */}
       <div className="shrink-0 bg-card border-b border-border">
         <div className="px-4 pt-3 pb-2 flex items-center gap-2 flex-wrap">
@@ -373,6 +386,10 @@ export default function CapNhatKQDT() {
           <span className="text-[12px] text-muted-foreground">Gõ điểm gốc thẳng trên lưới — quy đổi &amp; kết luận hiện ngay.</span>
           {khoa && (
             <div className="ml-auto flex items-center gap-2 text-[12px] text-muted-foreground">
+              <button onClick={() => setMoKiemTruoc(true)} className="inline-flex items-center gap-1.5 h-8 px-3 mr-2 rounded-lg border border-kq-border bg-kq-soft text-kq text-[12.5px] font-semibold hover:brightness-95">
+                <Icon name="check" className="w-4 h-4" /> Kiểm trước kết xuất
+                <span className="text-[10px] font-semibold border border-kq-border rounded-full px-1.5">KQD-07</span>
+              </button>
               <span>Chương trình khóa:</span>
               <label className="inline-flex items-center gap-1 cursor-pointer"><input type="radio" name="ct" checked={ct === "cu"} onChange={() => doiCt("cu")} /> Cũ (TT12/2025)</label>
               <label className="inline-flex items-center gap-1 cursor-pointer"><input type="radio" name="ct" checked={ct === "moi"} onChange={() => doiCt("moi")} /> Mới (TT108/2026)</label>
@@ -482,7 +499,7 @@ export default function CapNhatKQDT() {
                     const cat = phanLoaiHang(h.ma_hang_moi, h.ma_hang);
                     const gk = cat ? GIO_KM[cat] : null;
                     const nr = nhap[h.ma_dk] ?? NHAP_RONG;
-                    const t = tinhDong(nr, cat, ct);
+                    const t = tinhDong(nr, cat, ct, monBatBuoc);
                     const stt = trang * coTrang + i + 1;
                     if (khoaDong) {
                       // dòng chỉ-đọc (đã kết xuất/hoàn thành) — hiện điểm đã lưu

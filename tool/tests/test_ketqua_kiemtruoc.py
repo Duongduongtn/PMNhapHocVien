@@ -120,6 +120,35 @@ def test_kiem_truoc_phan_loai_va_chi_doc(monkeypatch, auth_headers):
     assert log[0][1] == ("KX", "03", "04", "09", "10")
 
 
+def test_kiem_truoc_canh_bao_vang_giờ_km_duong(monkeypatch, auth_headers):
+    rows = [
+        _row("5", "10", DiemKQTienLui=None, TGThucHanhDuong=18, TongQDThucHanh=700),  # thiếu môn + dưới gợi ý
+        _row("6", "10", DiemKQTienLui=None),                                          # thiếu môn, đủ giờ/km
+    ]
+    _gia_lap(monkeypatch, rows, [])
+    j = client.get("/local/ketqua/kiem-truoc?ma_kh=KX", headers=auth_headers).json()
+    cb = {t["ma_dk"]: t["canh_bao"] for t in j["thieu"]}
+    assert cb["5"] == [{"loai": "gio_duong", "gia_tri": 18.0, "goi_y": 20},
+                       {"loai": "km_duong", "gia_tri": 700.0, "goi_y": 810}]
+    assert cb["6"] == []
+    # cảnh báo KHÔNG biến HV đủ điều kiện thành thiếu
+    j2 = client.get("/local/ketqua/kiem-truoc?ma_kh=KX", headers=auth_headers).json()
+    assert all("thieu_gio_km" not in t["ly_do"] for t in j2["thieu"])
+
+
+def test_canh_bao_duong_don_vi():
+    assert q.canh_bao_duong(None, None, "B") == []                       # trống = thieu_gio_km, không cảnh báo
+    assert q.canh_bao_duong(5, 100, None) == []                           # hạng lạ: không có mức gợi ý
+    assert q.canh_bao_duong(12, 710, "B01") == []                         # đúng mức biên → không cảnh báo
+    assert [w["loai"] for w in q.canh_bao_duong(11, 700, "B01")] == ["gio_duong", "km_duong"]
+
+
+def test_luat_mon_bat_buoc_chi_doc(auth_headers):
+    j = client.get("/local/ketqua/luat", headers=auth_headers).json()
+    assert j == {"mon_bat_buoc": ["ly_thuyet", "mo_phong", "hinh", "tien_lui", "duong"]}
+    assert client.get("/local/ketqua/luat").status_code in (401, 403)
+
+
 def test_kiem_truoc_khoa_khong_co_hv(monkeypatch, auth_headers):
     _gia_lap(monkeypatch, [], [])
     j = client.get("/local/ketqua/kiem-truoc?ma_kh=KX", headers=auth_headers).json()
