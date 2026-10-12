@@ -57,7 +57,7 @@ test.describe("KQD-09 — xuất Excel kết quả học tập theo khóa", () =
     await expect(nut).toBeVisible();
 
     await nut.click();
-    await expect(page.getByText(/Đã lưu 30 học viên → D:\\Tool\\output\\KetQuaHocTap_K40_12-10-2026\.xlsx/)).toBeVisible();
+    await expect(page.getByText(/Đã lưu kết quả 30 học viên → D:\\Tool\\output\\KetQuaHocTap_K40_12-10-2026\.xlsx/)).toBeVisible();
     expect(goi).toEqual(["K40"]);
     await page.getByRole("button", { name: "Mở thư mục" }).click();
     await expect.poll(() => moThuMuc).toBe(1);
@@ -87,7 +87,7 @@ test.describe("KQD-09 — xuất Excel kết quả học tập theo khóa", () =
     await nut.click();
     await expect(nut).toBeDisabled();
     await nut.click({ force: true }).catch(() => undefined);
-    await expect(page.getByText(/Đã lưu 1 học viên/)).toBeVisible();
+    await expect(page.getByText(/Đã lưu kết quả 1 học viên/)).toBeVisible();
     expect(goi).toBe(1);
   });
 });
@@ -115,3 +115,37 @@ test.describe("KQD-09 — thông tin cơ sở ở màn Cấu hình", () => {
     expect(body).toEqual({ co_quan_chu_quan: "CÔNG TY A", ten_co_so_dao_tao: "TRUNG TÂM B" });
   });
 });
+
+test.describe("KQD-10 — Xuất Sổ theo dõi kết quả học tập (mẫu Phụ lục VI)", () => {
+  test("bấm 'Xuất Sổ theo dõi' → POST đúng endpoint + khóa, báo đường dẫn + nút Mở thư mục; Excel chi tiết không bị gọi", async ({ page }) => {
+    const goi: { url: string; method: string }[] = [];
+    await giaBackend(page);
+    await page.route("**/local/ketqua/xuat-so-theo-doi**", (r) => {
+      goi.push({ url: new URL(r.request().url()).searchParams.get("ma_kh") ?? "", method: r.request().method() });
+      return r.fulfill({ json: {
+        ok: true, ten_file: "SoTheoDoiKetQuaHocTap_K40_12-10-2026.xlsx", so_hoc_vien: 30,
+        duong_dan: "D:\Tool\output\SoTheoDoiKetQuaHocTap_K40_12-10-2026.xlsx", thu_muc: "D:\Tool\output" } });
+    });
+    let excelChiTiet = 0;
+    await page.route("**/local/ketqua/xuat-excel**", (r) => { excelChiTiet += 1; return r.fulfill({ json: {} }); });
+    await chonKhoa(page);
+    const nut = page.getByRole("button", { name: /Xuất Sổ theo dõi/ });
+    await expect(nut).toBeVisible();
+    await nut.click();
+    await expect(page.getByText(/Đã lưu sổ theo dõi 30 học viên → D:\Tool\output\SoTheoDoiKetQuaHocTap_K40_12-10-2026\.xlsx/)).toBeVisible();
+    expect(goi).toEqual([{ url: "K40", method: "POST" }]);
+    expect(excelChiTiet).toBe(0);
+    await expect(page.getByRole("button", { name: "Mở thư mục" })).toBeVisible();
+  });
+
+  test("khóa chưa có học viên (404) hiện đúng thông báo; nút bấm lại được", async ({ page }) => {
+    await giaBackend(page);
+    await page.route("**/local/ketqua/xuat-so-theo-doi**", (r) =>
+      r.fulfill({ status: 404, json: { detail: "Khóa chưa có học viên — không có gì để xuất." } }));
+    await chonKhoa(page);
+    await page.getByRole("button", { name: /Xuất Sổ theo dõi/ }).click();
+    await expect(page.getByText("Khóa chưa có học viên — không có gì để xuất.")).toBeVisible();
+    await expect(page.getByRole("button", { name: /Xuất Sổ theo dõi/ })).toBeEnabled();
+  });
+});
+

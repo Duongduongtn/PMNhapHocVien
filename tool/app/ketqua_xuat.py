@@ -155,10 +155,10 @@ def _thu_tu(h: dict) -> tuple:
     return (int(so) if so else 10**9, str(h.get("MaDK") or ""))
 
 
-def ten_file(ma_kh: str, ngay: date) -> str:
-    """`KetQuaHocTap_<MaKH>_<dd-mm-yyyy>.xlsx` — chỉ ASCII an toàn cho tên file."""
+def ten_file(ma_kh: str, ngay: date, tien_to: str = "KetQuaHocTap") -> str:
+    """`<tiền tố>_<MaKH>_<dd-mm-yyyy>.xlsx` — chỉ ASCII an toàn cho tên file."""
     ma = re.sub(r"[^A-Za-z0-9_-]", "", ma_kh or "") or "khoa"
-    return f"KetQuaHocTap_{ma}_{ngay:%d-%m-%Y}.xlsx"
+    return f"{tien_to}_{ma}_{ngay:%d-%m-%Y}.xlsx"
 
 
 def dung_workbook(khoa: dict, hv_rows: list[dict], co_so: dict, nguoi_lap: str,
@@ -197,7 +197,7 @@ def dung_workbook(khoa: dict, hv_rows: list[dict], co_so: dict, nguoi_lap: str,
             f"   ·   Hạng: {hang_khoa}   ·   Chương trình: {ct}")
     khoi(5, f"Khai giảng: {khoa.get('NgayKG') or ''}   ·   Bế giảng: {khoa.get('NgayBG') or ''}"
             f"   ·   Ngày thi: {khoa.get('NgayThi') or ''}")
-    khoi(6, f"Ngày lập: {ngay_lap:%d/%m/%Y %H:%M}   ·   Người lập: {_sach(nguoi_lap)}")
+    khoi(6, f"Ngày lập: {ngay_lap:%d/%m/%Y}   ·   Người lập: {_sach(nguoi_lap)}")
     khoi(7, f"Tổng {len(dong)} học viên   ·   Hoàn thành {n_ht}   ·   Chưa hoàn thành {n_chua}"
             f"   ·   Chưa có kết luận {n_thieu}", dam=True)
     ws.row_dimensions[3].height = 24

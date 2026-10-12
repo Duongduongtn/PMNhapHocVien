@@ -50,7 +50,8 @@ def test_khoi_dau_du_thong_tin():
     assert "B01-K40 (75032K260003)" in ws["A4"].value and "Hạng: B.01" in ws["A4"].value
     assert "Cũ (TT12/2025)" in ws["A4"].value
     assert "Khai giảng: 30/07/2026" in ws["A5"].value and "Ngày thi: 20/09/2026" in ws["A5"].value
-    assert "12/10/2026 14:05" in ws["A6"].value and "Người lập: Nhân viên Hòa" in ws["A6"].value
+    assert "Ngày lập: 12/10/2026" in ws["A6"].value and "14:05" not in ws["A6"].value   # chỉ ngày, không giờ phút
+    assert "Người lập: Nhân viên Hòa" in ws["A6"].value
     assert ws["A7"].value == "Tổng 3 học viên   ·   Hoàn thành 1   ·   Chưa hoàn thành 1   ·   Chưa có kết luận 1"
 
 

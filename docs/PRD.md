@@ -968,7 +968,7 @@
 **Done khi:**
 - ⬜ Ở màn Cập nhật KQĐT, sau khi chọn khóa có nút **"Xuất Excel"**; bấm là file `.xlsx` của **đúng khóa đang chọn** (không xuất nhiều khóa một lượt) được **lưu vào thư mục `output` của phần mềm** (cạnh file chạy của tool; không ghi được ở đó thì lùi về thư mục dữ liệu của tool). Màn hình báo **đường dẫn đầy đủ** của file và có nút **"Mở thư mục"**. Tên file `KetQuaHocTap_<MaKH>_<dd-mm-yyyy>.xlsx`; xuất lại cùng ngày thì thêm `_2`, `_3`… (không ghi đè file cũ, kể cả khi file cũ đang mở trong Excel).
 - ⬜ File có **1 sheet** `KET_QUA_HOC_TAP`, gồm **khối đầu** rồi **bảng**:
-  - Khối đầu: *Cơ quan chủ quản* · *Tên cơ sở đào tạo* (lấy từ màn Cấu hình tool, trống nếu chưa nhập) · tiêu đề "KẾT QUẢ HỌC TẬP CỦA HỌC VIÊN" · `Khóa học: <tên> (<mã>)` · hạng · chương trình khóa (Cũ TT12/2025 / Mới TT108/2026) · ngày khai giảng / bế giảng / ngày thi · ngày lập `dd/mm/yyyy HH:mm` · người lập (họ tên người đăng nhập tool) · dòng tóm tắt `Tổng N học viên · Hoàn thành X · Chưa hoàn thành Y · Chưa có kết luận Z`.
+  - Khối đầu: *Cơ quan chủ quản* · *Tên cơ sở đào tạo* (lấy từ màn Cấu hình tool, trống nếu chưa nhập) · tiêu đề "KẾT QUẢ HỌC TẬP CỦA HỌC VIÊN" · `Khóa học: <tên> (<mã>)` · hạng · chương trình khóa (Cũ TT12/2025 / Mới TT108/2026) · ngày khai giảng / bế giảng / ngày thi · ngày lập `dd/mm/yyyy` (không giờ phút) · người lập (họ tên người đăng nhập tool) · dòng tóm tắt `Tổng N học viên · Hoàn thành X · Chưa hoàn thành Y · Chưa có kết luận Z`.
   - Bảng 22 cột: STT · Mã đăng ký · Họ và tên · Ngày sinh · Số CCCD · Hạng · Lý thuyết · Mô phỏng · Sa hình · Chữ chi · Đường trường (5 điểm /10, 1 chữ số thập phân) · Điểm Lý thuyết (TB Lý thuyết + Mô phỏng) · Điểm Thực hành (TB Sa hình + Chữ chi + Đường trường) · Giờ sân · Km sân · Giờ đường · Km đường (số nguyên hiện `34`, `240`, **không** có dấu chấm thừa `34.`) · Kết quả khóa học · Ngày xét hoàn thành · Trạng thái hồ sơ · Số giấy HTKH · Ghi chú.
 - ⬜ **Học viên:** mọi học viên **đang hoạt động** của khóa (kể cả đã kết xuất `12`/`13`, Sở từ chối, đang giải trình); người chưa có điểm hoặc chưa đủ 5 môn vẫn có dòng, ô điểm/kết quả **để trống** (không điền 0).
 - ⬜ **Kết quả khóa học** lấy từ kết luận đã lưu: Đạt → **Hoàn thành** · Không đạt → **Chưa hoàn thành** · chưa có kết luận → trống. **Ngày xét hoàn thành** = ngày thi của khóa, chỉ hiện với dòng Hoàn thành.
@@ -980,6 +980,28 @@
 **Edge cases:** khóa không có học viên hoạt động → báo "Khóa chưa có học viên", không tạo file rỗng · chưa nhập tên cơ sở ở Cấu hình → ô đầu sổ để trống, vẫn xuất được · mất kết nối DB đích → báo lỗi, không treo · không ghi được thư mục `output` → báo rõ, không tạo file dở · tên khóa/học viên có ký tự đặc biệt hoặc dấu tiếng Việt → không vỡ file · số học viên lớn (vài trăm) → vẫn xuất trong vài giây.
 
 > Nguồn: user 12/10/2026 ("thêm nút xuất file excel kết quả học tập của từng khóa, đề xuất form"; chốt 1 sheet bảng chi tiết, mọi HV đang hoạt động, cơ sở nhập ở Cấu hình, ngày xét hoàn thành = ngày thi khóa) · form tham chiếu `thamkhao/So_theo_doi_ket_qua_hoc_tap_DTLX_TT17.xlsx` (Phụ lục VI) · TDD §11D.11
+
+---
+
+#### [KQD-10] Xuất Sổ theo dõi kết quả học tập (mẫu Phụ lục VI, TT17)
+
+**Trạng thái:** ⏳ Todo — CHANGES #75 (12/10/2026).
+**Story:** Là nhân viên nạp DB, tôi muốn xuất đúng "Sổ theo dõi kết quả học tập" của một khóa theo mẫu của Trung tâm, để in A4 ký tên đóng dấu và lưu sổ, không phải chỉnh lại bảng chi tiết bằng tay.
+
+**Done khi:**
+- ⬜ Ở màn Cập nhật KQĐT, sau khi chọn khóa có nút **"Xuất Sổ theo dõi"** (cạnh "Xuất Excel"); bấm là file `.xlsx` của **đúng khóa đang chọn** được **lưu vào thư mục `output` của phần mềm**, màn hình báo đường dẫn đầy đủ + nút "Mở thư mục". Tên `SoTheoDoiKetQuaHocTap_<MaKH>_<dd-mm-yyyy>.xlsx`, trùng tên thì `_2`, `_3`.
+- ⬜ File chỉ có **1 sheet `SO_PHU_LUC_VI`**, bố cục **giữ nguyên file mẫu** `thamkhao/So_theo_doi_ket_qua_hoc_tap_DTLX_TT17.xlsx`: khối đầu (cơ quan chủ quản + tên cơ sở đào tạo lấy từ Cấu hình ở bên trái; "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM / Độc lập - Tự do - Hạnh phúc" bên phải) → tiêu đề **SỔ THEO DÕI KẾT QUẢ HỌC TẬP** → `Khóa học: <tên khóa>` · `Ngày lập: dd/mm/yyyy` · `Người lập:` (**để trống**, ký/ghi tay sau khi in) → bảng.
+- ⬜ **Bảng 8 cột**, 2 hàng tiêu đề: `Số TT` · `Họ tên học viên` · `Khóa học` · `Kết quả học tập` (gồm `Lý thuyết`, `Thực hành`) · `Kết quả khóa học` · `Ngày xét hoàn thành khóa học` · `Xác nhận của cơ sở đào tạo` (để trống). **Không có bìa, mục lục, khối chữ ký, trang điểm quy đổi hay điểm chi tiết từng môn.**
+- ⬜ **Điểm Lý thuyết** = TB(Lý thuyết, Mô phỏng); **Điểm Thực hành** = TB(Sa hình, Chữ chi, Đường trường); làm tròn 1 chữ số; thiếu môn thì ô trống (đúng công thức sổ mẫu).
+- ⬜ **Kết quả khóa học:** đủ 5 điểm và kết luận Đạt → "Hoàn thành" (kèm **Ngày xét = ngày thi của khóa**, chỉ `dd/mm/yyyy`); đủ 5 điểm và Không đạt → "Chưa hoàn thành" (chữ đỏ, không ngày xét); **chưa đủ 5 điểm → trống** (kể cả khi đã có kết luận).
+- ⬜ **Xếp theo TÊN** (alphabet tiếng Việt: a ă â b c d đ e ê …; không dấu < huyền < sắc < hỏi < ngã < nặng), trùng tên xét họ rồi tên đệm; STT liên tục theo thứ tự đó.
+- ⬜ **In A4 dọc**, lề trái 2 · phải 1 · trên/dưới 1,5 cm, **lặp 2 hàng tiêu đề bảng ở mọi trang**, chân trang giữa **`Trang x/y`**, font Times New Roman 12; cột *Họ tên* tự giãn theo tên dài nhất và **không xuống dòng** (quá trần thì thu nhỏ chữ); chữ sát mép ô.
+- ⬜ Mọi học viên **đang hoạt động** của khóa có dòng; họ tên/tên cơ sở bắt đầu `= + - @` không thành công thức; ký tự điều khiển lạ không làm hỏng file.
+- ❌ Không ghi DB; không thêm bìa/chữ ký ngoài mẫu; không xuất nhiều khóa một lượt.
+
+**Edge cases:** khóa không có học viên → "Khóa chưa có học viên", không tạo file · chưa nhập tên cơ sở ở Cấu hình → ô đầu sổ để trống, vẫn xuất · tên rất dài → thu nhỏ chữ, không xuống dòng · không ghi được thư mục `output` → báo rõ · khóa vài chục học viên → 2 trang, trang 2 vẫn lặp tiêu đề.
+
+> Nguồn: user 12/10/2026 ("tôi muốn có 1 nút xuất Sổ theo dõi kết quả học tập giữ các format như file …So_theo_doi_ket_qua_hoc_tap_DTLX_TT17.xlsx"; "tiêu đề qua các trang, tên cơ sở được cấu hình, đánh số trang, khổ A4, xếp alphabet tên"; "không cần in các trang điểm quy đổi và điểm chi tiết"; "tên đừng xuống dòng, canh lề sát mép"; "bìa sổ giữ nguyên gốc"; "ngày chỉ dd/mm/yyyy") · mẫu `thamkhao/So_theo_doi_ket_qua_hoc_tap_DTLX_TT17.xlsx` sheet `SO_PHU_LUC_VI` · TDD §11D.12
 
 ---
 
@@ -1466,3 +1488,4 @@
 | 12/10/2026 | v4.14 — **+`KQD-09` Xuất Excel kết quả học tập theo từng khóa** (CHANGES #72): 1 sheet bảng chi tiết 22 cột + khối đầu (cơ quan/cơ sở/khóa/ngày lập/người lập), mọi HV đang hoạt động, tên cơ sở nhập ở Cấu hình, chỉ đọc DB. Số story 59 → 60. | BA/PM |
 | 12/10/2026 | v4.15 — **KQD-09 sau /reviewtdd §11D.11** (CHANGES #73): dòng tóm tắt "Chưa đủ điểm" → "Chưa có kết luận" (đúng nghĩa số đếm); +Done khi an toàn dữ liệu trong file (công thức Excel, ký tự điều khiển). Số story giữ 60. | BA/PM |
 | 12/10/2026 | v4.16 — **KQD-09: lưu file vào thư mục `output` của phần mềm + bỏ dấu chấm thừa ở giờ/km sân** (CHANGES #74, user yêu cầu khi dùng thử): thay "tải về" bằng lưu vào `output` + báo đường dẫn + nút Mở thư mục; trùng tên thì `_2`; số nguyên hiện `34` không `34.`. Số story giữ 60. | BA/PM |
+| 12/10/2026 | v4.17 — **+`KQD-10` Xuất Sổ theo dõi kết quả học tập (mẫu Phụ lục VI TT17)** (CHANGES #75): 1 sheet A4 dọc, lặp 2 hàng tiêu đề, `Trang x/y`, xếp theo tên, không bìa/chữ ký, lưu vào `output`. KQD-09: `Ngày lập` chỉ `dd/mm/yyyy`. Số story 60 → 61. | BA/PM |

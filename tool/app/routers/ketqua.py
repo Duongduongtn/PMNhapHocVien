@@ -18,7 +18,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
 from pydantic import BaseModel, Field
 
-from app import config_store, ketqua_dat, ketqua_quydoi, ketqua_xuat, paths, sua_sau_gui, sync_helpers
+from app import config_store, ketqua_dat, ketqua_quydoi, ketqua_so, ketqua_xuat, paths, sua_sau_gui, sync_helpers
 from app.db import sqlserver_conn_dich, ConfigChuaDay
 from app.routers.hoso import ngay_sinh_hien
 from app.routers.sync import _db_dich, _loi_db
@@ -257,17 +257,9 @@ def luat_kqd() -> dict:
 
 
 # ── KQD-09: xuất Excel kết quả học tập theo khóa (TDD §11D.11) — CHỈ ĐỌC ──
-@router.post("/xuat-excel")
-def xuat_excel(
-    ma_kh: str = Query(..., min_length=1),
-    target_key: str | None = None,
-    phien: Phien = Depends(require_session),
-) -> dict:
-    """Dựng file `.xlsx` kết quả học tập của ĐÚNG 1 khóa và **lưu vào thư mục `output` của phần mềm**.
-
-    Khối đầu + bảng 22 cột, mọi HV đang hoạt động. Chỉ SELECT DB (không ghi DB); chỉ ghi 1 file ra đĩa.
-    Khóa không có HV hoạt động → 404 (không tạo file rỗng). Tên cơ quan/cơ sở lấy từ cấu hình tool
-    (trống thì để trống ô); người lập = họ tên người đang đăng nhập tool. Trả đường dẫn để UI báo."""
+def _doc_khoa_va_hv(ma_kh: str, target_key: str | None) -> tuple[dict, list[dict]]:
+    """Thông tin khóa + HV đang hoạt động của khóa (chỉ SELECT). Dùng chung cho các nút xuất file.
+    Khóa không tồn tại / không có HV → 404 (không tạo file rỗng)."""
     db = _db_dich(target_key)
     try:
         with sqlserver_conn_dich(db) as conn:
@@ -288,25 +280,66 @@ def xuat_excel(
     hv = _doc_hv_khoa(ma_kh, None, target_key)
     if not hv:
         raise HTTPException(status_code=404, detail="Khóa chưa có học viên — không có gì để xuất.")
+    return khoa, hv
+
+
+def _co_so_tu_cau_hinh() -> dict:
     cfg = config_store.load_config()
+    return {"co_quan_chu_quan": cfg.get("co_quan_chu_quan", ""),
+            "ten_co_so_dao_tao": cfg.get("ten_co_so_dao_tao", "")}
+
+
+def _luu_file_xuat(data: bytes, ma_kh: str, ngay, tien_to: str, so_hv: int) -> dict:
+    """Ghi file vào thư mục output của phần mềm (không ghi đè) → thông tin trả cho UI."""
+    try:
+        thu_muc = paths.output_dir()
+        file = ketqua_xuat.luu_file(thu_muc, ketqua_xuat.ten_file(ma_kh, ngay, tien_to), data)
+    except OSError:
+        raise HTTPException(status_code=500, detail="Không ghi được file vào thư mục output của phần mềm — kiểm quyền ghi thư mục.")
+    return {"ok": True, "ten_file": file.name, "duong_dan": str(file), "thu_muc": str(thu_muc), "so_hoc_vien": so_hv}
+
+
+@router.post("/xuat-excel")
+def xuat_excel(
+    ma_kh: str = Query(..., min_length=1),
+    target_key: str | None = None,
+    phien: Phien = Depends(require_session),
+) -> dict:
+    """Dựng file `.xlsx` kết quả học tập của ĐÚNG 1 khóa và **lưu vào thư mục `output` của phần mềm**.
+
+    Khối đầu + bảng 22 cột, mọi HV đang hoạt động. Chỉ SELECT DB (không ghi DB); chỉ ghi 1 file ra đĩa.
+    Khóa không có HV hoạt động → 404 (không tạo file rỗng). Tên cơ quan/cơ sở lấy từ cấu hình tool
+    (trống thì để trống ô); người lập = họ tên người đang đăng nhập tool. Trả đường dẫn để UI báo."""
+    khoa, hv = _doc_khoa_va_hv(ma_kh, target_key)
     bay_gio = datetime.now()
     try:
         data = ketqua_xuat.dung_workbook(
-            khoa, hv,
-            {"co_quan_chu_quan": cfg.get("co_quan_chu_quan", ""),
-             "ten_co_so_dao_tao": cfg.get("ten_co_so_dao_tao", "")},
+            khoa, hv, _co_so_tu_cau_hinh(),
             (phien.ho_ten or phien.username or "").strip(), bay_gio,
             config_store.get_kqd_chuong_trinh(ma_kh),
         )
     except Exception:  # noqa: BLE001 — không lộ chi tiết nội bộ ra response
         raise HTTPException(status_code=500, detail="Không dựng được file Excel — thử lại hoặc báo người hỗ trợ.")
+    return _luu_file_xuat(data, ma_kh, bay_gio.date(), "KetQuaHocTap", len(hv))
+
+
+@router.post("/xuat-so-theo-doi")
+def xuat_so_theo_doi(
+    ma_kh: str = Query(..., min_length=1),
+    target_key: str | None = None,
+    phien: Phien = Depends(require_session),
+) -> dict:
+    """KQD-10 — dựng "Sổ theo dõi kết quả học tập" (mẫu Phụ lục VI, TT17) của ĐÚNG 1 khóa, lưu vào `output`.
+
+    1 sheet A4 dọc: khối đầu + 2 hàng tiêu đề lặp mọi trang + "Trang x/y"; xếp theo TÊN (alphabet tiếng
+    Việt); `Người lập` để trống. Chỉ SELECT DB."""
+    khoa, hv = _doc_khoa_va_hv(ma_kh, target_key)
+    bay_gio = datetime.now()
     try:
-        thu_muc = paths.output_dir()
-        file = ketqua_xuat.luu_file(thu_muc, ketqua_xuat.ten_file(ma_kh, bay_gio.date()), data)
-    except OSError:
-        raise HTTPException(status_code=500, detail="Không ghi được file vào thư mục output của phần mềm — kiểm quyền ghi thư mục.")
-    return {"ok": True, "ten_file": file.name, "duong_dan": str(file), "thu_muc": str(thu_muc),
-            "so_hoc_vien": len(hv)}
+        data = ketqua_so.dung_so_theo_doi(khoa, hv, _co_so_tu_cau_hinh(), bay_gio)
+    except Exception:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail="Không dựng được sổ theo dõi — thử lại hoặc báo người hỗ trợ.")
+    return _luu_file_xuat(data, ma_kh, bay_gio.date(), ketqua_so.TIEN_TO_FILE, len(hv))
 
 
 @router.post("/mo-thu-muc-xuat")

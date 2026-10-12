@@ -28,6 +28,7 @@ import {
   luatKQD,
   luuDatKQD,
   xuatExcelKQD,
+  xuatSoTheoDoiKQD,
   moThuMucXuat,
   type XuatExcelKetQua,
   type DatLuuKetQua,
@@ -280,16 +281,18 @@ export default function CapNhatKQDT() {
     setNhap((cur) => ({ ...cur, [h.ma_dk]: { ...(cur[h.ma_dk] ?? gocNhap(h)), [k]: v } }));
   }
 
-  // KQD-09: xuất Excel kết quả học tập của khóa đang chọn → server lưu vào thư mục `output` của phần mềm.
-  async function xuatExcel() {
+  // KQD-09 (Excel chi tiết) / KQD-10 (Sổ theo dõi): server lưu file vào thư mục `output` của phần mềm.
+  async function xuatFile(loai: "excel" | "so") {
     if (!khoa || dangXuat) return;
     setDangXuat(true); setToast(""); setFileXuat(null);
     try {
-      const r = await xuatExcelKQD(khoa.ma_kh, targetKey ?? undefined);
+      const r = loai === "so"
+        ? await xuatSoTheoDoiKQD(khoa.ma_kh, targetKey ?? undefined)
+        : await xuatExcelKQD(khoa.ma_kh, targetKey ?? undefined);
       setFileXuat(r);
-      setToast(`Đã lưu ${r.so_hoc_vien.toLocaleString("vi-VN")} học viên → ${r.duong_dan}`);
+      setToast(`Đã lưu ${loai === "so" ? "sổ theo dõi" : "kết quả"} ${r.so_hoc_vien.toLocaleString("vi-VN")} học viên → ${r.duong_dan}`);
     } catch (e) {
-      setToast(e instanceof Error ? e.message : "Không xuất được file Excel.");
+      setToast(e instanceof Error ? e.message : "Không xuất được file.");
     } finally { setDangXuat(false); }
   }
   async function moThuMuc() {
@@ -458,9 +461,13 @@ export default function CapNhatKQDT() {
                 <Icon name="file" className="w-4 h-4" /> Nạp giờ/km từ PDF DAT
                 <span className="text-[10px] font-semibold border border-kq-border rounded-full px-1.5">KQD-08</span>
               </button>
-              <button onClick={() => void xuatExcel()} disabled={dangXuat} className="inline-flex items-center gap-1.5 h-8 px-3 mr-2 rounded-lg border border-kq-border bg-kq-soft text-kq text-[12.5px] font-semibold hover:brightness-95 disabled:opacity-60" title="Xuất file Excel kết quả học tập của cả khóa đang chọn — lưu vào thư mục output của phần mềm">
+              <button onClick={() => void xuatFile("excel")} disabled={dangXuat} className="inline-flex items-center gap-1.5 h-8 px-3 mr-2 rounded-lg border border-kq-border bg-kq-soft text-kq text-[12.5px] font-semibold hover:brightness-95 disabled:opacity-60" title="Xuất file Excel kết quả học tập của cả khóa đang chọn — lưu vào thư mục output của phần mềm">
                 <Icon name={dangXuat ? "refresh" : "download"} className={"w-4 h-4 " + (dangXuat ? "animate-spin" : "")} /> Xuất Excel
                 <span className="text-[10px] font-semibold border border-kq-border rounded-full px-1.5">KQD-09</span>
+              </button>
+              <button onClick={() => void xuatFile("so")} disabled={dangXuat} className="inline-flex items-center gap-1.5 h-8 px-3 mr-2 rounded-lg border border-kq-border bg-kq-soft text-kq text-[12.5px] font-semibold hover:brightness-95 disabled:opacity-60" title="Xuất Sổ theo dõi kết quả học tập (mẫu Phụ lục VI, in A4) — lưu vào thư mục output của phần mềm">
+                <Icon name={dangXuat ? "refresh" : "file"} className={"w-4 h-4 " + (dangXuat ? "animate-spin" : "")} /> Xuất Sổ theo dõi
+                <span className="text-[10px] font-semibold border border-kq-border rounded-full px-1.5">KQD-10</span>
               </button>
               <span>Chương trình khóa:</span>
               <label className="inline-flex items-center gap-1 cursor-pointer"><input type="radio" name="ct" checked={ct === "cu"} onChange={() => doiCt("cu")} /> Cũ (TT12/2025)</label>

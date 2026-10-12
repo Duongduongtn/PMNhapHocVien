@@ -1029,6 +1029,11 @@ export const xuatExcelKQD = (maKh: string, targetKey?: string) =>
   fetch(`${BASE}/local/ketqua/xuat-excel?${qs({ ma_kh: maKh, target_key: targetKey })}`, {
     method: "POST", headers: authHeaders(),
   }).then(json<XuatExcelKetQua>);
+// KQD-10: "Sổ theo dõi kết quả học tập" (mẫu Phụ lục VI) — cùng khuôn lưu vào `output`.
+export const xuatSoTheoDoiKQD = (maKh: string, targetKey?: string) =>
+  fetch(`${BASE}/local/ketqua/xuat-so-theo-doi?${qs({ ma_kh: maKh, target_key: targetKey })}`, {
+    method: "POST", headers: authHeaders(),
+  }).then(json<XuatExcelKetQua>);
 export const moThuMucXuat = () =>
   fetch(`${BASE}/local/ketqua/mo-thu-muc-xuat`, { method: "POST", headers: authHeaders() }).then(json<{ ok: boolean; thu_muc: string }>);
 

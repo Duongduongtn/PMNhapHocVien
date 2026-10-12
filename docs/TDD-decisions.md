@@ -353,3 +353,23 @@
   - **Không ghi đè file cũ** (`_2`, `_3`): xuất lại trong ngày không mất bản trước và không lỗi khi file cũ đang mở.
   - **Ô giờ/km sân số nguyên dùng định dạng `0`** (không `0.##`) để không hiện dấu chấm thừa.
 
+## 26. Xuất Sổ theo dõi kết quả học tập — mẫu Phụ lục VI (12/10/2026)
+
+- **Đã chốt (user, 12/10/2026):**
+  - **Nút riêng, file riêng** `SoTheoDoiKetQuaHocTap_…xlsx`, tách khỏi Excel chi tiết KQD-09 (bảng chi tiết để lọc/đối chiếu; sổ để in nộp).
+  - **Giữ nguyên bố cục file mẫu**, 1 sheet; **không bìa, không chữ ký, không trang điểm quy đổi/chi tiết**.
+  - **Xếp theo TÊN rồi họ đệm**; **kết quả theo kết luận đã lưu + luật sổ mẫu** (đủ 5 điểm mới có kết quả); **mọi HV hoạt động**; **cột Khóa = tên khóa**; **Người lập để trống**.
+  - **Lề trái 2 · phải 1 · trên/dưới 1,5 cm**; **cột Họ tên không xuống dòng**; **font Times New Roman 12**; **ngày chỉ `dd/mm/yyyy`** (cả KQD-09).
+- **Vì sao:**
+  - **Xếp tên bằng khóa tự dựng, không `locale`:** thứ tự collation tiếng Việt của Windows/Python không ổn định giữa máy; bảng chữ cái + thanh điệu là quy ước cố định.
+  - **Kết quả chỉ khi đủ 5 điểm:** đúng luật sổ mẫu và không "Hoàn thành" cho học viên chưa có điểm.
+  - **Ngày xét = ngày thi khóa:** mẫu lấy một ngày cho cả khóa từ ô nhập tay; CDB có ngày thi khóa.
+  - **`Người lập` để trống:** mẫu lấy từ ô nhập tay; người in ký tên sau.
+- **Phương án đã cân nhắc:**
+  - *Kết quả:* (A) kết luận đã lưu + luật đủ 5 điểm ← chọn · (B) tính lại từ 5 điểm làm tròn như công thức mẫu (lệch ca thô 4,95).
+  - *Xếp:* (A) tên → họ → đệm ← chọn · (B) từ chữ đầu (theo họ).
+  - *Lề:* (A) 2/1/1,5/1,5 ← chọn · (B) 1 cm cả bốn · (C) giữ mẫu 3/2/2/2.
+- **Đánh đổi / lưu ý:** dữ liệu PM cũ có nhiều HV đã lưu kết luận Đạt nhưng thiếu điểm môn → sổ để trống kết quả của họ (khác Excel chi tiết). Dev B.01-K40: 25 HV Đạt, chỉ 1 HV đủ 5 điểm. Nếu muốn sổ hiện theo kết luận thì đổi luật (phương án khác, cần user quyết).
+- **Phạm vi:** chỉ tool máy CSĐT, nhóm KQD; không thêm phụ thuộc.
+- **Nguồn:** user 12/10/2026; mẫu `thamkhao/So_theo_doi_ket_qua_hoc_tap_DTLX_TT17.xlsx`; PRD KQD-10; TDD §11D.12; CHANGES #75.
+
