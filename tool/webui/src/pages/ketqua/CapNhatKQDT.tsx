@@ -28,6 +28,8 @@ import {
   luatKQD,
   luuDatKQD,
   xuatExcelKQD,
+  moThuMucXuat,
+  type XuatExcelKetQua,
   type DatLuuKetQua,
 } from "../../lib/api";
 import KiemTruocKetXuat from "./KiemTruocKetXuat";
@@ -162,7 +164,8 @@ export default function CapNhatKQDT() {
   const [monBatBuoc, setMonBatBuoc] = useState<readonly string[]>(MON5);
   const [moKiemTruoc, setMoKiemTruoc] = useState(false);
   const [moNapDat, setMoNapDat] = useState(false); // KQD-08: hộp thoại nạp giờ/km từ PDF DAT
-  const [dangXuat, setDangXuat] = useState(false); // KQD-09: đang tải file Excel
+  const [dangXuat, setDangXuat] = useState(false); // KQD-09: đang dựng + lưu file Excel
+  const [fileXuat, setFileXuat] = useState<XuatExcelKetQua | null>(null); // KQD-09: file vừa lưu (hiện nút mở thư mục)
 
   const [loc, setLoc] = useState<TrangThaiKQD>("all");
   const [qHv, setQHv] = useState("");
@@ -277,21 +280,20 @@ export default function CapNhatKQDT() {
     setNhap((cur) => ({ ...cur, [h.ma_dk]: { ...(cur[h.ma_dk] ?? gocNhap(h)), [k]: v } }));
   }
 
-  // KQD-09: xuất Excel kết quả học tập của khóa đang chọn (chỉ đọc) → tải file về máy.
+  // KQD-09: xuất Excel kết quả học tập của khóa đang chọn → server lưu vào thư mục `output` của phần mềm.
   async function xuatExcel() {
     if (!khoa || dangXuat) return;
-    setDangXuat(true); setToast("");
+    setDangXuat(true); setToast(""); setFileXuat(null);
     try {
-      const { blob, ten } = await xuatExcelKQD(khoa.ma_kh, targetKey ?? undefined);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url; a.download = ten;
-      document.body.appendChild(a); a.click(); a.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
-      setToast(`Đã xuất kết quả học tập khóa ${khoa.ma_kh} → ${ten}`);
+      const r = await xuatExcelKQD(khoa.ma_kh, targetKey ?? undefined);
+      setFileXuat(r);
+      setToast(`Đã lưu ${r.so_hoc_vien.toLocaleString("vi-VN")} học viên → ${r.duong_dan}`);
     } catch (e) {
       setToast(e instanceof Error ? e.message : "Không xuất được file Excel.");
     } finally { setDangXuat(false); }
+  }
+  async function moThuMuc() {
+    try { await moThuMucXuat(); } catch (e) { setToast(e instanceof Error ? e.message : "Không mở được thư mục."); }
   }
 
   // KQD-08: nạp xong → làm tươi lưới; ô giờ/km đang nháp của HV vừa ghi lấy theo giá trị đã lưu.
@@ -456,7 +458,7 @@ export default function CapNhatKQDT() {
                 <Icon name="file" className="w-4 h-4" /> Nạp giờ/km từ PDF DAT
                 <span className="text-[10px] font-semibold border border-kq-border rounded-full px-1.5">KQD-08</span>
               </button>
-              <button onClick={() => void xuatExcel()} disabled={dangXuat} className="inline-flex items-center gap-1.5 h-8 px-3 mr-2 rounded-lg border border-kq-border bg-kq-soft text-kq text-[12.5px] font-semibold hover:brightness-95 disabled:opacity-60" title="Tải file Excel kết quả học tập của cả khóa đang chọn">
+              <button onClick={() => void xuatExcel()} disabled={dangXuat} className="inline-flex items-center gap-1.5 h-8 px-3 mr-2 rounded-lg border border-kq-border bg-kq-soft text-kq text-[12.5px] font-semibold hover:brightness-95 disabled:opacity-60" title="Xuất file Excel kết quả học tập của cả khóa đang chọn — lưu vào thư mục output của phần mềm">
                 <Icon name={dangXuat ? "refresh" : "download"} className={"w-4 h-4 " + (dangXuat ? "animate-spin" : "")} /> Xuất Excel
                 <span className="text-[10px] font-semibold border border-kq-border rounded-full px-1.5">KQD-09</span>
               </button>
@@ -517,7 +519,12 @@ export default function CapNhatKQDT() {
       {toast && (
         <div className="shrink-0 px-4 py-1.5 bg-kq-soft border-b border-kq-border text-[12.5px] text-kq flex items-center gap-2">
           <Icon name="check" className="w-4 h-4" sw={3} /> {toast}
-          <button onClick={() => setToast("")} className="ml-auto text-muted-foreground hover:text-foreground"><Icon name="x" className="w-3.5 h-3.5" /></button>
+          {fileXuat && (
+            <button onClick={() => void moThuMuc()} className="ml-2 inline-flex items-center gap-1 h-6 px-2 rounded-md border border-kq-border bg-card text-[12px] font-semibold hover:brightness-95">
+              <Icon name="file" className="w-3.5 h-3.5" /> Mở thư mục
+            </button>
+          )}
+          <button onClick={() => { setToast(""); setFileXuat(null); }} className="ml-auto text-muted-foreground hover:text-foreground"><Icon name="x" className="w-3.5 h-3.5" /></button>
         </div>
       )}
 

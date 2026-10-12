@@ -243,7 +243,8 @@ def dung_workbook(khoa: dict, hv_rows: list[dict], co_so: dict, nguoi_lap: str,
                 if isinstance(v, (int, float)) and v < 5:
                     c.font = do
             elif 14 <= i <= 17:
-                c.number_format = "0.##"
+                # "0.##" làm số nguyên hiện "34." (dấu chấm thừa) → số nguyên dùng "0", số lẻ dùng "0.##"
+                c.number_format = "0" if isinstance(v, (int, float)) and float(v).is_integer() else "0.##"
             elif i == 18:
                 c.font = xanh if v == HOAN_THANH else do if v == CHUA_HOAN_THANH else thuong
 
@@ -263,3 +264,22 @@ def dung_workbook(khoa: dict, hv_rows: list[dict], co_so: dict, nguoi_lap: str,
     buf = io.BytesIO()
     wb.save(buf)
     return buf.getvalue()
+
+
+def luu_file(thu_muc, ten: str, data: bytes):
+    """Ghi file vào `thu_muc` (đã tồn tại), KHÔNG ghi đè: trùng tên thì thêm `_2`, `_3`… trước đuôi
+    (cũng tránh lỗi khi file cũ đang mở trong Excel). Trả `Path` đã ghi."""
+    from pathlib import Path
+
+    goc = Path(thu_muc)
+    ten_goc, dot, duoi = ten.rpartition(".")
+    for n in range(1, 1000):
+        dich = goc / (ten if n == 1 else f"{ten_goc}_{n}{dot}{duoi}")
+        try:
+            with open(dich, "xb") as f:      # 'x' = chỉ tạo mới, trùng thì FileExistsError
+                f.write(data)
+            return dich
+        except FileExistsError:
+            continue
+    raise OSError("Quá nhiều file trùng tên trong thư mục output.")
+

@@ -1479,7 +1479,7 @@ DB **không có** trigger/computed/constraint tính 3 cờ (verify 06/10: 0 trig
 
 ```
  Nhân viên       Giao diện (React)            Tool (FastAPI)                       CDB đích
-    │ bấm Xuất Excel │ GET /xuat-excel?ma_kh=… │ require_session ──► 401                │
+    │ bấm Xuất Excel │ POST /xuat-excel?ma_kh=… │ require_session ──► 401                │
     │───────────────►│────────────────────────►│ SELECT KhoaHoc ───────────────────────►│
     │                │                         │  không có ──► 404 "Không tìm thấy khóa"│
     │                │                         │ SELECT HV của khóa (_doc_hv_khoa) ────►│
@@ -1487,8 +1487,9 @@ DB **không có** trigger/computed/constraint tính 3 cờ (verify 06/10: 0 trig
     │                │                         │ cấu hình: cơ quan / cơ sở              │
     │                │                         │ dung_workbook(): làm sạch chuỗi,       │
     │                │                         │  ép kiểu chữ ô bắt đầu = + - @ ──► 500 │
-    │                │◄── 200 xlsx + Content-Disposition (+ Expose-Headers)             │
-    │ nhận file ◄────│ Blob → <a download> → toast (tên dự phòng nếu thiếu header)      │
+    │                │ luu_file(): ghi vào thư mục output (không ghi đè, _2, _3…)       │
+    │                │◄── 200 {duong_dan, thu_muc, so_hoc_vien}                         │
+    │ thấy đường dẫn │ toast + nút "Mở thư mục" → POST /mo-thu-muc-xuat (đường dẫn cố định)│
 ```
 
 | Cột | Nguồn | Luật |
@@ -1503,17 +1504,18 @@ DB **không có** trigger/computed/constraint tính 3 cờ (verify 06/10: 0 trig
 | Trạng thái, Số giấy, Ghi chú | `TT_XuLy`, `SoGiayCNTN`, tính | `Thiếu: …` / `Chưa có điểm` / cảnh báo giờ-km |
 
 - **Nguồn dữ liệu:** `NguoiLX_HoSo` + `NguoiLX` của đúng 1 khóa — dùng lại `_doc_hv_khoa(ma_kh, None, target_key)` (không viết SELECT thứ hai; thêm `B.SoGiayCNTN` vào `_SQL_HV`, đọc bằng `.get`). Thông tin khóa (`TenKH`, hạng, `NgayKG`/`NgayBG`/`NgayThi`) đọc 1 truy vấn `KhoaHoc`; chương trình Cũ/Mới từ `config_store.get_kqd_chuong_trinh(ma_kh)`.
-- **Endpoint:** `GET /local/ketqua/xuat-excel?ma_kh=&target_key=` (gác phiên + `target_key` như §11D.6). Trả `Response` `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` + `Content-Disposition: attachment; filename="KetQuaHocTap_<MaKH>_<dd-mm-yyyy>.xlsx"` kèm `filename*=UTF-8''…` và **`Access-Control-Expose-Headers: Content-Disposition`** (UI dev chạy khác cổng với API nên JS mới đọc được tên file). **Lỗi:** khóa không tồn tại → **404** "Không tìm thấy khóa học ở CSDL đích."; khóa không có HV hoạt động → **404** "Khóa chưa có học viên — không có gì để xuất."; mất kết nối DB → lỗi chuẩn của `_loi_db`; dựng workbook lỗi → **500** thông báo chung (không lộ chi tiết nội bộ). UI lấy tên từ `filename*`, thiếu thì tự dựng `KetQuaHocTap_<MaKH>_<dd-mm-yyyy>.xlsx`. **Chỉ SELECT.**
+- **Endpoint:** `POST /local/ketqua/xuat-excel?ma_kh=&target_key=` (gác phiên + `target_key` như §11D.6; **POST vì có ghi 1 file ra đĩa**, DB vẫn chỉ SELECT). Dựng workbook rồi **lưu vào thư mục `output` của phần mềm** (`paths.output_dir()`: bản đóng gói = `output` cạnh `pmcsdtlx-tool.exe`, không ghi được thì `%APPDATA%\pmcsdtlx-tool\output`; chạy dev = `tool/output`, đã `.gitignore`); `ketqua_xuat.luu_file` ghi bằng chế độ tạo mới (`xb`), **trùng tên thì thêm `_2`, `_3`…** (không ghi đè, kể cả file cũ đang mở trong Excel). Trả `{ok, ten_file, duong_dan, thu_muc, so_hoc_vien}`. **Lỗi:** khóa không tồn tại → **404** "Không tìm thấy khóa học ở CSDL đích."; khóa không có HV hoạt động → **404** "Khóa chưa có học viên — không có gì để xuất."; mất kết nối DB → lỗi chuẩn của `_loi_db`; dựng workbook lỗi → **500** thông báo chung; không ghi được thư mục output → **500** "Không ghi được file vào thư mục output của phần mềm" (không lộ chi tiết hệ thống). **Chỉ SELECT DB.**
+- **`POST /local/ketqua/mo-thu-muc-xuat`:** mở thư mục output bằng File Explorer (`os.startfile`); **đường dẫn cố định do tool chọn, bỏ qua mọi đầu vào từ client**; gác phiên.
 - **Hàm thuần** (`tool/app/ketqua_xuat.py`, không DB): `dung_workbook(khoa, hv_rows, co_so, nguoi_lap, ngay_lap, chuong_trinh) -> bytes` bằng `openpyxl`; `ten_file(ma_kh, ngay)` (chỉ `[A-Za-z0-9_-]`). Luật:
   - Điểm Lý thuyết = `round(TB(LT, MP), 1)`, Điểm Thực hành = `round(TB(Hinh, TienLui, ThucHanh), 1)`; **trống nếu thiếu môn** (theo sổ mẫu TT17).
   - **Kết quả** lấy từ `KetLuanCSDT` (TDD-decisions §25): 1 → "Hoàn thành", 0 → "Chưa hoàn thành", NULL → trống. **Hệ quả đã chấp nhận:** học viên PM cũ lưu "Đạt" mà thiếu môn thì thấy "Hoàn thành" cạnh ô điểm trống, cột Ghi chú nêu `Thiếu: …` (khác sổ mẫu TT17 chỉ xét khi đủ 5 điểm). Ngày xét hoàn thành = `NgayThi` khóa, chỉ khi "Hoàn thành"; khóa chưa có `NgayThi` → ô để trống, không báo lỗi.
   - **Ghi chú:** thiếu 1–4 môn → `Thiếu: <các môn>`; trống cả 5 → `Chưa có điểm`; kèm cảnh báo giờ/km đường dưới mức gợi ý (dùng chung `ketqua_quydoi.canh_bao_duong`).
   - **Dòng tóm tắt:** `Tổng N · Hoàn thành X · Chưa hoàn thành Y · Chưa có kết luận Z` (Z = HV `KetLuanCSDT` NULL).
   - **Hạng khối đầu:** `MaHangMoi` xuất hiện nhiều nhất trong các HV của khóa (**hòa → theo thứ tự chữ cái**, ổn định giữa các lần xuất); không HV nào có thì `KhoaHoc.HangGPLX` (mã cũ, vd `B11`).
-  - Giờ/km làm tròn 2 chữ số (cột DB là `real`). Ngày sinh `yyyymmdd` → ô ngày thật; CCCD ghi dạng chuỗi.
+  - Giờ/km làm tròn 2 chữ số (cột DB là `real`); **định dạng ô: số nguyên `0` (hiện `34`), số lẻ `0.##`** — không dùng `0.##` cho số nguyên vì Excel hiện dấu chấm thừa `34.`. Ngày sinh `yyyymmdd` → ô ngày thật; CCCD ghi dạng chuỗi.
 - **An toàn dữ liệu trong file:** mọi chuỗi từ DB/cấu hình đi qua `_sach()` (bỏ ký tự điều khiển XML không hợp lệ — một học viên có ký tự lạ không được làm hỏng cả file — và cắt tối đa 32.000 ký tự) rồi `_ghi_chu()`: **chuỗi bắt đầu `= + - @` hoặc tab/CR bị ép kiểu chữ + `quotePrefix`**, không thành công thức (chống formula injection — họ tên có thể do học viên khai ở app web, file đi nộp ra ngoài).
 - **Cấu hình:** `co_quan_chu_quan`, `ten_co_so_dao_tao` (không bí mật; tối đa 200 ký tự) lưu bằng `PUT /local/config/co-so` — **gác phiên** (khác `PUT /local/config` là bước mồi lần đầu), gộp vào `config.enc`, không đụng khóa khác; thêm vào `ConfigIn` để lưu khối ① không làm rơi 2 ô này. Trống thì ô đầu sổ để trống.
-- **UI:** nút "Xuất Excel" ở `CapNhatKQDT.tsx` (sau khi chọn khóa); `fetch` kèm `authHeaders()` → `Blob` → `<a download>` (thẻ `<a>` thuần không gửi được phiên). Toast `Đã xuất kết quả học tập khóa <mã> → <tên file>`; nút khóa khi đang xuất.
+- **UI:** nút "Xuất Excel" ở `CapNhatKQDT.tsx` (sau khi chọn khóa); gọi POST, thanh thông báo hiện `Đã lưu N học viên → <đường dẫn đầy đủ>` kèm nút **"Mở thư mục"**; nút khóa khi đang xuất.
 - **Phụ thuộc mới:** `openpyxl` (kéo `et_xmlfile`) — thêm vào requirements + `tool.spec` (`collect_all`); `--selftest` dựng workbook nhỏ.
 - **Hiệu năng:** một SELECT cả khóa, dựng workbook đồng bộ trong bộ nhớ; **5.000 học viên ≈ 4 giây (đo 12/10/2026)**, CSĐT thực tế vài chục đến vài trăm nên không cần chạy nền.
 - **Ghi nhận (rà soát):** hai truy vấn riêng (khóa rồi HV) có thể lệch vài mili giây nếu đang ghi — file là ảnh chụp tại lúc xuất · `ngay_lap` là giờ máy CSĐT (VN) · `ORDER BY CAST(SoHoSo AS INT)` của `_SQL_HV` (dùng chung từ trước) lỗi nếu `SoHoSo` không phải số — chưa thấy dữ liệu như vậy.
@@ -1954,6 +1956,7 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 | --- | --- | --- |
+| 12/10/2026 | 6.19 | **§11D.11: lưu vào thư mục `output` + bỏ dấu chấm thừa giờ/km** (KQD-09, CHANGES #74): `GET /xuat-excel` → `POST` ghi file vào `paths.output_dir()` (không ghi đè, `_2`…), trả đường dẫn; thêm `POST /mo-thu-muc-xuat`; định dạng ô giờ/km sân số nguyên `0`. |
 | 12/10/2026 | 6.18 | **Sửa sau /reviewtdd §11D.11** (KQD-09, CHANGES #73, biên bản `tdd-review-12-10-2026-kqd09.md`; subagent soát độc lập: 2 Chặn · 6 Nên sửa · 5 Ghi nhận): chốt lỗi 404/500 + Expose-Headers + tên file dự phòng · ghi chú `Thiếu`/`Chưa có điểm` · nhãn "Chưa có kết luận" · hệ quả §25 (Hoàn thành cạnh điểm trống) · hạng hòa phiếu theo chữ cái · **chống formula injection + làm sạch ký tự điều khiển (sửa code)** · `PUT /co-so` gác phiên (sửa code) · sơ đồ luồng + bảng cột→nguồn · số đo hiệu năng. |
 | 12/10/2026 | 6.17 | **+§11D.11 Xuất Excel kết quả học tập theo khóa (KQD-09)** (CHANGES #72): endpoint `GET /xuat-excel` chỉ đọc, hàm thuần `ketqua_xuat.py` (openpyxl), form 1 sheet 22 cột + khối đầu, cấu hình tên cơ quan/cơ sở, thêm vào §11D.6; TDD-decisions §25. |
 | 12/10/2026 | 6.16 | **Sửa sau /reviewtdd §11D.10** (KQD-08/KQD-02, CHANGES #71, biên bản `tdd-review-12-10-2026-kqd08.md`; subagent soát độc lập, 0 Chặn · 4 Nên sửa · 3 Ghi nhận): chốt endpoint `/dat/*` theo code (đủ field, 6 giá trị `tinh_trang`, 400/413/422) + thêm vào §11D.6 · chèn sơ đồ luồng + bảng tình trạng · "Chọn tất cả" chỉ tick `khop` (sửa code) · định nghĩa chưa chạy DAT khớp code · trần tra lý do 500 mã/50 tên + câu hiển thị dòng vượt trần (sửa code) · ghi nhận 3 rủi ro (rowcount, ghi sau thắng, PDF không giới hạn trang). |

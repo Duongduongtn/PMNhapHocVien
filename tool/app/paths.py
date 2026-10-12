@@ -34,3 +34,23 @@ else:
 
 # Thư mục ghi-được phải tồn tại (bản đóng gói tạo %APPDATA%\pmcsdtlx-tool lần đầu).
 DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def output_dir() -> Path:
+    """Thư mục `output` của phần mềm — nơi lưu file xuất ra (vd Excel kết quả học tập, KQD-09).
+
+    Bản đóng gói: cạnh `pmcsdtlx-tool.exe` (dễ thấy, người dùng mở thẳng từ thư mục cài). Nếu thư mục cài
+    không ghi được (vd Program Files) thì lùi về `%APPDATA%\\pmcsdtlx-tool\\output`. Chạy dev: `tool/output`."""
+    ung_vien = [Path(sys.executable).resolve().parent / "output"] if FROZEN else [_REPO_ROOT / "output"]
+    ung_vien.append(DATA_DIR / "output")
+    for d in ung_vien:
+        try:
+            d.mkdir(parents=True, exist_ok=True)
+            probe = d / ".ghi_thu"
+            probe.write_bytes(b"")
+            probe.unlink()
+            return d
+        except OSError:
+            continue
+    raise OSError("Không tạo/ghi được thư mục output của phần mềm.")
+

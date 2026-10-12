@@ -51,3 +51,6 @@ tool/build/
 # ── OS / Editor ──
 Thumbs.db
 .DS_Store
+
+# File xuất ra khi chạy dev (Excel kết quả học tập, KQD-09)
+tool/output/

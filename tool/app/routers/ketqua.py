@@ -18,7 +18,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
 from pydantic import BaseModel, Field
 
-from app import config_store, ketqua_dat, ketqua_quydoi, ketqua_xuat, sua_sau_gui, sync_helpers
+from app import config_store, ketqua_dat, ketqua_quydoi, ketqua_xuat, paths, sua_sau_gui, sync_helpers
 from app.db import sqlserver_conn_dich, ConfigChuaDay
 from app.routers.hoso import ngay_sinh_hien
 from app.routers.sync import _db_dich, _loi_db
@@ -257,19 +257,17 @@ def luat_kqd() -> dict:
 
 
 # ── KQD-09: xuất Excel kết quả học tập theo khóa (TDD §11D.11) — CHỈ ĐỌC ──
-_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-
-
-@router.get("/xuat-excel")
+@router.post("/xuat-excel")
 def xuat_excel(
     ma_kh: str = Query(..., min_length=1),
     target_key: str | None = None,
     phien: Phien = Depends(require_session),
-) -> Response:
-    """Tải file `.xlsx` kết quả học tập của ĐÚNG 1 khóa: khối đầu + bảng 22 cột, mọi HV đang hoạt động.
+) -> dict:
+    """Dựng file `.xlsx` kết quả học tập của ĐÚNG 1 khóa và **lưu vào thư mục `output` của phần mềm**.
 
-    Chỉ SELECT. Khóa không có HV hoạt động → 404 (không tạo file rỗng). Tên cơ quan/cơ sở lấy từ cấu hình
-    tool (trống thì để trống ô); người lập = họ tên người đang đăng nhập tool."""
+    Khối đầu + bảng 22 cột, mọi HV đang hoạt động. Chỉ SELECT DB (không ghi DB); chỉ ghi 1 file ra đĩa.
+    Khóa không có HV hoạt động → 404 (không tạo file rỗng). Tên cơ quan/cơ sở lấy từ cấu hình tool
+    (trống thì để trống ô); người lập = họ tên người đang đăng nhập tool. Trả đường dẫn để UI báo."""
     db = _db_dich(target_key)
     try:
         with sqlserver_conn_dich(db) as conn:
@@ -302,15 +300,30 @@ def xuat_excel(
         )
     except Exception:  # noqa: BLE001 — không lộ chi tiết nội bộ ra response
         raise HTTPException(status_code=500, detail="Không dựng được file Excel — thử lại hoặc báo người hỗ trợ.")
-    ten = ketqua_xuat.ten_file(ma_kh, bay_gio.date())
-    return Response(
-        content=data, media_type=_XLSX,
-        headers={
-            "Content-Disposition": f"attachment; filename=\"{ten}\"; filename*=UTF-8''{ten}",
-            # Chạy dev UI (cổng khác API) là cross-origin: không khai báo thì JS không đọc được tên file.
-            "Access-Control-Expose-Headers": "Content-Disposition",
-        },
-    )
+    try:
+        thu_muc = paths.output_dir()
+        file = ketqua_xuat.luu_file(thu_muc, ketqua_xuat.ten_file(ma_kh, bay_gio.date()), data)
+    except OSError:
+        raise HTTPException(status_code=500, detail="Không ghi được file vào thư mục output của phần mềm — kiểm quyền ghi thư mục.")
+    return {"ok": True, "ten_file": file.name, "duong_dan": str(file), "thu_muc": str(thu_muc),
+            "so_hoc_vien": len(hv)}
+
+
+@router.post("/mo-thu-muc-xuat")
+def mo_thu_muc_xuat(phien: Phien = Depends(require_session)) -> dict:
+    """Mở thư mục `output` của phần mềm bằng File Explorer (đường dẫn cố định, không nhận đầu vào)."""
+    import os
+    import sys
+
+    thu_muc = paths.output_dir()
+    try:
+        if sys.platform == "win32":
+            os.startfile(str(thu_muc))  # noqa: S606 — đường dẫn do tool tự chọn, không từ người dùng
+        else:  # pragma: no cover — tool chỉ chạy Windows
+            raise OSError("Chỉ hỗ trợ mở thư mục trên Windows.")
+    except OSError:
+        raise HTTPException(status_code=500, detail=f"Không mở được thư mục. Đường dẫn: {thu_muc}")
+    return {"ok": True, "thu_muc": str(thu_muc)}
 
 
 # ── KQD-08: nạp giờ/km đường từ PDF DAT (TDD §11D.10) ──

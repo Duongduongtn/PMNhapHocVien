@@ -34,18 +34,20 @@ async function chonKhoa(page: Page) {
 }
 
 test.describe("KQD-09 — xuất Excel kết quả học tập theo khóa", () => {
-  test("nút chỉ hiện sau khi chọn khóa; bấm → tải về đúng tên file + gọi đúng khóa + báo đã xuất", async ({ page }) => {
+  test("nút chỉ hiện sau khi chọn khóa; bấm → server lưu vào output, hiện đường dẫn + nút Mở thư mục", async ({ page }) => {
     const goi: string[] = [];
+    let moThuMuc = 0;
     await giaBackend(page);
     await page.route("**/local/ketqua/xuat-excel**", (r) => {
+      expect(r.request().method()).toBe("POST");
       goi.push(new URL(r.request().url()).searchParams.get("ma_kh") ?? "");
-      return r.fulfill({
-        status: 200, body: Buffer.from("PK\u0003\u0004gia"),
-        headers: {
-          "Content-Type": XLSX_MIME, "Access-Control-Expose-Headers": "Content-Disposition",
-          "Content-Disposition": "attachment; filename=\"KetQuaHocTap_K40_12-10-2026.xlsx\"; filename*=UTF-8''KetQuaHocTap_K40_12-10-2026.xlsx",
-        },
-      });
+      return r.fulfill({ json: {
+        ok: true, ten_file: "KetQuaHocTap_K40_12-10-2026.xlsx", so_hoc_vien: 30,
+        duong_dan: "D:\\Tool\\output\\KetQuaHocTap_K40_12-10-2026.xlsx", thu_muc: "D:\\Tool\\output" } });
+    });
+    await page.route("**/local/ketqua/mo-thu-muc-xuat", (r) => {
+      moThuMuc += 1;
+      return r.fulfill({ json: { ok: true, thu_muc: "D:\\Tool\\output" } });
     });
     await page.goto("/ket-qua/cap-nhat");
     await expect(page.getByRole("button", { name: /Xuất Excel/ })).toHaveCount(0);
@@ -54,31 +56,21 @@ test.describe("KQD-09 — xuất Excel kết quả học tập theo khóa", () =
     const nut = page.getByRole("button", { name: /Xuất Excel/ });
     await expect(nut).toBeVisible();
 
-    const [dl] = await Promise.all([page.waitForEvent("download"), nut.click()]);
-    expect(dl.suggestedFilename()).toBe("KetQuaHocTap_K40_12-10-2026.xlsx");
+    await nut.click();
+    await expect(page.getByText(/Đã lưu 30 học viên → D:\\Tool\\output\\KetQuaHocTap_K40_12-10-2026\.xlsx/)).toBeVisible();
     expect(goi).toEqual(["K40"]);
-    await expect(page.getByText(/Đã xuất kết quả học tập khóa K40/)).toBeVisible();
+    await page.getByRole("button", { name: "Mở thư mục" }).click();
+    await expect.poll(() => moThuMuc).toBe(1);
   });
 
-  test("không đọc được header tên file: dùng tên dự phòng KetQuaHocTap_<MaKH>_<dd-mm-yyyy>.xlsx", async ({ page }) => {
-    await giaBackend(page);
-    await page.route("**/local/ketqua/xuat-excel**", (r) =>
-      r.fulfill({ status: 200, body: Buffer.from("PK"), headers: { "Content-Type": XLSX_MIME } }));
-    await chonKhoa(page);
-    const [dl] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: /Xuất Excel/ }).click()]);
-    expect(dl.suggestedFilename()).toMatch(/^KetQuaHocTap_K40_\d{2}-\d{2}-\d{4}\.xlsx$/);
-  });
-
-  test("khóa chưa có học viên (404): hiện đúng thông báo, không tải file, nút bấm lại được", async ({ page }) => {
+  test("khóa chưa có học viên (404): hiện đúng thông báo, không có nút Mở thư mục, nút bấm lại được", async ({ page }) => {
     await giaBackend(page);
     await page.route("**/local/ketqua/xuat-excel**", (r) =>
       r.fulfill({ status: 404, json: { detail: "Khóa chưa có học viên — không có gì để xuất." } }));
     await chonKhoa(page);
-    let taiVe = 0;
-    page.on("download", () => { taiVe += 1; });
     await page.getByRole("button", { name: /Xuất Excel/ }).click();
     await expect(page.getByText("Khóa chưa có học viên — không có gì để xuất.")).toBeVisible();
-    expect(taiVe).toBe(0);
+    await expect(page.getByRole("button", { name: "Mở thư mục" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Xuất Excel/ })).toBeEnabled();
   });
 
@@ -88,14 +80,14 @@ test.describe("KQD-09 — xuất Excel kết quả học tập theo khóa", () =
     await page.route("**/local/ketqua/xuat-excel**", async (r) => {
       goi += 1;
       await new Promise((ok) => setTimeout(ok, 800));
-      await r.fulfill({ status: 200, body: Buffer.from("PK"), headers: { "Content-Type": XLSX_MIME, "Content-Disposition": "attachment; filename=\"a.xlsx\"" } });
+      await r.fulfill({ json: { ok: true, ten_file: "a.xlsx", so_hoc_vien: 1, duong_dan: "D:\\o\\a.xlsx", thu_muc: "D:\\o" } });
     });
     await chonKhoa(page);
     const nut = page.getByRole("button", { name: /Xuất Excel/ });
     await nut.click();
     await expect(nut).toBeDisabled();
     await nut.click({ force: true }).catch(() => undefined);
-    await expect(page.getByText(/Đã xuất kết quả học tập khóa K40/)).toBeVisible();
+    await expect(page.getByText(/Đã lưu 1 học viên/)).toBeVisible();
     expect(goi).toBe(1);
   });
 });

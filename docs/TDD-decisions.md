@@ -348,4 +348,8 @@
   - **Chống formula injection + làm sạch ký tự điều khiển:** file đi nộp ra ngoài, họ tên có thể do học viên khai; chuỗi bắt đầu `= + - @` ép kiểu chữ, ký tự điều khiển bị bỏ.
   - **`PUT /local/config/co-so` gác phiên:** khác `PUT /local/config` (bước mồi lần đầu); tên này đi vào file nộp ra ngoài.
   - **Hạng khối đầu hòa phiếu → theo chữ cái:** xuất hai lần ra cùng hạng.
+- **Cập nhật 12/10/2026 (user dùng thử, CHANGES #74):**
+  - **File lưu mặc định vào thư mục `output` của phần mềm**, không tải qua trình duyệt: người dùng cần biết file nằm đâu và lấy lại được. Bản đóng gói = `output` cạnh exe (lùi về `%APPDATA%\pmcsdtlx-tool\output` nếu không ghi được). Đã cân nhắc: (A) lưu `output` + báo đường dẫn + nút Mở thư mục ← chọn · (B) vẫn tải qua trình duyệt (vào thư mục Downloads) · (C) hộp thoại chọn nơi lưu.
+  - **Không ghi đè file cũ** (`_2`, `_3`): xuất lại trong ngày không mất bản trước và không lỗi khi file cũ đang mở.
+  - **Ô giờ/km sân số nguyên dùng định dạng `0`** (không `0.##`) để không hiện dấu chấm thừa.
 

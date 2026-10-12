@@ -167,6 +167,30 @@ def test_ngay_sinh_sai_dang_thi_de_trong_khong_vo_file():
     assert ws.cell(row=x.HANG_TIEU_DE + 1, column=c).value is None and ws.cell(row=x.HANG_TIEU_DE + 2, column=c).value is None
 
 
+def test_gio_km_so_nguyen_khong_co_dau_cham_thua():
+    # "0.##" làm Excel hiện "34." với số nguyên → số nguyên dùng "0", số lẻ dùng "0.##"
+    ws = _mo([_hv(TGThucHanhHinh=34, QDThucHanhHinh=240, TGThucHanhDuong=18.5, TongQDThucHanh=719.4)])
+    r = x.HANG_TIEU_DE + 1
+    assert ws.cell(row=r, column=_cot(ws, "Giờ sân")).number_format == "0"
+    assert ws.cell(row=r, column=_cot(ws, "Km sân")).number_format == "0"
+    assert ws.cell(row=r, column=_cot(ws, "Giờ đường")).number_format == "0.##"
+    assert ws.cell(row=r, column=_cot(ws, "Km đường")).number_format == "0.##"
+
+
+def test_luu_file_khong_ghi_de_va_dem_tang_dan(tmp_path):
+    f1 = x.luu_file(tmp_path, "KQ_K1_12-10-2026.xlsx", b"a")
+    f2 = x.luu_file(tmp_path, "KQ_K1_12-10-2026.xlsx", b"b")
+    assert f1.name == "KQ_K1_12-10-2026.xlsx" and f2.name == "KQ_K1_12-10-2026_2.xlsx"
+    assert f1.read_bytes() == b"a" and f2.read_bytes() == b"b"
+
+
+def test_output_dir_chay_dev_la_tool_output_va_ghi_duoc():
+    from app import paths
+    d = paths.output_dir()
+    assert d.name == "output" and d.is_dir()
+    assert not (d / ".ghi_thu").exists()                                    # file dò quyền ghi đã dọn
+
+
 def test_ten_file_ascii_an_toan():
     assert x.ten_file("75032K260003", date(2026, 10, 12)) == "KetQuaHocTap_75032K260003_12-10-2026.xlsx"
     assert x.ten_file("../a b/ý", date(2026, 10, 12)) == "KetQuaHocTap_ab_12-10-2026.xlsx"
@@ -201,28 +225,57 @@ def _gia_lap(monkeypatch, khoa, rows, log):
     monkeypatch.setattr(k, "sqlserver_conn_dich", conn)
 
 
-def test_endpoint_tra_file_xlsx_chi_doc(monkeypatch, auth_headers):
+def test_endpoint_luu_file_vao_thu_muc_output_chi_doc_db(monkeypatch, auth_headers, tmp_path):
     log: list = []
     _gia_lap(monkeypatch, KHOA, [_hv(), _hv(ma="2", so="2", ten="Lê Văn Đức")], log)
     monkeypatch.setattr(k.config_store, "load_config", lambda: {"ten_co_so_dao_tao": "TT GDNN THÀNH ĐẠT"})
-    r = client.get("/local/ketqua/xuat-excel?ma_kh=75032K260003", headers=auth_headers)
+    monkeypatch.setattr(k.paths, "output_dir", lambda: tmp_path)
+    r = client.post("/local/ketqua/xuat-excel?ma_kh=75032K260003", headers=auth_headers)
     assert r.status_code == 200
-    assert r.headers["content-type"].startswith("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    cd = r.headers["content-disposition"]
-    assert cd.startswith("attachment;") and "KetQuaHocTap_75032K260003_" in cd and cd.count(".xlsx") == 2
-    assert r.headers["access-control-expose-headers"] == "Content-Disposition"   # UI dev cross-origin đọc được tên file
-    ws = load_workbook(io.BytesIO(r.content)).active
+    j = r.json()
+    assert j["ok"] is True and j["so_hoc_vien"] == 2
+    assert j["ten_file"].startswith("KetQuaHocTap_75032K260003_") and j["ten_file"].endswith(".xlsx")
+    assert j["thu_muc"] == str(tmp_path) and j["duong_dan"] == str(tmp_path / j["ten_file"])
+    ws = load_workbook(tmp_path / j["ten_file"]).active                 # file thật nằm trong output
     assert ws["A2"].value == "TT GDNN THÀNH ĐẠT"
     assert "Người lập: NV Nạp (test)" in ws["A6"].value                   # họ tên người đăng nhập
     assert ws.cell(row=x.HANG_TIEU_DE + 2, column=3).value == "Lê Văn Đức"
-    assert log and all(s.lstrip().upper().startswith("SELECT") for s, _ in log)   # chỉ đọc
+    assert log and all(s.lstrip().upper().startswith("SELECT") for s, _ in log)   # DB: chỉ đọc
+
+
+def test_xuat_hai_lan_khong_ghi_de_file_cu(monkeypatch, auth_headers, tmp_path):
+    _gia_lap(monkeypatch, KHOA, [_hv()], [])
+    monkeypatch.setattr(k.paths, "output_dir", lambda: tmp_path)
+    ten = [client.post("/local/ketqua/xuat-excel?ma_kh=75032K260003", headers=auth_headers).json()["ten_file"]
+           for _ in range(3)]
+    assert len(set(ten)) == 3 and ten[1].endswith("_2.xlsx") and ten[2].endswith("_3.xlsx")
+    assert len(list(tmp_path.glob("*.xlsx"))) == 3
+
+
+def test_khong_ghi_duoc_thu_muc_output_thi_bao_ro(monkeypatch, auth_headers):
+    _gia_lap(monkeypatch, KHOA, [_hv()], [])
+
+    def hong():
+        raise OSError("read-only")
+    monkeypatch.setattr(k.paths, "output_dir", hong)
+    r = client.post("/local/ketqua/xuat-excel?ma_kh=75032K260003", headers=auth_headers)
+    assert r.status_code == 500 and "thư mục output" in r.json()["detail"] and "read-only" not in r.text
+
+
+def test_mo_thu_muc_chi_mo_duong_dan_co_dinh_va_can_phien(monkeypatch, auth_headers, tmp_path):
+    mo: list = []
+    monkeypatch.setattr(k.paths, "output_dir", lambda: tmp_path)
+    monkeypatch.setattr("os.startfile", lambda p: mo.append(p), raising=False)
+    assert client.post("/local/ketqua/mo-thu-muc-xuat").status_code in (401, 403)
+    r = client.post("/local/ketqua/mo-thu-muc-xuat", headers=auth_headers, json={"duong_dan": "C:/Windows"})
+    assert r.status_code == 200 and mo == [str(tmp_path)]                  # bỏ qua mọi đầu vào từ client
 
 
 def test_endpoint_khoa_khong_ton_tai_hoac_khong_co_hv_la_404(monkeypatch, auth_headers):
     _gia_lap(monkeypatch, None, [], [])
-    assert client.get("/local/ketqua/xuat-excel?ma_kh=X", headers=auth_headers).status_code == 404
+    assert client.post("/local/ketqua/xuat-excel?ma_kh=X", headers=auth_headers).status_code == 404
     _gia_lap(monkeypatch, KHOA, [], [])
-    r = client.get("/local/ketqua/xuat-excel?ma_kh=75032K260003", headers=auth_headers)
+    r = client.post("/local/ketqua/xuat-excel?ma_kh=75032K260003", headers=auth_headers)
     assert r.status_code == 404 and "chưa có học viên" in r.json()["detail"]
 
 
@@ -234,8 +287,8 @@ def test_endpoint_mat_ket_noi_va_khong_phien(monkeypatch, auth_headers):
 
     monkeypatch.setattr(k, "_db_dich", lambda tk: "DB")
     monkeypatch.setattr(k, "sqlserver_conn_dich", hong)
-    assert client.get("/local/ketqua/xuat-excel?ma_kh=X", headers=auth_headers).status_code == 502
-    assert client.get("/local/ketqua/xuat-excel?ma_kh=X").status_code in (401, 403)
+    assert client.post("/local/ketqua/xuat-excel?ma_kh=X", headers=auth_headers).status_code == 502
+    assert client.post("/local/ketqua/xuat-excel?ma_kh=X").status_code in (401, 403)
 
 
 def test_dung_workbook_loi_thi_bao_chung_khong_lo_chi_tiet(monkeypatch, auth_headers):
@@ -244,7 +297,7 @@ def test_dung_workbook_loi_thi_bao_chung_khong_lo_chi_tiet(monkeypatch, auth_hea
     def no(*a, **kw):
         raise ValueError("secret: C:/path/noi_bo")
     monkeypatch.setattr(k.ketqua_xuat, "dung_workbook", no)
-    r = client.get("/local/ketqua/xuat-excel?ma_kh=75032K260003", headers=auth_headers)
+    r = client.post("/local/ketqua/xuat-excel?ma_kh=75032K260003", headers=auth_headers)
     assert r.status_code == 500 and "secret" not in r.text and "noi_bo" not in r.text
 
 
