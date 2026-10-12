@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { bangNhau, chuanHoaGio, fmtVn, parseGio, parseKm, soHien } from "./gioThucHanh";
+// Vector dùng CHUNG với pytest (tool/tests/test_ketqua_dat.py) để luật hh:mm/km của UI và backend không lệch.
+import vecRaw from "../../../../tests/fixtures/gio_km_vectors.json?raw";
 
 describe("parseGio", () => {
   it("hh:mm → thập phân làm tròn 2 chữ số", () => {
@@ -67,5 +69,18 @@ describe("parseKm", () => {
     expect(parseKm("")).toBeNull();
     expect(parseKm("12a")).toBe("sai");
     expect(parseKm("1,008.19")).toBe("sai");
+  });
+});
+
+// KQD-08 / KQD-02 — parity với backend `ketqua_dat.doc_gio` / `doc_km`
+type Vec = [string, number | null | "sai"][];
+const VEC = JSON.parse(vecRaw) as { gio: Vec; km: Vec };
+
+describe("KQD-08 — vector chung với backend (doc_gio / doc_km)", () => {
+  it.each(VEC.gio)("parseGio(%j) → %j", (raw, mong) => {
+    expect(parseGio(raw)).toBe(mong);
+  });
+  it.each(VEC.km)("parseKm(%j) → %j", (raw, mong) => {
+    expect(parseKm(raw)).toBe(mong);
   });
 });
