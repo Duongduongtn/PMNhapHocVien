@@ -45,3 +45,12 @@ export function bangNhau(a: number | null | undefined, b: number | null | undefi
   if (a == null || b == null) return a == null && b == null;
   return Math.abs(lamTron2(a) - lamTron2(b)) < 0.005;
 }
+
+/** Km nhập tay: "725,63" / "725.63" / "1.008,19" → số · trống → null · rác → "sai". */
+export function parseKm(v: string): GioDoc {
+  const t = (v || "").trim();
+  if (t === "") return null;
+  if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(t)) return lamTron2(Number(t.replace(/\./g, "").replace(",", ".")));
+  if (/^\d+([.,]\d+)?$/.test(t)) return lamTron2(Number(t.replace(",", ".")));
+  return "sai";
+}

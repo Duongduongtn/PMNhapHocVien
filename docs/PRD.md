@@ -941,7 +941,7 @@
 
 #### [KQD-08] Nạp giờ/km thực hành đường từ file PDF DAT (theo từng khóa)
 
-**Trạng thái:** ⚠️ Partial — CHANGES #69 (12/10/2026). **Đã xong + verify trên dev:** đọc 4 PDF mẫu (60/30/64/32 dòng) · kiểm mã khóa · khớp theo `MaDK` trên **DB dev thật** (2 khóa có sẵn: 30/30 và 31/32 dòng khớp, 1 dòng chưa chạy DAT bỏ tick) · bảng xác nhận · lưu một transaction chỉ 2 cột (+`NgaySua`) · tool 740 pytest · webui 77 vitest + build. **Chưa kiểm:** ghi thật vào CDB production (chờ nghiệm thu máy CSDT) và chạy giao diện trên trình duyệt.
+**Trạng thái:** ⚠️ Partial — CHANGES #69 (12/10/2026). **Đã xong + verify trên dev:** đọc 4 PDF mẫu (60/30/64/32 dòng) · kiểm mã khóa · khớp theo `MaDK` trên **DB dev thật** (2 khóa có sẵn: 30/30 và 31/32 dòng khớp, 1 dòng chưa chạy DAT bỏ tick) · bảng xác nhận · lưu một transaction chỉ 2 cột (+`NgaySua`) · tool 747 pytest · webui 79 vitest + build · Playwright 98 ca (có 2 ca hộp thoại nạp PDF: sửa hh:mm → thập phân, tô "đã sửa", sai dạng chặn Lưu, Lưu gửi số đã sửa; backend giả). **Chưa kiểm:** ghi thật vào CDB production (chờ nghiệm thu máy CSDT).
 **Story:** Là nhân viên nạp DB, tôi muốn nạp file PDF "Báo cáo kết quả đào tạo thực hành lái xe trên đường" tải từ hệ thống DAT, xem bảng đối chiếu rồi lưu giờ/km đường cho cả khóa một lượt, để khỏi gõ tay từng học viên.
 
 **Done khi:**
@@ -949,6 +949,8 @@
 - ⬜ **Mã khóa trong file khác khóa đang chọn** → báo lỗi đỏ, **không cho đi tiếp** (chống nạp nhầm khóa). File không phải báo cáo DAT / không đọc được bảng → báo rõ, không ghi gì.
 - ⬜ Khớp học viên theo **"Mã học viên" trong file ↔ mã đăng ký (`MaDK`) ở DB đích**, chỉ trong khóa đang chọn. *(Đã kiểm trên DB dev 12/10/2026: 62/62 dòng của 2 khóa có trong DB trùng `MaDK`, mã khóa trong file trùng `MaKhoaHoc`.)*
 - ⬜ **Bảng xác nhận** (chưa ghi gì): STT · Họ tên · Mã HV · **Giờ đường (cũ → mới)** · **Km đường (cũ → mới)** · Tình trạng. Giờ `hh:mm` đổi thập phân làm tròn 2 chữ số (`16:19` → `16,32`), km chuẩn số VN. Tình trạng: ✔ Khớp (tick sẵn nếu có thay đổi) · ⚠ Dưới mức gợi ý của hạng (cảnh báo vàng, vẫn tick sẵn — dùng đúng ngưỡng KQD-02) · ⚠ **Chưa chạy DAT** (giờ trống / km `0,00`) **bỏ tick sẵn**, ai cần ghi 0 thì tự tick · ✖ Không có trong khóa (không tick được) · 🔒 Đã kết xuất `12`/`13` (không tick được).
+- ⬜ **Số "mới" sửa được ngay trong bảng** (giờ nhận số thập phân hoặc `hh:mm`, km nhận `725,63` / `1.008,19`): ô sửa khác số PDF được tô vàng + nhãn "đã sửa so với PDF"; ô trống/sai dạng/ngoài khung (giờ > 999, km > 99.999) thì **chặn Lưu** (không ghi số đoán). Lưu gửi đúng số đang hiện trong ô.
+- ⬜ Dòng **"Không có trong khóa"** kèm **lý do** tra từ DB đích: mã đang thuộc khóa khác (đã đổi khóa) · hồ sơ không còn hoạt động · cùng họ tên + ngày sinh nhưng **lệch mã** giữa DAT và CDB · không tìm thấy (chưa nạp/đồng bộ). Tra lỗi thì hiện lý do chung, không làm hỏng xem trước.
 - ⬜ Cuối bảng liệt kê riêng **học viên có trong khóa nhưng không có trong file** (chỉ để biết, không ghi).
 - ⬜ Bấm **"Lưu N học viên"** → ghi `TGThucHanhDuong` + `TongQDThucHanh` của các dòng đang tick, **trong một lần ghi** (hỏng thì không dở dang) → báo "đã lưu X · bỏ qua Y" → lưới tự làm tươi.
 - ⬜ Chỉ ghi **2 cột giờ/km đường**; **không đụng điểm, kết luận, trạng thái** (`TT_XuLy`) của học viên.

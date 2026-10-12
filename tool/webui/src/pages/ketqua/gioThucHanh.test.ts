@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bangNhau, chuanHoaGio, fmtVn, parseGio, soHien } from "./gioThucHanh";
+import { bangNhau, chuanHoaGio, fmtVn, parseGio, parseKm, soHien } from "./gioThucHanh";
 
 describe("parseGio", () => {
   it("hh:mm → thập phân làm tròn 2 chữ số", () => {
@@ -53,5 +53,19 @@ describe("soHien / fmtVn / bangNhau", () => {
     expect(bangNhau(18.4, 18.5)).toBe(false);
     expect(bangNhau(null, null)).toBe(true);
     expect(bangNhau(null, 0)).toBe(false);
+  });
+});
+
+describe("parseKm", () => {
+  it("số kiểu VN và số thường", () => {
+    expect(parseKm("725,63")).toBe(725.63);
+    expect(parseKm("725.63")).toBe(725.63);
+    expect(parseKm("1.008,19")).toBe(1008.19);
+    expect(parseKm("810")).toBe(810);
+  });
+  it("trống → null; rác → 'sai'", () => {
+    expect(parseKm("")).toBeNull();
+    expect(parseKm("12a")).toBe("sai");
+    expect(parseKm("1,008.19")).toBe("sai");
   });
 });

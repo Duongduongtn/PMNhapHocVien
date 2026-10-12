@@ -1437,6 +1437,8 @@ DB **không có** trigger/computed/constraint tính 3 cờ (verify 06/10: 0 trig
 - **Đã xác minh 12/10/2026:** (1) "Mã học viên" trong PDF **=** `NguoiLX.MaDK` — DB dev có 2/4 khóa mẫu (B.01-K40, C1-K11), 62/62 dòng khớp và `MaKhoaHoc` trùng mã khóa trong file; 2 khóa còn lại (B.01-K39, C1-K10) không có trong DB dev nên chưa đối chiếu được. (2) SP `_CapNhat` ngoài 2 cột giờ/km chỉ đặt thêm **`NgaySua = GETDATE()`** (và điểm/kết luận/`TT_XuLy`/ngày) — UPDATE của KQD-08 đặt `NgaySua` như SP, không đụng phần còn lại.
 - **Số lưu ở DB là `real`** (đọc ra `18.399999618530273`): `/hoc-vien` và bảng xác nhận làm tròn 2 chữ số; so "có thay đổi" sau làm tròn.
 - **Phụ thuộc mới:** `pdfplumber` (kéo `pdfminer.six`) — thêm vào requirements tool + `tool.spec`; kiểm đọc được trong exe đóng gói.
+- **Lý do "không có trong khóa"** (`ketqua_dat.gan_ly_do_khong_co` + router `_tra_cuu_khong_co`, chỉ SELECT): tra `NguoiLX_HoSo` theo `MaDK` ở mọi khóa (+`KhoaHoc.TenKH`); chưa thấy thì tra `NguoiLX` theo (`HoVaTen`, `NgaySinh` yyyymmdd) — tối đa 50 dòng/lần. Lỗi tra → lý do chung, không làm hỏng xem trước.
+- **Sửa số trong bảng xem trước:** thuần UI (`NapDatModal.tsx`, cùng `parseGio`/`parseKm` với lưới); server `/dat/luu` nhận số đã sửa và tự kiểm khung (`0 ≤ giờ ≤ 999`, `0 ≤ km ≤ 99999`).
 - **Bất biến:** chỉ ghi `TGThucHanhDuong`/`TongQDThucHanh`; không đụng điểm/kết luận/`TT_XuLy`; HV `12`/`13` không ghi; không sinh XML.
 - **Kiểm thử:** unit `doc_gio`/`doc_km` (`16:19`, `0:59`, `28:26`, rỗng, `20:75`, `1.008,19`) · đọc 4 PDF mẫu (60/30/64/32 dòng; 2 dòng chưa chạy DAT) · API bằng cursor giả (sai khóa → 400; HV 12/13 bỏ qua; dòng lỗi không làm hỏng dòng khác) · vitest `gioThucHanh.ts`.
 

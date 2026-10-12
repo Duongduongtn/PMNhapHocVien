@@ -4,12 +4,25 @@ import {
   luuDatKQD, xemTruocDatKQD,
   type DatDong, type DatLuuKetQua, type DatXemTruoc, type TinhTrangDat,
 } from "../../lib/api";
-import { fmtVn } from "./gioThucHanh";
+import { bangNhau, chuanHoaGio, fmtVn, parseGio, parseKm, soHien } from "./gioThucHanh";
 import { nhanCanhBao } from "./kiemTruoc";
 
 // KQD-08 — nạp giờ/km thực hành đường từ PDF báo cáo DAT, theo từng khóa.
 // Bước 1 chọn file → bước 2 bảng xác nhận (giờ/km cũ → mới) → Lưu hàng loạt (chỉ 2 cột giờ/km,
 // không đụng điểm/kết luận/trạng thái). Xem trước KHÔNG ghi gì.
+// Số "mới" sửa được ngay trong bảng (nhận cả hh:mm); dòng sửa khác số PDF được tô để soát lại.
+
+type Sua = { gio: string; km: string };
+const GIO_TOI_DA = 999, KM_TOI_DA = 99999; // khớp ràng buộc của endpoint /dat/luu
+
+/** Đọc ô đã sửa → số hợp lệ, hoặc null nếu trống/sai/ngoài khung. */
+function giaTri(v: Sua | undefined): { gio: number | null; km: number | null; sai: boolean } {
+  if (!v) return { gio: null, km: null, sai: false };
+  const g = parseGio(v.gio), k = parseKm(v.km);
+  const gioOk = typeof g === "number" && g >= 0 && g <= GIO_TOI_DA;
+  const kmOk = typeof k === "number" && k >= 0 && k <= KM_TOI_DA;
+  return { gio: gioOk ? (g as number) : null, km: kmOk ? (k as number) : null, sai: !gioOk || !kmOk };
+}
 
 const TT: Record<TinhTrangDat, { nhan: string; cls: string }> = {
   khop: { nhan: "✔ Khớp", cls: "text-success" },
@@ -37,10 +50,11 @@ export default function NapDatModal({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [moVang, setMoVang] = useState(false);
+  const [sua, setSua] = useState<Record<string, Sua>>({}); // ma_dk → số đang hiện trong ô (có thể đã sửa)
 
   async function docFile(f: File | undefined) {
     if (!f) return;
-    setErr(""); setKq(null); setChon(new Set()); setTenFile(f.name);
+    setErr(""); setKq(null); setChon(new Set()); setSua({}); setTenFile(f.name);
     if (!f.name.toLowerCase().endsWith(".pdf")) { setErr("Chỉ nhận file PDF báo cáo DAT."); return; }
     if (f.size > TOI_DA) { setErr("File quá lớn (tối đa 5 MB)."); return; }
     setBusy(true);
@@ -48,6 +62,9 @@ export default function NapDatModal({
       const r = await xemTruocDatKQD(maKh, f, targetKey);
       setKq(r);
       setChon(new Set(r.dong.filter((d) => d.tick_san).map((d) => d.ma_dk)));
+      const init: Record<string, Sua> = {};
+      for (const d of r.dong) if (d.chon_duoc) init[d.ma_dk] = { gio: soHien(d.gio_moi), km: soHien(d.km_moi) };
+      setSua(init);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Không đọc được file — thử lại.");
     } finally {
@@ -63,15 +80,26 @@ export default function NapDatModal({
   }, [kq]);
   const chonDuoc = useMemo(() => (kq?.dong ?? []).filter((d) => d.chon_duoc), [kq]);
 
+  function doiO(ma: string, k: keyof Sua, v: string) {
+    setSua((cur) => ({ ...cur, [ma]: { ...(cur[ma] ?? { gio: "", km: "" }), [k]: v } }));
+  }
+
+  // Dòng đang tick mà số trong ô trống/sai/ngoài khung → chặn Lưu (không ghi số đoán).
+  const dongLoi = useMemo(
+    () => (kq?.dong ?? []).filter((d) => d.chon_duoc && chon.has(d.ma_dk) && giaTri(sua[d.ma_dk]).sai),
+    [kq, chon, sua],
+  );
+
   function bat(ma: string, v: boolean) {
     setChon((cur) => { const c = new Set(cur); if (v) c.add(ma); else c.delete(ma); return c; });
   }
 
   async function luu() {
     if (!kq) return;
+    if (dongLoi.length > 0) { setErr(`${dongLoi.length} dòng đã tick có giờ/km trống hoặc sai dạng — sửa lại hoặc bỏ tick.`); return; }
     const dong = kq.dong
-      .filter((d) => chon.has(d.ma_dk) && d.chon_duoc && d.gio_moi != null && d.km_moi != null)
-      .map((d) => ({ ma_dk: d.ma_dk, gio_duong: d.gio_moi as number, km_duong: d.km_moi as number }));
+      .filter((d) => chon.has(d.ma_dk) && d.chon_duoc)
+      .map((d) => { const v = giaTri(sua[d.ma_dk]); return { ma_dk: d.ma_dk, gio_duong: v.gio as number, km_duong: v.km as number }; });
     if (dong.length === 0) return;
     setBusy(true); setErr("");
     try {
@@ -138,7 +166,10 @@ export default function NapDatModal({
                       </tr>
                     </thead>
                     <tbody>
-                      {kq.dong.map((d) => <Dong key={d.ma_dk + "#" + d.stt} d={d} tick={d.chon_duoc && chon.has(d.ma_dk)} bat={bat} khoa={busy} />)}
+                      {kq.dong.map((d) => (
+                        <Dong key={d.ma_dk + "#" + d.stt} d={d} tick={d.chon_duoc && chon.has(d.ma_dk)} bat={bat} khoa={busy}
+                          v={sua[d.ma_dk]} onSua={doiO} />
+                      ))}
                     </tbody>
                   </table>
                 </div>
@@ -158,7 +189,7 @@ export default function NapDatModal({
               )}
 
               <div className="text-[12px] text-muted-foreground">
-                Chỉ ghi <b>giờ đường</b> và <b>km đường</b> của các dòng đã tick. Điểm, kết luận và trạng thái học viên giữ nguyên. Học viên đã kết xuất (12/13) không ghi.
+                <b>Số mới sửa được ngay trong bảng</b> (giờ nhận số thập phân hoặc hh:mm, vd 20:30 → 20,5). Ô nào sửa khác số PDF được tô vàng. Chỉ ghi <b>giờ đường</b> và <b>km đường</b> của các dòng đã tick; điểm, kết luận và trạng thái giữ nguyên. Học viên đã kết xuất (12/13) không ghi.
               </div>
             </>
           )}
@@ -166,7 +197,8 @@ export default function NapDatModal({
 
         <div className="shrink-0 px-5 py-3.5 border-t border-border flex items-center gap-2 justify-end">
           <button onClick={onClose} disabled={busy} className="h-9 px-4 rounded-lg border border-border text-[13px] hover:bg-muted disabled:opacity-50">Đóng</button>
-          <button onClick={luu} disabled={!kq || chon.size === 0 || busy}
+          <button onClick={luu} disabled={!kq || chon.size === 0 || busy || dongLoi.length > 0}
+            title={dongLoi.length > 0 ? `${dongLoi.length} dòng đã tick có giờ/km trống hoặc sai dạng` : undefined}
             className="h-9 px-5 rounded-lg bg-kq text-white font-semibold text-[13px] hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-1.5">
             {busy && kq && <Icon name="refresh" className="w-4 h-4 animate-spin" />} Lưu {chon.size.toLocaleString("vi-VN")} học viên
           </button>
@@ -176,16 +208,29 @@ export default function NapDatModal({
   );
 }
 
-function Dong({ d, tick, bat, khoa }: { d: DatDong; tick: boolean; bat: (ma: string, v: boolean) => void; khoa: boolean }) {
+function Dong({ d, tick, bat, khoa, v, onSua }: {
+  d: DatDong; tick: boolean; bat: (ma: string, v: boolean) => void; khoa: boolean;
+  v: Sua | undefined; onSua: (ma: string, k: keyof Sua, v: string) => void;
+}) {
   const tt = TT[d.tinh_trang];
-  const doi = d.co_thay_doi;
-  const so = (cu: number | null, moi: number | null) => (
-    <>
-      <span className="text-muted-foreground">{fmtVn(cu)}</span>
-      <span className="text-muted-foreground"> → </span>
-      <span className={doi ? "font-semibold" : ""}>{fmtVn(moi)}</span>
-    </>
-  );
+  const gt = giaTri(v);
+  // Đã sửa khác số PDF? (so sau làm tròn 2 chữ số) — chỉ có nghĩa khi dòng sửa được.
+  const gioSua = d.chon_duoc && v != null && !bangNhau(gt.gio, d.gio_moi);
+  const kmSua = d.chon_duoc && v != null && !bangNhau(gt.km, d.km_moi);
+  const doi = d.chon_duoc && (!bangNhau(gt.gio, d.gio_cu) || !bangNhau(gt.km, d.km_cu));
+  const o = (k: keyof Sua, sua: boolean, rong: string) => {
+    const txt = v?.[k] ?? "";
+    const sai = txt.trim() !== "" ? (k === "gio" ? gt.gio == null : gt.km == null) : tick;
+    return (
+      <input value={txt} disabled={khoa} inputMode="decimal" placeholder={rong}
+        onChange={(e) => onSua(d.ma_dk, k, e.target.value)}
+        onBlur={(e) => { if (k === "gio") { const x = chuanHoaGio(e.target.value); if (x !== e.target.value) onSua(d.ma_dk, "gio", x); } }}
+        title={k === "gio" ? "Số thập phân hoặc hh:mm (vd 20:30 → 20,5)" : "Số km (vd 725,63)"}
+        className={"w-[64px] h-7 text-right tabular-nums text-[12.5px] px-1.5 rounded-md border bg-card focus:outline-none focus:border-kq " +
+          (sai ? "border-destructive" : sua ? "border-warning bg-warning/10 font-semibold" : "border-input")} />
+    );
+  };
+  const cu = (x: number | null) => <span className="text-muted-foreground">{fmtVn(x)}</span>;
   return (
     <tr className={"border-t border-border/60 " + (d.chon_duoc ? "" : "bg-muted/30 text-muted-foreground")}>
       <td className="px-2 py-1.5">
@@ -196,12 +241,19 @@ function Dong({ d, tick, bat, khoa }: { d: DatDong; tick: boolean; bat: (ma: str
         {d.ho_ten}
         <div className="text-[11px] font-normal text-muted-foreground tabular-nums">{d.ma_dk}</div>
       </td>
-      <td className="px-2 py-1.5 text-right tabular-nums whitespace-nowrap">{so(d.gio_cu, d.gio_moi)}</td>
-      <td className="px-2 py-1.5 text-right tabular-nums whitespace-nowrap">{so(d.km_cu, d.km_moi)}</td>
+      <td className="px-2 py-1.5 text-right tabular-nums whitespace-nowrap">
+        {cu(d.gio_cu)} <span className="text-muted-foreground">→</span>{" "}
+        {d.chon_duoc ? o("gio", gioSua, "giờ") : <span>{fmtVn(d.gio_moi)}</span>}
+      </td>
+      <td className="px-2 py-1.5 text-right tabular-nums whitespace-nowrap">
+        {cu(d.km_cu)} <span className="text-muted-foreground">→</span>{" "}
+        {d.chon_duoc ? o("km", kmSua, "km") : <span>{fmtVn(d.km_moi)}</span>}
+      </td>
       <td className="px-2 py-1.5">
         <span className={"font-semibold " + tt.cls}>{tt.nhan}</span>
         {d.tinh_trang === "khop" && !doi && <span className="ml-1 text-[11px] text-muted-foreground">(không đổi)</span>}
-        {d.canh_bao.map((w) => (
+        {(gioSua || kmSua) && <span className="ml-1.5 inline-block text-[11px] font-semibold text-warning bg-warning/10 border border-warning/40 rounded px-1.5 py-0.5">đã sửa so với PDF</span>}
+        {!gioSua && !kmSua && d.canh_bao.map((w) => (
           <span key={w.loai} className="ml-1.5 inline-block text-[11px] font-semibold text-warning bg-warning/10 border border-warning/40 rounded px-1.5 py-0.5">{nhanCanhBao(w)}</span>
         ))}
         {d.ghi_chu && <div className="text-[11px] text-destructive">{d.ghi_chu}</div>}
