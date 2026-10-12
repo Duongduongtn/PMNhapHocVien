@@ -174,3 +174,38 @@ def ket_qua_hon_hop(
         else:
             raise LoiDiem(f"Thiếu điểm môn {mon} (chưa nhập và không có điểm đã lưu).")
     return _tu_tho(tho)
+
+
+# ── KQD-07 — kiểm trước kết xuất (TDD §11D.9): luật THUẦN, không DB ──
+# Chỉ HV hạng ô tô được nhập KQĐT ở tool (user 12/10/2026) → hạng mô tô (A, A1..A4) không xét.
+LY_DO_CHUA_CO_DIEM = "chua_co_diem"
+LY_DO_THIEU_MON = "thieu_mon"
+LY_DO_THIEU_GIO_KM = "thieu_gio_km"
+LY_DO_THIEU_KET_LUAN = "thieu_ket_luan"
+
+
+def la_mo_to(ma_hang_moi: str | None, ma_hang: str | None) -> bool:
+    """Hạng mô tô = mã bắt đầu bằng 'A' (A, A1..A4). Mô tô không nhập KQĐT ở tool."""
+    return any((x or "").strip().upper().startswith("A") for x in (ma_hang_moi, ma_hang))
+
+
+def hv_chua_du(hv: dict) -> dict:
+    """Học viên (hạng ô tô) còn thiếu gì trước khi kết xuất.
+
+    `hv`: tt_xuly · ket_luan · diem{5 môn} · gio_san · km_san · gio_duong · km_duong (None = trống).
+    Trả `{"ly_do": [...], "mon_thieu": [...]}`; `ly_do` rỗng = đủ điều kiện. **Môn bắt buộc = cả 5 môn**
+    (cùng luật "ô đỏ" KQD-02). Giờ/km đường dưới ngưỡng gợi ý chỉ là cảnh báo → KHÔNG vào đây.
+    """
+    diem = hv.get("diem") or {}
+    thieu = [m for m in MON if diem.get(m) is None]
+    ly_do: list[str] = []
+    if len(thieu) == len(MON):
+        ly_do.append(LY_DO_CHUA_CO_DIEM)
+        thieu = []
+    elif thieu:
+        ly_do.append(LY_DO_THIEU_MON)
+    if any(hv.get(k) is None for k in ("gio_san", "km_san", "gio_duong", "km_duong")):
+        ly_do.append(LY_DO_THIEU_GIO_KM)
+    if hv.get("tt_xuly") in ("09", "10") and hv.get("ket_luan") is None:
+        ly_do.append(LY_DO_THIEU_KET_LUAN)
+    return {"ly_do": ly_do, "mon_thieu": thieu}

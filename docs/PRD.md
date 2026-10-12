@@ -919,7 +919,7 @@
 
 #### [KQD-07] Kiểm trước kết xuất (theo từng khóa, chỉ đọc)
 
-**Trạng thái:** ⏳ Todo — story mới (CHANGES #65, 12/10/2026). Chưa code.
+**Trạng thái:** 🔄 In Progress — task 119 (backend) xong 12/10/2026: luật `hv_chua_du` + `GET /local/ketqua/kiem-truoc` (chỉ đọc, hạng mô tô không xét), tool 681 pytest. Còn task 120 (UI khung + chip + bấm dòng + KQD-02 dùng chung luật; cần mock `/prototype-next`).
 **Story:** Là nhân viên nạp DB, trước khi sang phần mềm CDB cũ bấm kết xuất, tôi muốn một danh sách các học viên của khóa còn thiếu điểm, thiếu giờ thực hành hoặc thiếu kết luận, để sửa hết một lượt rồi mới kết xuất, không phải gửi Sở xong mới phát hiện thiếu rồi mở khóa sửa lại.
 
 **Done khi:**

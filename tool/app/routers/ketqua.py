@@ -126,7 +126,8 @@ def ds_khoa(q: str = "", target_key: str | None = None) -> list[dict]:
 _SQL_HV = (
     "SELECT A.MaDK, A.HoVaTen, A.NgaySinh, A.SoCMT, B.SoHoSo, "
     "B.HangGPLX, gp.MaHangMoi, B.TT_XuLy, B.KetLuanCSDT, "
-    "B.DiemKQLyThuyet, B.DiemKQMoPhong, B.DiemKQHinh, B.DiemKQTienLui, B.DiemKQThucHanh "
+    "B.DiemKQLyThuyet, B.DiemKQMoPhong, B.DiemKQHinh, B.DiemKQTienLui, B.DiemKQThucHanh, "
+    "B.TGThucHanhHinh, B.QDThucHanhHinh, B.TGThucHanhDuong, B.TongQDThucHanh "
     "FROM dbo.NguoiLX_HoSo B JOIN dbo.NguoiLX A ON A.MaDK = B.MaDK "
     "LEFT JOIN dbo.DM_HangGPLX gp ON gp.MaHang = B.HangGPLX "
     "WHERE B.MaKhoaHoc = %s AND B.TrangThai = 1{loc} "
@@ -145,6 +146,23 @@ def _ket_luan(v) -> str | None:
     return "dat" if int(v) == 1 else "khong_dat"
 
 
+def _doc_hv_khoa(ma_kh: str, nhom: tuple[str, ...] | None, target_key: str | None) -> list[dict]:
+    """Đọc HV của 1 khóa ở DB đích, lọc theo tập TT_XuLy (None = tất cả). Dùng chung /hoc-vien + /kiem-truoc."""
+    db = _db_dich(target_key)
+    params: list = [ma_kh]
+    loc = ""
+    if nhom:
+        loc = " AND B.TT_XuLy IN (" + ", ".join(["%s"] * len(nhom)) + ")"
+        params.extend(nhom)
+    try:
+        with sqlserver_conn_dich(db) as conn:
+            cur = conn.cursor(as_dict=True)
+            cur.execute(_SQL_HV.format(loc=loc), tuple(params))
+            return cur.fetchall()
+    except Exception as e:  # noqa: BLE001
+        raise _loi_db(e)
+
+
 @router.get("/hoc-vien")
 def ds_hoc_vien(
     ma_kh: str = Query(..., min_length=1),
@@ -155,21 +173,7 @@ def ds_hoc_vien(
 
     Tìm nhanh tên/CCCD lọc phía client (như TraCuuCDB). Trả về cả HV đã kết xuất/hoàn thành
     (12/13) khi 'all' để lưới hiện dòng chỉ-đọc (KQD-02 khóa sửa)."""
-    db = _db_dich(target_key)
-    params: list = [ma_kh]
-    loc = ""
-    nhom = _NHOM_TT.get(trang_thai)
-    if nhom:
-        loc = " AND B.TT_XuLy IN (" + ", ".join(["%s"] * len(nhom)) + ")"
-        params.extend(nhom)
-    sql = _SQL_HV.format(loc=loc)
-    try:
-        with sqlserver_conn_dich(db) as conn:
-            cur = conn.cursor(as_dict=True)
-            cur.execute(sql, tuple(params))
-            rows = cur.fetchall()
-    except Exception as e:  # noqa: BLE001
-        raise _loi_db(e)
+    rows = _doc_hv_khoa(ma_kh, _NHOM_TT.get(trang_thai), target_key)
     return [
         {
             "ma_dk": r["MaDK"],
@@ -192,6 +196,46 @@ def ds_hoc_vien(
         }
         for r in rows
     ]
+
+
+@router.get("/kiem-truoc")
+def kiem_truoc(ma_kh: str = Query(..., min_length=1), target_key: str | None = None) -> dict:
+    """KQD-07 — kiểm trước kết xuất cho ĐÚNG 1 khóa (chỉ đọc, chỉ nhắc, không chặn).
+
+    Chỉ HV TT_XuLy 03/04/09/10 (12/13/14/90 không xét). Hạng mô tô không nhập KQĐT → không xét,
+    đếm riêng ở `mo_to_bo_qua`. Luật ở `ketqua_quydoi.hv_chua_du` (một nguồn với KQD-02)."""
+    rows = _doc_hv_khoa(ma_kh, _NHOM_TT["dangky"] + _NHOM_TT["capnhat"], target_key)
+    thieu: list[dict] = []
+    dem = {k: 0 for k in (ketqua_quydoi.LY_DO_CHUA_CO_DIEM, ketqua_quydoi.LY_DO_THIEU_MON,
+                          ketqua_quydoi.LY_DO_THIEU_GIO_KM, ketqua_quydoi.LY_DO_THIEU_KET_LUAN)}
+    tong = du = mo_to = 0
+    for r in rows:
+        if ketqua_quydoi.la_mo_to(r["MaHangMoi"], r["HangGPLX"]):
+            mo_to += 1
+            continue
+        tong += 1
+        hv = {
+            "tt_xuly": (r["TT_XuLy"] or "").strip() or None,
+            "ket_luan": _ket_luan(r["KetLuanCSDT"]),
+            "diem": {
+                "ly_thuyet": _diem(r["DiemKQLyThuyet"]), "mo_phong": _diem(r["DiemKQMoPhong"]),
+                "hinh": _diem(r["DiemKQHinh"]), "tien_lui": _diem(r["DiemKQTienLui"]),
+                "duong": _diem(r["DiemKQThucHanh"]),
+            },
+            "gio_san": r["TGThucHanhHinh"], "km_san": r["QDThucHanhHinh"],
+            "gio_duong": r["TGThucHanhDuong"], "km_duong": r["TongQDThucHanh"],
+        }
+        kq = ketqua_quydoi.hv_chua_du(hv)
+        if not kq["ly_do"]:
+            du += 1
+            continue
+        for ld in kq["ly_do"]:
+            dem[ld] += 1
+        thieu.append({
+            "ma_dk": r["MaDK"], "ho_ten": r["HoVaTen"], "so_cccd": r["SoCMT"],
+            "tt_xuly": hv["tt_xuly"], "ly_do": kq["ly_do"], "mon_thieu": kq["mon_thieu"],
+        })
+    return {"ma_kh": ma_kh, "tong": tong, "du": du, "thieu": thieu, "dem": dem, "mo_to_bo_qua": mo_to}
 
 
 # ── KQD-02: cờ chương trình CŨ/MỚI theo khóa (lưu phía tool) ──
