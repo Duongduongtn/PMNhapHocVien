@@ -92,6 +92,7 @@ export const MODULES: ModuleDef[] = [
     subnav: [
       { to: "/phan-cong/theo-khoa", label: "Phân công theo khóa", icon: "calendar" },
       { to: "/phan-cong/ra-soat", label: "Rà soát khóa", icon: "search" },
+      { to: "/phan-cong/han-giay-to", label: "Hạn giấy tờ", icon: "clock" },
     ],
   },
   {

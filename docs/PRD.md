@@ -943,7 +943,7 @@
 
 ### 🟣 Phân công giáo viên – xe cho khóa (workspace riêng — tool máy CSDT)
 
-**Trạng thái:** ⏳ Todo — nhóm mới (CHANGES #54, 10/10/2026, prefix **PCG**). Phân hệ #4 của tool: gán **giáo viên** và **xe tập lái** vào khóa, ghi **ai dạy môn gì, từ lúc nào đến lúc nào**, **xe nào đi với giáo viên nào** vào CSDL đích CDB `GPLX_CDB_CSDT` (bảng `KhoaHoc_GiaoVien`, `KhoaHoc_XeTap`), thay cho việc nhập từng dòng trong phần mềm CDB cũ.
+**Trạng thái:** ✅ Đã chốt — 12/10/2026 (6/6 story ✅; user duyệt chốt dù chưa nghiệm thu ghi thật CDB ở máy CSĐT — Checkpoint 22/31 còn mở). Phân hệ #4 của tool: gán **giáo viên** và **xe tập lái** vào khóa, ghi **ai dạy môn gì, từ lúc nào đến lúc nào**, **xe nào đi với giáo viên nào** vào CSDL đích CDB `GPLX_CDB_CSDT` (bảng `KhoaHoc_GiaoVien`, `KhoaHoc_XeTap`), thay cho việc nhập từng dòng trong phần mềm CDB cũ.
 
 > Nghiệp vụ **ghi CDB đích** như SYNC/TCB/KQD. **Phạm vi:** danh sách GV/xe của khóa + phân công dạy + ghép xe 1 GV–1 xe. **KHÔNG làm:** lịch học theo tuần (`LichHoc` — chỉ 1/16 khóa dùng), phân xe cho từng học viên (`MaHV` luôn trống), thêm/sửa/xóa GV hoặc xe trong danh mục (do Sở tiếp nhận), kết xuất XML. Mock đã duyệt: `ui-mock/phancong.html` (ngăn "Mô tả nghiệp vụ" trong mock là bản mô tả chi tiết). Thiết kế: TDD §11E · quyết định: TDD-decisions §22 · schema/SP đã rà soát 10/10/2026 (trao đổi CHANGES #54).
 >
@@ -1037,7 +1037,7 @@
 
 #### [PCG-06] Hạn giấy tờ xe, hạn GPLX giáo viên và GV/xe ngưng còn phân công (tab thứ 3, chỉ đọc)
 
-**Trạng thái:** 🔄 In Progress — task 121 (backend) xong 12/10/2026: `phan_loai_han` + `phancong_hangiayto.py` + `GET /local/phancong/han-giay-to?ngay=30` (chỉ đọc, 3 nhóm), tool 690 pytest. Còn task 122 (UI tab thứ 3 "Hạn giấy tờ"; cần mock `/prototype-next`).
+**Trạng thái:** ✅ Done — task 121 (backend) + task 122 (UI) xong 12/10/2026: `phan_loai_han` + `phancong_hangiayto.py` + `GET /local/phancong/han-giay-to?ngay=30`, tab thứ 3 "Hạn giấy tờ"; tool 693 pytest · webui 69 vitest · Playwright 4 ca với API giả (chưa chạy UI với DB thật).
 **Story:** Là nhân viên cơ sở, tôi muốn một bảng cho thấy xe nào sắp hết hạn giấy phép, giáo viên nào sắp hết hạn GPLX và GV/xe nào đã ngưng mà vẫn còn trong khóa chưa bế giảng, để xử lý trước khi ảnh hưởng khóa học, thay vì chỉ thấy cảnh báo khi mở từng khóa.
 
 **Done khi:**

@@ -1323,6 +1323,27 @@ export const goiYGhepXe = (maKh: string, ban: BanNhapPC, targetKey?: string) =>
     body: JSON.stringify({ ma_kh: maKh, ...ban }),
   }).then(json<{ goi_y: GoiYGhepXe[] }>);
 
+// ── PCG-06: hạn giấy tờ xe/GPLX giáo viên + GV/xe ngưng còn phân công (chỉ đọc, toàn cơ sở) ──
+export interface KhoaGanPC { ma_kh: string; ten_kh: string }
+export interface GiayHanPC { giay: string; ngay: string; con_ngay: number; muc: string }
+export interface XeHanPC { bien_so: string; hang: string; muc?: string; giay: GiayHanPC[]; khoa: KhoaGanPC[] }
+export interface GvHanPC { ma_gv: string; ho_ten: string; hang: string; muc?: string; giay: GiayHanPC[]; khoa: KhoaGanPC[] }
+export interface HanGiayToPC {
+  hom_nay: string;
+  nguong: number;
+  xe: { het_han: XeHanPC[]; sap_het: XeHanPC[]; chua_khai: { bien_so: string; hang: string; khoa: KhoaGanPC[] }[] };
+  gv: { het_han: GvHanPC[]; sap_het: GvHanPC[]; chua_khai: { ma_gv: string; ho_ten: string; hang: string; khoa: KhoaGanPC[] }[] };
+  ngung: {
+    xe: { bien_so: string; hang: string; khoa: KhoaGanPC[] }[];
+    gv: { ma_gv: string; ho_ten: string; hang: string; khoa: KhoaGanPC[] }[];
+  };
+  dem: Record<string, number>;
+}
+export const hanGiayToPC = (ngay: number, targetKey?: string) =>
+  fetch(`${BASE}/local/phancong/han-giay-to?${qs({ ngay, target_key: targetKey })}`, { headers: authHeaders() }).then(
+    json<HanGiayToPC>,
+  );
+
 export interface RaSoatKhoaPC {
   ma_kh: string;
   ten_kh: string;
