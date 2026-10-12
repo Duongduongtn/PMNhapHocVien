@@ -81,7 +81,7 @@ def _bao_dia_chi(url: str) -> None:
 
 def selftest() -> int:
     """`pmcsdtlx-tool.exe --selftest` — kiểm nhanh bản đóng gói trên máy sạch (DGT-01):
-    thư viện C có chạy không (pymssql/FreeTDS, rembg/onnxruntime + model u2net gói kèm).
+    thư viện C có chạy không (pymssql/FreeTDS, rembg/onnxruntime + model u2net, pdfplumber gói kèm).
     KHÔNG cần SQL Server / mạng — chỉ nạp module + xử lý 1 ảnh nhỏ. Trả 0 nếu đạt.
     Bản --windowed không có console → kết quả báo thêm bằng hộp thoại."""
     import io
@@ -109,6 +109,39 @@ def selftest() -> int:
     except Exception as e:  # pragma: no cover
         ok = False
         dong.append(f"[LOI] rembg: {e}")
+
+    try:
+        # KQD-08: đọc PDF DAT cần pdfplumber + pdfminer + pypdfium2 (DLL) — dựng 1 PDF tối thiểu trong RAM
+        # rồi trích chữ; thiếu dữ liệu cmap/DLL trong bản đóng gói sẽ lộ ra ở đây.
+        import pdfplumber
+
+        nd = b"BT /F1 12 Tf 20 100 Td (KQD08 DAT) Tj ET"
+        vat = [
+            b"<< /Type /Catalog /Pages 2 0 R >>",
+            b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Contents 4 0 R "
+            b"/Resources << /Font << /F1 5 0 R >> >> >>",
+            b"<< /Length %d >>\nstream\n" % len(nd) + nd + b"\nendstream",
+            b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        ]
+        pdf = bytearray(b"%PDF-1.4\n")
+        vi_tri = []
+        for i, v in enumerate(vat, start=1):
+            vi_tri.append(len(pdf))
+            pdf += b"%d 0 obj\n" % i + v + b"\nendobj\n"
+        xref = len(pdf)
+        pdf += b"xref\n0 %d\n0000000000 65535 f \n" % (len(vat) + 1)
+        for vt in vi_tri:
+            pdf += b"%010d 00000 n \n" % vt
+        pdf += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (len(vat) + 1, xref)
+        with pdfplumber.open(io.BytesIO(bytes(pdf))) as doc:
+            chu = doc.pages[0].extract_text() or ""
+        if "KQD08" not in chu:
+            raise RuntimeError(f"trích chữ sai: {chu!r}")
+        dong.append("[OK ] pdfplumber/pdfminer/pypdfium2 đọc được PDF (nạp giờ/km DAT)")
+    except Exception as e:  # pragma: no cover
+        ok = False
+        dong.append(f"[LOI] pdfplumber: {e}")
 
     dong.append("KET QUA: " + ("DAT" if ok else "CHUA DAT"))
     for d in dong:
