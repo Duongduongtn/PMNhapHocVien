@@ -257,3 +257,64 @@ def test_hoc_vien_tra_gio_km_da_lam_tron(monkeypatch, auth_headers):
     _gia_lap(monkeypatch, [row], [])
     j = client.get("/local/ketqua/hoc-vien?ma_kh=KX", headers=auth_headers).json()
     assert j[0]["gio_duong"] == 18.4 and j[0]["km_duong"] is None
+
+
+# ---- lý do "không có trong khóa" ----------------------------------------------
+def _item(ma="9", ten="NGUYỄN VĂN A", ns="01/02/2000"):
+    return {"ma_dk": ma, "ho_ten": ten, "ngay_sinh": ns, "ghi_chu": None}
+
+
+def test_ngay_sinh_luu():
+    assert d.ngay_sinh_luu("01/02/2000") == "20000201"
+    assert d.ngay_sinh_luu("1/2/2000") == "20000201"
+    assert d.ngay_sinh_luu("2000") == "" and d.ngay_sinh_luu("") == ""
+
+
+def test_ly_do_ma_thuoc_khoa_khac():
+    it = _item()
+    d.gan_ly_do_khong_co([it], {"9": [{"MaDK": "9", "MaKhoaHoc": "K2", "TrangThai": 1, "TenKH": "Khóa 2"}]}, {}, "K1")
+    assert it["khoa_khac"] == "Khóa 2 (K2)" and "đã đổi khóa" in it["ghi_chu"]
+
+
+def test_ly_do_cung_khoa_nhung_khong_hoat_dong():
+    it = _item()
+    d.gan_ly_do_khong_co([it], {"9": [{"MaDK": "9", "MaKhoaHoc": "K1", "TrangThai": 0, "TenKH": "K"}]}, {}, "K1")
+    assert it["khoa_khac"] is None and "không còn ở trạng thái hoạt động" in it["ghi_chu"]
+
+
+def test_ly_do_lech_ma_theo_ten_ngay_sinh():
+    it = _item()
+    theo_ten = {("NGUYỄN VĂN A", "20000201"): [{"MaDK": "77", "MaKhoaHoc": "K1", "TrangThai": 1, "TenKH": "K"}]}
+    d.gan_ly_do_khong_co([it], {}, theo_ten, "K1")
+    assert "LỆCH MÃ" in it["ghi_chu"] and "77" in it["ghi_chu"]
+    it2 = _item()
+    theo_ten = {("NGUYỄN VĂN A", "20000201"): [{"MaDK": "77", "MaKhoaHoc": "K2", "TrangThai": 1, "TenKH": "Khóa 2"}]}
+    d.gan_ly_do_khong_co([it2], {}, theo_ten, "K1")
+    assert it2["khoa_khac"] == "Khóa 2 (K2)" and "lệch mã" in it2["ghi_chu"]
+
+
+def test_ly_do_khong_thay_o_dau_va_loi_ket_noi():
+    it = _item()
+    d.gan_ly_do_khong_co([it], {}, {}, "K1")
+    assert "chưa nạp/đồng bộ" in it["ghi_chu"]
+    it2 = _item()
+    d.gan_ly_do_khong_co([it2], None, None, "K1")
+    assert "lỗi kết nối" in it2["ghi_chu"]
+
+
+def test_xem_truoc_gan_ly_do_cho_dong_khong_co(monkeypatch, auth_headers):
+    _gia_lap(monkeypatch, [_hv("1", gio=10.0, km=500.0)], [])
+    monkeypatch.setattr(k, "_tra_cuu_khong_co", lambda items, tk: (
+        {"9": [{"MaDK": "9", "MaKhoaHoc": "K2", "TrangThai": 1, "TenKH": "Khóa 2"}]}, {}))
+    pdf = {"ma_kh": "KX", "hang": "B", "dong": [_dong("1", 16.32, 725.63), _dong("9", 20.0, 800.0, stt=2)]}
+    j = _post_xem(monkeypatch, auth_headers, pdf).json()
+    kc = [x for x in j["dong"] if x["tinh_trang"] == "khong_co_trong_khoa"][0]
+    assert kc["khoa_khac"] == "Khóa 2 (K2)" and "đổi khóa" in kc["ghi_chu"]
+
+
+def test_tra_cuu_loi_ket_noi_khong_lam_hong_xem_truoc(monkeypatch):
+    def hong(_db):
+        raise RuntimeError("mất kết nối")
+    monkeypatch.setattr(k, "_db_dich", lambda tk: "DB")
+    monkeypatch.setattr(k, "sqlserver_conn_dich", hong)
+    assert k._tra_cuu_khong_co([_item()], None) == (None, None)

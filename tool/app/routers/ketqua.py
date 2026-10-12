@@ -287,7 +287,53 @@ def dat_xem_truoc(
         )
     hv = _doc_hv_khoa(ma_kh, None, target_key)
     kq = ketqua_dat.doi_chieu(pdf["dong"], hv)
+    khong_co = [d for d in kq["dong"] if d["tinh_trang"] == ketqua_dat.KHONG_CO_TRONG_KHOA]
+    if khong_co:
+        theo_ma, theo_ten = _tra_cuu_khong_co(khong_co, target_key)
+        ketqua_dat.gan_ly_do_khong_co(khong_co, theo_ma, theo_ten, ma_kh)
     return {"ma_kh": ma_kh, "hang": pdf["hang"], "tong_file": len(pdf["dong"]), **kq}
+
+
+_TOI_DA_TRA_TEN = 50   # tra theo tên + ngày sinh chạy từng truy vấn → chặn số dòng để không chậm
+
+
+def _tra_cuu_khong_co(items: list[dict], target_key: str | None) -> tuple[dict, dict] | tuple[None, None]:
+    """Tra DB đích (chỉ SELECT) cho các dòng PDF không có trong khóa: theo MaDK ở MỌI khóa, rồi theo
+    (họ tên + ngày sinh). Lỗi kết nối → (None, None) để UI vẫn hiện lý do chung, không vỡ xem trước."""
+    theo_ma: dict[str, list] = {}
+    theo_ten: dict[tuple, list] = {}
+    try:
+        with sqlserver_conn_dich(_db_dich(target_key)) as conn:
+            cur = conn.cursor(as_dict=True)
+            ma = [d["ma_dk"] for d in items][:500]
+            if ma:
+                cur.execute(
+                    "SELECT hs.MaDK, hs.MaKhoaHoc, hs.TrangThai, kh.TenKH FROM dbo.NguoiLX_HoSo hs "
+                    "LEFT JOIN dbo.KhoaHoc kh ON kh.MaKH = hs.MaKhoaHoc WHERE hs.MaDK IN ("
+                    + ", ".join(["%s"] * len(ma)) + ")",
+                    tuple(ma),
+                )
+                for r in cur.fetchall():
+                    theo_ma.setdefault(r["MaDK"], []).append(r)
+            # Chỉ dòng chưa thấy theo mã mới tra theo tên (ưu tiên khớp theo MaDK).
+            can_ten = [d for d in items if d["ma_dk"] not in theo_ma][:_TOI_DA_TRA_TEN]
+            for d in can_ten:
+                ns = ketqua_dat.ngay_sinh_luu(d.get("ngay_sinh", ""))
+                if not ns or not d["ho_ten"].strip():
+                    continue
+                cur.execute(
+                    "SELECT TOP 3 a.MaDK, hs.MaKhoaHoc, hs.TrangThai, kh.TenKH FROM dbo.NguoiLX a "
+                    "JOIN dbo.NguoiLX_HoSo hs ON hs.MaDK = a.MaDK "
+                    "LEFT JOIN dbo.KhoaHoc kh ON kh.MaKH = hs.MaKhoaHoc "
+                    "WHERE a.HoVaTen = %s AND a.NgaySinh = %s",
+                    (d["ho_ten"].strip(), ns),
+                )
+                rows = cur.fetchall()
+                if rows:
+                    theo_ten[(d["ho_ten"].strip(), ns)] = rows
+        return theo_ma, theo_ten
+    except Exception:  # noqa: BLE001 — chỉ là phần giải thích thêm, không được làm hỏng xem trước
+        return None, None
 
 
 class DatDongIn(BaseModel):

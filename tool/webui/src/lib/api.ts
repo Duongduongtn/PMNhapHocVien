@@ -1026,6 +1026,7 @@ export interface DatDong {
   chon_duoc: boolean;
   tick_san: boolean;
   ghi_chu: string | null;
+  khoa_khac?: string | null; // "không có trong khóa": khóa khác đang chứa mã/người này (nếu tra ra)
 }
 export interface DatXemTruoc {
   ma_kh: string;

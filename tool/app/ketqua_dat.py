@@ -104,6 +104,51 @@ def _so2(v) -> float | None:
     return round(float(v), 2) if v is not None else None
 
 
+def ngay_sinh_luu(v: str) -> str:
+    """'dd/mm/yyyy' (PDF) → 'yyyymmdd' (cột NguoiLX.NgaySinh). Sai dạng → ''."""
+    m = re.fullmatch(r"\s*(\d{1,2})/(\d{1,2})/(\d{4})\s*", v or "")
+    return f"{m[3]}{int(m[2]):02d}{int(m[1]):02d}" if m else ""
+
+
+def _ten_khoa(r: dict) -> str:
+    ten = (r.get("TenKH") or "").strip()
+    ma = (r.get("MaKhoaHoc") or "").strip()
+    return f"{ten} ({ma})" if ten else ma
+
+
+def gan_ly_do_khong_co(dong: list[dict], theo_ma: dict | None, theo_ten: dict | None, ma_kh: str) -> None:
+    """Điền `ghi_chu` (lý do) + `khoa_khac` cho các dòng "không có trong khóa". Sửa tại chỗ.
+
+    `theo_ma`: {MaDK: [hàng NguoiLX_HoSo+TenKH của MỌI khóa]} · `theo_ten`: {(HoVaTen, 'yyyymmdd'):
+    [hàng]} — cả hai do router tra DB. None = tra không được (lỗi kết nối) → lý do chung."""
+    for d in dong:
+        d["khoa_khac"] = None
+        if theo_ma is None or theo_ten is None:
+            d["ghi_chu"] = "Không có trong khóa này (chưa tra được lý do — lỗi kết nối)."
+            continue
+        cung_ma = theo_ma.get(d["ma_dk"]) or []
+        if cung_ma:
+            r = cung_ma[0]
+            if (r.get("MaKhoaHoc") or "").strip() != ma_kh:
+                d["khoa_khac"] = _ten_khoa(r)
+                d["ghi_chu"] = f"Mã này đang thuộc khóa {_ten_khoa(r)} — học viên đã đổi khóa. Chọn đúng khóa đó để nạp."
+            else:
+                d["ghi_chu"] = "Hồ sơ có trong khóa này nhưng không còn ở trạng thái hoạt động (đã xóa/ngưng) — không ghi được."
+            continue
+        cung_ten = theo_ten.get((d["ho_ten"].strip(), ngay_sinh_luu(d.get("ngay_sinh", "")))) or []
+        if cung_ten:
+            r = cung_ten[0]
+            cung_khoa = (r.get("MaKhoaHoc") or "").strip() == ma_kh
+            d["khoa_khac"] = None if cung_khoa else _ten_khoa(r)
+            d["ghi_chu"] = (
+                f"Cùng họ tên + ngày sinh với học viên mã {r['MaDK']} "
+                + ("trong khóa này nhưng LỆCH MÃ giữa DAT và CDB — kiểm lại mã của người này."
+                   if cung_khoa else f"ở khóa {_ten_khoa(r)} — lệch mã, kiểm lại trước khi nạp.")
+            )
+            continue
+        d["ghi_chu"] = "Không tìm thấy học viên này ở CSDL đích — có thể chưa nạp/đồng bộ vào CDB."
+
+
 def doi_chieu(dong: list[dict], hv_khoa: list[dict]) -> dict:
     """Khớp dòng file với HV của khóa (theo MaDK) → bảng xác nhận. KHÔNG ghi gì.
 
@@ -115,7 +160,7 @@ def doi_chieu(dong: list[dict], hv_khoa: list[dict]) -> dict:
     for d in dong:
         h = theo_ma.get(d["ma_hv"])
         item = {
-            "stt": d["stt"], "ma_dk": d["ma_hv"],
+            "stt": d["stt"], "ma_dk": d["ma_hv"], "ngay_sinh": d["ngay_sinh"],
             "ho_ten": (h["HoVaTen"] if h else d["ho_ten"]),
             "gio_cu": _so2(h["TGThucHanhDuong"]) if h else None,
             "km_cu": _so2(h["TongQDThucHanh"]) if h else None,
