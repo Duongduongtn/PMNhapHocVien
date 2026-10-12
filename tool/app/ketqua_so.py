@@ -9,6 +9,7 @@ Không có bìa, không khối chữ ký (mẫu không có). Quyết định: TD
 from __future__ import annotations
 
 import io
+import math
 import unicodedata
 from datetime import date, datetime
 
@@ -24,7 +25,7 @@ HANG_DU_LIEU_DAU = 12
 
 _FONT = "Times New Roman"
 _NEN = PatternFill("solid", fgColor="FFD9EAF7")   # ARGB như file mẫu
-_VIEN = Side(style="thin", color="000000")
+_VIEN = Side(style="thin", color="FFA6A6A6")   # như file mẫu (viền xám)
 _KHUNG = Border(left=_VIEN, right=_VIEN, top=_VIEN, bottom=_VIEN)
 _DO = "C00000"
 
@@ -36,7 +37,18 @@ LE_TRAI, LE_PHAI, LE_TREN, LE_DUOI = 2 * _CM, 1 * _CM, 1.5 * _CM, 1.5 * _CM
 _RONG_B_MIN, _RONG_B_MAX = 25.0, 34.0
 _RONG_C_MIN, _RONG_C_MAX = 9.4, 14.0
 _RONG_F = 16.5            # đủ cho "Chưa hoàn thành" trên một dòng
-_HE_SO_CHU = 1.05         # ước lượng độ rộng 1 ký tự Times New Roman 12 theo đơn vị cột Excel
+_RONG_THUONG = 1.05       # ước lượng độ rộng 1 ký tự thường Times New Roman 12 theo đơn vị cột Excel
+_RONG_HOA = 1.6           # chữ HOA rộng hơn nhiều (tên trong DB thường lưu viết hoa)
+
+
+def _rong_chu(text: str) -> float:
+    """Độ rộng ước lượng của chuỗi (đơn vị cột Excel): chữ hoa 1,6 · ký tự khác 1,05 (hơi dư để an toàn)."""
+    return sum(_RONG_HOA if c.isupper() else _RONG_THUONG for c in text)
+
+
+def _so_dong(text: str, rong_o: float) -> int:
+    """Số dòng ước lượng khi `text` (có thể nhiều đoạn \n) xuống dòng trong ô rộng `rong_o`."""
+    return sum(max(1, math.ceil(_rong_chu(seg) / max(rong_o, 1))) for seg in text.split("\n"))
 
 
 # =========================== Xếp theo tên tiếng Việt ===========================
@@ -46,9 +58,10 @@ _THANH = {"̀": 1, "́": 2, "̉": 3, "̃": 4, "̣": 5}   # huyền, sắc, hỏi
 _NON, _TRANG, _RAU = "̂", "̆", "̛"                            # ^ , ˘ , râu (ơ ư)
 
 
-def _khoa_tu(tu: str) -> tuple[tuple[int, ...], tuple[int, ...]]:
-    """(thứ hạng chữ cái, thứ hạng thanh điệu) của một từ — chữ cái so TRƯỚC, thanh điệu so SAU
-    (a < ă < â < b …; không dấu < huyền < sắc < hỏi < ngã < nặng)."""
+def _khoa_tu(tu: str) -> tuple[tuple[int, ...], int]:
+    """(thứ hạng chữ cái, thanh điệu của âm tiết) — chữ cái so TRƯỚC, thanh điệu so SAU
+    (a < ă < â < b …; không dấu < huyền < sắc < hỏi < ngã < nặng). Mỗi âm tiết chỉ có MỘT thanh nên
+    `Hòa` và `Hoà` (dấu kiểu mới/cũ) cho cùng khóa."""
     chu: list[int] = []
     thanh: list[int] = []
     for ch in unicodedata.normalize("NFC", tu.lower()):
@@ -65,7 +78,7 @@ def _khoa_tu(tu: str) -> tuple[tuple[int, ...], tuple[int, ...]]:
             goc = "ư"
         chu.append(_HANG_CHU.get(goc, 100 + ord(goc[0])))
         thanh.append(t)
-    return tuple(chu), tuple(thanh)
+    return tuple(chu), max(thanh, default=0)
 
 
 def khoa_sap_xep(ho_ten: str) -> tuple:
@@ -73,9 +86,9 @@ def khoa_sap_xep(ho_ten: str) -> tuple:
     Tên trống xếp cuối. Không dùng `locale` (kết quả không ổn định giữa các máy)."""
     tu = (ho_ten or "").split()
     if not tu:
-        return ((10**6,), (), (), (), ())
+        return ((10**6,), 0, (), 0, ())
     ten = _khoa_tu(tu[-1])
-    ho = _khoa_tu(tu[0]) if len(tu) > 1 else ((), ())
+    ho = _khoa_tu(tu[0]) if len(tu) > 1 else ((), 0)
     dem = tuple(_khoa_tu(w) for w in tu[1:-1])
     return (ten[0], ten[1], ho[0], ho[1], dem)
 
@@ -88,6 +101,18 @@ def _dong_so(h: dict, ngay_thi: date | None) -> dict:
     d["ket_qua_so"] = d["ket_qua"] if du5 else ""
     d["ngay_xet_so"] = ngay_thi if d["ket_qua_so"] == kx.HOAN_THANH else None
     return d
+
+
+def dem_trong_ket_qua(hv_rows: list[dict]) -> int:
+    """Số HV ĐÃ có kết luận (Đạt/Không đạt) nhưng thiếu điểm nên ô kết quả trong sổ để trống —
+    để UI giải thích (dữ liệu PM cũ hay lưu kết luận mà thiếu điểm môn)."""
+    n = 0
+    for h in hv_rows:
+        d = kx.dong_hv(h, None)
+        du5 = all(v is not None for v in d["diem"].values())
+        if d["ket_qua"] and not du5:
+            n += 1
+    return n
 
 
 def dung_so_theo_doi(khoa: dict, hv_rows: list[dict], co_so: dict, ngay_lap: datetime) -> bytes:
@@ -104,9 +129,8 @@ def dung_so_theo_doi(khoa: dict, hv_rows: list[dict], co_so: dict, ngay_lap: dat
     ws.sheet_view.showGridLines = False
 
     # --- độ rộng cột
-    dai_nhat = max((len(d["ho_ten"]) for d in dong), default=0)
-    rong_b = min(max(_RONG_B_MIN, round(dai_nhat * _HE_SO_CHU + 2, 1)), _RONG_B_MAX)
-    rong_c = min(max(_RONG_C_MIN, round(len(ten_khoa) * _HE_SO_CHU + 2, 1)), _RONG_C_MAX)
+    rong_b = min(max(_RONG_B_MIN, round(max((_rong_chu(d["ho_ten"]) for d in dong), default=0) + 2, 1)), _RONG_B_MAX)
+    rong_c = min(max(_RONG_C_MIN, round(_rong_chu(ten_khoa) + 2, 1)), _RONG_C_MAX)
     for cot, rong in (("A", 4.4), ("B", rong_b), ("C", rong_c), ("D", 7.4), ("E", 7.4),
                       ("F", _RONG_F), ("G", 13.4), ("H", 12.4)):
         ws.column_dimensions[cot].width = rong
@@ -127,9 +151,14 @@ def dung_so_theo_doi(khoa: dict, hv_rows: list[dict], co_so: dict, ngay_lap: dat
     khoi("A6:H6", f"Khóa học: {ten_khoa}")
     khoi("A7:H7", f"Ngày lập: {ngay_lap:%d/%m/%Y}")
     khoi("A8:H8", "Người lập:")
-    for r, h in ((1, 32.1), (2, 21.95), (3, 15.75), (4, 26.1), (6, 20.1), (7, 20.1), (8, 20.1),
-                 (HANG_TIEU_DE_1, 38.1), (HANG_TIEU_DE_2, 30.0)):
+    for r, h in ((1, 32.1), (2, 21.95), (3, 15.75), (4, 26.1), (5, 15.75), (6, 20.1), (7, 20.1), (8, 20.1),
+                 (9, 15.75), (HANG_TIEU_DE_1, 38.1), (HANG_TIEU_DE_2, 30.0)):
         ws.row_dimensions[r].height = h
+    # Khối cơ quan/cơ sở (A1:D2, 54 pt ≈ 3 dòng chữ đậm 12): tên dài xuống > 3 dòng thì tăng hàng 2 cho khỏi cắt chữ.
+    rong_ad = 4.4 + rong_b + rong_c + 7.4
+    so_dong_cs = _so_dong("\n".join(x for x in (co_quan, ten_cs) if x), rong_ad - 2) if (co_quan or ten_cs) else 0
+    if so_dong_cs > 3:
+        ws.row_dimensions[2].height = 21.95 + 15.5 * (so_dong_cs - 3)
 
     # --- 2 hàng tiêu đề bảng
     tieu_de = {
@@ -186,11 +215,11 @@ def dung_so_theo_doi(khoa: dict, hv_rows: list[dict], co_so: dict, ngay_lap: dat
     ws.print_options.horizontalCentered = True
     ws.page_margins.left, ws.page_margins.right = LE_TRAI, LE_PHAI
     ws.page_margins.top, ws.page_margins.bottom = LE_TREN, LE_DUOI
-    ws.page_margins.header, ws.page_margins.footer = 0.3, 0.5
+    ws.page_margins.header, ws.page_margins.footer = 0.3, 0.3   # footer 0,3: không đè dòng cuối (lề dưới 1,5 cm)
     ws.print_title_rows = f"{HANG_TIEU_DE_1}:{HANG_TIEU_DE_2}"
     for pie in (ws.oddFooter, ws.evenFooter):
         pie.center.text = "Trang &P/&N"
-        pie.center.size = 11
+        pie.center.size = 10          # như file mẫu
         pie.center.font = f"{_FONT},Regular"
 
     buf = io.BytesIO()

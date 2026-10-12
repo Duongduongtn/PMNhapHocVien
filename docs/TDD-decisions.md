@@ -372,4 +372,9 @@
 - **Đánh đổi / lưu ý:** dữ liệu PM cũ có nhiều HV đã lưu kết luận Đạt nhưng thiếu điểm môn → sổ để trống kết quả của họ (khác Excel chi tiết). Dev B.01-K40: 25 HV Đạt, chỉ 1 HV đủ 5 điểm. Nếu muốn sổ hiện theo kết luận thì đổi luật (phương án khác, cần user quyết).
 - **Phạm vi:** chỉ tool máy CSĐT, nhóm KQD; không thêm phụ thuộc.
 - **Nguồn:** user 12/10/2026; mẫu `thamkhao/So_theo_doi_ket_qua_hoc_tap_DTLX_TT17.xlsx`; PRD KQD-10; TDD §11D.12; CHANGES #75.
+- **Cập nhật 12/10/2026 (sau `/reviewtdd` §11D.12, CHANGES #76):**
+  - **Bám mẫu thêm 3 chi tiết** (user chốt "giữ đúng format"): viền xám `A6A6A6`, chân trang cỡ 10, hàng 5/9 cao 15,75; riêng `footer` 0,3 inch vì lề dưới hẹp.
+  - **Xếp tên theo thanh điệu từng âm tiết:** `Hòa` và `Hoà` (kiểu mới/cũ) là cùng một tên nên phải đứng cạnh nhau — so từng ký tự làm lệch.
+  - **Độ rộng cột theo chữ hoa/thường** (DB lưu tên viết hoa).
+  - **Thêm dòng giải thích** "N học viên có kết luận nhưng thiếu điểm nên để trống kết quả" (không đổi luật §26, chỉ giải thích).
 

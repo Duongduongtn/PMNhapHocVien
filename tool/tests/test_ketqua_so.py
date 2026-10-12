@@ -80,6 +80,8 @@ def test_trang_in_a4_doc_le_hep_lap_tieu_de_danh_so_trang():
     assert (round(pm.left * 2.54, 2), round(pm.right * 2.54, 2), round(pm.top * 2.54, 2), round(pm.bottom * 2.54, 2)) \
         == (2.0, 1.0, 1.5, 1.5)                                              # lề thu hẹp theo yêu cầu (mẫu 3/2/2/2)
     assert ws.print_title_rows == "$10:$11"                                  # 2 hàng tiêu đề lặp mọi trang
+    assert ws.page_margins.footer == 0.3 and ws.page_margins.header == 0.3   # chân trang không đè dòng cuối
+    assert ws.oddFooter.center.size == 10                                    # như mẫu
     assert ws.oddFooter.center.text == "Trang &P/&N" and ws.evenFooter.center.text == "Trang &P/&N"
     assert ws.sheet_view.showGridLines is False
 
@@ -101,12 +103,13 @@ def test_khoi_dau_bang_va_o_gop_giong_mau():
     assert ws["D11"].value == "Lý thuyết" and ws["E11"].value == "Thực hành"
     for o in ("A10", "D11", "H10"):
         assert ws[o].fill.fgColor.rgb.endswith("D9EAF7") and ws[o].font.b and ws[o].border.left.style == "thin"
+        assert ws[o].border.left.color.rgb.endswith("A6A6A6")                   # viền xám như mẫu
     assert ws["A1"].font.name == "Times New Roman" and ws["B12"].font.name == "Times New Roman" and ws["B12"].font.sz == 12
 
 
 def test_chieu_cao_va_do_rong_cot():
     ws = _mo([_hv()]).active
-    assert [ws.row_dimensions[r].height for r in (1, 2, 4, 6, 10, 11, 12)] == [32.1, 21.95, 26.1, 20.1, 38.1, 30.0, 21.95]
+    assert [ws.row_dimensions[r].height for r in (1, 2, 4, 5, 6, 9, 10, 11, 12)] == [32.1, 21.95, 26.1, 15.75, 20.1, 15.75, 38.1, 30.0, 21.95]
     rong = {c: ws.column_dimensions[c].width for c in "ABCDEFGH"}
     assert rong["A"] == 4.4 and rong["D"] == rong["E"] == 7.4 and rong["G"] == 13.4 and rong["H"] == 12.4
     assert 25 <= rong["B"] <= 34 and 9.4 <= rong["C"] <= 14 and rong["F"] >= 15
@@ -192,8 +195,10 @@ def test_giong_file_mau_ve_cau_truc_in_va_o_gop():
     for o in ("A10", "D11", "A4", "A1"):
         assert (ws[o].font.name, ws[o].font.sz, ws[o].font.b) == (mau[o].font.name, mau[o].font.sz, mau[o].font.b)
         assert ws[o].fill.fgColor.rgb == mau[o].fill.fgColor.rgb
-    for r in (1, 2, 4, 6, 10, 11):
+    for r in (1, 2, 4, 5, 6, 9, 10, 11):
         assert ws.row_dimensions[r].height == mau.row_dimensions[r].height
+    assert ws["A12"].border.left.color.rgb == mau["A12"].border.left.color.rgb      # viền
+    assert ws.oddFooter.center.size == mau.oddFooter.center.size                   # cỡ chân trang
 
 
 # ---- endpoint ---------------------------------------------------------------------------------------------------------------
@@ -253,3 +258,51 @@ def test_ten_file_so_va_ngay_lap_excel_chi_tiet_chi_ngay():
     assert kx.ten_file("75032K260003", date(2026, 10, 12), so.TIEN_TO_FILE) == "SoTheoDoiKetQuaHocTap_75032K260003_12-10-2026.xlsx"
     ws = load_workbook(io.BytesIO(kx.dung_workbook(KHOA, [_hv()], CO_SO, "NV", LUC_LAP))).active
     assert "Ngày lập: 12/10/2026" in ws["A6"].value and "14:05" not in ws["A6"].value
+
+
+# ---- sau /reviewtdd §11D.12 (CHANGES #76) -----------------------------------------------------------------
+def test_thanh_dieu_kieu_cu_va_moi_cung_khoa():
+    assert so.khoa_sap_xep("X Hòa") == so.khoa_sap_xep("X Hoà")
+    assert so.khoa_sap_xep("X Thúy") == so.khoa_sap_xep("X Thuý")
+    ds = ["X Hóa", "X Hoà", "X Hòa", "X Hoa", "X Hoá"]
+    r = [x.split()[-1] for x in sorted(ds, key=so.khoa_sap_xep)]
+    assert r[0] == "Hoa" and set(r[1:3]) == {"Hòa", "Hoà"} and set(r[3:]) == {"Hóa", "Hoá"}
+    assert [x.split()[-1] for x in sorted(["A Thuý", "A Thùy", "A Thúy", "A Thuỳ"], key=so.khoa_sap_xep)][:2] \
+        == ["Thùy", "Thuỳ"] or {y for y in sorted(["A Thuý", "A Thùy", "A Thúy", "A Thuỳ"], key=so.khoa_sap_xep)[:2]} == {"A Thùy", "A Thuỳ"}
+
+
+def test_ten_mot_tu_va_ten_nhieu_tu_van_so_sanh_duoc():
+    # trước đây ho=((), ()) so với số → TypeError khi trộn tên 1 từ với tên nhiều từ
+    assert sorted(["An", "Lê Văn An", "Bình", "Trần Thị Bình"], key=so.khoa_sap_xep) == ["An", "Lê Văn An", "Bình", "Trần Thị Bình"]
+
+
+def test_ten_viet_hoa_dai_gian_cot_b_khong_bi_thu_nho_khi_con_trong_tran():
+    ws = _mo([_hv(ten="NGUYỄN THỊ THU HUYỀN"), _hv(ma="2", ten="Lê An")]).active
+    rong = ws.column_dimensions["B"].width
+    assert 30 <= rong < 34                          # chữ HOA ~1,6/ký tự: rộng hơn mức 25 của mẫu, chưa chạm trần
+    ws2 = _mo([_hv(ten="Nguyễn Thị Thu Huyền")]).active
+    assert ws2.column_dimensions["B"].width < rong   # cùng độ dài nhưng chữ thường thì hẹp hơn
+
+
+def test_khoi_co_so_dai_tang_chieu_cao_hang_2():
+    ngan = _mo([_hv()], co_so={"co_quan_chu_quan": "CÔNG TY A", "ten_co_so_dao_tao": "TRUNG TÂM B"}).active
+    assert ngan.row_dimensions[2].height == 21.95
+    dai = {"co_quan_chu_quan": "TỔNG CÔNG TY DỊCH VỤ DU LỊCH VÀ ĐÀO TẠO LÁI XE THÀNH ĐẠT MIỀN ĐÔNG NAM BỘ",
+           "ten_co_so_dao_tao": "TRUNG TÂM GIÁO DỤC NGHỀ NGHIỆP VÀ SÁT HẠCH LÁI XE THÀNH ĐẠT CƠ SỞ SỐ MỘT"}
+    ws = _mo([_hv()], co_so=dai).active
+    assert ws.row_dimensions[2].height > 21.95       # tên dài → hàng 2 tăng để khỏi cắt chữ
+
+
+def test_dem_hv_co_ket_luan_nhung_thieu_diem():
+    rows = [_hv("1"),                                           # đủ điểm + Đạt → có kết quả
+            _hv("2", DiemKQHinh=None),                          # Đạt nhưng thiếu điểm → trống (đếm)
+            _hv("3", kl=0, DiemKQLyThuyet=None),                # Không đạt nhưng thiếu điểm → trống (đếm)
+            _hv("4", kl=None, DiemKQHinh=None)]                 # thiếu điểm, chưa có kết luận → không đếm
+    assert so.dem_trong_ket_qua(rows) == 2
+
+
+def test_endpoint_tra_so_hv_trong_ket_qua(monkeypatch, auth_headers, tmp_path):
+    _gia_lap(monkeypatch, KHOA, [_hv("1"), _hv("2", DiemKQHinh=None), _hv("3", DiemKQTienLui=None)], [])
+    monkeypatch.setattr(k.paths, "output_dir", lambda: tmp_path)
+    j = client.post("/local/ketqua/xuat-so-theo-doi?ma_kh=75032K260003", headers=auth_headers).json()
+    assert j["so_hoc_vien"] == 3 and j["so_hv_trong_ket_qua"] == 2

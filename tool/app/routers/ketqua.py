@@ -339,7 +339,10 @@ def xuat_so_theo_doi(
         data = ketqua_so.dung_so_theo_doi(khoa, hv, _co_so_tu_cau_hinh(), bay_gio)
     except Exception:  # noqa: BLE001
         raise HTTPException(status_code=500, detail="Không dựng được sổ theo dõi — thử lại hoặc báo người hỗ trợ.")
-    return _luu_file_xuat(data, ma_kh, bay_gio.date(), ketqua_so.TIEN_TO_FILE, len(hv))
+    kq = _luu_file_xuat(data, ma_kh, bay_gio.date(), ketqua_so.TIEN_TO_FILE, len(hv))
+    # Giải thích cho người in: HV có kết luận nhưng thiếu điểm → ô kết quả để trống (luật sổ mẫu).
+    kq["so_hv_trong_ket_qua"] = ketqua_so.dem_trong_ket_qua(hv)
+    return kq
 
 
 @router.post("/mo-thu-muc-xuat")

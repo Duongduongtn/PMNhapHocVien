@@ -994,8 +994,9 @@
 - ⬜ **Bảng 8 cột**, 2 hàng tiêu đề: `Số TT` · `Họ tên học viên` · `Khóa học` · `Kết quả học tập` (gồm `Lý thuyết`, `Thực hành`) · `Kết quả khóa học` · `Ngày xét hoàn thành khóa học` · `Xác nhận của cơ sở đào tạo` (để trống). **Không có bìa, mục lục, khối chữ ký, trang điểm quy đổi hay điểm chi tiết từng môn.**
 - ⬜ **Điểm Lý thuyết** = TB(Lý thuyết, Mô phỏng); **Điểm Thực hành** = TB(Sa hình, Chữ chi, Đường trường); làm tròn 1 chữ số; thiếu môn thì ô trống (đúng công thức sổ mẫu).
 - ⬜ **Kết quả khóa học:** đủ 5 điểm và kết luận Đạt → "Hoàn thành" (kèm **Ngày xét = ngày thi của khóa**, chỉ `dd/mm/yyyy`); đủ 5 điểm và Không đạt → "Chưa hoàn thành" (chữ đỏ, không ngày xét); **chưa đủ 5 điểm → trống** (kể cả khi đã có kết luận).
-- ⬜ **Xếp theo TÊN** (alphabet tiếng Việt: a ă â b c d đ e ê …; không dấu < huyền < sắc < hỏi < ngã < nặng), trùng tên xét họ rồi tên đệm; STT liên tục theo thứ tự đó.
-- ⬜ **In A4 dọc**, lề trái 2 · phải 1 · trên/dưới 1,5 cm, **lặp 2 hàng tiêu đề bảng ở mọi trang**, chân trang giữa **`Trang x/y`**, font Times New Roman 12; cột *Họ tên* tự giãn theo tên dài nhất và **không xuống dòng** (quá trần thì thu nhỏ chữ); chữ sát mép ô.
+- ⬜ **Xếp theo TÊN** (alphabet tiếng Việt: a ă â b c d đ e ê …; không dấu < huyền < sắc < hỏi < ngã < nặng; dấu kiểu cũ/mới như `Hòa`/`Hoà` coi như nhau), trùng tên xét họ rồi tên đệm; STT liên tục theo thứ tự đó.
+- ⬜ **In A4 dọc**, lề trái 2 · phải 1 · trên/dưới 1,5 cm, **lặp 2 hàng tiêu đề bảng ở mọi trang** (mỗi trang khoảng 22 dòng ở trang 1 và 31 dòng ở trang sau khi tên ngắn; tên dài chứa nhiều dòng hơn — ước lượng, in thử xác nhận), chân trang giữa **`Trang x/y`**, font Times New Roman 12; cột *Họ tên* tự giãn theo tên dài nhất và **không xuống dòng** (quá trần thì thu nhỏ chữ); chữ sát mép ô.
+- ⬜ Sau khi xuất, nếu có học viên đã có kết luận nhưng thiếu điểm (ô kết quả để trống), thanh thông báo ghi rõ **"N học viên có kết luận nhưng thiếu điểm nên để trống kết quả"**.
 - ⬜ Mọi học viên **đang hoạt động** của khóa có dòng; họ tên/tên cơ sở bắt đầu `= + - @` không thành công thức; ký tự điều khiển lạ không làm hỏng file.
 - ❌ Không ghi DB; không thêm bìa/chữ ký ngoài mẫu; không xuất nhiều khóa một lượt.
 
@@ -1489,3 +1490,4 @@
 | 12/10/2026 | v4.15 — **KQD-09 sau /reviewtdd §11D.11** (CHANGES #73): dòng tóm tắt "Chưa đủ điểm" → "Chưa có kết luận" (đúng nghĩa số đếm); +Done khi an toàn dữ liệu trong file (công thức Excel, ký tự điều khiển). Số story giữ 60. | BA/PM |
 | 12/10/2026 | v4.16 — **KQD-09: lưu file vào thư mục `output` của phần mềm + bỏ dấu chấm thừa ở giờ/km sân** (CHANGES #74, user yêu cầu khi dùng thử): thay "tải về" bằng lưu vào `output` + báo đường dẫn + nút Mở thư mục; trùng tên thì `_2`; số nguyên hiện `34` không `34.`. Số story giữ 60. | BA/PM |
 | 12/10/2026 | v4.17 — **+`KQD-10` Xuất Sổ theo dõi kết quả học tập (mẫu Phụ lục VI TT17)** (CHANGES #75): 1 sheet A4 dọc, lặp 2 hàng tiêu đề, `Trang x/y`, xếp theo tên, không bìa/chữ ký, lưu vào `output`. KQD-09: `Ngày lập` chỉ `dd/mm/yyyy`. Số story 60 → 61. | BA/PM |
+| 12/10/2026 | v4.18 — **KQD-10 sau /reviewtdd §11D.12** (CHANGES #76): +dòng giải thích HV thiếu điểm sau khi xuất; số dòng/trang là ước lượng; `Hòa`=`Hoà` khi xếp tên. Số story giữ 61. | BA/PM |

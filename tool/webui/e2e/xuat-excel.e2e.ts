@@ -147,5 +147,24 @@ test.describe("KQD-10 — Xuất Sổ theo dõi kết quả học tập (mẫu P
     await expect(page.getByText("Khóa chưa có học viên — không có gì để xuất.")).toBeVisible();
     await expect(page.getByRole("button", { name: /Xuất Sổ theo dõi/ })).toBeEnabled();
   });
-});
 
+  test("có học viên có kết luận nhưng thiếu điểm → thanh thông báo giải thích vì sao ô kết quả để trống", async ({ page }) => {
+    await giaBackend(page);
+    await page.route("**/local/ketqua/xuat-so-theo-doi**", (r) => r.fulfill({ json: {
+      ok: true, ten_file: "S.xlsx", so_hoc_vien: 30, so_hv_trong_ket_qua: 24,
+      duong_dan: "D:\Tool\output\S.xlsx", thu_muc: "D:\Tool\output" } }));
+    await chonKhoa(page);
+    await page.getByRole("button", { name: /Xuất Sổ theo dõi/ }).click();
+    await expect(page.getByText(/24 học viên có kết luận nhưng thiếu điểm nên để trống kết quả/)).toBeVisible();
+  });
+  test("không có học viên nào bị trống kết quả → không hiện dòng lưu ý", async ({ page }) => {
+    await giaBackend(page);
+    await page.route("**/local/ketqua/xuat-so-theo-doi**", (r) => r.fulfill({ json: {
+      ok: true, ten_file: "S.xlsx", so_hoc_vien: 30, so_hv_trong_ket_qua: 0,
+      duong_dan: "D:\Tool\output\S.xlsx", thu_muc: "D:\Tool\output" } }));
+    await chonKhoa(page);
+    await page.getByRole("button", { name: /Xuất Sổ theo dõi/ }).click();
+    await expect(page.getByText(/Đã lưu sổ theo dõi 30 học viên/)).toBeVisible();
+    await expect(page.getByText(/thiếu điểm nên để trống/)).toHaveCount(0);
+  });
+});

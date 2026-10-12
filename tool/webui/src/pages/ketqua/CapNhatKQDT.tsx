@@ -290,7 +290,9 @@ export default function CapNhatKQDT() {
         ? await xuatSoTheoDoiKQD(khoa.ma_kh, targetKey ?? undefined)
         : await xuatExcelKQD(khoa.ma_kh, targetKey ?? undefined);
       setFileXuat(r);
-      setToast(`Đã lưu ${loai === "so" ? "sổ theo dõi" : "kết quả"} ${r.so_hoc_vien.toLocaleString("vi-VN")} học viên → ${r.duong_dan}`);
+      const trong = r.so_hv_trong_ket_qua ?? 0;
+      setToast(`Đã lưu ${loai === "so" ? "sổ theo dõi" : "kết quả"} ${r.so_hoc_vien.toLocaleString("vi-VN")} học viên → ${r.duong_dan}`
+        + (trong > 0 ? ` · Lưu ý: ${trong.toLocaleString("vi-VN")} học viên có kết luận nhưng thiếu điểm nên để trống kết quả` : ""));
     } catch (e) {
       setToast(e instanceof Error ? e.message : "Không xuất được file.");
     } finally { setDangXuat(false); }

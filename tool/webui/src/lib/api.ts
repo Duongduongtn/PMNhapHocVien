@@ -1024,6 +1024,7 @@ export interface XuatExcelKetQua {
   duong_dan: string;
   thu_muc: string;
   so_hoc_vien: number;
+  so_hv_trong_ket_qua?: number; // KQD-10: HV có kết luận nhưng thiếu điểm nên ô kết quả trong sổ để trống
 }
 export const xuatExcelKQD = (maKh: string, targetKey?: string) =>
   fetch(`${BASE}/local/ketqua/xuat-excel?${qs({ ma_kh: maKh, target_key: targetKey })}`, {
