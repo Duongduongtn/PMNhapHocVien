@@ -99,3 +99,19 @@ This project is indexed by GitNexus as **PMNhapHocVien** (2376 symbols, 4656 rel
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus-cli/SKILL.md` |
 
 <!-- gitnexus:end -->
+
+<!-- subagent:start — khối do lệnh /subagent sinh, chạy lại sẽ ghi đè nguyên khối. -->
+
+# Subagent có sẵn
+
+- `review-nghiepvu` — đối chiếu code với PRD, gọi trước khi đặt ✅ cho một story
+- `review-code` — soát kỹ thuật (qua ocr), gọi khi đóng một Feature
+- `review-baomat` — soát xác thực, phân quyền, PII, validate đầu vào, gọi khi đóng Feature
+- `review-dinhdang-vn` — soát ngày, số, tiền, tiếng Việt có dấu, gọi khi đóng Feature
+- `review-giaodien` — soát lệch style/thiếu trạng thái; gọi **một lần cho cả Feature**, phải chụp ảnh Playwright trước
+- `review-xuat-file` — soát file xuất (Excel/Sổ): công thức lọt vào ô, ký tự lạ, kiểu ô, bố cục so mẫu, thư mục output; gọi khi đóng story có xuất file
+- `sinh-testcase` — sinh danh sách test case từ PRD, `/kiemthu` gọi ở Bước 3
+
+Agent chỉ đọc, không sửa file. Kết quả là ý kiến để đối chiếu, quyết định vẫn là của user.
+
+<!-- subagent:end -->
