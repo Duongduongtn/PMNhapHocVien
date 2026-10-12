@@ -103,7 +103,6 @@ def test_load_years_fallback_nam_nay():
 
 def test_get_ma_csdt():
     assert sh.get_ma_csdt_tu_qtht(_FakeConn([{"GiaTriTS": "75032 "}])) == "75032"
-    assert sh.get_ma_csdt_of_khoa(_FakeConn([{"MaCSDT": "75032"}]), "75032K260101") == "75032"
     assert sh.get_khoa_info(_FakeConn([{"MaCSDT": "75032", "MaSoGTVT": "75", "HangGPLX": "B"}]), "x")[
         "ma_so_gtvt"
     ] == "75"

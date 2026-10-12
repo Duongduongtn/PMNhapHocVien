@@ -25,7 +25,6 @@ from typing import Any, Optional
 logger = logging.getLogger(__name__)
 
 MADK_LEN = 21
-MADK_SEQ_START = 16
 MADK_SEQ_LEN = 6
 MADK_SEQ_PATTERN = "[0-9][0-9][0-9][0-9][0-9][0-9]"
 
@@ -227,14 +226,6 @@ def get_ma_csdt_tu_qtht(conn) -> Optional[str]:
     cur.execute("SELECT GiaTriTS FROM dbo.QTHT_ThamSoHT WHERE TenTS = 'MA_CSDT'")
     r = cur.fetchone()
     return r["GiaTriTS"].strip() if r and r["GiaTriTS"] else None
-
-
-def get_ma_csdt_of_khoa(conn, ma_kh: str) -> Optional[str]:
-    """Mã CSĐT của một khóa đích cụ thể (KhoaHoc.MaCSDT) — dùng khi sinh MaDK."""
-    cur = conn.cursor(as_dict=True)
-    cur.execute("SELECT MaCSDT FROM dbo.KhoaHoc WHERE MaKH = %s", (ma_kh,))
-    r = cur.fetchone()
-    return r["MaCSDT"].strip() if r and r["MaCSDT"] else None
 
 
 def get_khoa_info(conn, ma_kh: str) -> Optional[dict[str, Any]]:

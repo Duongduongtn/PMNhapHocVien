@@ -13,7 +13,7 @@ TRẢ danh sách vấn đề. Đọc DB nằm ở `phancong_service.py` (task 86
 """
 from __future__ import annotations
 
-from typing import Any, Iterable
+from typing import Iterable
 
 CHAN = "chan"            # ⛔ không lưu/ghi được
 CANH_BAO = "canh_bao"    # ⚠ ghi được sau khi xác nhận

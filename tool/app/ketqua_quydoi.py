@@ -15,13 +15,6 @@ from dataclasses import dataclass
 
 # 5 môn (khóa nội bộ) ↔ cột DB (DiemKQ*).
 MON = ("ly_thuyet", "mo_phong", "hinh", "tien_lui", "duong")
-COT_DIEM = {
-    "ly_thuyet": "DiemKQLyThuyet",
-    "mo_phong": "DiemKQMoPhong",
-    "hinh": "DiemKQHinh",
-    "tien_lui": "DiemKQTienLui",
-    "duong": "DiemKQThucHanh",
-}
 
 # Tham số Lý thuyết (ngưỡng, tối đa = tổng câu) theo nhóm hạng × chương trình.
 # Nhóm LT: B (gồm B.01 số tự động + B sàn) · C1.  Căn cứ TT12/2025/TT-BCA (cũ), TT108/2026/TT-BCA (mới).

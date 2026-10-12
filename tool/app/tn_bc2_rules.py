@@ -407,7 +407,7 @@ def phan_tich_dong_tn(hv: dict, so_giay: str | None, chung: dict | None, ctx: di
     giay_cu = _s(hv.get("so_giay"))
     giay = _s(so_giay)
 
-    def hieu_luc(k: str, kieu: str = "s") -> str:
+    def hieu_luc(k: str) -> str:
         v = _s(chung.get(k))
         return v if v else _s(hv.get(k))
 

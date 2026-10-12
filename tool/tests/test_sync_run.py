@@ -3,7 +3,7 @@
 tổng kết) + SSE sentinel. Không chạm SQL thật — mock connection + hàm nghiệp vụ."""
 import contextlib
 import queue
-from datetime import date, datetime
+from datetime import datetime
 
 from fastapi.testclient import TestClient
 

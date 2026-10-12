@@ -16,12 +16,10 @@ Chạy:  tool\.venv\Scripts\python.exe tool\db\build_dvhc_map.py [--db <đườn
 """
 from __future__ import annotations
 import os
-import re
 import sys
 import csv
 import sqlite3
 import argparse
-import unicodedata
 import urllib.request
 from pathlib import Path
 

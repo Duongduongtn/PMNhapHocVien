@@ -13,7 +13,7 @@ from app import tn_bc2_nhat_ky as nk
 from app import tn_bc2_service as svc
 from tests.test_tn_bc2_ghi_tn import Conn as _Conn
 from tests.test_tn_bc2_ghi_tn import Cur as _Cur
-from tests.test_tn_bc2_tot_nghiep import HOM_NAY, KHOA, hv_row
+from tests.test_tn_bc2_tot_nghiep import HOM_NAY, hv_row
 
 
 class Cur(_Cur):
