@@ -36,7 +36,15 @@ export interface ToolConfig {
   sqlserver_password: string;
   vps_url: string;
   vps_api_key: string;
+  co_quan_chu_quan?: string;     // KQD-09 — đầu file Excel kết quả học tập
+  ten_co_so_dao_tao?: string;
 }
+
+// KQD-09: chỉ lưu 2 ô tên cơ quan/cơ sở (không đụng khóa kết nối).
+export const putCoSo = (b: { co_quan_chu_quan: string; ten_co_so_dao_tao: string }) =>
+  fetch(`${BASE}/local/config/co-so`, {
+    method: "PUT", headers: authHeaders({ "Content-Type": "application/json" }), body: JSON.stringify(b),
+  }).then(json<ToolConfig>);
 
 export interface TestResult {
   sqlserver: { ok: boolean; message: string };
@@ -1009,6 +1017,23 @@ export const kiemTruocKQD = (maKh: string, targetKey?: string) =>
   fetch(`${BASE}/local/ketqua/kiem-truoc?${qs({ ma_kh: maKh, target_key: targetKey })}`, {
     headers: authHeaders(),
   }).then(json<KiemTruocKQD>);
+// ── KQD-09: xuất Excel kết quả học tập theo khóa (chỉ đọc) — tải về qua Blob vì thẻ <a> không gửi được phiên ──
+export async function xuatExcelKQD(maKh: string, targetKey?: string): Promise<{ blob: Blob; ten: string }> {
+  const r = await fetch(`${BASE}/local/ketqua/xuat-excel?${qs({ ma_kh: maKh, target_key: targetKey })}`, {
+    headers: authHeaders(),
+  });
+  if (!r.ok) {
+    const d = await r.json().catch(() => null);
+    throw new Error(d?.detail || `${r.status} ${r.statusText}`);
+  }
+  const cd = r.headers.get("Content-Disposition") || "";
+  const m = /filename\*=UTF-8''([^;]+)/i.exec(cd) || /filename="?([^";]+)"?/i.exec(cd);
+  const nay = new Date();
+  const dd = String(nay.getDate()).padStart(2, "0"), mm = String(nay.getMonth() + 1).padStart(2, "0");
+  const dp = `KetQuaHocTap_${maKh.replace(/[^A-Za-z0-9_-]/g, "")}_${dd}-${mm}-${nay.getFullYear()}.xlsx`;
+  return { blob: await r.blob(), ten: m ? decodeURIComponent(m[1]) : dp };
+}
+
 // ── KQD-08: nạp giờ/km đường từ PDF DAT (xem trước → lưu hàng loạt, chỉ 2 cột giờ/km) ──
 export type TinhTrangDat =
   | "khop" | "chua_chay_dat" | "khong_co_trong_khoa" | "da_ket_xuat" | "loi_dong" | "trung_dong";

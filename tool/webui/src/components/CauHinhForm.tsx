@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Icon } from "./Icon";
 import {
-  getConfig, putConfig, testConfig, type ToolConfig, type TestResult,
+  getConfig, putConfig, putCoSo, testConfig, type ToolConfig, type TestResult,
   getSyncTargets, saveSyncTargets, testSyncTarget,
   type SyncTarget, type SyncOptions, type TtXuLyOption, type SyncTestKetQua,
 } from "../lib/api";
@@ -15,6 +15,7 @@ import {
 const EMPTY_CFG: ToolConfig = {
   sqlserver_host: "", sqlserver_database: "", sqlserver_user: "",
   sqlserver_password: "", vps_url: "", vps_api_key: "",
+  co_quan_chu_quan: "", ten_co_so_dao_tao: "",
 };
 
 interface Hang extends SyncTarget {
@@ -73,6 +74,27 @@ export default function CauHinhForm({ active, onBlock1Test, onBlock1Saved }: Pro
       .catch(() => setErr2("Không đọc được danh sách CSDL đích."))
       .finally(() => setLoading2(false));
   }, [active]);
+
+  // ── Khối ③ — thông tin cơ sở đầu file Excel (KQD-09): lưu riêng, không bắt "test kết nối" ──
+  const [msg3, setMsg3] = useState("");
+  const [err3, setErr3] = useState("");
+  const setCoSo = (k: "co_quan_chu_quan" | "ten_co_so_dao_tao") => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCfg({ ...cfg, [k]: e.target.value });
+    setMsg3(""); setErr3("");
+  };
+  const save3 = async () => {
+    setErr3(""); setMsg3("");
+    try {
+      const saved = await putCoSo({
+        co_quan_chu_quan: cfg.co_quan_chu_quan ?? "", ten_co_so_dao_tao: cfg.ten_co_so_dao_tao ?? "",
+      });
+      // Giữ cfg khối ① đang sửa dở; chỉ đồng bộ 2 ô vừa lưu để lần "Lưu kết nối" sau không ghi lại giá trị cũ.
+      setCfg({ ...cfg, co_quan_chu_quan: saved.co_quan_chu_quan ?? "", ten_co_so_dao_tao: saved.ten_co_so_dao_tao ?? "" });
+      setMsg3("Đã lưu thông tin cơ sở.");
+    } catch {
+      setErr3("Lưu thông tin cơ sở thất bại.");
+    }
+  };
 
   // ── Khối ① handlers ──
   const set1 = (k: keyof ToolConfig) => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -418,6 +440,34 @@ export default function CauHinhForm({ active, onBlock1Test, onBlock1Saved }: Pro
               )}
             </>
           )}
+        </div>
+      </section>
+
+      {/* ══ Khối ③ — thông tin cơ sở (đầu file Excel kết quả học tập, KQD-09) ══ */}
+      <section className="rounded-lg border border-border bg-card overflow-hidden">
+        <div className="px-4 py-3 border-b border-border">
+          <div className="text-[13.5px] font-bold">③ Thông tin cơ sở (đầu file Excel kết quả học tập)</div>
+          <p className="text-[11.5px] text-muted-foreground mt-0.5">Nhập một lần; hiện ở đầu file khi bấm "Xuất Excel" ở màn Cập nhật KQĐT. Để trống thì ô đó trống.</p>
+        </div>
+        <div className="p-4 space-y-3">
+          <div>
+            <label className="field-label">Cơ quan chủ quản (nếu có)</label>
+            <input className="field-input mt-1" maxLength={200} placeholder="VD: CÔNG TY CPDVDL THÀNH ĐẠT"
+              value={cfg.co_quan_chu_quan ?? ""} onChange={setCoSo("co_quan_chu_quan")} />
+          </div>
+          <div>
+            <label className="field-label">Tên cơ sở đào tạo</label>
+            <input className="field-input mt-1" maxLength={200} placeholder="VD: TRUNG TÂM GDNN THÀNH ĐẠT"
+              value={cfg.ten_co_so_dao_tao ?? ""} onChange={setCoSo("ten_co_so_dao_tao")} />
+          </div>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <button onClick={save3}
+              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-primary text-primary-foreground font-semibold text-[13px] hover:brightness-110 transition">
+              <Icon name="check" className="w-4 h-4" sw={3} /> Lưu thông tin cơ sở
+            </button>
+            {msg3 && <span className="text-[12.5px] font-semibold text-success">{msg3}</span>}
+            {err3 && <span className="text-[12.5px] text-destructive">{err3}</span>}
+          </div>
         </div>
       </section>
     </div>

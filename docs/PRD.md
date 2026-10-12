@@ -962,7 +962,7 @@
 
 #### [KQD-09] Xuất Excel kết quả học tập theo từng khóa
 
-**Trạng thái:** ⏳ Todo — CHANGES #72 (12/10/2026).
+**Trạng thái:** ⚠️ Partial — CHANGES #72 (12/10/2026). **Đã xong + verify trên dev:** endpoint `GET /xuat-excel` chỉ đọc · hàm dựng workbook (khối đầu + 22 cột, điểm TB, kết quả, ghi chú) · nút "Xuất Excel" + tải về · 2 ô thông tin cơ sở ở Cấu hình · đã dựng thử file từ DB dev thật (B.01-K40: 30 dòng, Hoàn thành 25 / Chưa hoàn thành 5; C1-K11: 32 dòng chưa đủ điểm) · tool 826 pytest · webui 102 vitest · Playwright 5 ca · `--selftest` của exe đạt. **Chưa kiểm:** mở bằng Excel thật và in thử A4 ngang trên máy CSĐT; nghiệm thu khóa thật.
 **Story:** Là nhân viên nạp DB, tôi muốn xuất kết quả học tập của cả một khóa ra file Excel, để lưu trữ, đối chiếu hoặc gửi cho người cần mà không phải chép tay từng học viên từ màn hình.
 
 **Done khi:**

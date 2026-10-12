@@ -27,6 +27,7 @@ import {
   type DiemGocKQD,
   luatKQD,
   luuDatKQD,
+  xuatExcelKQD,
   type DatLuuKetQua,
 } from "../../lib/api";
 import KiemTruocKetXuat from "./KiemTruocKetXuat";
@@ -161,6 +162,7 @@ export default function CapNhatKQDT() {
   const [monBatBuoc, setMonBatBuoc] = useState<readonly string[]>(MON5);
   const [moKiemTruoc, setMoKiemTruoc] = useState(false);
   const [moNapDat, setMoNapDat] = useState(false); // KQD-08: hộp thoại nạp giờ/km từ PDF DAT
+  const [dangXuat, setDangXuat] = useState(false); // KQD-09: đang tải file Excel
 
   const [loc, setLoc] = useState<TrangThaiKQD>("all");
   const [qHv, setQHv] = useState("");
@@ -273,6 +275,23 @@ export default function CapNhatKQDT() {
 
   function setNhapO(h: HocVienKQD, k: keyof NhapRow, v: string) {
     setNhap((cur) => ({ ...cur, [h.ma_dk]: { ...(cur[h.ma_dk] ?? gocNhap(h)), [k]: v } }));
+  }
+
+  // KQD-09: xuất Excel kết quả học tập của khóa đang chọn (chỉ đọc) → tải file về máy.
+  async function xuatExcel() {
+    if (!khoa || dangXuat) return;
+    setDangXuat(true); setToast("");
+    try {
+      const { blob, ten } = await xuatExcelKQD(khoa.ma_kh, targetKey ?? undefined);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = ten;
+      document.body.appendChild(a); a.click(); a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      setToast(`Đã xuất kết quả học tập khóa ${khoa.ma_kh} → ${ten}`);
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : "Không xuất được file Excel.");
+    } finally { setDangXuat(false); }
   }
 
   // KQD-08: nạp xong → làm tươi lưới; ô giờ/km đang nháp của HV vừa ghi lấy theo giá trị đã lưu.
@@ -436,6 +455,10 @@ export default function CapNhatKQDT() {
               <button onClick={() => setMoNapDat(true)} className="inline-flex items-center gap-1.5 h-8 px-3 mr-2 rounded-lg border border-kq-border bg-kq-soft text-kq text-[12.5px] font-semibold hover:brightness-95" title="Nạp giờ/km thực hành đường của cả khóa từ file PDF báo cáo DAT">
                 <Icon name="file" className="w-4 h-4" /> Nạp giờ/km từ PDF DAT
                 <span className="text-[10px] font-semibold border border-kq-border rounded-full px-1.5">KQD-08</span>
+              </button>
+              <button onClick={() => void xuatExcel()} disabled={dangXuat} className="inline-flex items-center gap-1.5 h-8 px-3 mr-2 rounded-lg border border-kq-border bg-kq-soft text-kq text-[12.5px] font-semibold hover:brightness-95 disabled:opacity-60" title="Tải file Excel kết quả học tập của cả khóa đang chọn">
+                <Icon name={dangXuat ? "refresh" : "download"} className={"w-4 h-4 " + (dangXuat ? "animate-spin" : "")} /> Xuất Excel
+                <span className="text-[10px] font-semibold border border-kq-border rounded-full px-1.5">KQD-09</span>
               </button>
               <span>Chương trình khóa:</span>
               <label className="inline-flex items-center gap-1 cursor-pointer"><input type="radio" name="ct" checked={ct === "cu"} onChange={() => doiCt("cu")} /> Cũ (TT12/2025)</label>

@@ -81,6 +81,20 @@ for _pkg in ("pdfplumber", "pdfminer", "pypdfium2"):
     binaries += _b
     hiddenimports += _h
 
+# openpyxl (KQD-09 xuất Excel kết quả học tập) + et_xmlfile: kéo đủ submodule.
+for _pkg in ("openpyxl", "et_xmlfile"):
+    _d, _b, _h = collect_all(_pkg)
+    datas += _d
+    binaries += _b
+    hiddenimports += _h
+
+# pdfplumber (KQD-08 đọc PDF DAT): pdfminer có file dữ liệu cmap, pypdfium2 có DLL → kéo đủ.
+for _pkg in ("pdfplumber", "pdfminer", "pypdfium2"):
+    _d, _b, _h = collect_all(_pkg)
+    datas += _d
+    binaries += _b
+    hiddenimports += _h
+
     strip=False,
     upx=False,                   # không UPX: tránh antivirus báo nhầm
     console=False,               # DGT-02: windowed (không cửa sổ console đen) — dùng khay hệ thống

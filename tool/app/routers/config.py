@@ -22,6 +22,9 @@ class ConfigIn(BaseModel):
     sqlserver_password: str = ""
     vps_url: str = ""
     vps_api_key: str = ""
+    # KQD-09: đầu file Excel kết quả học tập (không bí mật) — khai báo ở đây để lưu khối ① không làm rơi.
+    co_quan_chu_quan: str = ""
+    ten_co_so_dao_tao: str = ""
 
 
 def _resolve_secrets(data: dict) -> dict:
@@ -44,6 +47,21 @@ def get_config() -> dict:
 def put_config(cfg: ConfigIn) -> dict:
     """Lưu cấu hình (mã hóa cục bộ). Trả bản đã che."""
     config_store.save_config(_resolve_secrets(cfg.model_dump()))
+    return config_store.masked_config()
+
+
+class CoSoIn(BaseModel):
+    co_quan_chu_quan: str = ""
+    ten_co_so_dao_tao: str = ""
+
+
+@router.put("/co-so")
+def put_co_so(body: CoSoIn) -> dict:
+    """KQD-09: chỉ ghi 2 ô tên cơ quan/cơ sở (gộp vào cấu hình đã có, không đụng khóa kết nối)."""
+    data = config_store.load_config()
+    data["co_quan_chu_quan"] = body.co_quan_chu_quan.strip()[:200]
+    data["ten_co_so_dao_tao"] = body.ten_co_so_dao_tao.strip()[:200]
+    config_store.save_config(data)
     return config_store.masked_config()
 
 

@@ -81,7 +81,7 @@ def _bao_dia_chi(url: str) -> None:
 
 def selftest() -> int:
     """`pmcsdtlx-tool.exe --selftest` — kiểm nhanh bản đóng gói trên máy sạch (DGT-01):
-    thư viện C có chạy không (pymssql/FreeTDS, rembg/onnxruntime + model u2net, pdfplumber gói kèm).
+    thư viện C có chạy không (pymssql/FreeTDS, rembg/onnxruntime + model u2net, pdfplumber, openpyxl gói kèm).
     KHÔNG cần SQL Server / mạng — chỉ nạp module + xử lý 1 ảnh nhỏ. Trả 0 nếu đạt.
     Bản --windowed không có console → kết quả báo thêm bằng hộp thoại."""
     import io
@@ -142,6 +142,26 @@ def selftest() -> int:
     except Exception as e:  # pragma: no cover
         ok = False
         dong.append(f"[LOI] pdfplumber: {e}")
+
+    try:
+        # KQD-09: xuất Excel kết quả học tập cần openpyxl — dựng workbook nhỏ trong RAM, đọc lại 1 ô.
+        from app import ketqua_xuat
+
+        data = ketqua_xuat.dung_workbook(
+            {"MaKH": "T1", "TenKH": "Kiem tra", "HangGPLX": "B", "NgayThi": "01/01/2026"},
+            [{"MaDK": "1", "HoVaTen": "Nguyen Van A", "SoHoSo": "1", "KetLuanCSDT": 1,
+              "DiemKQLyThuyet": 8, "DiemKQMoPhong": 7, "DiemKQHinh": 8, "DiemKQTienLui": 7, "DiemKQThucHanh": 8}],
+            {}, "selftest", __import__("datetime").datetime(2026, 1, 1, 8, 0),
+        )
+        from openpyxl import load_workbook
+
+        ws = load_workbook(io.BytesIO(data)).active
+        if ws.cell(row=10, column=3).value != "Nguyen Van A":
+            raise RuntimeError("doc lai workbook sai")
+        dong.append("[OK ] openpyxl dung duoc file Excel ket qua hoc tap")
+    except Exception as e:  # pragma: no cover
+        ok = False
+        dong.append(f"[LOI] openpyxl: {e}")
 
     dong.append("KET QUA: " + ("DAT" if ok else "CHUA DAT"))
     for d in dong:

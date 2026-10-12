@@ -15,10 +15,10 @@ from __future__ import annotations
 import json
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
 from pydantic import BaseModel, Field
 
-from app import config_store, ketqua_dat, ketqua_quydoi, sua_sau_gui, sync_helpers
+from app import config_store, ketqua_dat, ketqua_quydoi, ketqua_xuat, sua_sau_gui, sync_helpers
 from app.db import sqlserver_conn_dich, ConfigChuaDay
 from app.routers.hoso import ngay_sinh_hien
 from app.routers.sync import _db_dich, _loi_db
@@ -127,7 +127,7 @@ _SQL_HV = (
     "SELECT A.MaDK, A.HoVaTen, A.NgaySinh, A.SoCMT, B.SoHoSo, "
     "B.HangGPLX, gp.MaHangMoi, B.TT_XuLy, B.KetLuanCSDT, "
     "B.DiemKQLyThuyet, B.DiemKQMoPhong, B.DiemKQHinh, B.DiemKQTienLui, B.DiemKQThucHanh, "
-    "B.TGThucHanhHinh, B.QDThucHanhHinh, B.TGThucHanhDuong, B.TongQDThucHanh "
+    "B.TGThucHanhHinh, B.QDThucHanhHinh, B.TGThucHanhDuong, B.TongQDThucHanh, B.SoGiayCNTN "
     "FROM dbo.NguoiLX_HoSo B JOIN dbo.NguoiLX A ON A.MaDK = B.MaDK "
     "LEFT JOIN dbo.DM_HangGPLX gp ON gp.MaHang = B.HangGPLX "
     "WHERE B.MaKhoaHoc = %s AND B.TrangThai = 1{loc} "
@@ -254,6 +254,63 @@ def luat_kqd() -> dict:
 
     Một nguồn ở backend để hai màn không lệch nhau; UI đọc một lần khi mở màn."""
     return {"mon_bat_buoc": list(ketqua_quydoi.MON)}
+
+
+# ── KQD-09: xuất Excel kết quả học tập theo khóa (TDD §11D.11) — CHỈ ĐỌC ──
+_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+@router.get("/xuat-excel")
+def xuat_excel(
+    ma_kh: str = Query(..., min_length=1),
+    target_key: str | None = None,
+    phien: Phien = Depends(require_session),
+) -> Response:
+    """Tải file `.xlsx` kết quả học tập của ĐÚNG 1 khóa: khối đầu + bảng 22 cột, mọi HV đang hoạt động.
+
+    Chỉ SELECT. Khóa không có HV hoạt động → 404 (không tạo file rỗng). Tên cơ quan/cơ sở lấy từ cấu hình
+    tool (trống thì để trống ô); người lập = họ tên người đang đăng nhập tool."""
+    db = _db_dich(target_key)
+    try:
+        with sqlserver_conn_dich(db) as conn:
+            cur = conn.cursor(as_dict=True)
+            cur.execute(
+                "SELECT k.MaKH, k.TenKH, k.HangGPLX, "
+                "CONVERT(varchar(10), k.NgayKG, 103) AS NgayKG, "
+                "CONVERT(varchar(10), k.NgayBG, 103) AS NgayBG, "
+                "CONVERT(varchar(10), k.NgayThi, 103) AS NgayThi "
+                "FROM dbo.KhoaHoc k WHERE k.MaKH = %s",
+                (ma_kh,),
+            )
+            khoa = cur.fetchone()
+    except Exception as e:  # noqa: BLE001
+        raise _loi_db(e)
+    if not khoa:
+        raise HTTPException(status_code=404, detail="Không tìm thấy khóa học ở CSDL đích.")
+    hv = _doc_hv_khoa(ma_kh, None, target_key)
+    if not hv:
+        raise HTTPException(status_code=404, detail="Khóa chưa có học viên — không có gì để xuất.")
+    cfg = config_store.load_config()
+    bay_gio = datetime.now()
+    try:
+        data = ketqua_xuat.dung_workbook(
+            khoa, hv,
+            {"co_quan_chu_quan": cfg.get("co_quan_chu_quan", ""),
+             "ten_co_so_dao_tao": cfg.get("ten_co_so_dao_tao", "")},
+            (phien.ho_ten or phien.username or "").strip(), bay_gio,
+            config_store.get_kqd_chuong_trinh(ma_kh),
+        )
+    except Exception:  # noqa: BLE001 — không lộ chi tiết nội bộ ra response
+        raise HTTPException(status_code=500, detail="Không dựng được file Excel — thử lại hoặc báo người hỗ trợ.")
+    ten = ketqua_xuat.ten_file(ma_kh, bay_gio.date())
+    return Response(
+        content=data, media_type=_XLSX,
+        headers={
+            "Content-Disposition": f"attachment; filename=\"{ten}\"; filename*=UTF-8''{ten}",
+            # Chạy dev UI (cổng khác API) là cross-origin: không khai báo thì JS không đọc được tên file.
+            "Access-Control-Expose-Headers": "Content-Disposition",
+        },
+    )
 
 
 # ── KQD-08: nạp giờ/km đường từ PDF DAT (TDD §11D.10) ──
