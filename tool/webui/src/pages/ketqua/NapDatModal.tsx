@@ -90,8 +90,23 @@ export default function NapDatModal({
     [kq, chon, sua],
   );
 
+  // Dòng "chưa chạy DAT" (giờ trống, km 0): tick tay nghĩa là chủ ý ghi 0 → điền sẵn 0 giờ cho ô trống
+  // để khỏi bị chặn Lưu vì ô rỗng. Anh/chị vẫn sửa được thành số khác.
+  function dienSan0(ds: DatDong[]) {
+    setSua((cur) => {
+      const c = { ...cur };
+      for (const d of ds) {
+        if (d.tinh_trang === "chua_chay_dat" && (c[d.ma_dk]?.gio ?? "").trim() === "") {
+          c[d.ma_dk] = { gio: "0", km: c[d.ma_dk]?.km ?? soHien(d.km_moi) };
+        }
+      }
+      return c;
+    });
+  }
+
   function bat(ma: string, v: boolean) {
     setChon((cur) => { const c = new Set(cur); if (v) c.add(ma); else c.delete(ma); return c; });
+    if (v) dienSan0((kq?.dong ?? []).filter((d) => d.ma_dk === ma));
   }
 
   async function luu() {
@@ -156,7 +171,7 @@ export default function NapDatModal({
                         <th className="px-2 py-1.5 w-8">
                           <input type="checkbox" checked={tatCaDuocChon} disabled={chonDuoc.length === 0 || busy}
                             title="Chọn / bỏ chọn các dòng có thể ghi"
-                            onChange={(e) => setChon(e.target.checked ? new Set(chonDuoc.map((d) => d.ma_dk)) : new Set())} />
+                            onChange={(e) => { setChon(e.target.checked ? new Set(chonDuoc.map((d) => d.ma_dk)) : new Set()); if (e.target.checked) dienSan0(chonDuoc); }} />
                         </th>
                         <th className="font-semibold px-2 py-1.5 w-10 text-center">STT</th>
                         <th className="font-semibold px-2 py-1.5">Học viên</th>

@@ -364,14 +364,14 @@ def dat_luu(body: DatLuuIn, target_key: str | None = None,
                 for d in body.dong:
                     cur.execute(
                         "UPDATE dbo.NguoiLX_HoSo SET TGThucHanhDuong=%s, TongQDThucHanh=%s, NgaySua=GETDATE() "
-                        "WHERE MaDK=%s AND MaKhoaHoc=%s AND ISNULL(TT_XuLy,'') NOT IN ('12','13')",
+                        "WHERE MaDK=%s AND MaKhoaHoc=%s AND TrangThai = 1 AND ISNULL(TT_XuLy,'') NOT IN ('12','13')",
                         (d.gio_duong, d.km_duong, d.ma_dk, body.ma_kh),
                     )
                     if cur.rowcount == 1:
                         da_luu += 1
                     else:
                         bo_qua.append({"ma_dk": d.ma_dk,
-                                       "ly_do": "Không thuộc khóa này hoặc đã kết xuất/hoàn thành (12/13)."})
+                                       "ly_do": "Không thuộc khóa này, không còn hoạt động, hoặc đã kết xuất/hoàn thành (12/13)."})
                 conn.commit()
             except Exception:
                 conn.rollback()

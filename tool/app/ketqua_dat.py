@@ -69,7 +69,7 @@ def doc_pdf_dat(data: bytes) -> dict:
             if not pdf.pages:
                 raise LoiDat("File PDF rỗng.")
             dau = pdf.pages[0].extract_text() or ""
-            m_kh = re.search(r"khóa\s*học:\s*(\S+)", dau)
+            m_kh = re.search(r"khóa\s*học:\s*([A-Za-z0-9]+)", dau)
             m_hang = re.search(r"Hạng\s*đào\s*tạo:\s*(\S+)", dau)
             dong: list[dict] = []
             for trang in pdf.pages:

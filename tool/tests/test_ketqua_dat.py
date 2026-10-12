@@ -555,3 +555,22 @@ def test_s12_ba_dong_hai_bi_bo_qua_da_luu_la_1_moi_dong_bo_qua_co_ly_do(monkeypa
     r = _luu(auth_headers, [{"ma_dk": m, "gio_duong": 10, "km_duong": 500} for m in ("1", "2", "3")]).json()
     assert r["da_luu"] == 1 and [b["ma_dk"] for b in r["bo_qua"]] == ["2", "3"]
     assert all(b["ly_do"] for b in r["bo_qua"])
+
+
+# ---- sau /kiemthu: chốt 6 điểm (CHANGES #70) ----------------------------------------------
+@pytest.mark.parametrize("dau", [
+    "1.Mãkhóa học:75032K260002 (B01-K39)",     # có dấu cách như file thật
+    "1.Mãkhóa học:75032K260002(B01-K39)",      # dính liền, không dấu cách
+    "1.Mãkhóa học: 75032K260002\n2.Hạngđào tạo:B.01",
+])
+def test_ma_khoa_chi_lay_chu_va_so(monkeypatch, dau):
+    _gia_pdfplumber(monkeypatch, [_Trang(dau, [[["1", "M1", "A", "01/01/2000", "10:00", "500,00", "ĐẠT"]]])])
+    assert d.doc_pdf_dat(b"x")["ma_kh"] == "75032K260002"
+
+
+def test_luu_chi_ghi_ho_so_dang_hoat_dong_cung_dieu_kien_voi_xem_truoc(monkeypatch, auth_headers):
+    log: list = []
+    _gia_lap(monkeypatch, [], log)
+    assert _luu(auth_headers, [{"ma_dk": "1", "gio_duong": 10, "km_duong": 500}]).status_code == 200
+    sql = log[0][0]
+    assert "TrangThai = 1" in sql and "NOT IN ('12','13')" in sql

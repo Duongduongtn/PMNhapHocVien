@@ -245,4 +245,21 @@ test.describe("KQD-08 — hộp thoại nạp PDF DAT: chặn sớm, lưu xong, 
     await tatCa.uncheck();
     await expect(nutLuuModal(page, 0)).toBeDisabled();
   });
+
+  test("E12 tick tay dòng chưa chạy DAT → điền sẵn 0 giờ, Lưu được và ghi 0/0; bỏ tick thì không ghi", async ({ page }) => {
+    const luu = { body: null as unknown };
+    await giaBackend(page, luu);
+    await moHopThoai(page);
+    const b = bangModal(page);
+    const dongA3 = b.locator("tr", { hasText: "TRẦN VĂN CƯỜNG" });
+    await expect(dongA3.locator("input").nth(1)).toHaveValue("");           // chưa tick: giờ trống
+    await dongA3.locator('input[type="checkbox"]').check();
+    await expect(dongA3.locator("input").nth(1)).toHaveValue("0");          // tick tay → điền sẵn 0
+    await expect(dongA3.locator("input").nth(2)).toHaveValue("0");
+    await expect(nutLuuModal(page, 3)).toBeEnabled();
+    await nutLuuModal(page, 3).click();
+    await expect(page.getByText(/Đã lưu giờ\/km đường cho 3 học viên/)).toBeVisible();
+    const body = luu.body as { dong: { ma_dk: string; gio_duong: number; km_duong: number }[] };
+    expect(body.dong.find((d) => d.ma_dk === "A3")).toEqual({ ma_dk: "A3", gio_duong: 0, km_duong: 0 });
+  });
 });
