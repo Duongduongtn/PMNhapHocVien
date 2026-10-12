@@ -1413,16 +1413,16 @@ DB **không có** trigger/computed/constraint tính 3 cờ (verify 06/10: 0 trig
 ### 11D.9 Kiểm trước kết xuất (KQD-07, CHANGES #65) — chỉ đọc
 > Bổ sung 12/10/2026 từ tư vấn theo schema DB đích. Không đổi schema, không ghi DB; kết xuất vẫn thuộc PM cũ.
 
-- **Endpoint (đề xuất, chốt khi code):** `GET /local/ketqua/kiem-truoc?ma_kh=` — gác session + `target_key` như §11D.6. Đọc HV của đúng khóa `ma_kh` có `TT_XuLy IN ('03','04','09','10')` (cùng nguồn với `/hoc-vien`, nên dùng lại hàm đọc có sẵn, không viết SELECT thứ hai). Trả `{tong, du, thieu:[{ma_dk, ho_ten, cccd, tt_xuly, ly_do:[…]}], dem:{chua_co_diem, thieu_mon, thieu_gio_km, thieu_ket_luan}}`.
-- **Luật thuần (backend, không DB), hàm `hv_chua_du(hv, hang)`** đặt cạnh luật quy đổi trong `ketqua_quydoi.py`:
-  - `chua_co_diem` ⇔ `TT_XuLy ∈ {03,04}` và cả 5 `DiemKQ*` rỗng;
-  - `thieu_mon` ⇔ có ≥1 điểm nhưng thiếu ≥1 môn trong **danh sách môn bắt buộc theo hạng** (liệt kê môn thiếu trong `ly_do`);
-  - `thieu_gio_km` ⇔ `TGThucHanhHinh`/`QDThucHanhHinh`/`TGThucHanhDuong`/`TongQDThucHanh` còn rỗng khi hạng có thực hành (giờ/km đường **dưới ngưỡng gợi ý** KQD-02 chỉ là cảnh báo, **không** vào `ly_do`);
+- **Endpoint (đề xuất, chốt khi code):** `GET /local/ketqua/kiem-truoc?ma_kh=` — gác session + `target_key` như §11D.6. Đọc HV của đúng khóa `ma_kh` có `TT_XuLy IN ('03','04','09','10')` (cùng nguồn với `/hoc-vien`, nên dùng lại hàm đọc có sẵn, không viết SELECT thứ hai). Trả `{ma_kh, tong, du, thieu:[{ma_dk, ho_ten, so_cccd, tt_xuly, ly_do:[…], mon_thieu:[…]}], dem:{chua_co_diem, thieu_mon, thieu_gio_km, thieu_ket_luan}, mo_to_bo_qua}` — `tong` **không gồm** học viên mô tô (đếm riêng ở `mo_to_bo_qua`).
+- **Luật thuần (backend, không DB), hàm `hv_chua_du(hv)`** (không còn tham số `hang`; router lọc hạng mô tô — mã hạng bắt đầu `A` — trước khi gọi) đặt cạnh luật quy đổi trong `ketqua_quydoi.py`:
+  - `chua_co_diem` ⇔ cả 5 `DiemKQ*` rỗng (không kèm điều kiện `TT_XuLy` — HV 09/10 mà rỗng điểm cũng là chưa có điểm);
+  - `thieu_mon` ⇔ có ≥1 điểm nhưng thiếu ≥1 trong **5 môn bắt buộc** (cùng luật ô đỏ KQD-02, mọi hạng ô tô; môn thiếu trả ở `mon_thieu`);
+  - `thieu_gio_km` ⇔ `TGThucHanhHinh`/`QDThucHanhHinh`/`TGThucHanhDuong`/`TongQDThucHanh` còn rỗng (giờ/km đường **dưới ngưỡng gợi ý** KQD-02 chỉ là cảnh báo, **không** vào `ly_do`; response hiện **chưa trả** cảnh báo này — ❓ chưa chốt: backend trả thêm hay UI tự tính từ lưới, quyết khi code task 120);
   - `thieu_ket_luan` ⇔ `TT_XuLy ∈ {09,10}` mà `KetLuanCSDT IS NULL` (bất thường).
 - **Danh sách môn bắt buộc theo hạng hiện nằm ở phía UI** (`CapNhatKQDT.tsx`, ô đỏ KQD-02). Khi code **chuyển lên một nguồn chung ở backend rồi cho UI KQD-02 gọi lại cùng nguồn đó**, để KQD-07 và KQD-02 không có hai luật khác nhau (rủi ro đã biết nếu chép).
-- **UI:** nút "Kiểm trước kết xuất" ở màn KQD-02 (sau khi chọn khóa) → khung kết quả; bấm dòng → mở HV ở lưới KQD-02. HV `12/13/14/90` không đưa vào.
+- **UI:** nút "Kiểm trước kết xuất" ở màn KQD-02 (sau khi chọn khóa) → khung kết quả; bấm dòng → mở HV ở lưới KQD-02. HV `12/13/14/90` không đưa vào. **Đã chốt qua mock `ui-mock/ketqua.html` (12/10/2026):** khung là drawer bên phải; HV `chua_co_diem` **không hiện** chip `thieu_gio_km` (UI lọc, response vẫn trả đủ); khóa toàn mô tô (`tong=0`, `mo_to_bo_qua>0`) hiện "Khóa mô tô — không xét kết quả đào tạo", không báo "chưa có học viên".
 - **Bất biến:** chỉ đọc; không chặn kết xuất; không sinh XML.
-- **Kiểm thử:** unit `hv_chua_du` (đủ 5 môn → đủ; thiếu 1 môn; chưa có điểm; thiếu giờ-km; thiếu kết luận; hạng mô tô ẩn thực hành; giờ đường dưới ngưỡng không vào lý do) + API bằng cursor giả (HV 12/13 không vào danh sách).
+- **Kiểm thử:** unit `hv_chua_du` (đủ 5 môn → đủ; thiếu 1 môn; chưa có điểm; thiếu giờ-km; thiếu kết luận; hạng mô tô không xét — đếm `mo_to_bo_qua`; giờ đường dưới ngưỡng không vào lý do) + API bằng cursor giả (HV 12/13 không vào danh sách).
 
 > **Phục vụ:** KQD-01/02/03/04/05/06/07. Dừng ở `TT_XuLy` 09/10/12 — kết xuất XML/gửi Sở thuộc PM cũ. Quy đổi điểm/giờ/km: nguồn `thamkhao/` (TT17 + Sổ theo dõi). Quyết định: TDD-decisions §17 (quy đổi) + §19 (mở khóa).
 
@@ -1538,8 +1538,8 @@ Một truy vấn tổng hợp theo `MaKH`: số GV cờ=1; số GV có ≥1 dòn
 - **Endpoint:** `GET /local/phancong/han-giay-to?ngay=30` — gác session + `target_key` như §11E.2. Một truy vấn cho mỗi nhóm, lọc `MaCSDT` = mã CSĐT của máy (như rà soát PCG-05), `ngay` mặc định 30, giới hạn 1..365.
 - **Nhóm xe:** `XeTap` có `TrangThai=1` và (`NgayHHGPXTL` hoặc `NgayHHGCNKD`) `< hôm nay` → `het_han`; `BETWEEN hôm nay AND hôm nay+ngay` → `sap_het`; cả hai ngày NULL → mục thông tin `chua_khai`. Mỗi dòng kèm các khóa `KhoaHoc.NgayBG >= hôm nay` có dòng `KhoaHoc_XeTap` (mọi cờ) của xe đó.
 - **Nhóm giáo viên:** tương tự với `GiaoVien.NgayHHGPLX`, khóa lấy từ `KhoaHoc_GiaoVien` (mọi cờ).
-- **Nhóm ngưng còn phân công:** `GiaoVien`/`XeTap` `TrangThai=0` JOIN `KhoaHoc_GiaoVien`/`KhoaHoc_XeTap` JOIN `KhoaHoc` có `NgayBG >= hôm nay`.
-- **Luật thuần:** `phan_loai_han(ngay_hh, hom_nay, nguong)` đặt trong `phancong_rules.py` (thuần, không DB). `gp_het_som_nhat` đã có ở `phancong_service.py` chỉ chọn ngày hết hạn sớm nhất của xe — tái dùng để lấy ngày, không viết lại. **Khác §11E.7:** luật ⛔ "hết hạn trước bế giảng" xét theo từng khóa lúc ghi; PCG-06 chỉ xét theo **hôm nay** trên toàn cơ sở.
+- **Nhóm ngưng còn phân công:** `GiaoVien`/`XeTap` `TrangThai=0` JOIN `KhoaHoc_GiaoVien`/`KhoaHoc_XeTap` JOIN `KhoaHoc` có `NgayBG >= hôm nay`. **Dòng khóa và danh mục khóa đều lọc `TrangThai=1`** (dòng đã bỏ khỏi khóa / khóa đã ngưng không tính). Mock: `ui-mock/phancong.html` (tab "Hạn giấy tờ").
+- **Luật thuần:** `phan_loai_han(ngay_hh, hom_nay, nguong)` đặt trong `phancong_rules.py` (thuần, không DB). **Đọc dữ liệu ở module riêng `phancong_hangiayto.py`** (theo tiền lệ `phancong_rasoat.py`), **không** dùng `gp_het_som_nhat` — hàm đó chỉ chọn ngày sớm nhất, còn PCG-06 cần tách từng loại giấy (giấy phép / kiểm định) trên cùng một dòng. **Khác §11E.7:** luật ⛔ "hết hạn trước bế giảng" xét theo từng khóa lúc ghi; PCG-06 chỉ xét theo **hôm nay** trên toàn cơ sở.
 - **Bất biến:** chỉ đọc; mọi SQL tham số hóa; không đổi `TrangThai`.
 - **Kiểm thử:** unit `phan_loai_han` (đúng ngày hôm nay, ngày biên, NULL, ngưỡng) + API bằng cursor giả.
 
@@ -1858,6 +1858,7 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 | --- | --- | --- |
+| 12/10/2026 | 6.13 | **Đồng bộ §11D.9 (KQD-07) và §11E.10 (PCG-06) với code + quyết định đã chốt** (CHANGES #68): `hv_chua_du(hv)` bỏ tham số `hang`, mô tô lọc ở router và đếm `mo_to_bo_qua`; môn bắt buộc = 5 môn mọi hạng ô tô; response thêm `mon_thieu`/`mo_to_bo_qua`/`ma_kh`, `cccd`→`so_cccd`; UI chốt qua mock (ẩn chip giờ/km khi chưa có điểm, thông điệp khóa mô tô). PCG-06 đọc ở `phancong_hangiayto.py`, lọc `TrangThai=1`. Không đổi schema. |
 | 12/10/2026 | 6.12 | **Sửa §11.6 đổi nền cả khóa (QLY-07, CHANGES #67):** ghi đè đúng file ở `DuongDanAnh` hiện có (2 DB dùng chung 1 file), không dùng `ghi_anh_update` (không tạo file mới/không đổi `DuongDanAnh`); chỉ UPDATE `ChatLuongAnh/NgayThuNhanAnh/NguoiThuNhanAnh`; sao lưu `<tên>_BACKUP.jp2` cùng thư mục thay `<khóa>\_BACKUP\<MaDK>.jp2`. |
 | 12/10/2026 | 6.11 | **+§11D.9 Kiểm trước kết xuất (KQD-07) và +§11E.10 Hạn giấy tờ + GV/xe ngưng còn phân công (PCG-06)** (CHANGES #65, #66): hai endpoint chỉ đọc `GET /local/ketqua/kiem-truoc` và `GET /local/phancong/han-giay-to`; luật thuần `hv_chua_du` / `phan_loai_han`; cột đã verify trực tiếp trên DB đích 12/10/2026 (kể cả `GiaoVien.NgayHHGPLX`). Không đổi schema, không ghi DB. |
 | 11/10/2026 | 6.10 | **Ghi lại hành vi thực tế khi dựng UI TNB task 106-115 + 2 sửa backend** (CHANGES #64, không đổi yêu cầu): §11F.3 tích lẫn/Chọn tất cả/nút Hủy · §11F.4 `bc1.ngay_bao_cao`, form bắt buộc ngày, `thu_lai` · §11F.5 chốt payload bước ③, lỗi sau khi gửi → Làm tiếp, lô that_bai/loi_giua_chung, tự làm tươi, hạn chế F5 · §11F.6 `cuu_chuyen` hoàn tất lô dở từ nhật ký + mục IT. |

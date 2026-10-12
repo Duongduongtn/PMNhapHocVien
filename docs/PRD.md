@@ -926,16 +926,18 @@
 - ⬜ Ở màn Cập nhật KQĐT, sau khi chọn khóa có nút **"Kiểm trước kết xuất"**; bấm ra khung kết quả của **đúng khóa đang chọn** (không quét cả cơ sở).
 - ⬜ Đầu khung hiện tóm tắt: **N học viên đủ điều kiện kết xuất · M học viên còn thiếu**, kèm đếm theo từng loại thiếu.
 - ⬜ Mỗi học viên còn thiếu hiện một dòng (họ tên · CCCD · trạng thái) kèm **chip lý do**, một học viên có thể có nhiều chip: **Chưa có điểm** (chưa nhập môn nào) · **Thiếu môn** (có điểm nhưng thiếu môn bắt buộc của hạng, nêu rõ môn nào) · **Thiếu giờ/km thực hành** (giờ sân/km sân/giờ đường/km đường còn trống) · **Thiếu kết luận** (đã có trạng thái cập nhật mà chưa có kết luận Đạt/Không đạt — bất thường).
-- ⬜ "Môn bắt buộc" lấy **đúng luật của KQD-02** (5 môn theo hạng, mô tô ẩn bớt ô thực hành) — không tạo luật thứ hai.
+- ⬜ "Môn bắt buộc" lấy **đúng luật ô đỏ của KQD-02** — **cả 5 môn** với mọi hạng ô tô — không tạo luật thứ hai. **Hạng mô tô (mã hạng bắt đầu `A`) không xét** (không nhập kết quả đào tạo ở tool này): không vào danh sách, chỉ đếm riêng.
+- ⬜ Học viên **Chưa có điểm** thì **không hiện thêm** chip "Thiếu giờ/km thực hành" (chưa có điểm thì chắc chắn chưa có giờ/km, hiện thêm chỉ làm rối).
+- ⬜ Màn nhập điểm KQD-02 **giữ nguyên** (vẫn chặn lưu khi còn môn trống); "chỉ nhắc, không chặn" áp cho khung kiểm trước kết xuất.
 - ⬜ Giờ/km đường **thấp hơn mức gợi ý tối thiểu** (KQD-02) chỉ hiện **cảnh báo vàng**, không tính là "thiếu".
 - ⬜ Bấm một dòng → mở đúng học viên đó ở lưới nhập điểm (KQD-02) để sửa.
 - ⬜ Chỉ xét học viên `TT_XuLy` 03/04 (chưa có điểm) và 09/10 (đã cập nhật, chưa kết xuất). HV đã `12`/`13`/`14`/`90` không đưa vào danh sách.
 - ⬜ Khung có ghi chú: *"Kiểm tra này chỉ nhắc, không chặn. Kết xuất do phần mềm CDB cũ làm."*
 - ❌ Không ghi DB; không chặn kết xuất; không tự sửa điểm; không sinh XML; không quét nhiều khóa một lượt.
 
-**Edge cases:** khóa không có học viên → "Khóa chưa có học viên" · mọi học viên đều đủ → "Khóa đủ điều kiện kết xuất" (không hiện danh sách rỗng) · mất kết nối DB đích → báo, không treo · học viên vừa được sửa ở lưới → bấm "Kiểm lại" làm tươi.
+**Edge cases:** khóa không có học viên → "Khóa chưa có học viên" · khóa toàn học viên mô tô → "Khóa mô tô — không xét kết quả đào tạo" kèm số học viên (không báo "chưa có học viên") · mọi học viên đều đủ → "Khóa đủ điều kiện kết xuất" (không hiện danh sách rỗng) · mất kết nối DB đích → báo, không treo · học viên vừa được sửa ở lưới → bấm "Kiểm lại" làm tươi.
 
-> Nguồn: user 12/10/2026 (tư vấn bổ sung theo schema DB đích, chốt "theo từng khóa" + "theo môn bắt buộc của hạng") · luật ô bắt buộc/giờ-km: KQD-02 · TDD §11D.9
+> Nguồn: user 12/10/2026 (tư vấn bổ sung theo schema DB đích, chốt "theo từng khóa"; sau đó chốt "nhập kết quả học tập chỉ nhập cho hạng ô tô thôi, chưa nhập thì chỉ cảnh báo vẫn cho lưu các ô đã nhập" → cả 5 môn, bỏ mô tô; chốt qua mock: ẩn chip giờ/km khi chưa có điểm, thông điệp khóa mô tô) · luật ô bắt buộc/giờ-km: KQD-02 · mock `ui-mock/ketqua.html` (nút + khung kiểm trước) · TDD §11D.9
 
 ---
 
@@ -1049,7 +1051,7 @@
 
 **Edge cases:** không có GV/xe nào sắp hết hạn → "Không có giấy tờ nào sắp hết hạn trong 30 ngày" · xe/GV hết hạn nhưng không ở khóa nào → vẫn hiện, ô khóa ghi "Chưa dùng ở khóa nào" · giấy phép và kiểm định cùng ngày → gộp một dòng nêu cả hai loại.
 
-> Nguồn: user 12/10/2026 (tư vấn bổ sung theo schema DB đích; chốt ngưỡng 30 ngày, đặt trong Phân công, gộp nhóm ngưng-còn-phân-công, thêm hạn GPLX giáo viên) · số liệu thật đọc DB đích 12/10/2026: 5 xe còn ≤ 30 ngày, 3 GV đã hết hạn GPLX, 1 GV còn ≤ 30 ngày, chưa có GV/xe ngưng còn phân công · TDD §11E.10
+> Nguồn: user 12/10/2026 (tư vấn bổ sung theo schema DB đích; chốt ngưỡng 30 ngày, đặt trong Phân công, gộp nhóm ngưng-còn-phân-công, thêm hạn GPLX giáo viên) · số liệu thật đọc DB đích 12/10/2026: 5 xe còn ≤ 30 ngày, 3 GV đã hết hạn GPLX, 1 GV còn ≤ 30 ngày, chưa có GV/xe ngưng còn phân công · mock `ui-mock/phancong.html` (tab "Hạn giấy tờ") · TDD §11E.10
 
 ---
 
@@ -1416,3 +1418,4 @@
 | 11/10/2026 | v4.8 — **TNB ghi lại hành vi thực tế khi dựng UI task 106-115** (CHANGES #64, không đổi yêu cầu, trạng thái story giữ nguyên vì code đã chạy đúng điều được ghi): TNB-02 tích lẫn + luật nút Hủy/Chọn tất cả · TNB-03 hiện ngày BC1, ngày bắt buộc, Gửi lại `thu_lai` · TNB-04 chốt payload bước ③, tự làm tươi, hạn chế F5 + 2 điểm chưa quyết · TNB-05 lỗi lô · TNB-06 mục IT, khóa chưa bế giảng, hoàn tất lô dở · TNB-07 "chọn loại hạng" thay "tab", nhật ký không PII. Số story giữ 56. | BA/PM |
 | 12/10/2026 | v4.9 — **+2 story chỉ đọc theo tư vấn bổ sung từ schema DB đích** (CHANGES #65, #66): `KQD-07` Kiểm trước kết xuất (theo từng khóa; chip Chưa có điểm / Thiếu môn / Thiếu giờ-km thực hành / Thiếu kết luận; dùng luật ô bắt buộc của KQD-02) · `PCG-06` Hạn giấy tờ (tab thứ 3 màn Phân công, toàn cơ sở: xe hết hạn/≤30 ngày, GPLX giáo viên hết hạn/≤30 ngày, GV/xe ngưng còn phân công ở khóa chưa bế giảng). Cả hai ⏳ Todo, không ghi DB, không đổi schema. **Số story 56→58.** | BA/PM |
 | 12/10/2026 | v4.10 — **QLY-07 sửa nguyên tắc ghi ảnh** (CHANGES #67): đổi nền cả khóa ghi đè đúng file ở `DuongDanAnh` (2 DB dùng chung 1 file), không tạo file/không đổi đường dẫn; sao lưu thống nhất `<tên>_BACKUP.jp2` cùng thư mục, chỉ-nếu-chưa-có. QLY-07 hạ ⚠️ → ⏳ Todo. Số story giữ 58. | BA/PM |
+| 12/10/2026 | v4.11 — **KQD-07 ghi quyết định đã chốt** (CHANGES #68): môn bắt buộc = cả 5 môn mọi hạng ô tô, hạng mô tô không xét (thay câu "mô tô ẩn bớt ô thực hành"); chỉ nhắc không chặn, KQD-02 giữ nguyên; chốt UX qua mock: ẩn chip giờ/km khi chưa có điểm, thông điệp khóa mô tô. Mock `ui-mock/ketqua.html` + `ui-mock/phancong.html` ghi vào nguồn KQD-07/PCG-06. Số story giữ 58. |

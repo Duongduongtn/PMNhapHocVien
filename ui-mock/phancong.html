@@ -384,8 +384,9 @@ function render(){
   document.getElementById('subnav').innerHTML =
     `<button onclick="S.tab='pc';render()" class="h-8 px-3 rounded-md text-[13px] font-${S.tab==='pc'?'semibold bg-pc-soft text-pc':'medium text-muted-foreground'} inline-flex items-center">Phân công theo khóa</button>
      <button onclick="S.tab='rs';render()" class="h-8 px-3 rounded-md text-[13px] font-${S.tab==='rs'?'semibold bg-pc-soft text-pc':'medium text-muted-foreground'} inline-flex items-center">Rà soát khóa</button>
+     <button onclick="S.tab='hg';render()" class="h-8 px-3 rounded-md text-[13px] font-${S.tab==='hg'?'semibold bg-pc-soft text-pc':'medium text-muted-foreground'} inline-flex items-center gap-1.5">Hạn giấy tờ <span class="badge b-pc">PCG-06</span></button>
      <button onclick="openMoTa()" class="ml-auto h-8 px-3 rounded-md border border-pc-border text-pc text-[13px] font-medium inline-flex items-center gap-1.5 hover:bg-pc-soft">${ic('book')} Mô tả nghiệp vụ</button>`;
-  document.getElementById('view').innerHTML = S.tab==='pc' ? viewPhanCong() : viewRaSoat();
+  document.getElementById('view').innerHTML = S.tab==='pc' ? viewPhanCong() : S.tab==='rs' ? viewRaSoat() : viewHanGiayTo();
 }
 
 function viewPhanCong(){
@@ -853,6 +854,99 @@ function goKhoaRs(ten){
   const i=KHOA.findIndex(k=>k.ten===ten);
   if(i<0){ toast('(Mock) Khóa này chưa có dữ liệu mẫu để mở — khi code sẽ mở thẳng khóa đó.','info'); return; }
   S.khoaIdx=i; S.tab='pc'; loadScenario(2);
+}
+
+/* ============ MÀN ③ HẠN GIẤY TỜ (PCG-06) — chỉ đọc, toàn cơ sở ============ */
+const HG_HOM_NAY = new Date(2026,9,12);   // 12/10/2026 (mock)
+const HG_NGUONG = 30;
+const hgD = (d,m,y)=>new Date(y,m-1,d);
+const hgFmt = d => String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();
+const hgConLai = d => Math.round((d-HG_HOM_NAY)/86400000);
+const HG_LOAI = { gpxtl:'Giấy phép xe tập lái', gcnkd:'Giấy chứng nhận kiểm định', gplx:'GPLX giáo viên' };
+const HG_DATA = {   // đúng hình dạng GET /local/phancong/han-giay-to; tên/biển số là mẫu
+  xe:[
+    { bien:'51A-123.45', hang:'B',   giay:[['gpxtl',hgD(28,9,2026)]],                      khoa:['B01-K42','C1-K15'] },
+    { bien:'51A-234.56', hang:'B',   giay:[['gcnkd',hgD(20,10,2026)]],                     khoa:['C1-K15'] },
+    { bien:'51B-345.67', hang:'C1',  giay:[['gpxtl',hgD(5,11,2026)],['gcnkd',hgD(5,11,2026)]], khoa:['C1-K14'] },
+    { bien:'51C-456.78', hang:'B01', giay:[['gcnkd',hgD(28,10,2026)]],                     khoa:['B01-K41'] },
+    { bien:'51D-567.89', hang:'B',   giay:[['gpxtl',hgD(9,11,2026)]],                      khoa:[] },
+  ],
+  gv:[
+    { ma:'GV003', ten:'Nguyễn Văn Hải', hang:'B',  giay:[['gplx',hgD(15,8,2026)]],  khoa:['B-K147'] },
+    { ma:'GV011', ten:'Trần Minh Tâm',  hang:'C1', giay:[['gplx',hgD(30,9,2026)]],  khoa:['C1-K14','C1-K15'] },
+    { ma:'GV017', ten:'Lê Quốc Việt',   hang:'B',  giay:[['gplx',hgD(2,10,2026)]],  khoa:[] },
+    { ma:'GV021', ten:'Phạm Hữu Lộc',   hang:'B',  giay:[['gplx',hgD(31,10,2026)]], khoa:['B01-K42'] },
+  ],
+  chuaKhai:{ xe:[{bien:'51E-678.90',hang:'B',khoa:['C1-K15']}], gv:[{ma:'GV006',ten:'Võ Thanh Sơn',hang:'B',khoa:['B01-K42']},{ma:'GV009',ten:'Đỗ Thị Mai',hang:'C1',khoa:[]}] },
+  ngung:{ xe:[{bien:'51F-111.22',hang:'B',khoa:['C1-K15']}], gv:[{ma:'GV014',ten:'Hoàng Văn Bình',hang:'B',khoa:['B01-K42','C1-K15']}] },
+};
+let HG_SCN = 1;   // 1 = có dữ liệu · 2 = có GV/xe ngưng · 3 = sạch
+function hgView(){
+  const d = HG_SCN===3 ? {xe:[],gv:[],chuaKhai:{xe:[],gv:[]},ngung:{xe:[],gv:[]}}
+          : {...HG_DATA, ngung: HG_SCN===2 ? HG_DATA.ngung : {xe:[],gv:[]}};
+  const muc = r => Math.min(...r.giay.map(g=>hgConLai(g[1]))) < 0 ? 'het' : 'sap';
+  const dem = a => ({het:a.filter(r=>muc(r)==='het').length, sap:a.filter(r=>muc(r)==='sap').length});
+  return {d, xe:dem(d.xe), gv:dem(d.gv), ngung:d.ngung.xe.length+d.ngung.gv.length, chuaKhai:d.chuaKhai.xe.length+d.chuaKhai.gv.length};
+}
+function hgKhoaChips(khoa){
+  if(!khoa.length) return `<span class="text-[12px] text-muted-foreground italic">Chưa dùng ở khóa nào</span>`;
+  return khoa.map(k=>`<button onclick="event.stopPropagation();goKhoaRs('${k}')" class="badge b-pc hover:brightness-95 cursor-pointer">${k}</button>`).join(' ');
+}
+function hgGiayCells(r){
+  const cells = r.giay.map(([loai,ng])=>{
+    const n = hgConLai(ng), het = n<0;
+    return `<div class="flex items-center gap-2 py-0.5"><span class="text-[12.5px]">${HG_LOAI[loai]}</span><span class="tabnum text-[12.5px]">${hgFmt(ng)}</span>
+      <span class="badge ${het?'b-red':'b-warn'}">${het?`Quá hạn ${-n} ngày`:(n===0?'Hết hạn hôm nay':`Còn ${n} ngày`)}</span></div>`;
+  }).join('');
+  return cells;
+}
+function hgBang(titulo, cot, rows, bodyFn){
+  return `<div class="rounded-lg border border-border bg-card overflow-hidden mb-4">
+    <div class="px-3 py-2 border-b border-border bg-pc-soft text-[13px] font-bold text-pc flex items-center gap-2">${titulo}</div>
+    <table class="w-full text-[13px]"><thead class="bg-muted text-left"><tr>${cot.map(c=>`<th class="px-3 py-1.5 text-[12px] font-semibold text-muted-foreground">${c}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map(bodyFn).join('')}</tbody></table></div>`;
+}
+function viewHanGiayTo(){
+  const v = hgView(), d = v.d;
+  const tile = (t, a, b, extra) => `<div class="rounded-lg border border-border bg-card px-3 py-2.5 flex-1">
+      <div class="text-[12px] text-muted-foreground font-semibold">${t}</div>
+      <div class="flex items-center gap-2 mt-1">${a}${b}${extra||''}</div></div>`;
+  const nz = (n, cls, lbl) => `<span class="badge ${n?cls:'b-gray'}">${n} ${lbl}</span>`;
+  const tong = v.xe.het+v.xe.sap+v.gv.het+v.gv.sap+v.ngung;
+  let body = '';
+  if(tong===0 && !v.chuaKhai){
+    body = `<div class="rounded-lg border border-success/40 bg-success/5 px-4 py-10 text-center"><div class="text-[26px]">✓</div>
+      <div class="text-[14px] font-semibold text-success">Không có giấy tờ nào sắp hết hạn trong ${HG_NGUONG} ngày</div></div>`;
+  } else {
+    if(v.xe.het+v.xe.sap) body += hgBang(`${ic('stop','w-4 h-4')} Xe tập lái đang hoạt động — giấy tờ hết hạn hoặc còn ≤ ${HG_NGUONG} ngày`,
+      ['Biển số','Hạng xe','Giấy tờ · ngày hết hạn','Khóa chưa bế giảng đang dùng'], d.xe.slice().sort((a,b)=>Math.min(...a.giay.map(g=>g[1]))-Math.min(...b.giay.map(g=>g[1]))),
+      r=>`<tr class="row align-top"><td class="px-3 py-2 font-semibold tabnum">${r.bien}</td><td class="px-3 py-2">${r.hang}</td><td class="px-3 py-2">${hgGiayCells(r)}</td><td class="px-3 py-2"><div class="flex flex-wrap gap-1">${hgKhoaChips(r.khoa)}</div></td></tr>`);
+    if(v.gv.het+v.gv.sap) body += hgBang(`${ic('stop','w-4 h-4')} Giáo viên đang hoạt động — GPLX hết hạn hoặc còn ≤ ${HG_NGUONG} ngày`,
+      ['Mã','Họ tên','Hạng','GPLX · ngày hết hạn','Khóa chưa bế giảng đang có GV'], d.gv.slice().sort((a,b)=>a.giay[0][1]-b.giay[0][1]),
+      r=>`<tr class="row align-top"><td class="px-3 py-2 mono">${r.ma}</td><td class="px-3 py-2 font-semibold">${r.ten}</td><td class="px-3 py-2">${r.hang}</td><td class="px-3 py-2">${hgGiayCells(r)}</td><td class="px-3 py-2"><div class="flex flex-wrap gap-1">${hgKhoaChips(r.khoa)}</div></td></tr>`);
+    if(v.ngung) body += hgBang(`${ic('warn','w-4 h-4')} Đã ngưng nhưng còn phân công trong khóa chưa bế giảng`,
+      ['Loại','Mã / biển số','Họ tên','Hạng','Khóa còn phân công'],
+      [...d.ngung.gv.map(r=>({loai:'Giáo viên',ma:r.ma,ten:r.ten,...r})), ...d.ngung.xe.map(r=>({loai:'Xe',ma:r.bien,ten:'—',...r}))],
+      r=>`<tr class="row align-top"><td class="px-3 py-2"><span class="badge b-gray">${r.loai}</span></td><td class="px-3 py-2 mono">${r.ma}</td><td class="px-3 py-2">${r.ten}</td><td class="px-3 py-2">${r.hang}</td><td class="px-3 py-2"><div class="flex flex-wrap gap-1">${hgKhoaChips(r.khoa)}</div></td></tr>`);
+    if(v.chuaKhai) body += `<div class="rounded-lg border border-border bg-card px-3 py-2.5 text-[13px]">
+      <div class="font-semibold text-[12.5px] text-muted-foreground mb-1.5 flex items-center gap-1.5">${ic('info','w-4 h-4')} Chưa khai ngày hết hạn — không tính đỏ/vàng (${v.chuaKhai})</div>
+      <div class="flex flex-wrap gap-x-5 gap-y-1">${d.chuaKhai.xe.map(r=>`<span><span class="badge b-gray">Xe</span> <span class="tabnum font-medium">${r.bien}</span> · ${r.hang}</span>`).join('')}
+      ${d.chuaKhai.gv.map(r=>`<span><span class="badge b-gray">GV</span> <span class="font-medium">${r.ten}</span> <span class="mono text-muted-foreground">${r.ma}</span> · ${r.hang}</span>`).join('')}</div></div>`;
+  }
+  return `<div class="flex-1 min-h-0 overflow-auto p-4">
+    <div class="flex items-center gap-2 mb-3 flex-wrap"><h1 class="text-[14px] font-bold">Hạn giấy tờ</h1>
+      <span class="text-[12.5px] text-muted-foreground">Toàn bộ cơ sở · chỉ đọc · ngưỡng ${HG_NGUONG} ngày · tính đến <b class="text-foreground">${hgFmt(HG_HOM_NAY)}</b>. Bấm một khóa để mở khóa đó ở “Phân công theo khóa”.</span>
+      <span class="ml-auto inline-flex items-center gap-2 text-[11.5px] text-muted-foreground">Giả lập (chỉ có trong mock):
+        <span class="inline-flex rounded-md border border-border overflow-hidden">${[[1,'Có dữ liệu'],[2,'Có GV/xe ngưng'],[3,'Không có gì']].map(([n,t])=>`<button onclick="HG_SCN=${n};render()" class="h-7 px-2.5 text-[12px] font-medium ${HG_SCN===n?'bg-pc text-white':'bg-card hover:bg-muted'}">${t}</button>`).join('')}</span></span></div>
+    <div class="flex gap-3 mb-4">
+      ${tile('Xe tập lái', nz(v.xe.het,'b-red','đã hết hạn'), nz(v.xe.sap,'b-warn',`còn ≤ ${HG_NGUONG} ngày`))}
+      ${tile('Giáo viên (GPLX)', nz(v.gv.het,'b-red','đã hết hạn'), nz(v.gv.sap,'b-warn',`còn ≤ ${HG_NGUONG} ngày`))}
+      ${tile('Đã ngưng nhưng còn phân công', nz(v.ngung,'b-red','GV/xe'), '')}
+      ${tile('Chưa khai ngày hết hạn', nz(v.chuaKhai,'b-gray','mục thông tin'), '')}
+    </div>
+    ${body}
+    <div class="mt-3 text-[12px] text-muted-foreground">Màn này <b>không ghi gì</b> và không đổi trạng thái GV/xe. Luật chặn “xe hết hạn trước bế giảng” vẫn xét theo từng khóa lúc ghi ở bước ③.</div>
+  </div>`;
 }
 
 /* ============ NGĂN MÔ TẢ NGHIỆP VỤ ============ */

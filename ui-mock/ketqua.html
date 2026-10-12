@@ -46,6 +46,13 @@
   .cell-km.warn { border-color:hsl(32 90% 50%); background:hsl(32 90% 97%); }
   .qd { font-size:11px; font-variant-numeric:tabular-nums; margin-top:2px; line-height:1; }
   th.col-mon { width:70px; text-align:center; }
+  @keyframes flashRow { 0%,60% { background:hsl(262 70% 90%); } 100% { background:transparent; } }
+  tr.flash td { animation:flashRow 2.2s ease-out; }
+  .chip { display:inline-block; font-size:11px; font-weight:600; padding:1px 8px; border-radius:999px; border:1px solid; white-space:nowrap; }
+  .c-red { color:hsl(0 72% 45%); background:hsl(0 72% 97%); border-color:hsl(0 72% 80%); }
+  .c-warn { color:hsl(32 90% 34%); background:hsl(32 90% 95%); border-color:hsl(32 80% 72%); }
+  .c-gray { color:hsl(215 16% 38%); background:hsl(210 40% 96%); border-color:hsl(214 32% 82%); }
+  .seg button { height:26px; padding:0 9px; font-size:11.5px; font-weight:500; white-space:nowrap; }
   td.col-mon { text-align:center; vertical-align:top; }
 </style>
 </head>
@@ -117,6 +124,9 @@
               <label class="inline-flex items-center gap-1 cursor-pointer"><input type="radio" name="ct" checked onchange="setCT('cu')"> Cũ (TT12/2025)</label>
               <label class="inline-flex items-center gap-1 cursor-pointer"><input type="radio" name="ct" onchange="setCT('moi')"> Mới (TT108/2026)</label>
               <span class="text-[11px] text-muted-foreground/70">(lưu theo khóa, phía tool)</span>
+              <button onclick="openKT()" class="ml-3 inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-kq-border bg-kq-soft text-kq text-[12.5px] font-semibold hover:brightness-95">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Kiểm trước kết xuất <span class="text-[10px] font-semibold border border-kq-border rounded-full px-1.5">KQD-07</span>
+              </button>
             </div>
           </div>
           <div class="px-4 py-1.5 border-t border-border/70 flex items-center gap-2 bg-muted/30 flex-wrap">
@@ -235,6 +245,30 @@
   </div>
 </div>
 
+<!-- ===== KHUNG KIỂM TRƯỚC KẾT XUẤT (KQD-07) ===== -->
+<div id="drawerKT" class="hidden fixed inset-0 z-50">
+  <div class="absolute inset-0 bg-black/30" onclick="closeKT()"></div>
+  <div class="absolute right-0 top-0 h-full w-[540px] bg-card shadow-2xl flex flex-col">
+    <div class="shrink-0 px-4 py-3 border-b border-border flex items-start gap-3">
+      <div>
+        <div class="font-bold text-[15px] flex items-center gap-2">Kiểm trước kết xuất <span class="text-[10px] font-semibold text-kq bg-kq-soft border border-kq-border rounded-full px-1.5 py-px">KQD-07</span></div>
+        <div class="text-[12px] text-muted-foreground">Khóa <b class="text-foreground">B-K148</b> · hạng B · chỉ học viên chưa kết xuất</div>
+      </div>
+      <button onclick="kiemLai()" class="ml-auto inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-border text-[12.5px] hover:bg-muted"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Kiểm lại</button>
+      <button onclick="closeKT()" class="text-muted-foreground hover:text-foreground mt-1"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="shrink-0 px-4 py-1.5 border-b border-border bg-muted/40 flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap">
+      <span class="whitespace-nowrap">Giả lập (mock):</span>
+      <span class="seg inline-flex rounded-md border border-border overflow-hidden bg-card" id="ktScn"></span>
+    </div>
+    <div id="ktBody" class="flex-1 overflow-auto"></div>
+    <div class="shrink-0 px-4 py-2.5 border-t border-border bg-muted/30 text-[12px] text-muted-foreground flex items-start gap-2">
+      <svg class="w-4 h-4 shrink-0 mt-px" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+      <span><b>Kiểm tra này chỉ nhắc, không chặn.</b> Kết xuất do phần mềm CDB cũ làm.</span>
+    </div>
+  </div>
+</div>
+
 <script>
   let CT = "cu";
   const LT = { cu:{nguong:27,toiDa:30}, moi:{nguong:45,toiDa:50} };
@@ -246,13 +280,15 @@
     { stt:1, ten:"Nguyễn Văn An",   ns:"12/05/2001", cccd:"079201011200", hang:"B", madk:"75032-20260902-000012", tt:"03" },
     { stt:2, ten:"Trần Thị Bình",   ns:"03/11/2000", cccd:"079200011318", hang:"B", madk:"75032-20260902-000013", tt:"03" },
     { stt:3, ten:"Lê Hoàng Cường",  ns:"22/07/1999", cccd:"079199011442", hang:"B", madk:"75032-20260902-000014", tt:"03" },
-    { stt:4, ten:"Phạm Thị Dung",   ns:"08/02/2002", cccd:"079202011567", hang:"B", madk:"75032-20260902-000015", tt:"09", d:[28,8.5,88,7,86], gd:22, km:815 },
-    { stt:5, ten:"Võ Minh Em",      ns:"30/09/2001", cccd:"079201011688", hang:"B", madk:"75032-20260902-000016", tt:"09", d:[27,6,82,6,81], gd:20, km:810 },
+    { stt:4, ten:"Phạm Thị Dung",   ns:"08/02/2002", cccd:"079202011567", hang:"B", madk:"75032-20260902-000015", tt:"09", d:[28,,88,7,86], gd:22, km:815 },
+    { stt:5, ten:"Võ Minh Em",      ns:"30/09/2001", cccd:"079201011688", hang:"B", madk:"75032-20260902-000016", tt:"09", d:[27,6,82,6,81], gd:20 },
     { stt:6, ten:"Đặng Quốc Phúc",  ns:"14/04/2000", cccd:"079200011790", hang:"B", madk:"75032-20260902-000017", tt:"10", d:[24,4,79,5,80], gd:18, km:700 },
     { stt:7, ten:"Bùi Thanh Giang", ns:"19/12/2001", cccd:"079201011821", hang:"B", madk:"75032-20260902-000018", tt:"14", d:[28,7,85,6,84], gd:21, km:820, lydo:"Ảnh chân dung không đạt chuẩn, đề nghị cập nhật lại ảnh rồi nộp lại." },
     { stt:8, ten:"Hoàng Hữu Hạnh",  ns:"05/06/1998", cccd:"079198011934", hang:"B", madk:"75032-20260902-000019", tt:"90", d:[27,6.5,81,5.5,82], gd:20, km:812, lydo:"Thiếu chữ ký biên bản sát hạch — đang giải trình với Sở." },
     { stt:9, ten:"Ngô Thị Kim",     ns:"27/01/2002", cccd:"079202012045", hang:"B", madk:"75032-20260902-000020", tt:"12", d:[29,9,90,8,88], gd:24, km:830 },
     { stt:10,ten:"Dương Đức Nam",   ns:"11/08/2000", cccd:"079200012156", hang:"B", madk:"75032-20260902-000021", tt:"12", d:[28,8,86,7,85], gd:22, km:818 },
+    { stt:11,ten:"Phan Thị Lan",    ns:"16/03/2001", cccd:"079201012267", hang:"B", madk:"75032-20260902-000022", tt:"09", d:[29,9,92,8,90], gd:23, km:825 },
+    { stt:12,ten:"Mai Văn Long",    ns:"02/10/1999", cccd:"079199012378", hang:"B", madk:"75032-20260902-000023", tt:"09", d:[28,7,84,7,83], gd:21, km:816 },
   ];
   const TT_LABEL = {
     "03":["Đã đăng ký","text-muted-foreground bg-muted border-border"],
@@ -299,7 +335,7 @@
       const btn = suaLai
         ? `<div class="flex flex-col gap-1 items-stretch"><button id="luu-${h.stt}" class="h-7 px-3 rounded-md bg-kq text-white text-[12px] font-medium hover:brightness-110 disabled:opacity-40">Lưu</button><button onclick="openDrawer(${h.stt})" class="h-7 px-2 rounded-md border border-destructive/40 text-destructive text-[11px] font-medium hover:bg-destructive/5">Giải trình / Chi tiết</button></div>`
         : `<div class="flex flex-col gap-1 items-stretch"><button id="luu-${h.stt}" class="h-7 px-3 rounded-md bg-kq text-white text-[12px] font-medium hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed">Lưu</button><button onclick="openDrawer(${h.stt})" class="h-7 px-2 rounded-md border border-border text-muted-foreground text-[11px] font-medium hover:bg-muted">Chi tiết ⋯</button></div>`;
-      return `<tr class="lrow align-top">
+      return `<tr class="lrow align-top" id="r-${h.stt}">
         <td class="px-2 py-2 text-center tabnum">${h.stt}</td>
         <td class="px-2 py-2 font-medium whitespace-nowrap">${h.ten}<div class="text-[11px] text-muted-foreground tabnum">${h.ns}</div></td>
         <td class="px-2 py-2 mono">${h.cccd}</td>
@@ -368,6 +404,71 @@
     document.getElementById("drawer").classList.remove("hidden");
   }
   function closeDrawer(){ document.getElementById("drawer").classList.add("hidden"); }
+
+  /* ===== KQD-07: kiểm trước kết xuất (giả lập theo kịch bản, đúng hình dạng response /kiem-truoc) ===== */
+  const KT_LD = { chua_co_diem:["Chưa có điểm","c-gray"], thieu_mon:["Thiếu môn","c-red"], thieu_gio_km:["Thiếu giờ/km thực hành","c-red"], thieu_ket_luan:["Thiếu kết luận","c-red"] };
+  const KT_DATA = {
+    thieu: { tong:8, du:2, mo_to_bo_qua:0, dem:{chua_co_diem:3,thieu_mon:1,thieu_gio_km:4,thieu_ket_luan:1}, thieu:[
+      { stt:1, ly_do:["chua_co_diem","thieu_gio_km"], mon_thieu:[] },
+      { stt:2, ly_do:["chua_co_diem","thieu_gio_km"], mon_thieu:[] },
+      { stt:3, ly_do:["chua_co_diem","thieu_gio_km"], mon_thieu:[] },
+      { stt:4, ly_do:["thieu_mon"], mon_thieu:["Mô phỏng"] },
+      { stt:5, ly_do:["thieu_gio_km"], mon_thieu:[] },
+      { stt:6, ly_do:["thieu_ket_luan"], mon_thieu:[], canhbao:["Giờ đường 18 < 20","Km đường 700 < 810"] },
+    ] },
+    du:    { tong:8, du:8, mo_to_bo_qua:0, dem:{chua_co_diem:0,thieu_mon:0,thieu_gio_km:0,thieu_ket_luan:0}, thieu:[] },
+    trong: { tong:0, du:0, mo_to_bo_qua:0, dem:{}, thieu:[] },
+    moto:  { tong:0, du:0, mo_to_bo_qua:12, dem:{}, thieu:[] },
+    loi:   null,
+  };
+  const KT_SCN = [["thieu","Còn thiếu"],["du","Đủ hết"],["trong","Khóa trống"],["moto","Khóa mô tô"],["loi","Mất kết nối"]];
+  let ktScn="thieu", ktLoc=null;
+  function openKT(){ ktLoc=null; document.getElementById("drawerKT").classList.remove("hidden"); renderKT(); }
+  function closeKT(){ document.getElementById("drawerKT").classList.add("hidden"); }
+  function setKtScn(k){ ktScn=k; ktLoc=null; renderKT(); }
+  function kiemLai(){ document.getElementById("ktBody").innerHTML=`<div class="px-4 py-10 text-center text-[13px] text-muted-foreground">Đang kiểm lại…</div>`; setTimeout(renderKT,500); }
+  function locKT(k){ ktLoc = ktLoc===k ? null : k; renderKT(); }
+  function goHV(stt){
+    closeKT(); setSub("cap-nhat");
+    setFilter("all", document.querySelector(".flt")); document.getElementById("q").value=""; renderGrid();
+    const tr=document.getElementById("r-"+stt); if(!tr) return;
+    tr.scrollIntoView({block:"center",behavior:"smooth"}); tr.classList.remove("flash"); void tr.offsetWidth; tr.classList.add("flash");
+  }
+  function ktBox(cls,icon,title,sub){ return `<div class="m-4 rounded-lg border ${cls} px-4 py-6 text-center"><div class="text-[26px] leading-none mb-1">${icon}</div><div class="text-[14px] font-semibold">${title}</div>${sub?`<div class="text-[12.5px] text-muted-foreground mt-1">${sub}</div>`:""}</div>`; }
+  function renderKT(){
+    document.getElementById("ktScn").innerHTML = KT_SCN.map(([k,t])=>`<button onclick="setKtScn('${k}')" class="${ktScn===k?'bg-kq text-white':'hover:bg-muted'}">${t}</button>`).join("");
+    const el=document.getElementById("ktBody"); let d=KT_DATA[ktScn];
+    if(d && d.thieu.length){  // quyết định 12/10/2026: HV chưa có điểm thì không hiện chip "Thiếu giờ/km"
+      const th=d.thieu.map(r=>({...r, ly_do: r.ly_do.includes("chua_co_diem") ? r.ly_do.filter(k=>k!=="thieu_gio_km") : r.ly_do}));
+      const dem={}; th.forEach(r=>r.ly_do.forEach(k=>dem[k]=(dem[k]||0)+1));
+      d={...d, thieu:th, dem};
+    }
+    if(!d){ el.innerHTML = ktBox("border-destructive/40 bg-destructive/5 text-destructive","⚠","Không kết nối được DB đích","Kiểm tra máy CSDL đích rồi bấm “Kiểm lại”. Việc nhập điểm không bị ảnh hưởng."); return; }
+    if(d.tong===0 && d.mo_to_bo_qua>0){ el.innerHTML = ktBox("border-border bg-muted/40","🏍","Khóa mô tô — không xét kết quả đào tạo", `${d.mo_to_bo_qua} học viên hạng mô tô không nhập kết quả ở tool này nên không kiểm.`); return; }
+    if(d.tong===0){ el.innerHTML = ktBox("border-border bg-muted/40","📭","Khóa chưa có học viên","Chưa có học viên nào đang chờ kết xuất ở khóa này."); return; }
+    if(d.thieu.length===0){ el.innerHTML = ktBox("border-success/40 bg-success/5 text-success","✓","Khóa đủ điều kiện kết xuất",`${d.du}/${d.tong} học viên đủ điểm, giờ/km và kết luận. Sang phần mềm CDB cũ để kết xuất.`); return; }
+    const tom = `<div class="px-4 py-3 border-b border-border bg-card">
+        <div class="flex items-baseline gap-4 text-[13px]">
+          <span class="inline-flex items-center gap-1.5 text-success font-bold text-[15px]"><span class="tabnum">${d.du}</span><span class="text-[12.5px] font-medium">học viên đủ điều kiện</span></span>
+          <span class="inline-flex items-center gap-1.5 text-destructive font-bold text-[15px]"><span class="tabnum">${d.thieu.length}</span><span class="text-[12.5px] font-medium">học viên còn thiếu</span></span>
+          ${d.mo_to_bo_qua?`<span class="ml-auto text-[11.5px] text-muted-foreground">${d.mo_to_bo_qua} HV mô tô không xét</span>`:""}
+        </div>
+        <div class="flex flex-wrap gap-1.5 mt-2.5">${Object.keys(KT_LD).filter(k=>d.dem[k]).map(k=>`<button onclick="locKT('${k}')" class="chip ${KT_LD[k][1]} ${ktLoc===k?'ring-2 ring-kq/50':''} hover:brightness-95">${KT_LD[k][0]} · <span class="tabnum">${d.dem[k]}</span></button>`).join("")}${ktLoc?`<button onclick="locKT('${ktLoc}')" class="text-[11.5px] text-muted-foreground underline ml-1">bỏ lọc</button>`:""}</div>
+      </div>`;
+    const rows = d.thieu.filter(r=>!ktLoc || r.ly_do.includes(ktLoc)).map(r=>{
+      const h=HV.find(x=>x.stt===r.stt), [lbl,cls]=TT_LABEL[h.tt];
+      const chips = r.ly_do.map(k=>`<span class="chip ${KT_LD[k][1]}">${KT_LD[k][0]}${k==='thieu_mon'&&r.mon_thieu.length?': '+r.mon_thieu.join(', '):''}</span>`).join("")
+        + (r.canhbao||[]).map(w=>`<span class="chip c-warn" title="Chỉ cảnh báo, không tính là thiếu">⚠ ${w}</span>`).join("");
+      return `<div onclick="goHV(${r.stt})" class="lrow px-4 py-2.5 cursor-pointer flex items-start gap-3">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2"><span class="font-medium text-[13px]">${h.ten}</span><span class="mono text-muted-foreground">${h.cccd}</span></div>
+          <div class="flex flex-wrap gap-1.5 mt-1.5">${chips}</div>
+        </div>
+        <span class="text-[11px] font-semibold border rounded-full px-2 py-0.5 ${cls} whitespace-nowrap mt-0.5">${lbl}</span>
+        <svg class="w-4 h-4 text-muted-foreground mt-1 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+      </div>`; }).join("");
+    el.innerHTML = tom + rows + `<div class="px-4 py-2 text-[11.5px] text-muted-foreground">Bấm một dòng để mở đúng học viên ở lưới nhập điểm. <span class="c-warn chip">⚠ vàng</span> = dưới mức gợi ý tối thiểu, chỉ nhắc.</div>`;
+  }
 
   function setSub(sub){ document.querySelectorAll(".sub-btn").forEach(b=>{const on=b.dataset.sub===sub; b.classList.toggle("bg-kq-soft",on); b.classList.toggle("text-kq",on); b.classList.toggle("font-semibold",on); b.classList.toggle("text-muted-foreground",!on);}); document.querySelectorAll(".page").forEach(p=>p.classList.toggle("hidden", p.dataset.page!==sub)); }
 
