@@ -797,7 +797,7 @@ Chọn loại (mô tô/ô tô) → khóa chưa BC1 → nhập/chọn HV → map 
          32 tham số @p_* khớp 1:1 form "Thu nhận HS": MaKH, MaHangGPLX, HangDaoTao, SoHoSo,
          HoVaTen (IN HOA — SP TỰ TÁCH Ho/Ten), HoVaTenIn, NgaySinh, GioiTinh, MaQuocTich(=VNM),
          SoCMT, NgayCap, NoiCap, MaDVHC_TT + ChiTiet_TT, MaDVHC_CT + ChiTiet_CT, SoNamLX, SoKmLX,
-         GiayTo (danh sách MaGT), GPLX đã có…, GhiChu, SO_CMND_CU, CHON_IN_GPLX(=2)
+         GiayTo (danh sách MaGT), GPLX đã có…, GhiChu, SO_CMND_CU, CHON_IN_GPLX(1/2/3; mặc định theo hạng khóa: A*→3, còn lại→2)
          → SP ghi NguoiLX + NguoiLX_HoSo (TT_XuLy='01', CHƯA ảnh) + giấy tờ trong MỘT lần
          → @p_out: 0=OK · -1 trùng SoHoSo · -2 trùng CMT · -3 thiếu thâm niên · -4 thiếu km
            (SP KHÔNG raiserror → tool PHẢI đọc @p_out; ≠0 → SP không insert → báo lỗi, giữ pending)
@@ -809,7 +809,7 @@ Chọn loại (mô tô/ô tô) → khóa chưa BC1 → nhập/chọn HV → map 
   → VPS: da_nap (ma_dk)
 ```
 > **Vì sao 1 SP gộp thay 3 SP rời:** đây là SP app cũ dùng cho CHÍNH màn "Thu nhận Hồ sơ cấp mới",
-> nên bản ghi khớp 100% (gồm `CHON_IN_GPLX=2`, họ tên IN HOA, địa chỉ mã+chi tiết tách riêng) —
+> nên bản ghi khớp 100% (gồm `CHON_IN_GPLX` — từ 16/10/2026 theo hạng khóa/lựa chọn, không còn gán cứng 2 —, họ tên IN HOA, địa chỉ mã+chi tiết tách riêng) —
 > điều 3 SP rời (`usp_NguoiLX_Insert`+`HoSo_Insert`+`GiayTo_Insert`) không đạt được vì **không có
 > tham số `CHON_IN_GPLX`** và ghi lệch nhiều field (AS-003 01/10/2026, xem CHANGES #4). SP atomic
 > trong một lần → **bỏ compensation 3 bước thủ công** (§10.3).
@@ -860,7 +860,11 @@ Collector(App web)  VPS(FastAPI/PG)   Operator(Tool)   SQL Server GPLX_CSDT   �
   - `MaQuocTich = 'VNM'` (chuẩn ISO alpha-3 = `DM_QuocTich.Ma`; **"VN" vỡ `FK_NguoiLX_DM_QuocTich`**).
   - `NoiTT`/`NoiCT` = **chi tiết địa chỉ (số nhà/thôn), mặc định TRỐNG** — 55/55 HV thật để trống; địa chỉ hành chính nằm ở `NoiTT_MaDVHC`/`NoiTT_MaDVQL` (2 cấp: xã + tỉnh). **KHÔNG nhét tên xã vào `NoiTT`** (gây app hiển thị lặp Địa chỉ + Chi tiết). Tương ứng `@p_MaDVHC_TT`+`@p_ChiTiet_TT` (và `_CT`).
   - `DonViHocLX = NULL` (55/55 thật NULL; không hard-code `70004`).
-  - `CHON_IN_GPLX = 2` (55/55 thật = 2; "Chọn in GPLX" bắt buộc; chỉ SP gộp set được — cột default 0).
+  - `CHON_IN_GPLX` (**đổi 16/10/2026, CHANGES #79** — trước đó gán cứng 2): `hv["chon_in_gplx"]` nếu nhân viên chọn, ngược lại `nap.chon_in_gplx_mac_dinh(khoa.hang_gplx)` → hạng bắt đầu `A` (mô tô) = **3**, còn lại/trống = **2**. Giá trị: 1 = In 01 GPLX (ghép: có TH + không TH) · 2 = có thời hạn · 3 = không thời hạn (suy từ dữ liệu DB Nạp thật: ô tô ~15.000 HV = 2, mô tô ~17.000 HV = 3, hiếm 1; thứ tự 1/2/3 chưa đối chiếu với ô `cboInGplx` máy cũ — nếu khác chỉ sửa bảng nhãn `IN_GPLX_NHAN`). Cột `NguoiLX_HoSo.CHON_IN_GPLX int` default 0; không bảng danh mục (hard-code ở phần mềm cũ). API `NapIn.chon_in_gplx` + `NhapChuanBiIn.chon_in_gplx`: ngoài {1,2,3} → 422; None → server chọn theo hạng của khóa (đọc từ `KhoaHoc.HangGPLX`, không tin client).
+  - **Nháp bền:** bảng `nhap_chuan_bi` thêm cột `chon_in_gplx INTEGER` (NULL = chưa đổi → luôn theo hạng khóa), thêm bằng `ALTER TABLE` khi thiếu (cùng mẫu cột `ngay_cap`).
+  - **UI:** ngăn Chuẩn bị có ô "Chọn in GPLX" điền sẵn + tên loại in + dòng gợi ý khóa mô tô/ô tô (`pages/tool/inGplx.ts` phản chiếu quy tắc backend); `dungNapIn` luôn gửi giá trị đang hiện.
+  - **Sync CDB:** `_HV_SELECT` đọc `B.CHON_IN_GPLX`, `_INSERT_HOSO` ghi cột này sang DB đích **nguyên giá trị** (NULL/thiếu → 0). Lý do: phần mềm CDB không hiện ô chọn nhưng 6 SP đọc/xuất (`usp_NguoiLX_Select_By_MaKH/_MaBC2/_MaBC2_2XML/_MaDK`, `usp_QuangLA_PM4_ThuNhanHS_LoadThongTin/ThemMoiCapNhat`) đều lấy cột này đưa vào file BC1/BC2 gửi Sở. *Chưa xác minh Sở có dùng trường này.*
+  - **Ngoài phạm vi (ghi nợ):** HV mô tô đã nạp trước 16/10/2026 mang 2; ~739 HV ở DB đích đang 0 (25 HV đã vào BC2) — cần script cập nhật riêng nếu muốn.
 
 ### 10.3 Ca lỗi / concurrency (đổi 01/10/2026 — SP gộp atomic)
 - **SP gộp tự transaction → KHÔNG cần compensation 3 bước:** `usp_QuangLA_PM4_ThuNhanHS_ThemMoiCapNhat` ghi NguoiLX + NguoiLX_HoSo + giấy tờ trong một SP; SP lỗi thì SP tự rollback → không để lại bản ghi nửa vời. (Khác hẳn 3 SP rời cũ, mỗi SP tự commit nên phải bù trừ tay — đã bỏ.) **⚠ SP dùng `IF @@error<>0 ROLLBACK` (không TRY/CATCH) → tool `SET XACT_ABORT ON` trước EXEC để lỗi runtime (vd vỡ FK) chắc chắn rollback, không treo transaction.**
@@ -2045,6 +2049,7 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 | --- | --- | --- |
+| 16/10/2026 | 6.25 | **"Chọn in GPLX" theo hạng khóa** (CHANGES #79): §10.1/§10.2 `CHON_IN_GPLX` hết gán cứng 2 — ô chọn 1/2/3, mặc định A*→3 / còn lại→2, 422 ngoài tập, nháp `nhap_chuan_bi.chon_in_gplx` (+ALTER), UI ngăn Chuẩn bị; Sync CDB chép nguyên giá trị (NULL→0). |
 | 16/10/2026 | 6.24 | **Quản lý mẫu giải trình** (CHANGES #78): §11D.13 ghi UI hộp sửa/xóa/thêm mẫu dùng lại `PUT mau-giai-trinh` (thay toàn bộ + `phien_ban`), không thêm endpoint. |
 | 16/10/2026 | 6.23 | **Sửa sau /reviewtdd §11D.13** (KQD-04 đổi, CHANGES #77, biên bản `tdd-review-16-10-2026-kqd04.md`; subagent soát độc lập: 3 Chặn · 11 Nên sửa · 6 Ghi nhận, user chọn sửa tất cả): **lô một giao dịch thật** (`autocommit=False`) + `cap_nhat` bước chuyển lỗi → 200 `chua_chuyen_90`; **lô kiểm đủ điểm** theo `hv_chua_du` §11D.9; **giải trình riêng được giữ** (chung không đè, `ghi_de_rieng`); **HV 90 Không đạt/trống kết luận** có chip đỏ + tab "Cần xử lý"; chặn đua trạng thái + `MaCSDT`; biên lô; mẫu theo `target_key` + `phien_ban` + khóa ghi cấu hình; mất kết nối `khong_ro`; sơ đồ §11D.1 + trình tự lô. |
 | 16/10/2026 | 6.22 | **+§11D.13 Sửa lại HV Sở từ chối → "Đang giải trình" + giải trình hàng loạt** (KQD-04 đổi, CHANGES #77, decisions §27): quy tắc `14`→`90` khi Đạt + có giải trình (tool UPDATE có guard SQL, vì SP không đặt `90` và SP danh sách kết xuất của CDB chỉ lấy `09`/`90`); `POST /giai-trinh-lo` một giao dịch; mẫu giải trình phía tool; lưới đọc thêm `LyDoTuChoiKQDT`; nhóm "còn sót kết xuất" + KQD-07 gồm `90` Đạt; bảng nhãn trạng thái nghiệp vụ. Sửa §11D.1 (sơ đồ) + §11D.6 (API) + §11D.9. |

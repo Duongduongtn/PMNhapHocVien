@@ -82,10 +82,11 @@
 > Làm rõ §8 cho riêng luồng thu nhận HV mới. §8 ("chỉ qua SP, khớp 100% app cũ") không đổi; đây là chốt DÙNG ĐÚNG SP nào.
 
 - **Đã chốt (01/10/2026):** Nạp 1 HV qua **1 SP gộp `usp_QuangLA_PM4_ThuNhanHS_ThemMoiCapNhat`** — chính SP màn "Thu nhận Hồ sơ cấp mới" của app cũ (32 tham số `@p_*` khớp 1:1 form): ghi `NguoiLX` + `NguoiLX_HoSo` + giấy tờ (`@p_GiayTo`) + `CHON_IN_GPLX` atomic trong một lần.
-- **Vì sao:** đó là SP app cũ dùng cho chính màn này → bản ghi khớp 100% (gồm `CHON_IN_GPLX=2`, họ tên IN HOA, địa chỉ mã+chi tiết tách riêng) — mục tiêu PRD NAP-05. 3 SP rời **không có tham số `CHON_IN_GPLX`** và ghi lệch nhiều field.
+- **Vì sao:** đó là SP app cũ dùng cho chính màn này → bản ghi khớp 100% (gồm `CHON_IN_GPLX`, họ tên IN HOA, địa chỉ mã+chi tiết tách riêng) — mục tiêu PRD NAP-05. 3 SP rời **không có tham số `CHON_IN_GPLX`** và ghi lệch nhiều field.
 - **Đánh đổi:** phụ thuộc SP nội bộ app cũ ("QuangLA") — nhưng chính điều đó bảo đảm khớp; app cũ đổi SP thì tool phải theo.
 - **Đã từng chốt (tới 01/10/2026):** 3 SP rời `usp_NguoiLX_Insert` → `usp_NguoiLX_HoSo_Insert` → `usp_NguoiLXHS_GiayTo_Insert` × N + compensation bù trừ tay. Đổi vì **AS-003 (nạp thử 1 HV thật 01/10/2026)** phát hiện bản ghi lệch app cũ 5 field (họ tên không IN HOA, địa chỉ lặp, `DonViHocLX`, `CHON_IN_GPLX`, `MaQuocTich`) và 3 SP rời không set được `CHON_IN_GPLX`.
-- Nguồn: PRD NAP-05 ("khớp app cũ"); AS-003 01/10/2026; CHANGES #4.
+- **Đổi 16/10/2026 (CHANGES #79) — `CHON_IN_GPLX` hết gán cứng 2:** *Đã từng chốt (01/10/2026):* `CHON_IN_GPLX=2` cho mọi học viên (55/55 HV mẫu AS-003 đều ô tô). *Vì sao đổi:* DB Nạp thật cho thấy mô tô A1/A1m/A2 (~17.000 HV) = 3 và ô tô (~15.000 HV) = 2 — gán cứng 2 làm khóa mô tô ghi sai. *Chốt (user):* ô chọn ở ngăn Chuẩn bị, mặc định theo hạng khóa (A* → 3, còn lại → 2), đổi được từng học viên; Sync CDB chép nguyên giá trị sang DB đích.
+- Nguồn: PRD NAP-05 ("khớp app cũ"); AS-003 01/10/2026; CHANGES #4, #79.
 
 ## 11. Lưu nháp chuẩn bị BỀN ở máy tool, gồm cả ảnh (04/10/2026)
 

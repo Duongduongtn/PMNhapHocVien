@@ -181,6 +181,7 @@
 - ✅ **Tìm trong list tải về** (hàng chờ VPS, chế độ Nạp hồ sơ) theo **tên (khớp cả có dấu lẫn không dấu)** hoặc **số CCCD**; ô tìm đặt trên đầu danh sách, màn hẹp thu gọn thành **nút kính lúp**. (CHANGES #10)
 - ✅ **Tên học viên hiển thị IN HOA giữ dấu** ngay khi kéo về (khớp cách ghi DB).
 - ✅ **Cảnh báo "sai chính tả" mức A:** tô dấu hiệu khi tên **thiếu dấu tiếng Việt / có số/ký tự lạ / khoảng trắng thừa** (không dùng từ điển tên — tránh báo nhầm); cảnh báo mềm, nhân viên tự sửa.
+- ✅ **Ô "Chọn in GPLX" ở ngăn Chuẩn bị (CHANGES #79, 16/10/2026):** hiện **điền sẵn theo hạng của khóa đang nạp** kèm **tên loại in bằng chữ** ("In 01 GPLX có thời hạn" / "In 01 GPLX không thời hạn" / "In 01 GPLX (ghép: có thời hạn + không thời hạn)") và một dòng gợi ý nói rõ khóa mô tô hay ô tô; đổi được **từng học viên**; lưu cùng nháp bền (chưa đổi thì lưu trống để luôn theo hạng khóa); **nạp lô** gửi đúng giá trị đang hiện trên ô của từng học viên. Quy tắc mặc định và ý nghĩa 3 giá trị: xem NAP-05.
 - ✅ **Nạp lô:** HV lỗi (trùng CCCD cùng khóa / thiếu dữ liệu…) **tô đỏ + nêu rõ lý do**; HV nạp được **tô xanh (kèm Số hồ sơ)**; HV khác trong lô vẫn nạp (EC-071).
 - ⬜ **"Bỏ khỏi hàng đợi"** (CHANGES #22, #51): bỏ dòng khỏi hàng đợi staging của tool (SQLite cục bộ) — KHÔNG đụng DB prod, KHÔNG đụng máy chủ VPS. Tên nhẹ, TÁCH BẠCH với "Xóa khỏi DB" của Tra cứu DB (tránh xóa nhầm prod). Áp cho **mọi dòng**, không chỉ dòng đã nạp:
   - **Dòng 🟢 Đã nạp:** bỏ như cũ. VPS đã đánh dấu đã nạp nên kéo lại không mang về.
@@ -288,18 +289,19 @@
 
 #### [NAP-05] Sinh Số hồ sơ + nạp DB qua 1 SP gộp app cũ + giấy tờ
 
-**Trạng thái:** ✅ Done — 01/10/2026, nạp qua 1 SP gộp app cũ hướng A (CHANGES #4/#5); AS-003 nạp thật 17/17 khớp app cũ (user đã mở app cũ đối chiếu). **EC-010 hoãn Phase 2:** khóa bản ghi VPS khi 2 máy cùng nạp cần `pending→importing` trên VPS (HTG-02/NAP-01, chưa dựng); chống trùng cùng máy đã có (idempotent UUID).
+**Trạng thái:** ⚠️ Partial — yêu cầu đổi 16/10/2026 (CHANGES #79): "Chọn in GPLX" thành ô chọn, mặc định theo hạng khóa; **code + test xong, chưa nghiệm thu ghi thật ở máy CSĐT** (nạp thử 1 HV mô tô + 1 HV ô tô, mở app cũ đối chiếu ô "Chọn in GPLX"). Trước đó ✅ Done — 01/10/2026, nạp qua 1 SP gộp app cũ hướng A (CHANGES #4/#5); AS-003 nạp thật 17/17 khớp app cũ (user đã mở app cũ đối chiếu). **EC-010 hoãn Phase 2:** khóa bản ghi VPS khi 2 máy cùng nạp cần `pending→importing` trên VPS (HTG-02/NAP-01, chưa dựng); chống trùng cùng máy đã có (idempotent UUID).
 **Story:** Là nhân viên nạp DB, tôi muốn nạp học viên vào khóa qua stored procedure có sẵn, để hồ sơ hiện đúng trên app cũ.
 
 **Steps to Complete:**
 1. Sinh `SoHoSo` = MAX+1 (3 chữ số) trong khóa (nếu SP không tự sinh).
-2. Gọi **1 SP gộp `usp_QuangLA_PM4_ThuNhanHS_ThemMoiCapNhat`** — chính SP màn "Thu nhận Hồ sơ cấp mới" của app cũ dùng (32 tham số khớp 1:1 form) — ghi NguoiLX + NguoiLX_HoSo + giấy tờ + `CHON_IN_GPLX` trong một lần, atomic (SP tự lo transaction).
+2. Gọi **1 SP gộp `usp_QuangLA_PM4_ThuNhanHS_ThemMoiCapNhat`** — chính SP màn "Thu nhận Hồ sơ cấp mới" của app cũ dùng (32 tham số khớp 1:1 form) — ghi NguoiLX + NguoiLX_HoSo + giấy tờ + `CHON_IN_GPLX` (giá trị nhân viên chọn ở ngăn Chuẩn bị, mặc định theo hạng khóa) trong một lần, atomic (SP tự lo transaction).
 3. Ghi file ảnh; đánh dấu bản ghi VPS = `da_nap` (kèm MaDK).
 
 **Done khi:**
 - ✅ Mở app cũ (màn Thu nhận HS) tại đúng khóa: dòng học viên hiện đúng Số hồ sơ, Họ tên, Giới tính, Ngày sinh, CMT/HC, Nơi ĐK thường trú, Đường dẫn ảnh, Ngày nhận HS **khớp giá trị đã nhập**; mở ảnh chân dung xem được; tab Giấy tờ có đủ dòng đã tick.
 - ✅ `SoHoSo` đúng thứ tự khóa (khóa 55 HV → HV mới 056); `MaHTCap=CM_VN`, `TT_XuLy=03`, `GiayCNSK=1`.
-- ✅ **Giá trị khớp app cũ (verify AS-003 01/10/2026):** `HoVaTen`/`HoVaTenIn` **IN HOA giữ dấu**; `MaQuocTich=VNM` (không "VN" — vỡ FK); `NoiTT`/`NoiCT` **trống**, địa chỉ hành chính lấy từ mã DVHC, ô Chi tiết riêng (không nhét tên xã vào NoiTT gây lặp); `DonViHocLX=NULL`; `CHON_IN_GPLX=2`.
+- ✅ **Giá trị khớp app cũ (verify AS-003 01/10/2026):** `HoVaTen`/`HoVaTenIn` **IN HOA giữ dấu**; `MaQuocTich=VNM` (không "VN" — vỡ FK); `NoiTT`/`NoiCT` **trống**, địa chỉ hành chính lấy từ mã DVHC, ô Chi tiết riêng (không nhét tên xã vào NoiTT gây lặp); `DonViHocLX=NULL`; `CHON_IN_GPLX` = giá trị đã chọn (xem tiêu chí **"Chọn in GPLX"** bên dưới; trước 16/10/2026 gán cứng 2).
+- ⚠️ **"Chọn in GPLX" theo hạng khóa (CHANGES #79, 16/10/2026):** 3 giá trị như ô `cboInGplx` của app cũ — **1** In 01 GPLX (ghép: có thời hạn + không thời hạn) · **2** In 01 GPLX có thời hạn · **3** In 01 GPLX không thời hạn. Nhân viên không chọn gì thì hệ thống tự điền theo **hạng của khóa đang nạp**: hạng bắt đầu bằng `A` (mô tô: A1, A1m, A2, A3…) → **3**; còn lại (ô tô: B, B01/B11, B1, B2, C, C1, D, E…) và hạng trống → **2**. Server là bên quyết cuối (đọc hạng từ khóa, không tin client); gửi giá trị ngoài {1, 2, 3} → từ chối (422). Code + test xong; **chờ nghiệm thu ghi thật ở máy CSĐT**.
 - ✅ Giấy tờ mặc định nộp đủ theo `DM_LoaiHSo_GiayTo` (hạng B/A → 3 giấy tờ), `TenGT` lấy đầy đủ từ `DM_GiayTo`; **ghi theo trạng thái tick cuối của người dùng** (bỏ tick được và được tôn trọng khi nạp, không auto ghi đè về "đủ").
 - ✅ Nạp trong transaction; lỗi giữa chừng → rollback, giữ `pending`.
 - ❌ Không INSERT/UPDATE bảng trực tiếp cho dữ liệu hồ sơ (chỉ qua SP gộp). **Ngoại lệ (01/10/2026, CHANGES #5):** được UPDATE thẳng 5 cột ảnh `NguoiLX_HoSo` (`DuongDanAnh`, `ChatLuongAnh`, `TT_XuLy`, `NgayThuNhanAnh`, `NguoiThuNhanAnh`) sau khi ghi `.jp2` — vì SP gộp không ghi ảnh (hướng A, TDD §10.3).
@@ -854,12 +856,12 @@
 
 #### [KQD-03] Tab "Theo dõi kết xuất" (khóa-first, chỉ xem)
 
-**Trạng thái:** 🔄 In Progress — task 138 (backend: "còn sót kết xuất" gồm `90` Đạt + đếm/lọc theo nhóm có điều kiện) **xong 16/10/2026** (14 test mới, 930 pytest pass, review-nghiepvu đủ); task 142 (UI) chưa làm — nhãn "(09/10)" và đếm chồng 90 Đạt giữa "còn sót" và "giải trình" sẽ xử lý ở 140/142. Yêu cầu đổi 16/10/2026 (CHANGES #77): "Còn sót kết xuất" tính thêm HV `90` Đạt. *Phần đã làm trước đó (⚠️ Partial):* **chưa chạy end-to-end live, chờ restart backend dev** (task 74, CHANGES #45, 07/10/2026). Đã xong + verify: master–detail khóa-first (`TheoDoiKetXuat.tsx` dựng lại từ stub) + tiến độ 5 nhóm trạng thái + panel gói cơ sở (tái dùng `GET /mo-khoa`, note "không tra được HV nằm gói nào") + lưới HV lọc Đã kết xuất (12) / Còn sót (09/10); backend thêm đếm `ketxuat` ở `/khoa` + nhóm `ketxuat` ở `/hoc-vien`. **Backend logic verify qua Python** (ds_khoa trả ketxuat, lọc ketxuat→25 HV khóa K260003) + **layout verify qua ảnh Playwright desktop 1280** (`anh-kiem/07-10-2026-KQD-03/`, đủ dấu/không tràn) + webui build pass + 336 pytest. Còn: backend dev 8000 chạy code cũ (`--reload` không bắt + không restart sạch được) → **restart tool để xác nhận live rồi nâng ✅**. Read-only (không ghi CDB) nên verify được hẳn trên dev, không cần máy CSDT.
+**Trạng thái:** ⚠️ Partial — task 138 (backend nhóm trạng thái có điều kiện, "còn sót" gồm 90 Đạt) + task 142 (UI: tiến độ không chồng lấn, nhãn nghiệp vụ dùng chung, thẻ khóa, lọc "Còn sót") **xong 16/10/2026** (930+ pytest, 124 vitest, 3 e2e API giả, review-nghiepvu đủ). **Chưa chạy live trên CDB thật / nghiệm thu máy CSĐT (Checkpoint 35)**. *Phần đã làm trước đó:* master–detail khóa-first, panel gói cơ sở, lưới HV lọc Đã kết xuất/Còn sót, ảnh Playwright 07/10.
 **Story:** Là nhân viên nạp DB, tôi muốn theo dõi tiến độ kết xuất theo từng khóa — ai đã/chưa kết xuất, đợt đã gửi Sở chưa — để biết khóa nào nhập xong cần sang phần mềm cũ bấm kết xuất, mà không phải dò trong danh sách phẳng khó tìm.
 
 **Done khi:**
 - ⬜ Bố cục **master–detail theo KHÓA**: cột trái danh sách khóa (đã BC1) + thanh tiến độ "đã kết xuất X / còn sót Y" + lọc "Còn sót kết xuất"; cột phải là chi tiết khóa đang chọn.
-- ⬜ Chi tiết khóa gồm: **tiến độ theo trạng thái** (đã kết xuất 12 · đã cập nhật chưa kết xuất 09/10 · chưa có điểm 03 · Sở từ chối 14 · giải trình 90) · **panel gói hàng đợi gửi** (liệt kê gói `KET_QUA_DAO_TAO` của CSĐT: tên + giờ + trạng thái Chưa gửi/Đã gửi) · **lưới HV** lọc Đã kết xuất / Còn sót. **"Còn sót kết xuất" = đã cập nhật chưa kết xuất: `09`/`10` + `90` Đạt** (HV đã giải trình xong, chờ kết xuất lại — CHANGES #77); HV `90` Không đạt/chưa có kết luận không tính.
+- ⬜ Chi tiết khóa gồm: **tiến độ theo trạng thái** (4 nhóm KHÔNG chồng lấn, dùng tên nghiệp vụ: **đã kết xuất** · **còn sót kết xuất** = 09/10 + 90 Đạt · **chưa có điểm** · **cần xử lý** = Sở từ chối + giải trình không đạt/trống kết luận — CHANGES #77) · **panel gói hàng đợi gửi** (liệt kê gói `KET_QUA_DAO_TAO` của CSĐT: tên + giờ + trạng thái Chưa gửi/Đã gửi) · **lưới HV** lọc Đã kết xuất / Còn sót. **"Còn sót kết xuất" = đã cập nhật chưa kết xuất: `09`/`10` + `90` Đạt** (HV đã giải trình xong, chờ kết xuất lại — CHANGES #77); HV `90` Không đạt/chưa có kết luận không tính.
 - ⬜ Panel gói ghi rõ **không tra được HV nằm trong từng gói** (danh sách HV ở trong file nén, không có trong CSDL) — chỉ đối chiếu HV bằng cột trạng thái.
 - ⬜ **Không có nút kết xuất** (kết xuất/gửi Sở thuộc phần mềm CDB cũ) — tab chỉ theo dõi + chứa lối "Mở khóa để sửa" (KQD-05) + khối đỏ **"Sửa sau gửi — chờ kết xuất lại"** (KQD-05 #53).
 - ❌ Không sinh file XML, không đẩy thêm `TRANS_CLI_HangDoiGui`, không dồn phẳng toàn bộ HV của CSĐT vào 1 danh sách (phải chọn khóa).
@@ -1448,7 +1450,7 @@
 
 **Assumptions (giả định Nền móng — chưa kiểm chứng, chặn code phần liên quan):**
 - AS-001: Chuỗi QR CCCD **6 hoặc 7 trường** phân tách `|` (đã xác nhận định dạng từ dự án webThanhdat 30/09/2026) — chỉ cần test thẻ thật của cơ sở khi có app.
-- AS-003: Nạp qua SP ra bản ghi hiển thị y app cũ — cần nạp thử 1 HV thật.
+- AS-003: Nạp qua SP ra bản ghi hiển thị y app cũ — cần nạp thử 1 HV thật. (Ô "Chọn in GPLX" không còn gán cứng 2 từ 16/10/2026 — CHANGES #79.)
 - (AS-002 map DVHC phủ 100%, AS-004 mô tô MaLoaiHs=1 — đã xác nhận 30/09/2026.)
 - GĐ: nhân viên thu nhận có điện thoại chụp ảnh + quét QR; máy không hỗ trợ → dùng bản desktop web nhập tay + upload ảnh (kiểm: hỏi thiết bị thực tế).
 - GĐ: đồng hồ máy DB và VPS đúng giờ Asia/Saigon — MaDK + tên file `.jp2` sinh theo timestamp máy DB (kiểm: so giờ trước go-live).
@@ -1506,3 +1508,4 @@
 | 16/10/2026 | v4.19 — **KQD-04 đổi: HV Sở từ chối sửa điểm xong tự sang "Đang giải trình" + giải trình hàng loạt** (CHANGES #77): lưu HV `14` → `90` khi Đạt + có giải trình (Không đạt/thiếu giải trình giữ `14`); giải trình chung của khóa + mẫu lưu sẵn + tích nhiều HV chuyển một lượt; **KQD-01** lưới thêm cột Trạng thái (chip + việc cần làm) + dải tab có đếm + lý do Sở từ chối trên dòng; **KQD-03** "còn sót kết xuất" gồm `90` Đạt; **KQD-07** xét thêm HV `90`. Hạ KQD-01/03/04/07 → ⏳ Todo (yêu cầu đổi). Số story giữ 61, không thêm/nghỉ hưu mã. | BA/PM |
 | 16/10/2026 | v4.20 — **Đồng bộ PRD với TDD v6.23 §11D.13 sau `/reviewtdd`** (CHANGES #78): KQD-01 tab "Sở từ chối" → **"Cần xử lý"** (gồm `14` + `90` Không đạt/trống kết luận) + tab "Không đạt" + 2 chip cảnh báo trên dòng; KQD-04 cảnh báo bắt buộc "chưa giải trình thì không kết xuất được" (4 chỗ), giải trình riêng được giữ + ô tích ghi đè, lô kiểm đủ điều kiện, mất kết nối báo "không rõ kết quả", mẫu theo cơ sở; KQD-07 +3 chip lý do. KQD-01/03/04/07 đã ⏳ từ v4.19. Số story giữ 61. | BA/PM |
 | 16/10/2026 | v4.21 — **KQD-04 thêm "Quản lý mẫu" giải trình** (CHANGES #78): sửa/xóa/thêm mẫu trong một hộp, lưu theo cơ sở, giới hạn 20 × 1000 ký tự. Số story giữ 61. | BA/PM |
+| 16/10/2026 | v4.22 — **NAP-01/NAP-05: ô "Chọn in GPLX"** (CHANGES #79): thay "`CHON_IN_GPLX=2` bắt buộc" bằng ô chọn 3 giá trị, mặc định theo hạng khóa (mô tô 3 / ô tô 2), đổi được từng học viên; Đồng bộ CDB chép nguyên giá trị. NAP-05 ✅→⚠️ (chờ nghiệm thu máy CSĐT). Không thêm/bớt mã, số story giữ 61. | BA/PM |
