@@ -9,10 +9,11 @@ interface Mo {
   nhapSan?: number | null; // chon_in_gplx đã lưu sẵn trong nháp của u01
 }
 
-const khoaCua = (hang: string) => [{
-  ma_kh: "K001", ten_kh: hang.startsWith("A") ? "Khóa mô tô A1-01/2026" : "Khóa ô tô B2-01/2026",
+const mot = (ma: string, hang: string) => ({
+  ma_kh: ma, ten_kh: hang.startsWith("A") ? `Khóa mô tô ${hang}-${ma}` : `Khóa ô tô ${hang}-${ma}`,
   hang_gplx: hang, hang_dt: hang, ma_so_gtvt: "01", ma_loai_hs: hang.startsWith("A") ? 1 : 2,
-}];
+});
+const khoaCua = (hang: string, them?: string) => [mot("K001", hang), ...(them ? [mot("K002", them)] : [])];
 const hv = (uuid: string, ten: string) => ({
   uuid, so_cccd: `0792000000${uuid.slice(-2)}`, so_cmnd_cu: null, ho_ten: ten, ngay_sinh: "19900501", gioi_tinh: "F",
   noi_tt_raw: "Số 5, Hà Nội", ngay_cap: "20200101", noi_cap_cccd: "", co_anh: 1, created_at: null,
@@ -20,12 +21,12 @@ const hv = (uuid: string, ten: string) => ({
 });
 const DIA_CHI = JSON.stringify({ ma_dvhc: "01001", ma_dvql: "01", ten_xa: "Phường Ba Đình", ten_tinh: "Hà Nội" });
 
-async function giaBackend(page: Page, mo: Mo, hang: string) {
+async function giaBackend(page: Page, mo: Mo, hang: string, them?: string) {
   await page.addInitScript(() => localStorage.setItem("tool_session_token", "tok-test"));
   await page.route("**/local/auth/me", (r) => r.fulfill({ json: { username: "thu1", ho_ten: "Nhân viên thử", vai_tro: "operator" } }));
   await page.route("**/local/config/moi-truong", (r) => r.fulfill({ json: { thu_muc_ghi_duoc: true, duong_dan: "x", da_cau_hinh: true } }));
   await page.route("**/version", (r) => r.fulfill({ json: { build: "dev", commit: "x" } }));
-  await page.route("**/local/khoa-hoc?**", (r) => r.fulfill({ json: khoaCua(hang) }));
+  await page.route("**/local/khoa-hoc?**", (r) => r.fulfill({ json: khoaCua(hang, them) }));
   await page.route("**/local/dvhc/so-gtvt", (r) => r.fulfill({ json: [] }));
   await page.route("**/local/giay-to?**", (r) => r.fulfill({ json: [{ ma_gt: 1, ten_gt: "CCCD" }, { ma_gt: 2, ten_gt: "Ảnh thẻ" }] }));
   const rows = [hv("u01", "Nguyễn Thị Hoà"), hv("u02", "Trần Văn Bình")];
@@ -53,8 +54,8 @@ async function giaBackend(page: Page, mo: Mo, hang: string) {
 const ngan = (page: Page) => page.getByRole("complementary", { name: "Ngăn chuẩn bị hồ sơ" });
 const o = (page: Page) => ngan(page).locator("#chon-in-gplx");
 
-async function vao(page: Page, hang: string, mo: Mo = { luu: [], napLo: [] }, w = 1280) {
-  await giaBackend(page, mo, hang);
+async function vao(page: Page, hang: string, mo: Mo = { luu: [], napLo: [] }, w = 1280, them?: string) {
+  await giaBackend(page, mo, hang, them);
   await page.setViewportSize({ width: w, height: 820 });
   await page.goto("/tool/nap");
   await expect(page.getByTestId("hv-u01")).toBeVisible();
@@ -134,6 +135,29 @@ test.describe("Chọn in GPLX ở màn Nạp — điền sẵn theo hạng khóa
     await expect(ngan(page).getByText("TRẦN VĂN BÌNH")).toBeVisible();
     await expect.poll(() => mo.luu.filter((x) => x.uuid === "u01").length).toBeGreaterThan(0);
     expect(mo.luu.find((x) => x.uuid === "u01")!.body.chon_in_gplx).toBeNull();
+  });
+
+  test("chọn lại đúng giá trị mặc định = coi như chưa đổi → nháp lưu null", async ({ page }) => {
+    const mo = await vao(page, "B2");
+    await o(page).selectOption("3");
+    await o(page).selectOption("2"); // trở lại mặc định của khóa ô tô
+    await page.getByTestId("hv-u02").click();
+    await expect(ngan(page).getByText("TRẦN VĂN BÌNH")).toBeVisible();
+    await expect.poll(() => mo.luu.filter((x) => x.uuid === "u01").length).toBeGreaterThan(0);
+    expect(mo.luu.filter((x) => x.uuid === "u01").at(-1)!.body.chon_in_gplx).toBeNull();
+  });
+
+  test("đổi sang khóa KHÁC LOẠI → lựa chọn tay bị xóa, ô về mặc định của khóa mới (CHANGES #80)", async ({ page }) => {
+    const mo = await vao(page, "B2", { luu: [], napLo: [] }, 1280, "A1");
+    await o(page).selectOption("3");                     // chọn tay "không thời hạn" khi đang ở khóa ô tô
+    await expect(o(page)).toHaveValue("3");
+    await page.getByRole("button", { name: "Mô tô" }).click();
+    await page.getByRole("combobox").first().selectOption("K002");
+    await expect(o(page)).toHaveValue("3");              // mặc định của khóa mô tô (không còn do chọn tay)
+    await page.getByRole("button", { name: "Ô tô", exact: true }).click();
+    await page.getByRole("combobox").first().selectOption("K001");
+    await expect(o(page)).toHaveValue("2");              // về lại ô tô: không dính "3" cũ
+    await expect.poll(() => mo.luu.filter((x) => x.uuid === "u01" && x.body.chon_in_gplx === null).length).toBeGreaterThan(0);
   });
 
   test("ảnh kiểm ô Chọn in GPLX (mô tô, ô tô) ở 1280 và 1440", async ({ page }) => {

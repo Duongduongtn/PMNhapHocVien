@@ -8,7 +8,7 @@ import { ODate } from "../../components/ODate";
 import { ComboLoc } from "../../components/ComboLoc";
 import { boDau, nghiSaiChinhTa, ymdToVN } from "../../lib/format";
 import { tachDiaChiGoc, lamTuoiNhapDiaChi } from "../../lib/diachi";
-import { IN_GPLX_NHAN, IN_GPLX_THU_TU, ghiChuMacDinh, inGplxMacDinh, laInGplx, type InGplx } from "./inGplx";
+import { IN_GPLX_NHAN, IN_GPLX_THU_TU, ghiChuMacDinh, inGplxMacDinh, laInGplx, laMoTo, type InGplx } from "./inGplx";
 import {
   getKhoaHoc,
   getGiayTo,
@@ -525,6 +525,25 @@ export default function NapHoSo() {
   const capNhatNhap = (uuid: string, patch: Partial<Nhap>) =>
     setNhap((prev) => ({ ...prev, [uuid]: { ...layNhap(uuid), ...patch } }));
 
+  // "Chọn in GPLX": đổi sang khóa KHÁC LOẠI (mô tô ↔ ô tô) → xóa lựa chọn tay của các hồ sơ đang mở, ô về mặc
+  // định theo khóa mới (CHANGES #80) — tránh học viên ô tô mang "không thời hạn" từ lúc còn ở khóa mô tô.
+  const loaiKhoaTruoc = useRef<boolean | null>(null);
+  useEffect(() => {
+    const moTo = khoa ? laMoTo(khoa.hang_gplx) : null;
+    const truoc = loaiKhoaTruoc.current;
+    loaiKhoaTruoc.current = moTo;
+    if (truoc === null || moTo === null || truoc === moTo) return;
+    const cos = Object.entries(nhap).filter(([, n]) => n.chonInGplx !== undefined);
+    if (!cos.length) return;
+    const moi: Record<string, Nhap> = {};
+    for (const [u, n] of cos) {
+      moi[u] = { ...n, chonInGplx: undefined };
+      void nhapLuu(u, goiNhap(moi[u])).catch(() => {});
+    }
+    setNhap((prev) => ({ ...prev, ...moi }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [khoa?.ma_kh]);
+
   // NAP-03 (CHANGES #19): chọn hồ sơ → tự điền sẵn ô "Chi tiết thường trú" từ phần dư của địa
   // chỉ gốc (số nhà/thôn), chỉ khi chưa có nháp (không đè giá trị operator đã gõ).
   useEffect(() => {
@@ -902,7 +921,11 @@ export default function NapHoSo() {
                         id="chon-in-gplx"
                         className="field-input mt-1"
                         value={layNhap(selRow.uuid).chonInGplx ?? inGplxMacDinh(khoa?.hang_gplx)}
-                        onChange={(e) => capNhatNhap(selRow.uuid, { chonInGplx: Number(e.target.value) as InGplx })}
+                        onChange={(e) => {
+                          // Chọn lại đúng giá trị mặc định = coi như chưa đổi (lưu trống → luôn theo hạng khóa)
+                          const v = Number(e.target.value) as InGplx;
+                          capNhatNhap(selRow.uuid, { chonInGplx: v === inGplxMacDinh(khoa?.hang_gplx) ? undefined : v });
+                        }}
                       >
                         {IN_GPLX_THU_TU.map((v) => <option key={v} value={v}>{IN_GPLX_NHAN[v]}</option>)}
                       </select>
