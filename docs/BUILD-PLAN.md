@@ -2,7 +2,7 @@
 
 > File do `/kehoach` sinh. `/tieptheo` đọc file này để biết làm gì tiếp theo.
 > **Thứ tự code** nằm ở đây. **Yêu cầu và trạng thái story** nằm ở `docs/PRD.md`.
-> Cập nhật lần cuối: 16/10/2026 (v29 — mô tả task 137/139/140/141 theo `/reviewtdd` §11D.13, CHANGES #78; trước đó v28 — thêm task 136-145 + Checkpoint 34/35 cho `KQD-04` đổi (14→90 + giải trình hàng loạt), CHANGES #77). Trước đó 12/10/2026 (v27 — thêm task 127-135 + Checkpoint 33 cho `KQD-09` xuất Excel kết quả học tập và `KQD-10` xuất Sổ theo dõi (mẫu Phụ lục VI) (CHANGES #72-#76); trước đó v26 — thêm task 123-126 (126 đã đóng gói exe, selftest đạt) + Checkpoint 32 cho `KQD-08` nạp giờ/km đường từ PDF DAT + phần đổi của `KQD-02` (CHANGES #69-#70); trước đó v25 — thêm task 118-122 + Checkpoint 29-31 cho QLY-07 sửa ghi ảnh, KQD-07, PCG-06; trước đó v24 — thêm task 116-117 (110b) + Checkpoint 28; trước đó v23 — Phase 10 Tốt nghiệp & Báo cáo 2 TNB-01..07, task 96-115, CHANGES #60-#62, TDD §11F v6.8. Trước đó v22 — Phase 9 Phân công GV – xe PCG-01..05, task 85-95, CHANGES #54. Trước đó v21 — KQD-05 mở rộng "Sửa sau gửi" #53, task 83-84. Trước đó v20 — Phase 8 NAP-01 #51 "Bỏ khỏi hàng đợi" dòng chờ/lỗi + tombstone, task 81-82. Trước đó v19 — THU-06 chỉ OCR 5 trường (CHANGES #50); v18 — Phase 7 THU-06 task 79-80)
+> Cập nhật lần cuối: 16/10/2026 (v30 — +Phase 11 task 146-148 "Chọn in GPLX", CHANGES #79; trước đó v29 — mô tả task 137/139/140/141 theo `/reviewtdd` §11D.13, CHANGES #78; trước đó v28 — thêm task 136-145 + Checkpoint 34/35 cho `KQD-04` đổi (14→90 + giải trình hàng loạt), CHANGES #77). Trước đó 12/10/2026 (v27 — thêm task 127-135 + Checkpoint 33 cho `KQD-09` xuất Excel kết quả học tập và `KQD-10` xuất Sổ theo dõi (mẫu Phụ lục VI) (CHANGES #72-#76); trước đó v26 — thêm task 123-126 (126 đã đóng gói exe, selftest đạt) + Checkpoint 32 cho `KQD-08` nạp giờ/km đường từ PDF DAT + phần đổi của `KQD-02` (CHANGES #69-#70); trước đó v25 — thêm task 118-122 + Checkpoint 29-31 cho QLY-07 sửa ghi ảnh, KQD-07, PCG-06; trước đó v24 — thêm task 116-117 (110b) + Checkpoint 28; trước đó v23 — Phase 10 Tốt nghiệp & Báo cáo 2 TNB-01..07, task 96-115, CHANGES #60-#62, TDD §11F v6.8. Trước đó v22 — Phase 9 Phân công GV – xe PCG-01..05, task 85-95, CHANGES #54. Trước đó v21 — KQD-05 mở rộng "Sửa sau gửi" #53, task 83-84. Trước đó v20 — Phase 8 NAP-01 #51 "Bỏ khỏi hàng đợi" dòng chờ/lỗi + tombstone, task 81-82. Trước đó v19 — THU-06 chỉ OCR 5 trường (CHANGES #50); v18 — Phase 7 THU-06 task 79-80)
 
 ## Quyết định về thứ tự
 
@@ -533,6 +533,24 @@
 - [x] `pnpm build` + vitest + E2E sạch; ảnh 1280/1440 vào `anh-kiem/`.
 - [ ] TNB-04 đủ "Done khi" (trừ ghi thật → Checkpoint 27 nghiệm thu máy CSDT).
 
+## Phase 11 — NAP-05/NAP-01: Chọn in GPLX theo hạng khóa
+
+> CHANGES #79 (PRD v4.22, TDD v6.25 §10.2, decisions §10). Mô tô (hạng `A*`) mặc định 3 "không thời hạn", ô tô mặc định 2 "có thời hạn"; ô chọn ở ngăn Chuẩn bị; Sync CDB chép nguyên giá trị. **Task 146 đã code + test xong trước khi ghi kế hoạch** (commit `b152bbd` backend · `514d7a4` frontend · `d2834fc` docs; pytest 978 · vitest 147 · Playwright 162; `review-nghiepvu` soát đủ). Còn nghiệm thu thật + đóng gói exe.
+
+| # | Task | Story | Quy mô | Phụ thuộc | Kiểm | Xong |
+|---|---|---|---|---|---|---|
+| 146 | **Chọn in GPLX (1/1) backend + UI + test:** `nap.chon_in_gplx_mac_dinh` + `build_params_sp_gop` · `NapIn`/`NhapChuanBiIn.chon_in_gplx` (422 ngoài {1,2,3}) · nháp `nhap_chuan_bi.chon_in_gplx` + ALTER · Sync `_HV_SELECT`/`_INSERT_HOSO` chép nguyên (NULL→0) · ô "Chọn in GPLX" ở ngăn Chuẩn bị (`inGplx.ts`, `NapHoSo.tsx`) · `test_in_gplx.py`, `inGplx.test.ts`, `e2e/in-gplx.e2e.ts`. | `NAP-05` | M | 9 | 1+2+3 | [x] |
+| 147 | **Đóng gói exe bản có Chọn in GPLX:** build webui TRƯỚC rồi PyInstaller (không chạy `--selftest`). Chạy một mình (sửa dist dùng chung). | — | S | 146 | 1 | [x] |
+| 148 | **Nghiệm thu máy CSĐT (NAP-05 + NAP-01):** nạp thử 1 HV khóa mô tô + 1 HV khóa ô tô → `SELECT CHON_IN_GPLX` ra 3 và 2; đổi tay 1 HV sang "ghép" → ra 1; **mở phần mềm cũ đối chiếu thứ tự 3 dòng trên ô `cboInGplx`** với 1/2/3 (khác thì chỉ sửa bảng nhãn `IN_GPLX_NHAN`); đồng bộ CDB 1 HV mô tô → DB đích mang 3. | `NAP-05` | — | 147 | 1 | [ ] |
+
+### ✅ Checkpoint 36 — sau task 146-148 (Chọn in GPLX, CHANGES #79) — **nghiệm thu máy CSĐT**
+- [x] `pytest` (978) + `pnpm vitest run` (147) + Playwright (162) sạch; ảnh kiểm ô ở `anh-kiem/2026-10-16-in-gplx/`.
+- [ ] Exe mới chạy được trên máy CSĐT, ô "Chọn in GPLX" hiện đúng khóa mô tô/ô tô.
+- [ ] **Máy CSĐT:** nạp thật mô tô = 3, ô tô = 2, đổi tay giữ đúng; Sync sang DB đích mang nguyên giá trị.
+- [ ] Đối chiếu thứ tự 1/2/3 với ô `cboInGplx` phần mềm cũ.
+- [ ] PRD: NAP-05 ⚠️→✅ khi pass (NAP-01 giữ 🔄 theo việc khác của story).
+- Ghi nợ ngoài phạm vi (CHANGES #79): HV mô tô đã nạp trước đây mang 2; ~739 HV DB đích đang 0 (25 HV đã vào BC2) — cần script riêng nếu muốn; chưa xác minh Sở dùng trường này trong BC1/BC2.
+
 ## Nhóm chạy song song được
 
 > Chủ dự án chốt **1 người build tuần tự** → không dùng song song. Mục này để tham chiếu nếu về sau mở phiên thứ hai.
@@ -610,12 +628,13 @@
 - **Số story trong PRD khi cập nhật:** 61 (giữ nguyên ở CHANGES #77 — KQD-04 đổi, không thêm/bớt mã; thêm `KQD-09`, `KQD-10` từ CHANGES #72, #75; trước đó 59 — thêm `KQD-08` từ CHANGES #69; trước đó 58 — thêm `KQD-07` từ CHANGES #65 + `PCG-06` từ CHANGES #66; `TNB-01..07` từ CHANGES #60; `PCG-01..05` từ CHANGES #54; thêm `THU-06` từ CHANGES #49; `KQD-06` #48; `KQD-05` #45; trước đó `KQD-01/02/03/04` #42; `DGT-01/02/03/04` #38/#39; `TCB-01/02/03/04` #35; `HTG-07` #34; `SYNC-01/02/03` #33; chưa tính NICE `QLY-04`, `THU-03`)
 - **Mã story đã đưa vào kế hoạch:** `HTG-01`, `HTG-02`, `HTG-03`, `HTG-07`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `THU-06`, `NAP-01`…`NAP-06`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `SYNC-01`, `SYNC-02`, `SYNC-03`, `TCB-01`, `TCB-02`, `TCB-03`, `TCB-04`, `DGT-01`, `DGT-02`, `DGT-03`, `DGT-04`, `KQD-01`, `KQD-02`, `KQD-03`, `KQD-04`, `KQD-05`, `KQD-06`, `KQD-07`, `KQD-08`, `KQD-09`, `KQD-10`, `PCG-01`, `PCG-02`, `PCG-03`, `PCG-04`, `PCG-05`, `PCG-06`, `TNB-01`, `TNB-02`, `TNB-03`, `TNB-04`, `TNB-05`, `TNB-06`, `TNB-07`
 - **Mã story chưa đưa vào:** `QLY-04`, `THU-03` (NICE, chưa đủ chi tiết) · **`HTG-04/05/06`** (thêm ở CHANGES #18, đã code thẳng — chưa có task trong plan; cần `/kehoach` bổ sung riêng nếu muốn khớp sổ)
-- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 16/10/2026 (#78)
+- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 16/10/2026 (#79)
 
 ## Changelog
 
 | Ngày | Thay đổi |
 |---|---|
+| 16/10/2026 | v30 — bổ sung (CHANGES #79; PRD v4.22, TDD v6.25): thêm **Phase 11** `NAP-05`/`NAP-01` ô "Chọn in GPLX" theo hạng khóa — task **146** (đã xong, M) · **147** đóng gói exe · **148** nghiệm thu máy CSĐT + **Checkpoint 36**. Không đánh số lại task cũ; số story giữ 61. |
 | 16/10/2026 | v29 — bổ sung nhẹ (CHANGES #78; PRD v4.21, TDD v6.24): **không thêm task, không đánh số lại** — cập nhật mô tả task **137** (mẫu theo `target_key` + khóa ghi cấu hình + lô kiểm đủ điều kiện/giữ riêng), **139** (+3 lý do KQD-07), **140** (header gọn, tab "Cần xử lý", 2 chip), **141** (cảnh báo vàng đứng lâu, ô ghi đè, Quản lý mẫu, "không rõ kết quả") theo `/reviewtdd` §11D.13 + mock đã chỉnh. Số story giữ 61. |
 | 16/10/2026 | v28 — bổ sung (CHANGES #77; PRD v4.19, TDD v6.22 §11D.13, decisions §27, mock `ui-mock/ketqua.html` đã duyệt): thêm **task 136-145** + **Checkpoint 34, 35** cho `KQD-04` đổi — HV Sở từ chối sửa xong tự sang `90` khi Đạt + có giải trình, giải trình hàng loạt (136 backend `cap_nhat` · 137 `giai-trinh-lo` + mẫu + lý do trên lưới · 141 UI hàng loạt), `KQD-01` cột Trạng thái + tab đếm (140), `KQD-03` (138/142) và `KQD-07` (139) xét `90`; 143 test, 144 đóng gói, 145 nghiệm thu máy CSĐT. KQD-01/03/04/07 hạ ⏳ ở PRD. Số story giữ 61. |
 | 12/10/2026 | v27 — bổ sung (CHANGES #72-#76; PRD v4.12-v4.18, TDD v6.17-v6.21 §11D.11-§11D.12): thêm **task 127-135** + **Checkpoint 33** cho `KQD-09` Xuất Excel kết quả học tập theo khóa (127 backend · 128 UI + lưu `output` · 129 chốt sau `/reviewtdd`) và `KQD-10` Xuất Sổ theo dõi mẫu Phụ lục VI (130 backend · 131 UI · 132 chốt sau `/reviewtdd`), 133 sửa `PUT /local/config` làm rơi cấu hình, 134 đóng gói exe — **127-134 đã code xong, ghi `[x]` kèm commit**, 135 nghiệm thu máy CSĐT còn mở. +6 rủi ro. Không đổi số thứ tự task cũ. |
