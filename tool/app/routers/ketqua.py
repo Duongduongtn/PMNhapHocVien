@@ -553,7 +553,8 @@ class CapNhatIn(BaseModel):
     ngay_ra_qdtn: str = ""               # ngày cấp HTKH 'dd/mm/yyyy' | '' = hôm nay
     tg_bat_dau: str = ""                 # 'dd/mm/yyyy' | '' = NgayBG khóa
     tg_ket_thuc: str = ""                # 'dd/mm/yyyy' | '' = NgayThi khóa
-    giai_trinh: str | None = None        # KQD-04: None = không đụng cột GiaiTrinh; '' = xóa; chuỗi = ghi
+    giai_trinh: str | None = None        # KQD-04: None = không đụng cột GiaiTrinh; '' = xóa (khi không có chung); chuỗi = ghi
+    giai_trinh_chung: str | None = None  # KQD-04 #77: giải trình chung của khóa — chỉ dùng khi riêng rỗng VÀ cột đang trống
 
 
 def _ymd(v: str) -> str:
@@ -569,6 +570,35 @@ def _ngay(v: str):
         return datetime.strptime((v or "").strip(), "%d/%m/%Y")
     except ValueError:
         return datetime.now()
+
+
+# KQD-04 (#77, TDD §11D.13): HV Sở từ chối (14) đã Đạt + có giải trình → "Đang giải trình" (90).
+# SP `_CapNhat` GIỮ nguyên 14/90/13 và không thủ tục nào đặt 90, nên tool tự UPDATE; guard nằm TRONG SQL
+# (không tin cờ client). Dùng chung cho `/cap-nhat` và (task 137) `/giai-trinh-lo`.
+_SQL_14_SANG_90 = (
+    "UPDATE dbo.NguoiLX_HoSo SET TT_XuLy='90', NgaySua=GETDATE() "
+    "WHERE MaDK=%s AND MaKhoaHoc=%s AND TT_XuLy='14' AND KetLuanCSDT=1 AND ISNULL(GiaiTrinh,'')<>''"
+)
+_SQL_DOC_LAI_TT = "SELECT TT_XuLy, ISNULL(GiaiTrinh,'') AS GiaiTrinh FROM dbo.NguoiLX_HoSo WHERE MaDK=%s"
+
+
+def chuyen_14_sang_90(cur, ma_dk: str, ma_kh: str) -> None:
+    """UPDATE 14→90 cho 1 HV, guard trong SQL. Không dựa rowcount — người gọi SELECT lại trạng thái."""
+    cur.execute(_SQL_14_SANG_90, (ma_dk, ma_kh))
+
+
+def giai_trinh_hieu_luc(rieng: str | None, chung: str | None, hien_co: str) -> tuple[bool, str | None]:
+    """(co_ghi, gia_tri). Riêng có chữ → ghi riêng · riêng '' và KHÔNG có chung → xóa ·
+    chung có chữ mà cột đang trống → ghi chung (chung KHÔNG BAO GIỜ đè giải trình đã có) · còn lại giữ nguyên."""
+    r = (rieng or "").strip() if rieng is not None else None
+    c = (chung or "").strip()
+    if r:
+        return True, r
+    if rieng is not None and chung is None:      # '' tường minh, không có chung → xóa
+        return True, None
+    if c and not (hien_co or "").strip():
+        return True, c
+    return False, None
 
 
 _SP_CAPNHAT = (
@@ -594,7 +624,8 @@ def cap_nhat(body: CapNhatIn, target_key: str | None = None,
             cur = conn.cursor(as_dict=True)
             # 1) Đọc HV: khóa, trạng thái, hạng, ngày khóa — từ DB (không tin client)
             cur.execute(
-                "SELECT hs.MaKhoaHoc, hs.TT_XuLy, hs.HangGPLX, gp.MaHangMoi, "
+                "SELECT hs.MaKhoaHoc, hs.TT_XuLy, hs.HangGPLX, gp.MaHangMoi, hs.MaCSDT, "
+                "ISNULL(hs.GiaiTrinh,'') AS GiaiTrinh, "
                 "CONVERT(varchar(8), kh.NgayBG, 112) AS NgayBG, "
                 "CONVERT(varchar(8), kh.NgayThi, 112) AS NgayThi "
                 "FROM dbo.NguoiLX_HoSo hs JOIN dbo.KhoaHoc kh ON kh.MaKH = hs.MaKhoaHoc "
@@ -611,6 +642,11 @@ def cap_nhat(body: CapNhatIn, target_key: str | None = None,
                     status_code=409,
                     detail="Học viên đã kết xuất gửi Sở / hoàn thành (TT_XuLy 12/13) — không sửa kết quả qua tool.",
                 )
+            # KQD-04 #77: HV phải thuộc cơ sở của máy (máy dùng chung nhiều CSĐT). Máy thiếu MA_CSDT → không chặn.
+            ma_may = sync_helpers.get_ma_csdt_tu_qtht(conn)
+            ma_hv = (hv.get("MaCSDT") or "").strip()
+            if ma_may and ma_hv and ma_may != ma_hv:
+                raise HTTPException(status_code=403, detail="Học viên không thuộc cơ sở của máy này.")
             ma_kh = hv["MaKhoaHoc"]
             ct = config_store.get_kqd_chuong_trinh(ma_kh)
             hang_cat = ketqua_quydoi.phan_loai_hang(hv["MaHangMoi"], hv["HangGPLX"])
@@ -641,15 +677,25 @@ def cap_nhat(body: CapNhatIn, target_key: str | None = None,
 
             # 6) KQD-04: ghi giải trình TRƯỚC khi gọi SP (quyết định ④-A) — UPDATE tham số hóa
             #    riêng cột GiaiTrinh (SP _CapNhat không có tham số này). Lỗi ở đây thì chưa đụng
-            #    điểm/trạng thái (HV giữ 14/90, báo lỗi sạch). None = không đụng cột.
-            if body.giai_trinh is not None:
-                gt = body.giai_trinh.strip()
-                if len(gt) > 1000:
+            #    điểm/trạng thái (HV giữ 14/90, báo lỗi sạch). Hiệu lực: riêng → chung (chỉ khi cột
+            #    đang trống) → giữ nguyên. Guard `TT_XuLy NOT IN ('12','13')` chống đua với kết xuất lại.
+            for cho in (body.giai_trinh, body.giai_trinh_chung):
+                if cho is not None and len(cho.strip()) > 1000:
                     raise HTTPException(status_code=400, detail="Giải trình tối đa 1000 ký tự.")
+            co_ghi, gt_ghi = giai_trinh_hieu_luc(body.giai_trinh, body.giai_trinh_chung, hv.get("GiaiTrinh") or "")
+            if co_ghi:
                 cur.execute(
-                    "UPDATE dbo.NguoiLX_HoSo SET GiaiTrinh=%s WHERE MaDK=%s AND MaKhoaHoc=%s",
-                    (gt or None, body.ma_dk, ma_kh),
+                    "UPDATE dbo.NguoiLX_HoSo SET GiaiTrinh=%s WHERE MaDK=%s AND MaKhoaHoc=%s "
+                    "AND ISNULL(TT_XuLy,'') NOT IN ('12','13')",
+                    (gt_ghi, body.ma_dk, ma_kh),
                 )
+            # 6b) Đọc lại trạng thái NGAY TRƯỚC SP: phần mềm CDB có thể vừa kết xuất lại (→12) và SP
+            #     không bảo vệ 12 (sẽ kéo lùi 12→09). Khe hở nhỏ còn lại ghi ở TDD §11D.13 (d).
+            cur.execute(_SQL_DOC_LAI_TT, (body.ma_dk,))
+            dl = cur.fetchone()
+            if dl is None or (dl["TT_XuLy"] or "").strip() != tt:
+                raise HTTPException(status_code=409, detail={"loi": "trang_thai_da_doi",
+                                                            "thong_bao": "Trạng thái học viên vừa đổi — tải lại danh sách rồi thử lại."})
 
             cot = kq.quy_doi_tron
             cur.execute(_SP_CAPNHAT, (
@@ -662,19 +708,43 @@ def cap_nhat(body: CapNhatIn, target_key: str | None = None,
                 body.gio_duong, gio_san, body.km_duong, km_san,
                 so_giay, ngay_qd,
             ))
+            # 7) KQD-04 #77: HV `14` vừa Đạt + có giải trình → 90. Lỗi ở đây KHÔNG được báo 502 (điểm đã ghi):
+            #    trả 200 + cảnh báo để UI hiện nút "Chuyển lại".
+            canh_bao = None
+            if tt == "14" and kq.ket_luan_csdt:
+                try:
+                    chuyen_14_sang_90(cur, body.ma_dk, ma_kh)
+                except Exception:
+                    canh_bao = "chua_chuyen_90"
+            # Suy sẵn kết quả theo quy tắc để nếu SELECT đọc lại lỗi thì KHÔNG báo sai (vd HV đã sang 90).
+            gt_db = ((gt_ghi if co_ghi else hv.get("GiaiTrinh")) or "").strip()
+            tt_db = tt
+            if tt == "14" and kq.ket_luan_csdt and gt_db and canh_bao is None:
+                tt_db = "90"
+            try:
+                cur.execute(_SQL_DOC_LAI_TT, (body.ma_dk,))
+                dl2 = cur.fetchone()
+                if dl2:
+                    tt_db, gt_db = (dl2["TT_XuLy"] or "").strip(), (dl2["GiaiTrinh"] or "").strip()
+            except Exception:
+                pass
     except HTTPException:
         raise
     except ConfigChuaDay as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception:
         raise HTTPException(status_code=502, detail="Không ghi được kết quả — kiểm kết nối rồi thử lại.")
-    # tt_moi phản ánh đúng SP: giữ nguyên 90/13/14, else 09 (đạt) / 10 (không đạt).
-    tt_moi = tt if tt in ("90", "13", "14") else ("09" if kq.ket_luan_csdt else "10")
+    # tt_moi đọc lại từ DB (SP giữ nguyên 90/13/14; riêng 14→90 do tool — KQD-04 #77). Không đọc lại
+    # được thì suy từ quy tắc cũ. thieu_giai_trinh: HV 14 Đạt mà chưa có giải trình → CHƯA kết xuất được.
+    if tt_db == tt and tt not in ("90", "13", "14"):
+        tt_db = "09" if kq.ket_luan_csdt else "10"
     return {
         "ok": True,
         "ma_dk": body.ma_dk,
         "ket_luan": "dat" if kq.ket_luan_csdt else "khong_dat",
-        "tt_moi": tt_moi,
+        "tt_moi": tt_db,
+        "thieu_giai_trinh": bool(tt_db == "14" and kq.ket_luan_csdt and not gt_db),
+        "canh_bao": canh_bao,
         "so_giay": so_giay,
         "quy_doi": kq.quy_doi_tron,
         "ct": ct,
