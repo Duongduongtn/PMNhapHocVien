@@ -115,9 +115,10 @@ def test_kiem_truoc_phan_loai_va_chi_doc(monkeypatch, auth_headers):
     assert {t["ma_dk"] for t in j["thieu"]} == {"2", "3"}
     assert j["dem"]["chua_co_diem"] == 1 and j["dem"]["thieu_mon"] == 1
     assert j["dem"]["thieu_gio_km"] == 1 and j["dem"]["thieu_ket_luan"] == 0  # HV 2 là 03 → không tính kết luận
-    # chỉ SELECT, chỉ 4 trạng thái 03/04/09/10 (12/13/14/90 không vào truy vấn)
+    # chỉ SELECT; nhóm xét nằm trong SQL (03/04/09/10 + 90 + 14 Đạt — task 139), 12/13 không vào truy vấn
     assert len(log) == 1 and log[0][0].lstrip().upper().startswith("SELECT")
-    assert log[0][1] == ("KX", "03", "04", "09", "10")
+    assert "('03','04','09','10','90')" in log[0][0] and "'12'" not in log[0][0].split("WHERE")[1]
+    assert log[0][1] == ("KX",)
 
 
 def test_kiem_truoc_canh_bao_vang_giờ_km_duong(monkeypatch, auth_headers):

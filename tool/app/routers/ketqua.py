@@ -47,6 +47,8 @@ _NHOM_DK: dict[str, str] = {
     "khongdat": "({a}.TT_XuLy = '10')",
     "canxuly": "({a}.TT_XuLy = '14' OR ({a}.TT_XuLy = '90' AND ({a}.KetLuanCSDT IS NULL OR {a}.KetLuanCSDT = 0)))",
     "dagui": "({a}.TT_XuLy IN ('12','13'))",
+    # KQD-07: chưa nhập · đã nhập · đang giải trình · và HV Sở từ chối ĐẠT (để nhắc thiếu giải trình)
+    "kiemtruoc": "({a}.TT_XuLy IN ('03','04','09','10','90') OR ({a}.TT_XuLy = '14' AND {a}.KetLuanCSDT = 1))",
 }
 
 
@@ -242,12 +244,15 @@ def ds_hoc_vien(
 def kiem_truoc(ma_kh: str = Query(..., min_length=1), target_key: str | None = None) -> dict:
     """KQD-07 — kiểm trước kết xuất cho ĐÚNG 1 khóa (chỉ đọc, chỉ nhắc, không chặn).
 
-    Chỉ HV TT_XuLy 03/04/09/10 (12/13/14/90 không xét). Hạng mô tô không nhập KQĐT → không xét,
+    Xét HV TT_XuLy 03/04/09/10, **90** (đã giải trình, chờ kết xuất lại) và **14 Đạt** (nhắc thiếu giải trình);
+    12/13 và 14 Không đạt không xét. Hạng mô tô không nhập KQĐT → không xét,
     đếm riêng ở `mo_to_bo_qua`. Luật ở `ketqua_quydoi.hv_chua_du` (một nguồn với KQD-02)."""
-    rows = _doc_hv_khoa(ma_kh, _NHOM_TT["dangky"] + ("09", "10"), target_key)   # task 139 sẽ thêm 90
+    rows = _doc_hv_khoa(ma_kh, "kiemtruoc", target_key)
     thieu: list[dict] = []
     dem = {k: 0 for k in (ketqua_quydoi.LY_DO_CHUA_CO_DIEM, ketqua_quydoi.LY_DO_THIEU_MON,
-                          ketqua_quydoi.LY_DO_THIEU_GIO_KM, ketqua_quydoi.LY_DO_THIEU_KET_LUAN)}
+                          ketqua_quydoi.LY_DO_THIEU_GIO_KM, ketqua_quydoi.LY_DO_THIEU_KET_LUAN,
+                          ketqua_quydoi.LY_DO_THIEU_GIAI_TRINH, ketqua_quydoi.LY_DO_KHONG_DAT_O_90,
+                          ketqua_quydoi.LY_DO_GIAI_TRINH_TRONG)}
     tong = du = mo_to = 0
     for r in rows:
         if ketqua_quydoi.la_mo_to(r["MaHangMoi"], r["HangGPLX"]):
@@ -264,6 +269,7 @@ def kiem_truoc(ma_kh: str = Query(..., min_length=1), target_key: str | None = N
             },
             "gio_san": r["TGThucHanhHinh"], "km_san": r["QDThucHanhHinh"],
             "gio_duong": r["TGThucHanhDuong"], "km_duong": r["TongQDThucHanh"],
+            "giai_trinh": (r.get("GiaiTrinh") or "").strip(),
         }
         kq = ketqua_quydoi.hv_chua_du(hv)
         if not kq["ly_do"]:

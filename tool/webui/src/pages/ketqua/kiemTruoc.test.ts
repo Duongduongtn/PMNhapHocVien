@@ -34,3 +34,14 @@ describe("nhanCanhBao", () => {
     expect(nhanCanhBao({ loai: "km_duong", gia_tri: 700, goi_y: 810 })).toBe("Km đường 700 < 810");
   });
 });
+
+// task 139: ba lý do mới phải có nhãn (không ra chip trống) và nằm trong thứ tự hiển thị.
+import { LY_DO_NHAN as NHAN, LY_DO_THU_TU as THU_TU } from "./kiemTruoc";
+describe("lý do mới KQD-04/07 (task 139)", () => {
+  it("có nhãn tiếng Việt và nằm trong thứ tự", () => {
+    for (const k of ["thieu_giai_trinh", "khong_dat_o_90", "giai_trinh_trong"]) {
+      expect(NHAN[k]).toBeTruthy();
+      expect(THU_TU).toContain(k);
+    }
+  });
+});

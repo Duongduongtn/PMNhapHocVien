@@ -8,8 +8,15 @@ export const LY_DO_NHAN: Record<string, string> = {
   thieu_mon: "Thiếu môn",
   thieu_gio_km: "Thiếu giờ/km thực hành",
   thieu_ket_luan: "Thiếu kết luận",
+  // KQD-04 đổi (#77, task 139): Sở từ chối / đang giải trình
+  thieu_giai_trinh: "Thiếu giải trình — chưa kết xuất được",
+  khong_dat_o_90: "Đang giải trình nhưng không đạt — sẽ không kết xuất",
+  giai_trinh_trong: "Đang giải trình nhưng giải trình trống",
 };
-export const LY_DO_THU_TU = ["chua_co_diem", "thieu_mon", "thieu_gio_km", "thieu_ket_luan"] as const;
+export const LY_DO_THU_TU = [
+  "chua_co_diem", "thieu_mon", "thieu_gio_km", "thieu_ket_luan",
+  "thieu_giai_trinh", "khong_dat_o_90", "giai_trinh_trong",
+] as const;
 
 export const MON_NHAN: Record<string, string> = {
   ly_thuyet: "Lý thuyết",

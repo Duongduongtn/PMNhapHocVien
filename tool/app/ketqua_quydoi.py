@@ -182,6 +182,10 @@ LY_DO_CHUA_CO_DIEM = "chua_co_diem"
 LY_DO_THIEU_MON = "thieu_mon"
 LY_DO_THIEU_GIO_KM = "thieu_gio_km"
 LY_DO_THIEU_KET_LUAN = "thieu_ket_luan"
+# KQD-04 đổi (#77, TDD §11D.13) — học viên Sở từ chối / đang giải trình:
+LY_DO_THIEU_GIAI_TRINH = "thieu_giai_trinh"        # 14 Đạt mà CHƯA có giải trình → chưa kết xuất được
+LY_DO_KHONG_DAT_O_90 = "khong_dat_o_90"            # 90 nhưng Không đạt → CDB không kết xuất
+LY_DO_GIAI_TRINH_TRONG = "giai_trinh_trong"        # 90 mà GiaiTrinh rỗng (vd bị xóa trắng sau phản hồi Sở)
 
 
 def la_mo_to(ma_hang_moi: str | None, ma_hang: str | None) -> bool:
@@ -206,8 +210,20 @@ def hv_chua_du(hv: dict) -> dict:
         ly_do.append(LY_DO_THIEU_MON)
     if any(hv.get(k) is None for k in ("gio_san", "km_san", "gio_duong", "km_duong")):
         ly_do.append(LY_DO_THIEU_GIO_KM)
-    if hv.get("tt_xuly") in ("09", "10") and hv.get("ket_luan") is None:
+    if hv.get("tt_xuly") in ("09", "10", "90") and hv.get("ket_luan") is None:
         ly_do.append(LY_DO_THIEU_KET_LUAN)
+    # Giải trình chỉ xét khi người gọi CÓ truyền `giai_trinh` (kiểm trước kết xuất). Lô giải trình (`phan_loai_lo`)
+    # không truyền — nội dung giải trình của lô được ghi cùng lúc nên không phải "thiếu".
+    if "giai_trinh" in hv:
+        gt = (hv.get("giai_trinh") or "").strip()
+        tt = hv.get("tt_xuly")
+        if tt == "14" and hv.get("ket_luan") == "dat" and not gt:
+            ly_do.append(LY_DO_THIEU_GIAI_TRINH)
+        elif tt == "90":
+            if hv.get("ket_luan") == "khong_dat":
+                ly_do.append(LY_DO_KHONG_DAT_O_90)
+            if not gt:
+                ly_do.append(LY_DO_GIAI_TRINH_TRONG)
     return {"ly_do": ly_do, "mon_thieu": thieu}
 
 

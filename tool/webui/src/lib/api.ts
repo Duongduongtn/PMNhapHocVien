@@ -1002,7 +1002,10 @@ export interface KiemTruocKQD {
   tong: number;
   du: number;
   mo_to_bo_qua: number;
-  dem: { chua_co_diem?: number; thieu_mon?: number; thieu_gio_km?: number; thieu_ket_luan?: number };
+  dem: {
+    chua_co_diem?: number; thieu_mon?: number; thieu_gio_km?: number; thieu_ket_luan?: number;
+    thieu_giai_trinh?: number; khong_dat_o_90?: number; giai_trinh_trong?: number;   // task 139
+  };
   thieu: {
     ma_dk: string;
     ho_ten: string;

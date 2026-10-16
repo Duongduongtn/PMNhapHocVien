@@ -141,9 +141,10 @@ def test_hoc_vien_nhom_tuple_cu_van_chay(auth_headers, monkeypatch):
     assert "B.TT_XuLy IN (%s)" in sql and params == ("K1", "14")
 
 
-def test_kiem_truoc_van_09_10_chua_them_90(auth_headers, monkeypatch):
-    """Task 139 mới thêm 90 vào kiểm trước kết xuất — task 138 giữ nguyên."""
+def test_kiem_truoc_xet_them_90_va_14_dat(auth_headers, monkeypatch):
+    """Task 139: kiểm trước kết xuất xét 03/04/09/10 + 90 + 14 Đạt (điều kiện trong SQL, không thêm tham số)."""
     cur = _patch(monkeypatch, _Cur(rows_hv=[]))
     client.get("/local/ketqua/kiem-truoc?ma_kh=K1", headers=auth_headers)
     sql, params = cur.executed[0]
-    assert params == ("K1", "03", "04", "09", "10")
+    assert "('03','04','09','10','90')" in sql and "B.TT_XuLy = '14' AND B.KetLuanCSDT = 1" in sql
+    assert params == ("K1",)
