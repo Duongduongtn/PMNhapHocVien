@@ -574,7 +574,7 @@ export default function CapNhatKQDT() {
                     ))}
                     <th className="font-semibold px-1 py-1.5 w-[62px] text-center">Giờ đường</th>
                     <th className="font-semibold px-1 py-1.5 w-[66px] text-center">Km đường</th>
-                    <th className="font-semibold px-2 py-1.5 w-[132px] text-center">Kết luận</th>
+                    <th className="font-semibold px-2 py-1.5 w-[148px] text-center">Kết luận</th>
                     <th className="font-semibold px-2 py-1.5 w-[150px] text-center">Lưu · Chi tiết</th>
                     <th className="w-full" aria-hidden></th>
                   </tr>
@@ -654,11 +654,11 @@ export default function CapNhatKQDT() {
                         </td>
                         <td className="px-2 py-2 text-center align-top">
                           {!t.full ? (
-                            h.ket_luan === "dat" ? <span className="text-[11px] font-semibold text-success bg-success/10 border border-success/40 rounded-full px-2 py-0.5">Đạt · đã lưu</span>
-                            : h.ket_luan === "khong_dat" ? <span className="text-[11px] font-semibold text-destructive bg-destructive/10 border border-destructive/40 rounded-full px-2 py-0.5">Không đạt · đã lưu</span>
-                            : <span className="text-[11px] text-muted-foreground">đang nhập…</span>
-                          ) : t.dat ? <span className="text-[12px] font-bold text-success bg-success/10 border border-success/50 rounded-full px-2.5 py-0.5">✓ ĐẠT</span>
-                            : <span className="text-[12px] font-bold text-destructive bg-destructive/10 border border-destructive/50 rounded-full px-2.5 py-0.5">✗ Không đạt</span>}
+                            h.ket_luan === "dat" ? <span className="inline-block whitespace-nowrap text-[11px] font-semibold text-success bg-success/10 border border-success/40 rounded-full px-2 py-0.5">Đạt · đã lưu</span>
+                            : h.ket_luan === "khong_dat" ? <span className="inline-block whitespace-nowrap text-[11px] font-semibold text-destructive bg-destructive/10 border border-destructive/40 rounded-full px-2 py-0.5">Không đạt · đã lưu</span>
+                            : <span className="whitespace-nowrap text-[11px] text-muted-foreground">đang nhập…</span>
+                          ) : t.dat ? <span className="inline-block whitespace-nowrap text-[12px] font-bold text-success bg-success/10 border border-success/50 rounded-full px-2.5 py-0.5">✓ ĐẠT</span>
+                            : <span className="inline-block whitespace-nowrap text-[12px] font-bold text-destructive bg-destructive/10 border border-destructive/50 rounded-full px-2.5 py-0.5">✗ Không đạt</span>}
                           {suaLai && <div className="mt-1">{ttBadge(h.tt_xuly)}</div>}
                           {choKxTheoDk.has(h.ma_dk) && (
                             <div className="mt-1"><span title={`Mở sửa ${choKxTheoDk.get(h.ma_dk)?.luc_mo ?? ""} — ${choKxTheoDk.get(h.ma_dk)?.ly_do ?? ""}`} className="inline-block text-[10.5px] leading-tight font-semibold border rounded-md px-1.5 py-0.5 text-warning bg-warning/10 border-warning/50">Sửa sau gửi — chưa kết xuất lại</span></div>
