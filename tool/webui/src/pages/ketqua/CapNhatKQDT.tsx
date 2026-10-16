@@ -22,7 +22,6 @@ import {
   type SuaSauGuiKetQua,
   type KhoaKQD,
   type HocVienKQD,
-  type TrangThaiKQD,
   type ChuongTrinh,
   type DiemGocKQD,
   luatKQD,
@@ -36,28 +35,11 @@ import {
 import KiemTruocKetXuat from "./KiemTruocKetXuat";
 import NapDatModal from "./NapDatModal";
 import { bangNhau, chuanHoaGio, parseGio, soHien } from "./gioThucHanh";
+import { CANH_BAO_NHAN, TABS, TT_NHAN, canhBaoDong, demTab, khopTab, type TabKQD } from "./trangThai";
 
 // KQD-01 (lưới + lọc) + KQD-02 (nhập điểm gốc → quy đổi → ghi CDB). Ghi CSDL ĐÍCH qua
 // /local/ketqua/*. Bám mockup ui-mock/ketqua.html: nhập điểm THẲNG trên lưới, quy đổi &
 // kết luận Đạt hiện ngay; giờ/km đường trên lưới; giờ sân/km sân/số giấy/ngày trong drawer.
-
-const TT_LABEL: Record<string, [string, string]> = {
-  "03": ["Đã đăng ký", "text-muted-foreground bg-muted border-border"],
-  "04": ["Đã đăng ký", "text-muted-foreground bg-muted border-border"],
-  "09": ["Đã cập nhật · Đạt", "text-success bg-success/10 border-success/40"],
-  "10": ["Đã cập nhật · Không đạt", "text-destructive bg-destructive/10 border-destructive/40"],
-  "12": ["Đã kết xuất gửi Sở", "text-primary bg-primary/10 border-primary/40"],
-  "13": ["Hoàn thành", "text-primary bg-primary/10 border-primary/40"],
-  "14": ["Sở từ chối", "text-destructive bg-destructive/10 border-destructive/40"],
-  "90": ["Đang giải trình", "text-warning bg-warning/10 border-warning/40"],
-};
-const BO_LOC: { key: TrangThaiKQD; label: string }[] = [
-  { key: "all", label: "Tất cả" },
-  { key: "dangky", label: "Đã đăng ký (03/04)" },
-  { key: "capnhat", label: "Đã cập nhật (09/10)" },
-  { key: "tuchoi", label: "Sở từ chối (14)" },
-  { key: "giaitrinh", label: "Đang giải trình (90)" },
-];
 
 // ── Quy đổi phía client (mirror app/ketqua_quydoi.py) — chỉ để xem trước; server tính lại khi ghi ──
 const LT: Record<string, [number, number]> = {
@@ -145,9 +127,21 @@ function tinhDong(nhap: NhapRow, cat: HangCat, ct: ChuongTrinh, monBatBuoc: read
   return { qd, over, thieu, full, dat };
 }
 
+// KQD-01 #77: chip trạng thái NGHIỆP VỤ + dòng "việc cần làm" (mã TT_XuLy chỉ ở tooltip).
 function ttBadge(tt: string | null) {
-  const [lbl, cls] = TT_LABEL[tt ?? ""] ?? [tt ?? "—", "text-muted-foreground bg-muted border-border"];
-  return <span className={"inline-block text-[11px] font-semibold border rounded-full px-2 py-0.5 whitespace-nowrap " + cls}>{lbl}</span>;
+  const n = TT_NHAN[tt ?? ""] ?? { nhan: tt ?? "—", cls: "text-muted-foreground bg-muted border-border", viec: "" };
+  return (
+    <div>
+      <span title={`TT_XuLy = ${tt ?? "—"}`} className={"inline-block text-[11px] font-semibold border rounded-full px-2 py-0.5 whitespace-nowrap " + n.cls}>{n.nhan}</span>
+      {n.viec && <div className="text-[11px] text-muted-foreground mt-0.5 leading-tight">{n.viec}</div>}
+    </div>
+  );
+}
+
+function chipCanhBao(c: ReturnType<typeof canhBaoDong>) {
+  if (!c) return null;
+  const n = CANH_BAO_NHAN[c];
+  return <span title={n.tip} className={"mt-1 inline-block text-[10.5px] leading-tight font-semibold border rounded-md px-1.5 py-0.5 " + n.cls}>{n.nhan}</span>;
 }
 
 export default function CapNhatKQDT() {
@@ -168,7 +162,9 @@ export default function CapNhatKQDT() {
   const [dangXuat, setDangXuat] = useState(false); // KQD-09: đang dựng + lưu file Excel
   const [fileXuat, setFileXuat] = useState<XuatExcelKetQua | null>(null); // KQD-09: file vừa lưu (hiện nút mở thư mục)
 
-  const [loc, setLoc] = useState<TrangThaiKQD>("all");
+  const [loc, setLoc] = useState<TabKQD>("all");
+  const [moChuGiai, setMoChuGiai] = useState(false);
+  const [moCongCu, setMoCongCu] = useState(false); // menu "Công cụ": nạp DAT · xuất Excel · xuất Sổ
   const [qHv, setQHv] = useState("");
   const [hoSo, setHoSo] = useState<HocVienKQD[] | null>(null);
   const [loadingHv, setLoadingHv] = useState(false);
@@ -225,10 +221,11 @@ export default function CapNhatKQDT() {
     return () => window.clearTimeout(timer.current);
   }, [q, targetKey]);
 
-  async function taiHoSo(k: KhoaKQD, l: TrangThaiKQD) {
+  // KQD-01 #77: luôn tải CẢ khóa; dải tab lọc + đếm phía client (đếm luôn khớp sau mỗi lần lưu).
+  async function taiHoSo(k: KhoaKQD, _tab?: TabKQD) {
     setErr(""); setLoadingHv(true); setHoSo(null);
     try {
-      setHoSo(await dsHocVienKQD(k.ma_kh, l, targetKey ?? undefined));
+      setHoSo(await dsHocVienKQD(k.ma_kh, "all", targetKey ?? undefined));
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Không tải được danh sách học viên.");
     } finally { setLoadingHv(false); }
@@ -249,7 +246,7 @@ export default function CapNhatKQDT() {
     taiGoiVaChoKx();
     getChuongTrinhKQD(k.ma_kh).then((r) => setCt(r.ct)).catch(() => setCt("cu"));
   }
-  function chonLoc(l: TrangThaiKQD) { setLoc(l); setTrang(0); if (khoa) void taiHoSo(khoa, l); }
+  function chonLoc(l: TabKQD) { setLoc(l); setTrang(0); }
 
   // KQD-05: sau khi mở khóa (CSĐT-wide) → HV 12 về 09/10 → làm tươi lưới đang xem.
   function sauMoKhoa(r: MoKhoaKetQuaUI) {
@@ -409,12 +406,14 @@ export default function CapNhatKQDT() {
     } finally { setLuuBusy(null); }
   }
 
+  const demTabs = useMemo(() => demTab(hoSo), [hoSo]);
   const hoSoLoc = useMemo(() => {
     if (!hoSo) return null;
+    const theoTab = loc === "all" ? hoSo : hoSo.filter((h) => khopTab(loc, h));
     const k = boDau(qHv.trim().toLowerCase());
-    if (!k) return hoSo;
-    return hoSo.filter((h) => boDau(h.ho_ten.toLowerCase()).includes(k) || h.so_cccd.includes(qHv.trim()));
-  }, [hoSo, qHv]);
+    if (!k) return theoTab;
+    return theoTab.filter((h) => boDau(h.ho_ten.toLowerCase()).includes(k) || h.so_cccd.includes(qHv.trim()));
+  }, [hoSo, qHv, loc]);
   const trenTrang = hoSoLoc ? hoSoLoc.slice(trang * coTrang, (trang + 1) * coTrang) : [];
 
   // KQD-05 #53 — chỉ khi cơ sở đã biết là HẾT gói chưa gửi mới cho tích chọn HV 12.
@@ -447,54 +446,20 @@ export default function CapNhatKQDT() {
         <NapDatModal maKh={khoa.ma_kh} tenKh={khoa.ten_kh} targetKey={targetKey ?? undefined}
           onClose={() => setMoNapDat(false)} onDone={sauNapDat} />
       )}
-      {/* Khung chọn khóa + chương trình + lọc */}
+      {/* HEADER GỌN (KQD-01 #77): 2 hàng thay cho 4 khối — nhường chỗ cho danh sách */}
       <div className="shrink-0 bg-card border-b border-border">
-        <div className="px-4 pt-3 pb-2 flex items-center gap-2 flex-wrap">
-          <h1 className="text-[14px] font-bold">Cập nhật kết quả đào tạo</h1>
-          <span className="text-[10px] font-semibold text-kq bg-kq-soft border border-kq-border rounded-full px-1.5 py-px">KQD-01 · KQD-02</span>
-          <span className="text-[12px] text-muted-foreground">Gõ điểm gốc thẳng trên lưới — quy đổi &amp; kết luận hiện ngay.</span>
-          {khoa && (
-            <div className="ml-auto flex items-center gap-2 text-[12px] text-muted-foreground">
-              <button onClick={() => setMoKiemTruoc(true)} className="inline-flex items-center gap-1.5 h-8 px-3 mr-2 rounded-lg border border-kq-border bg-kq-soft text-kq text-[12.5px] font-semibold hover:brightness-95">
-                <Icon name="check" className="w-4 h-4" /> Kiểm trước kết xuất
-                <span className="text-[10px] font-semibold border border-kq-border rounded-full px-1.5">KQD-07</span>
-              </button>
-              <button onClick={() => setMoNapDat(true)} className="inline-flex items-center gap-1.5 h-8 px-3 mr-2 rounded-lg border border-kq-border bg-kq-soft text-kq text-[12.5px] font-semibold hover:brightness-95" title="Nạp giờ/km thực hành đường của cả khóa từ file PDF báo cáo DAT">
-                <Icon name="file" className="w-4 h-4" /> Nạp giờ/km từ PDF DAT
-                <span className="text-[10px] font-semibold border border-kq-border rounded-full px-1.5">KQD-08</span>
-              </button>
-              <button onClick={() => void xuatFile("excel")} disabled={dangXuat} className="inline-flex items-center gap-1.5 h-8 px-3 mr-2 rounded-lg border border-kq-border bg-kq-soft text-kq text-[12.5px] font-semibold hover:brightness-95 disabled:opacity-60" title="Xuất file Excel kết quả học tập của cả khóa đang chọn — lưu vào thư mục output của phần mềm">
-                <Icon name={dangXuat ? "refresh" : "download"} className={"w-4 h-4 " + (dangXuat ? "animate-spin" : "")} /> Xuất Excel
-                <span className="text-[10px] font-semibold border border-kq-border rounded-full px-1.5">KQD-09</span>
-              </button>
-              <button onClick={() => void xuatFile("so")} disabled={dangXuat} className="inline-flex items-center gap-1.5 h-8 px-3 mr-2 rounded-lg border border-kq-border bg-kq-soft text-kq text-[12.5px] font-semibold hover:brightness-95 disabled:opacity-60" title="Xuất Sổ theo dõi kết quả học tập (mẫu Phụ lục VI, in A4) — lưu vào thư mục output của phần mềm">
-                <Icon name={dangXuat ? "refresh" : "file"} className={"w-4 h-4 " + (dangXuat ? "animate-spin" : "")} /> Xuất Sổ theo dõi
-                <span className="text-[10px] font-semibold border border-kq-border rounded-full px-1.5">KQD-10</span>
-              </button>
-              <span>Chương trình khóa:</span>
-              <label className="inline-flex items-center gap-1 cursor-pointer"><input type="radio" name="ct" checked={ct === "cu"} onChange={() => doiCt("cu")} /> Cũ (TT12/2025)</label>
-              <label className="inline-flex items-center gap-1 cursor-pointer"><input type="radio" name="ct" checked={ct === "moi"} onChange={() => doiCt("moi")} /> Mới (TT108/2026)</label>
-            </div>
-          )}
-        </div>
-        {khoa && gonKhoa ? (
-          <div className="px-4 pb-2 flex items-center gap-2 flex-wrap">
-            <span className="text-[11px] font-semibold text-muted-foreground">Khóa:</span>
-            <span className="text-[13px] font-medium">{khoa.ten_kh} <span className="text-muted-foreground font-normal">· {khoa.ma_kh}</span></span>
-            <button onClick={() => { setGonKhoa(false); setMoGoiY(true); }} className="inline-flex items-center gap-1 h-6 px-2 rounded-md border border-border text-[12px] hover:bg-muted">Đổi khóa</button>
-            <button onClick={() => setGonKhoa(false)} className="ml-auto inline-flex items-center gap-1 h-6 px-2 rounded-md text-[12px] text-muted-foreground hover:bg-muted" title="Mở rộng khung chọn khóa"><Icon name="expand" className="w-3.5 h-3.5" /> Mở rộng</button>
-          </div>
-        ) : (
-        <div className="px-4 pb-2">
-          <div className="flex items-center gap-2">
-            <label className="text-[11px] font-semibold text-muted-foreground">Khóa học <span className="font-normal">(chỉ khóa đã có Báo cáo 1 — gõ tên hoặc MaKH để lọc)</span></label>
-            {khoa && <button onClick={() => setGonKhoa(true)} className="ml-auto inline-flex items-center gap-1 h-6 px-2 rounded-md text-[12px] text-muted-foreground hover:bg-muted" title="Thu gọn để xem nhiều học viên hơn">Thu gọn</button>}
-          </div>
-          <div className="relative mt-0.5 max-w-3xl">
-            <Icon name="search" className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <input value={q} onChange={(e) => { setQ(e.target.value); setMoGoiY(true); }} onFocus={() => setMoGoiY(true)} placeholder="Gõ tên khóa hoặc MaKH…" className="w-full text-[13px] pl-8 pr-8 py-1.5 rounded-lg border border-input bg-card focus:outline-none focus:border-kq focus:ring-2 focus:ring-kq/20" />
-            {loadingKhoa && <Icon name="refresh" className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground animate-spin" />}
-            {moGoiY && khoaList && (
+        <div className="px-4 py-1.5 flex items-center gap-2 flex-wrap">
+          {khoa && gonKhoa ? (
+            <>
+              <span className="text-[13px] font-medium">{khoa.ten_kh} <span className="text-muted-foreground font-normal">· {khoa.ma_kh}</span></span>
+              <button onClick={() => { setGonKhoa(false); setMoGoiY(true); }} className="inline-flex items-center gap-1 h-6 px-2 rounded-md border border-border text-[12px] hover:bg-muted">Đổi khóa</button>
+            </>
+          ) : (
+            <div className="relative w-[420px] max-w-full shrink-0" title="Khóa học — chỉ khóa đã có Báo cáo 1; gõ tên hoặc MaKH để lọc">
+              <Icon name="search" className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input value={q} onChange={(e) => { setQ(e.target.value); setMoGoiY(true); }} onFocus={() => setMoGoiY(true)} placeholder="Gõ tên khóa hoặc MaKH…" className="w-full text-[13px] pl-8 pr-8 py-1 rounded-lg border border-input bg-card focus:outline-none focus:border-kq" />
+              {loadingKhoa && <Icon name="refresh" className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground animate-spin" />}
+              {moGoiY && khoaList && (
               <div className="absolute z-20 left-0 right-0 mt-1 max-h-72 overflow-auto rounded-lg border border-border bg-card shadow-lg">
                 {khoaList.length === 0 ? (
                   <div className="px-3 py-3 text-[13px] text-muted-foreground">Không có khóa khớp (chỉ hiện khóa đã BC1).</div>
@@ -508,19 +473,77 @@ export default function CapNhatKQDT() {
                 )}
               </div>
             )}
-          </div>
+            </div>
+          )}
+          {khoa && !gonKhoa && (
+            <button onClick={() => setGonKhoa(true)} className="inline-flex items-center h-6 px-2 rounded-md text-[12px] text-muted-foreground hover:bg-muted" title="Thu gọn ô chọn khóa">Thu gọn</button>
+          )}
+          {khoa && (
+            <>
+              <div className="flex items-center gap-2 text-[12px] text-muted-foreground whitespace-nowrap" title="Chương trình lưu theo từng khóa, phía tool">
+                <span>Chương trình:</span>
+                <label className="inline-flex items-center gap-1 cursor-pointer" title="TT12/2025"><input type="radio" name="ct" checked={ct === "cu"} onChange={() => doiCt("cu")} /> Cũ</label>
+                <label className="inline-flex items-center gap-1 cursor-pointer" title="TT108/2026"><input type="radio" name="ct" checked={ct === "moi"} onChange={() => doiCt("moi")} /> Mới</label>
+              </div>
+              <div className="ml-auto flex items-center gap-1.5 text-[12px]">
+                <button onClick={() => setMoKiemTruoc(true)} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-kq-border bg-kq-soft text-kq text-[12.5px] font-semibold hover:brightness-95 whitespace-nowrap">
+                  <Icon name="check" className="w-4 h-4" /> Kiểm trước kết xuất
+                </button>
+                <div className="relative">
+                  <button onClick={() => setMoCongCu((v) => !v)} disabled={dangXuat} aria-haspopup="menu" aria-expanded={moCongCu}
+                    className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-kq-border bg-kq-soft text-kq text-[12.5px] font-semibold hover:brightness-95 disabled:opacity-60 whitespace-nowrap">
+                    <Icon name={dangXuat ? "refresh" : "file"} className={"w-4 h-4 " + (dangXuat ? "animate-spin" : "")} /> Công cụ ▾
+                  </button>
+                  {moCongCu && (
+                    <>
+                      <div className="fixed inset-0 z-20" onClick={() => setMoCongCu(false)} />
+                      <div role="menu" className="absolute right-0 z-30 mt-1 w-72 rounded-lg border border-border bg-card shadow-lg py-1">
+                        <button onClick={() => { setMoCongCu(false); setMoNapDat(true); }} className="w-full text-left px-3 py-2 text-[13px] hover:bg-kq-soft flex items-center gap-2">
+                          <Icon name="file" className="w-4 h-4 text-kq" /> Nạp giờ/km từ PDF DAT
+                        </button>
+                        <button onClick={() => { setMoCongCu(false); void xuatFile("excel"); }} className="w-full text-left px-3 py-2 text-[13px] hover:bg-kq-soft flex items-center gap-2" title="Xuất kết quả học tập của khóa ra Excel (lưu vào thư mục output)">
+                          <Icon name="download" className="w-4 h-4 text-kq" /> Xuất Excel
+                        </button>
+                        <button onClick={() => { setMoCongCu(false); void xuatFile("so"); }} className="w-full text-left px-3 py-2 text-[13px] hover:bg-kq-soft flex items-center gap-2" title="Xuất Sổ theo dõi kết quả học tập (mẫu Phụ lục VI)">
+                          <Icon name="file" className="w-4 h-4 text-kq" /> Xuất Sổ theo dõi
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </div>
-        )}
         {khoa && (
-          <div className="px-4 py-1.5 border-t border-border/70 bg-muted/30 flex items-center gap-2 flex-wrap">
-            <span className="text-[12px] text-muted-foreground mr-1">Lọc trạng thái:</span>
-            {BO_LOC.map((b) => (
-              <button key={b.key} onClick={() => chonLoc(b.key)} className={"px-2.5 py-1 rounded-full text-[12px] border transition-colors " + (loc === b.key ? "bg-kq text-white border-kq" : "border-border hover:bg-muted")}>{b.label}</button>
-            ))}
+          <div className="px-4 py-1 border-t border-border/70 bg-muted/30 flex items-center gap-1.5 flex-wrap">
+            {TABS.map((t) => {
+              const n = demTabs[t.key];
+              const bat = loc === t.key;
+              const dor = !bat && t.canhBao && n > 0;
+              return (
+                <button key={t.key} title={t.tip} onClick={() => chonLoc(t.key)}
+                  className={"px-3 py-1 rounded-full text-[12.5px] border whitespace-nowrap transition-colors " +
+                    (bat ? "bg-kq text-white border-kq" : dor ? "bg-destructive/10 text-destructive border-destructive/50 font-semibold" : "border-border bg-card hover:bg-muted")}>
+                  {t.nhan} <span className="tabular-nums opacity-80">{n.toLocaleString("vi-VN")}</span>
+                </button>
+              );
+            })}
+            <button onClick={() => setMoChuGiai((v) => !v)} className="h-7 px-2 rounded-md text-[12px] text-muted-foreground hover:bg-muted underline underline-offset-2 whitespace-nowrap">Chú giải</button>
             <div className="relative ml-auto">
               <Icon name="search" className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <input value={qHv} onChange={(e) => { setQHv(e.target.value); setTrang(0); }} placeholder="Tìm tên / CCCD" className="w-56 text-[13px] pl-8 pr-2 py-1 rounded-lg border border-input bg-card focus:outline-none focus:border-kq" />
+              <input value={qHv} onChange={(e) => { setQHv(e.target.value); setTrang(0); }} placeholder="Tìm tên / CCCD" className="w-52 text-[13px] pl-8 pr-2 py-1 rounded-lg border border-input bg-card focus:outline-none focus:border-kq" />
             </div>
+          </div>
+        )}
+        {khoa && moChuGiai && (
+          <div className="px-4 py-2 border-t border-border/70 bg-card flex flex-wrap gap-x-4 gap-y-1 text-[12px]">
+            {Object.entries(TT_NHAN).filter(([k]) => k !== "04").map(([k, n]) => (
+              <span key={k} className="inline-flex items-center gap-1.5">
+                <span title={`TT_XuLy = ${k}`} className={"text-[11px] font-semibold border rounded-full px-2 py-0.5 whitespace-nowrap " + n.cls}>{n.nhan}</span>
+                <span className="text-muted-foreground">{n.viec}</span>
+              </span>
+            ))}
           </div>
         )}
       </div>
@@ -556,7 +579,7 @@ export default function CapNhatKQDT() {
         ) : (
           <>
             <div className="rounded-lg border border-border bg-card overflow-auto flex-1 min-h-0">
-              <table className="w-full table-fixed text-[13px] border-collapse min-w-[1208px]">
+              <table className="w-full table-fixed text-[13px] border-collapse min-w-[1330px]">
                 <thead className="sticky top-0 z-10">
                   <tr className="bg-kq text-white text-left">
                     <th className="font-semibold px-2 py-1.5 w-10 text-center">
@@ -566,9 +589,10 @@ export default function CapNhatKQDT() {
                           onChange={(e) => setChon((cur) => { const c = new Set(cur); chonDuoc.forEach((m) => (e.target.checked ? c.add(m) : c.delete(m))); return c; })} />
                       ) : "STT"}
                     </th>
-                    <th className="font-semibold px-2 py-1.5 w-[200px]">Họ và tên</th>
-                    <th className="font-semibold px-2 py-1.5 w-[116px]">Số CCCD</th>
+                    <th className="font-semibold px-2 py-1.5 w-[176px]">Họ và tên</th>
+                    <th className="font-semibold px-2 py-1.5 w-[108px]">Số CCCD</th>
                     <th className="font-semibold px-2 py-1.5 w-12 text-center">Hạng</th>
+                    <th className="font-semibold px-2 py-1.5 w-[176px]">Trạng thái <span className="text-[10px] font-normal opacity-80">· việc cần làm</span></th>
                     {["Lý thuyết", "Mô phỏng", "Sa hình", "Chữ chi", "Đường trường"].map((m, i) => (
                       <th key={m} className="font-semibold px-1 py-1.5 w-[62px] text-center">{m}<div className="text-[10px] font-normal opacity-80">{MON_NHAN[MON5[i]]}</div></th>
                     ))}
@@ -599,15 +623,12 @@ export default function CapNhatKQDT() {
                           <td className="px-2 py-2 font-medium truncate" title={h.ho_ten}>{h.ho_ten}<div className="text-[11px] tabular-nums">{h.ngay_sinh}</div></td>
                           <td className="px-2 py-2 font-mono text-[12px]">{h.so_cccd}</td>
                           <td className="px-2 py-2 text-center">{h.hang ?? "—"}</td>
+                          <td className="px-2 py-2 align-top">{ttBadge(h.tt_xuly)}</td>
                           {MON5.map((m) => (<td key={m} className="px-1 py-2 text-center tabular-nums">{d1(h.diem[m])}</td>))}
                           <td className="px-1 py-2 text-center">—</td>
                           <td className="px-1 py-2 text-center">—</td>
                           <td className="px-2 py-2 text-center">{h.ket_luan === "dat" ? <span className="text-[11px] font-semibold text-success">Đạt</span> : h.ket_luan === "khong_dat" ? <span className="text-[11px] font-semibold text-destructive">Không đạt</span> : "—"}</td>
-                          <td className="px-2 py-2 text-center"><span className="text-[12px]">🔒 chỉ xem</span><div className="mt-0.5">
-                            {hetGoiChuaGui && h.tt_xuly === "12"
-                              ? <span className="inline-block text-[11px] font-semibold border rounded-full px-2 py-0.5 whitespace-nowrap text-muted-foreground bg-muted border-border">Đã gửi Sở</span>
-                              : ttBadge(h.tt_xuly)}
-                          </div></td>
+                          <td className="px-2 py-2 text-center"><span className="text-[12px]">🔒 chỉ xem</span></td>
                           <td className="px-2 py-2 text-center">{h.tt_xuly === "12" && !hetGoiChuaGui && (
                             <button onClick={() => setMoKhoaMo(true)} className="inline-flex items-center gap-1 h-7 px-2 rounded-md border border-kq/50 text-kq text-[11.5px] font-medium hover:bg-kq-soft whitespace-nowrap" title="Mở khóa để sửa điểm (thao tác toàn cơ sở)">
                               <Icon name="clock" className="w-3.5 h-3.5" /> Mở khóa
@@ -637,9 +658,27 @@ export default function CapNhatKQDT() {
                     return (
                       <tr key={h.ma_dk} className="border-b border-border/80 hover:bg-kq-soft/40 align-top">
                         <td className="px-2 py-2 text-center tabular-nums text-muted-foreground">{stt}</td>
-                        <td className="px-2 py-2 font-medium truncate" title={h.ho_ten}>{h.ho_ten}<div className="text-[11px] text-muted-foreground tabular-nums">{h.ngay_sinh}</div></td>
+                        <td className="px-2 py-2 font-medium truncate" title={h.ho_ten}>{h.ho_ten}<div className="text-[11px] text-muted-foreground tabular-nums">{h.ngay_sinh}</div>
+                          {h.tt_xuly === "14" && h.ly_do_tu_choi && (
+                            <div title={h.ly_do_tu_choi} className="text-[11px] font-normal text-destructive leading-tight mt-0.5 truncate">Sở: {h.ly_do_tu_choi}</div>
+                          )}
+                        </td>
                         <td className="px-2 py-2 font-mono text-[12px]">{h.so_cccd}</td>
                         <td className="px-2 py-2 text-center">{h.hang ?? "—"}</td>
+                        <td className="px-2 py-2 align-top">
+                          {ttBadge(h.tt_xuly)}
+                          {chipCanhBao(canhBaoDong({
+                            tt: h.tt_xuly,
+                            // live: gõ đủ 5 môn → theo t.dat; sửa lẻ (KQD-06) môn không gõ lấy quy đổi ĐÃ LƯU; chưa đủ → kết luận đã lưu
+                            dat: (() => {
+                              if (t.full) return t.dat;
+                              const hop = MON5.map((m) => (parseNum(nr[m]) != null ? t.qd[m] : h.diem[m]));
+                              if (hop.every((v) => v != null)) return hop.every((v) => (v as number) >= 5);
+                              return h.ket_luan === "dat" ? true : h.ket_luan === "khong_dat" ? false : null;
+                            })(),
+                            coGiaiTrinh: (giaiTrinh[h.ma_dk] ?? h.giai_trinh ?? "").trim() !== "",
+                          }))}
+                        </td>
                         {MON5.map(cell)}
                         <td className="px-1 py-2 text-center align-top">
                           <input value={nr.gio_duong} onChange={(e) => setNhapO(h, "gio_duong", e.target.value)} onBlur={(e) => { const v = chuanHoaGio(e.target.value); if (v !== e.target.value) setNhapO(h, "gio_duong", v); }}
@@ -659,12 +698,11 @@ export default function CapNhatKQDT() {
                             : <span className="whitespace-nowrap text-[11px] text-muted-foreground">đang nhập…</span>
                           ) : t.dat ? <span className="inline-block whitespace-nowrap text-[12px] font-bold text-success bg-success/10 border border-success/50 rounded-full px-2.5 py-0.5">✓ ĐẠT</span>
                             : <span className="inline-block whitespace-nowrap text-[12px] font-bold text-destructive bg-destructive/10 border border-destructive/50 rounded-full px-2.5 py-0.5">✗ Không đạt</span>}
-                          {suaLai && <div className="mt-1">{ttBadge(h.tt_xuly)}</div>}
                           {choKxTheoDk.has(h.ma_dk) && (
                             <div className="mt-1"><span title={`Mở sửa ${choKxTheoDk.get(h.ma_dk)?.luc_mo ?? ""} — ${choKxTheoDk.get(h.ma_dk)?.ly_do ?? ""}`} className="inline-block text-[10.5px] leading-tight font-semibold border rounded-md px-1.5 py-0.5 text-warning bg-warning/10 border-warning/50">Sửa sau gửi — chưa kết xuất lại</span></div>
                           )}
                         </td>
-                        <td className="px-2 py-2 align-top">
+                                                <td className="px-2 py-2 align-top">
                           <div className="flex items-center justify-center gap-1.5">
                             <button disabled={!(MON5.some((m) => parseNum(nr[m]) != null) || gioKmDoi) || luuBusy === h.ma_dk} onClick={() => luu(h)}
                               className="h-7 px-2.5 rounded-md bg-kq text-white text-[12px] font-medium hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1 whitespace-nowrap">

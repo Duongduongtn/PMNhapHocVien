@@ -1,5 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
 
+// KQD-01 #77: "Nạp giờ/km từ PDF DAT" · "Xuất Excel" · "Xuất Sổ theo dõi" nằm trong menu "Công cụ ▾".
+async function nutCongCu(page: Page, ten: RegExp) {
+  const nut = page.getByRole("button", { name: ten });
+  if (!(await nut.isVisible())) await page.getByRole("button", { name: /Công cụ/ }).click();
+  return nut;
+}
+
 // KQD-02 (phần đổi 12/10/2026, CHANGES #69) — ô Giờ đường/Km đường trên lưới Cập nhật KQĐT:
 // nạp sẵn giá trị đã lưu · gõ hh:mm → thập phân · chỉ sửa giờ/km thì ghi riêng 2 cột (không qua cap-nhat)
 // · sửa điểm mà giữ nguyên giờ/km thì KHÔNG gửi null đè giờ cũ. Backend giả bằng page.route.
@@ -61,6 +68,7 @@ test.describe("KQD-02 — giờ/km đường trên lưới (CHANGES #69)", () =>
     await expect(page.getByRole("button", { name: /Nạp giờ\/km từ PDF DAT/ })).toHaveCount(0);
     await page.getByPlaceholder("Gõ tên khóa hoặc MaKH…").click();
     await page.getByText("B01-K40").first().click();
+    await page.getByRole("button", { name: /Công cụ/ }).click();
     await expect(page.getByRole("button", { name: /Nạp giờ\/km từ PDF DAT/ })).toBeVisible();
   });
 

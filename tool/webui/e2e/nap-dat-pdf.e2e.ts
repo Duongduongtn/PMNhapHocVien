@@ -1,5 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
 
+// KQD-01 #77: "Nạp giờ/km từ PDF DAT" · "Xuất Excel" · "Xuất Sổ theo dõi" nằm trong menu "Công cụ ▾".
+async function nutCongCu(page: Page, ten: RegExp) {
+  const nut = page.getByRole("button", { name: ten });
+  if (!(await nut.isVisible())) await page.getByRole("button", { name: /Công cụ/ }).click();
+  return nut;
+}
+
 // KQD-08 — hộp thoại "Nạp giờ/km từ PDF DAT" ở màn Cập nhật KQĐT. Backend giả bằng page.route.
 // Kiểm: chọn PDF → bảng xác nhận (cũ → mới, lý do không có trong khóa) → SỬA số ngay trong bảng
 // (hh:mm → thập phân, tô "đã sửa", sai dạng chặn Lưu) → Lưu gửi đúng số đã sửa.
@@ -51,7 +58,7 @@ async function moHopThoai(page: Page) {
   await page.goto("/ket-qua/cap-nhat");
   await page.getByPlaceholder("Gõ tên khóa hoặc MaKH…").click();
   await page.getByText("B01-K40").first().click();
-  await page.getByRole("button", { name: /Nạp giờ\/km từ PDF DAT/ }).click();
+  await (await nutCongCu(page, /Nạp giờ\/km từ PDF DAT/)).click();
   await page.locator('input[type="file"]').setInputFiles({ name: "DAT B.01-K40.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4 gia") });
 }
 
@@ -114,7 +121,7 @@ async function moHopThoaiRong(page: Page) {
   await page.goto("/ket-qua/cap-nhat");
   await page.getByPlaceholder("Gõ tên khóa hoặc MaKH…").click();
   await page.getByText("B01-K40").first().click();
-  await page.getByRole("button", { name: /Nạp giờ\/km từ PDF DAT/ }).click();
+  await (await nutCongCu(page, /Nạp giờ\/km từ PDF DAT/)).click();
 }
 async function chonFile(page: Page, f: { name: string; buffer: Buffer }) {
   await page.locator('input[type="file"]').setInputFiles({ name: f.name, mimeType: "application/pdf", buffer: f.buffer });
@@ -161,7 +168,7 @@ test.describe("KQD-08 — hộp thoại nạp PDF DAT: chặn sớm, lưu xong, 
     await page.locator("tr", { hasText: "ĐẶNG VĂN GIANG" }).locator('input[data-kqd-c="2"]').fill("77");
     await page.locator("tr", { hasText: "NGUYỄN VĂN AN" }).locator('input[data-kqd-c="5"]').fill("9");
 
-    await page.getByRole("button", { name: /Nạp giờ\/km từ PDF DAT/ }).click();
+    await (await nutCongCu(page, /Nạp giờ\/km từ PDF DAT/)).click();
     await chonFile(page, PDF_GIA);
     await nutLuuModal(page, 2).click();
 

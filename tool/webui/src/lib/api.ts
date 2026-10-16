@@ -960,7 +960,11 @@ export interface KhoaKQD {
   ngay_kg: string | null;
   ngay_bg: string | null;
   ngay_thi: string | null;
-  dem: { dangky: number; capnhat: number; tuchoi: number; giaitrinh: number; ketxuat: number };
+  dem: {
+    dangky: number; capnhat: number; tuchoi: number; giaitrinh: number; ketxuat: number;
+    // KQD-04 đổi #77: nhóm có điều kiện cho dải tab (chokx = 09 + 90 Đạt; canxuly = 14 + 90 không đạt/trống)
+    chokx?: number; khongdat?: number; canxuly?: number; dagui?: number;
+  };
 }
 export const dsKhoaKQD = (q: string, targetKey?: string) =>
   fetch(`${BASE}/local/ketqua/khoa?${qs({ q, target_key: targetKey })}`, { headers: authHeaders() }).then(
@@ -988,9 +992,13 @@ export interface HocVienKQD {
   diem: DiemKQD;
   gio_duong: number | null; // giờ đường đã lưu ở DB đích (thập phân, làm tròn 2 chữ số)
   km_duong: number | null;
+  ly_do_tu_choi?: string | null; // KQD-04 #77: lý do Sở từ chối (LyDoTuChoiKQDT) — hiện trên dòng HV 14
+  giai_trinh?: string | null; // giải trình đã lưu (GiaiTrinh)
 }
 // Nhóm lọc trạng thái (khớp _NHOM_TT backend) + 'all'. ketxuat=12 (KQD-03 "đã kết xuất").
-export type TrangThaiKQD = "all" | "dangky" | "capnhat" | "tuchoi" | "giaitrinh" | "ketxuat";
+export type TrangThaiKQD =
+  | "all" | "dangky" | "capnhat" | "tuchoi" | "giaitrinh" | "ketxuat"
+  | "chokx" | "khongdat" | "canxuly" | "dagui";   // task 138: nhóm có điều kiện
 export const dsHocVienKQD = (maKh: string, trangThai: TrangThaiKQD, targetKey?: string) =>
   fetch(`${BASE}/local/ketqua/hoc-vien?${qs({ ma_kh: maKh, trang_thai: trangThai, target_key: targetKey })}`, {
     headers: authHeaders(),

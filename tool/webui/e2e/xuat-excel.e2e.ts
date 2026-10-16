@@ -1,5 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
 
+// KQD-01 #77: "Nạp giờ/km từ PDF DAT" · "Xuất Excel" · "Xuất Sổ theo dõi" nằm trong menu "Công cụ ▾".
+async function nutCongCu(page: Page, ten: RegExp) {
+  const nut = page.getByRole("button", { name: ten });
+  if (!(await nut.isVisible())) await page.getByRole("button", { name: /Công cụ/ }).click();
+  return nut;
+}
+
 // KQD-09 — nút "Xuất Excel" kết quả học tập theo khóa ở màn Cập nhật KQĐT + 2 ô thông tin cơ sở ở Cấu hình.
 // Backend giả bằng page.route. Kiểm: nút chỉ hiện sau khi chọn khóa · tải về đúng tên file · gọi đúng ma_kh ·
 // lỗi 404 hiện thông báo · nút khóa khi đang xuất · lưu tên cơ sở chỉ gửi 2 trường.
@@ -53,7 +60,7 @@ test.describe("KQD-09 — xuất Excel kết quả học tập theo khóa", () =
     await expect(page.getByRole("button", { name: /Xuất Excel/ })).toHaveCount(0);
     await page.getByPlaceholder("Gõ tên khóa hoặc MaKH…").click();
     await page.getByText("B01-K40").first().click();
-    const nut = page.getByRole("button", { name: /Xuất Excel/ });
+    const nut = await nutCongCu(page, /Xuất Excel/);
     await expect(nut).toBeVisible();
 
     await nut.click();
@@ -68,10 +75,10 @@ test.describe("KQD-09 — xuất Excel kết quả học tập theo khóa", () =
     await page.route("**/local/ketqua/xuat-excel**", (r) =>
       r.fulfill({ status: 404, json: { detail: "Khóa chưa có học viên — không có gì để xuất." } }));
     await chonKhoa(page);
-    await page.getByRole("button", { name: /Xuất Excel/ }).click();
+    await (await nutCongCu(page, /Xuất Excel/)).click();
     await expect(page.getByText("Khóa chưa có học viên — không có gì để xuất.")).toBeVisible();
     await expect(page.getByRole("button", { name: "Mở thư mục" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /Xuất Excel/ })).toBeEnabled();
+    await expect(page.getByRole("button", { name: /Công cụ/ })).toBeEnabled();
   });
 
   test("đang xuất thì nút khóa (không bấm đúp ra 2 file)", async ({ page }) => {
@@ -83,10 +90,12 @@ test.describe("KQD-09 — xuất Excel kết quả học tập theo khóa", () =
       await r.fulfill({ json: { ok: true, ten_file: "a.xlsx", so_hoc_vien: 1, duong_dan: "D:\\o\\a.xlsx", thu_muc: "D:\\o" } });
     });
     await chonKhoa(page);
-    const nut = page.getByRole("button", { name: /Xuất Excel/ });
+    const nut = await nutCongCu(page, /Xuất Excel/);
     await nut.click();
-    await expect(nut).toBeDisabled();
-    await nut.click({ force: true }).catch(() => undefined);
+    // menu đóng sau khi chọn; nút "Công cụ" khóa trong lúc đang xuất → không bấm đúp ra 2 file
+    const congCu = page.getByRole("button", { name: /Công cụ/ });
+    await expect(congCu).toBeDisabled();
+    await congCu.click({ force: true }).catch(() => undefined);
     await expect(page.getByText(/Đã lưu kết quả 1 học viên/)).toBeVisible();
     expect(goi).toBe(1);
   });
@@ -129,7 +138,7 @@ test.describe("KQD-10 — Xuất Sổ theo dõi kết quả học tập (mẫu P
     let excelChiTiet = 0;
     await page.route("**/local/ketqua/xuat-excel**", (r) => { excelChiTiet += 1; return r.fulfill({ json: {} }); });
     await chonKhoa(page);
-    const nut = page.getByRole("button", { name: /Xuất Sổ theo dõi/ });
+    const nut = await nutCongCu(page, /Xuất Sổ theo dõi/);
     await expect(nut).toBeVisible();
     await nut.click();
     await expect(page.getByText(/Đã lưu sổ theo dõi 30 học viên → D:\Tool\output\SoTheoDoiKetQuaHocTap_K40_12-10-2026\.xlsx/)).toBeVisible();
@@ -143,9 +152,9 @@ test.describe("KQD-10 — Xuất Sổ theo dõi kết quả học tập (mẫu P
     await page.route("**/local/ketqua/xuat-so-theo-doi**", (r) =>
       r.fulfill({ status: 404, json: { detail: "Khóa chưa có học viên — không có gì để xuất." } }));
     await chonKhoa(page);
-    await page.getByRole("button", { name: /Xuất Sổ theo dõi/ }).click();
+    await (await nutCongCu(page, /Xuất Sổ theo dõi/)).click();
     await expect(page.getByText("Khóa chưa có học viên — không có gì để xuất.")).toBeVisible();
-    await expect(page.getByRole("button", { name: /Xuất Sổ theo dõi/ })).toBeEnabled();
+    await expect(page.getByRole("button", { name: /Công cụ/ })).toBeEnabled();
   });
 
   test("có học viên có kết luận nhưng thiếu điểm → thanh thông báo giải thích vì sao ô kết quả để trống", async ({ page }) => {
@@ -154,7 +163,7 @@ test.describe("KQD-10 — Xuất Sổ theo dõi kết quả học tập (mẫu P
       ok: true, ten_file: "S.xlsx", so_hoc_vien: 30, so_hv_trong_ket_qua: 24,
       duong_dan: "D:\Tool\output\S.xlsx", thu_muc: "D:\Tool\output" } }));
     await chonKhoa(page);
-    await page.getByRole("button", { name: /Xuất Sổ theo dõi/ }).click();
+    await (await nutCongCu(page, /Xuất Sổ theo dõi/)).click();
     await expect(page.getByText(/24 học viên có kết luận nhưng thiếu điểm nên để trống kết quả/)).toBeVisible();
   });
   test("không có học viên nào bị trống kết quả → không hiện dòng lưu ý", async ({ page }) => {
@@ -163,7 +172,7 @@ test.describe("KQD-10 — Xuất Sổ theo dõi kết quả học tập (mẫu P
       ok: true, ten_file: "S.xlsx", so_hoc_vien: 30, so_hv_trong_ket_qua: 0,
       duong_dan: "D:\Tool\output\S.xlsx", thu_muc: "D:\Tool\output" } }));
     await chonKhoa(page);
-    await page.getByRole("button", { name: /Xuất Sổ theo dõi/ }).click();
+    await (await nutCongCu(page, /Xuất Sổ theo dõi/)).click();
     await expect(page.getByText(/Đã lưu sổ theo dõi 30 học viên/)).toBeVisible();
     await expect(page.getByText(/thiếu điểm nên để trống/)).toHaveCount(0);
   });
