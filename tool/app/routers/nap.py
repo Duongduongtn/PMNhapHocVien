@@ -10,7 +10,7 @@ from __future__ import annotations
 import base64
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from app import nap, vps
 from app.db import sqlserver_conn, sqlserver_cursor, ConfigChuaDay
@@ -92,6 +92,16 @@ class NapIn(BaseModel):
     noi_ct_ma_dvql: str | None = None
     giay_to_tick: list[int] = []    # danh sách MaGT đã tick
     anh_jp2_b64: str | None = None  # ảnh .jp2 đã xử lý (NAP-04); None → nạp thiếu ảnh (BR-011)
+    # "Chọn in GPLX": 1 Ghép · 2 Có thời hạn · 3 Không thời hạn. None → MẶC ĐỊNH THEO HẠNG khóa (server quyết:
+    # mô tô A* → 3, ô tô → 2). Ngoài {1,2,3} → 422.
+    chon_in_gplx: int | None = None
+
+    @field_validator("chon_in_gplx")
+    @classmethod
+    def _chon_in_gplx_hop_le(cls, v):
+        if v is not None and v not in nap.IN_GPLX_HOP_LE:
+            raise ValueError("chon_in_gplx phải là 1 (ghép), 2 (có thời hạn) hoặc 3 (không thời hạn)")
+        return v
 
 
 def _nap_mot(body: NapIn) -> dict:
@@ -147,6 +157,7 @@ def _nap_mot(body: NapIn) -> dict:
             "chi_tiet_ct": body.chi_tiet_ct or body.chi_tiet_tt,
             "noi_ct_ma_dvhc": body.noi_ct_ma_dvhc or body.noi_tt_ma_dvhc,
             "noi_ct_ma_dvql": body.noi_ct_ma_dvql or body.noi_tt_ma_dvql,
+            "chon_in_gplx": body.chon_in_gplx,               # None → build_params_sp_gop chọn theo hạng khóa
         }
         # nguoi="" → NguoiNhanHSo/NguoiThuNhanAnh trống, khớp app cũ (55/55 HV thật để trống)
         return nap.nap_mot_hv(conn, hv, khoa, jp2, img_path, "", body.uuid, giay_to)
@@ -264,6 +275,14 @@ class NhapChuanBiIn(BaseModel):
     tick_json: str | None = None      # danh sách MaGT đã tick (JSON)
     jp2_b64: str | None = None        # ảnh đã đổi nền (.jp2 base64) — PII
     anh_preview: str | None = None    # PNG xem trước (base64)
+    chon_in_gplx: int | None = None   # "Chọn in GPLX" (1/2/3) đã chọn; None = theo mặc định của hạng
+
+    @field_validator("chon_in_gplx")
+    @classmethod
+    def _chon_in_gplx_hop_le(cls, v):
+        if v is not None and v not in nap.IN_GPLX_HOP_LE:
+            raise ValueError("chon_in_gplx phải là 1, 2 hoặc 3")
+        return v
 
 
 @router.get("/nap/nhap")
@@ -281,7 +300,7 @@ def nhap_doc_mot(uuid: str, phien: Phien = Depends(require_session)):
     Chưa có nháp → trả rỗng (các trường None), KHÔNG 404 (dòng mới chưa chuẩn bị là bình thường)."""
     return nap.nhap_doc(uuid) or {
         "uuid": uuid, "dia_chi_json": None, "chi_tiet": None, "noi_cap": None, "ngay_cap": None,
-        "tick_json": None, "jp2_b64": None, "anh_preview": None, "updated_at": None,
+        "tick_json": None, "jp2_b64": None, "anh_preview": None, "updated_at": None, "chon_in_gplx": None,
     }
 
 

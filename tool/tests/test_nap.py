@@ -101,7 +101,7 @@ def test_build_params_sp_gop():
     assert p["p_SoHoSo"] == "056"
     assert p["p_HoVaTen"] == "NGUYỄN VĂN AN"      # IN HOA
     assert p["p_MaQuocTich"] == "VNM"             # không "VN" (vỡ FK)
-    assert p["p_CHON_IN_GPLX"] == 2               # "Chọn in GPLX" bắt buộc
+    assert p["p_CHON_IN_GPLX"] == 2               # khóa B1 (ô tô) → mặc định 2 (xem test_in_gplx.py cho mô tô = 3)
     assert p["p_ChiTiet_TT"] == ""                # NoiTT trống — không nhét tên xã
     assert p["p_MaDVHC_TT"] == "00097"
     assert p["p_MaDVHC_CT"] == "00097"            # mặc định = TT khi không có CT riêng

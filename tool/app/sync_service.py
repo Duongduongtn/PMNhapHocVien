@@ -39,7 +39,8 @@ _HV_SELECT = """
         B.SoGPLXDaCo, B.HangGPLXDaCo, B.DonViCapGPLXDaCo, B.NoiCapGPLXDaCo,
         B.NgayCapGPLXDaCo, B.NgayHHGPLXDaCo, B.NgayTTGPLXDaCo,
         B.DonViHocLX, B.NamHocLX, B.SoNamLX, B.SoKmLXAnToan, B.GiayCNSK,
-        B.LyDoCapDoi, B.MucDichCapDoi, B.NoiDungSH, B.MaHTCap, B.TT_XuLy
+        B.LyDoCapDoi, B.MucDichCapDoi, B.NoiDungSH, B.MaHTCap, B.TT_XuLy,
+        B.CHON_IN_GPLX
     FROM dbo.NguoiLX A
     JOIN dbo.NguoiLX_HoSo B ON A.MaDK = B.MaDK
     WHERE B.MaKhoaHoc = %s AND A.TrangThai = 1
@@ -114,11 +115,11 @@ _INSERT_HOSO = """
         LyDoCapDoi, MucDichCapDoi,
         NoiDungSH, MaKhoaHoc, HangDaoTao,
         GhiChu, NguoiTao, NguoiSua, NgayTao, NgaySua,
-        TrangThai, MaHTCap, Transfer_flag
+        TrangThai, MaHTCap, Transfer_flag, CHON_IN_GPLX
     ) VALUES (
         %s,%s,%s,%s,%s, %s,%s,%s,
         %s,%s, %s,%s,%s,%s, %s,%s,%s,%s, %s,%s,%s, %s,%s, %s,%s,%s,%s, %s,%s, %s,%s,%s,
-        %s,%s,%s, %s,%s, 1,%s,0
+        %s,%s,%s, %s,%s, 1,%s,0,%s
     )
 """
 
@@ -194,6 +195,9 @@ def sync_one_hv(
                 hv["NoiDungSH"], ma_khoa_dich, hv["HangDaoTao"],
                 None, nguoi, nguoi, ngay_hs_dt, ngay_hs_dt,
                 hv["MaHTCap"],
+                # "Chọn in GPLX" chép NGUYÊN từ DB Nạp (đã đúng theo hạng: mô tô 3 / ô tô 2). Phần mềm CDB không
+                # hiện ô chọn nhưng đọc cột này để đưa vào file BC1/BC2 gửi Sở → NULL/thiếu thì ghi 0 như mặc định cột.
+                hv.get("CHON_IN_GPLX") or 0,
             ),
         )
         conn_dich.commit()

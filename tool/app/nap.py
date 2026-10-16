@@ -85,6 +85,20 @@ def suy_ma_loai_hs(hang_gplx: str | None) -> int:
     return 1 if (hang_gplx or "").strip().upper().startswith("A") else 2
 
 
+# "Chọn in GPLX" (cột NguoiLX_HoSo.CHON_IN_GPLX, ô cboInGplx của phần mềm cũ). Dữ liệu thật ở DB Nạp:
+# ô tô B/B1/B2/C/C1 → 2 (~15.000 HV) · mô tô A1/A1m/A2 → 3 (~17.000 HV) · hiếm 1; 0/NULL = chưa chọn.
+IN_GPLX_GHEP = 1            # In 01 GPLX (Ghép: có thời hạn + không thời hạn)
+IN_GPLX_CO_THOI_HAN = 2     # In 01 GPLX có thời hạn      — mặc định ô tô
+IN_GPLX_KHONG_THOI_HAN = 3  # In 01 GPLX không thời hạn   — mặc định mô tô
+IN_GPLX_HOP_LE = (IN_GPLX_GHEP, IN_GPLX_CO_THOI_HAN, IN_GPLX_KHONG_THOI_HAN)
+
+
+def chon_in_gplx_mac_dinh(hang_gplx: str | None) -> int:
+    """Giá trị "Chọn in GPLX" mặc định theo HẠNG của khóa: A* (mô tô) → 3 không thời hạn; còn lại (ô tô,
+    kể cả hạng trống) → 2 có thời hạn. Cùng quy tắc `A*` với `suy_ma_loai_hs`."""
+    return IN_GPLX_KHONG_THOI_HAN if (hang_gplx or "").strip().upper().startswith("A") else IN_GPLX_CO_THOI_HAN
+
+
 def validate_do_dai(ten: dict, so_cmt: str) -> list[str]:
     """Kiểm độ dài cột trước khi gọi SP (SP tự tách nên Ho/Ten có thể vượt); trả danh sách lỗi."""
     loi = []
@@ -107,7 +121,8 @@ def build_params_sp_gop(hv: dict, khoa: dict, so_ho_so: str, ten: dict,
                         giay_to_str: str, nguoi: str = "") -> list[tuple]:
     """30 tham số @p_* của usp_QuangLA_PM4_ThuNhanHS_ThemMoiCapNhat (khớp 1:1 form app cũ).
 
-    Field map khớp app cũ (AS-003 01/10): MaQuocTich='VNM', CHON_IN_GPLX=2, NoiTT=ChiTiet
+    Field map khớp app cũ (AS-003 01/10): MaQuocTich='VNM', NoiTT=ChiTiet;
+    CHON_IN_GPLX = hv["chon_in_gplx"] nếu nhân viên chọn, ngược lại MẶC ĐỊNH THEO HẠNG khóa (mô tô 3 / ô tô 2)
     (mặc định trống — KHÔNG nhét tên xã), DonViHocLX NULL (SP không có tham số → tự NULL).
     """
     return [
@@ -140,7 +155,7 @@ def build_params_sp_gop(hv: dict, khoa: dict, so_ho_so: str, ten: dict,
         ("p_NoiCapGPLXDaCo", None),
         ("p_GhiChu", None),
         ("p_SO_CMND_CU", None),
-        ("p_CHON_IN_GPLX", 2),                                # "Chọn in GPLX" bắt buộc = 2 (AS-003)
+        ("p_CHON_IN_GPLX", hv.get("chon_in_gplx") or chon_in_gplx_mac_dinh(khoa.get("hang_gplx"))),
     ]
 
 
@@ -527,7 +542,7 @@ def bo_qua_nhieu(uuids: list[str]) -> dict:
 _NHAP_DDL = (
     "CREATE TABLE IF NOT EXISTS nhap_chuan_bi ("
     "uuid TEXT PRIMARY KEY, dia_chi_json TEXT, chi_tiet TEXT, noi_cap TEXT, ngay_cap TEXT, "
-    "tick_json TEXT, jp2_b64 TEXT, anh_preview TEXT, updated_at TEXT)"
+    "tick_json TEXT, jp2_b64 TEXT, anh_preview TEXT, updated_at TEXT, chon_in_gplx INTEGER)"
 )
 
 
@@ -541,6 +556,8 @@ def _nhap_conn() -> sqlite3.Connection:
     cols = {r[1] for r in conn.execute("PRAGMA table_info(nhap_chuan_bi)")}
     if "ngay_cap" not in cols:
         conn.execute("ALTER TABLE nhap_chuan_bi ADD COLUMN ngay_cap TEXT")
+    if "chon_in_gplx" not in cols:      # "Chọn in GPLX" (1/2/3) nhân viên đã chọn; NULL = theo mặc định của hạng
+        conn.execute("ALTER TABLE nhap_chuan_bi ADD COLUMN chon_in_gplx INTEGER")
     return conn
 
 
@@ -580,20 +597,21 @@ def nhap_doc(uuid: str) -> dict | None:
     try:
         row = conn.execute(
             "SELECT uuid, dia_chi_json, chi_tiet, noi_cap, ngay_cap, tick_json, jp2_b64, "
-            "anh_preview, updated_at FROM nhap_chuan_bi WHERE uuid=?", (str(uuid),)
+            "anh_preview, updated_at, chon_in_gplx FROM nhap_chuan_bi WHERE uuid=?", (str(uuid),)
         ).fetchone()
     finally:
         conn.close()
     if row is None:
         return None
     cols = ("uuid", "dia_chi_json", "chi_tiet", "noi_cap", "ngay_cap", "tick_json", "jp2_b64",
-            "anh_preview", "updated_at")
+            "anh_preview", "updated_at", "chon_in_gplx")
     return dict(zip(cols, row))
 
 
 def nhap_luu(uuid: str, *, dia_chi_json: str | None = None, chi_tiet: str | None = None,
              noi_cap: str | None = None, ngay_cap: str | None = None, tick_json: str | None = None,
-             jp2_b64: str | None = None, anh_preview: str | None = None) -> None:
+             jp2_b64: str | None = None, anh_preview: str | None = None,
+             chon_in_gplx: int | None = None) -> None:
     """Lưu (upsert) nháp chuẩn bị. Ghi khi đóng drawer / debounce (không mỗi phím).
     ngay_cap (CHANGES #43): ngày cấp CCCD dạng 'yyyymmdd' operator đã sửa; rỗng/None = chưa đặt."""
     conn = _nhap_conn()
@@ -601,9 +619,9 @@ def nhap_luu(uuid: str, *, dia_chi_json: str | None = None, chi_tiet: str | None
         conn.execute(
             "INSERT OR REPLACE INTO nhap_chuan_bi "
             "(uuid, dia_chi_json, chi_tiet, noi_cap, ngay_cap, tick_json, jp2_b64, anh_preview, "
-            "updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
+            "updated_at, chon_in_gplx) VALUES (?,?,?,?,?,?,?,?,?,?)",
             (str(uuid), dia_chi_json, chi_tiet, noi_cap, ngay_cap, tick_json, jp2_b64, anh_preview,
-             datetime.now().isoformat(timespec="seconds")),
+             datetime.now().isoformat(timespec="seconds"), chon_in_gplx),
         )
         conn.commit()
     finally:
