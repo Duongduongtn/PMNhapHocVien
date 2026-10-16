@@ -689,7 +689,7 @@ Một hồ sơ sống ở **2 nơi**: VPS (app web — nơi collector tạo) và
 
 Trước #32, mọi chỉnh sửa khi chuẩn bị nạp (`nhap[uuid]`: `diaChi`, `chiTiet`, `noiCap`, `ngayCap`, `tick`, `jp2`, `anhPreview`) **chỉ sống trong RAM** của màn NapHoSo → tải lại trang/đóng tool là mất. Nay **lưu bền xuống staging** để sống qua phiên và để 2 chip trạng thái (§10.5) đúng kể cả sau khi mở lại.
 
-- **Kho:** bảng RIÊNG trong `staging.sqlite` — **`nhap_chuan_bi(uuid PRIMARY KEY, dia_chi_json, chi_tiet, noi_cap, ngay_cap, tick_json, jp2_b64, anh_preview, updated_at)`**. *Vì sao bảng riêng chứ không thêm cột vào `keo_ve`: tách bạch DỮ LIỆU GỐC VPS (`keo_ve`, do `keo_ve_upsert` làm tươi) khỏi NHÁP OPERATOR — upsert làm tươi dòng `cho` không vô tình đè/được đè bởi nháp; xóa nháp độc lập.*
+- **Kho:** bảng RIÊNG trong `staging.sqlite` — **`nhap_chuan_bi(uuid PRIMARY KEY, dia_chi_json, chi_tiet, noi_cap, ngay_cap, tick_json, jp2_b64, anh_preview, updated_at, chon_in_gplx)`** (`chon_in_gplx INTEGER` thêm ở CHANGES #79 — xem §10.2; cùng guard `PRAGMA table_info` + `ALTER` như `ngay_cap`). *Vì sao bảng riêng chứ không thêm cột vào `keo_ve`: tách bạch DỮ LIỆU GỐC VPS (`keo_ve`, do `keo_ve_upsert` làm tươi) khỏi NHÁP OPERATOR — upsert làm tươi dòng `cho` không vô tình đè/được đè bởi nháp; xóa nháp độc lập.*
 - **Migrate cột `ngay_cap` (BẮT BUỘC — DDL là `CREATE TABLE IF NOT EXISTS`):** cột `ngay_cap` là bổ sung ở #43; máy đã chạy tool (đã tạo `nhap_chuan_bi` theo #32) có bảng **thiếu** cột này, mà `IF NOT EXISTS` **không thêm cột** vào bảng đã có → `INSERT ... (… ngay_cap …)` ném `OperationalError: no column named ngay_cap`, lưu nháp vỡ. `tool/app` **không có cơ chế migrate** → phải thêm guard idempotent trong `_nhap_conn()` ngay sau `CREATE TABLE IF NOT EXISTS`:
   ```python
   cols = {r[1] for r in conn.execute("PRAGMA table_info(nhap_chuan_bi)")}
@@ -782,7 +782,7 @@ CREATE TABLE IF NOT EXISTS keo_ve_bo_qua (
 
 ## 10. Nạp hồ sơ vào DB qua SP (tool)
 
-> **Phục vụ:** `NAP-05`, `NAP-02`, `NAP-06`
+> **Phục vụ:** `NAP-05`, `NAP-01` (ô "Chọn in GPLX" ở ngăn Chuẩn bị), `NAP-02`, `NAP-06`
 *Vì sao chỉ qua SP + transaction: bản ghi phải khớp app cũ 100% và không để hồ sơ nửa vời.*
 
 ### 10.1 Luồng (đổi 01/10/2026 — CHANGES #4: 3 SP rời → 1 SP gộp app cũ)
@@ -849,7 +849,7 @@ Collector(App web)  VPS(FastAPI/PG)   Operator(Tool)   SQL Server GPLX_CSDT   �
 ```
 
 ### 10.2 Giá trị suy ra (verify DB thật)
-- `MaLoaiHs` (SP tự tính): `HangDT` chứa `'-'` (nâng hạng) → **3**; `HangGPLX` chứa `'A'` → **1** (mô tô); còn lại → **2** (ô tô).
+- `MaLoaiHs` (SP tự tính): `HangDT` chứa `'-'` (nâng hạng) → **3**; `HangGPLX` bắt đầu bằng `'A'` → **1** (mô tô); còn lại → **2** (ô tô).
 - `MaHTCap=CM_VN`, `Transfer_flag=0`, `MaCSDT=70004`, `MaSoGTVT=70` (SP tự tính từ khóa).
 - `GiayCNSK`: SP set **1 chỉ khi** `@p_GiayTo` chứa `'3,'` (giấy khám sức khỏe, MaGT=3); bỏ tick giấy 3 → **0** (không phải hằng số).
 - **`TT_XuLy` (SP luôn set `'01'` lúc tạo — xác nhận thân SP + `KIEM_TRA_ANH='fpt@'`; tool nâng `'03'` ở bước UPDATE ảnh, hướng A):** có ảnh → `TT_XuLy='03'` + `ChatLuongAnh=1` (+ `NgayThuNhanAnh`,`NguoiThuNhanAnh`); **chưa có ảnh → `TT_XuLy='01'`, `ChatLuongAnh=NULL`, không ghi `DuongDanAnh`** (BR-011 cho nạp thiếu ảnh). Bằng chứng: khóa `70004K26B010` 55/55 HV đều `03`+ảnh; toàn bảng `01` chỉ xuất hiện khi không ảnh (93 bản), `03` chỉ khi có ảnh (2.256 bản). Khi bổ sung ảnh sau (đổi khóa/sửa) → nâng `01`→`03`.
@@ -860,8 +860,8 @@ Collector(App web)  VPS(FastAPI/PG)   Operator(Tool)   SQL Server GPLX_CSDT   �
   - `MaQuocTich = 'VNM'` (chuẩn ISO alpha-3 = `DM_QuocTich.Ma`; **"VN" vỡ `FK_NguoiLX_DM_QuocTich`**).
   - `NoiTT`/`NoiCT` = **chi tiết địa chỉ (số nhà/thôn), mặc định TRỐNG** — 55/55 HV thật để trống; địa chỉ hành chính nằm ở `NoiTT_MaDVHC`/`NoiTT_MaDVQL` (2 cấp: xã + tỉnh). **KHÔNG nhét tên xã vào `NoiTT`** (gây app hiển thị lặp Địa chỉ + Chi tiết). Tương ứng `@p_MaDVHC_TT`+`@p_ChiTiet_TT` (và `_CT`).
   - `DonViHocLX = NULL` (55/55 thật NULL; không hard-code `70004`).
-  - `CHON_IN_GPLX` (**đổi 16/10/2026, CHANGES #79** — trước đó gán cứng 2): `hv["chon_in_gplx"]` nếu nhân viên chọn, ngược lại `nap.chon_in_gplx_mac_dinh(khoa.hang_gplx)` → hạng bắt đầu `A` (mô tô) = **3**, còn lại/trống = **2**. Giá trị: 1 = In 01 GPLX (ghép: có TH + không TH) · 2 = có thời hạn · 3 = không thời hạn (suy từ dữ liệu DB Nạp thật: ô tô ~15.000 HV = 2, mô tô ~17.000 HV = 3, hiếm 1; thứ tự 1/2/3 chưa đối chiếu với ô `cboInGplx` máy cũ — nếu khác chỉ sửa bảng nhãn `IN_GPLX_NHAN`). Cột `NguoiLX_HoSo.CHON_IN_GPLX int` default 0; không bảng danh mục (hard-code ở phần mềm cũ). API `NapIn.chon_in_gplx` + `NhapChuanBiIn.chon_in_gplx`: ngoài {1,2,3} → 422; None → server chọn theo hạng của khóa (đọc từ `KhoaHoc.HangGPLX`, không tin client).
-  - **Nháp bền:** bảng `nhap_chuan_bi` thêm cột `chon_in_gplx INTEGER` (NULL = chưa đổi → luôn theo hạng khóa), thêm bằng `ALTER TABLE` khi thiếu (cùng mẫu cột `ngay_cap`).
+  - `CHON_IN_GPLX` (**đổi 16/10/2026, CHANGES #79** — trước đó gán cứng 2): `hv["chon_in_gplx"]` nếu nhân viên chọn, ngược lại `nap.chon_in_gplx_mac_dinh(khoa.hang_gplx)` → hạng bắt đầu `A` (mô tô) = **3**, còn lại/trống = **2**. Giá trị: 1 = In 01 GPLX (ghép: có TH + không TH) · 2 = có thời hạn · 3 = không thời hạn (suy từ dữ liệu DB Nạp thật: ô tô ~15.000 HV = 2, mô tô ~17.000 HV = 3, hiếm 1; thứ tự 1/2/3 chưa đối chiếu với ô `cboInGplx` máy cũ — nếu khác chỉ sửa bảng nhãn `IN_GPLX_NHAN`). Cột `NguoiLX_HoSo.CHON_IN_GPLX int` default 0; không bảng danh mục (hard-code ở phần mềm cũ). API `NapIn.chon_in_gplx` + `NhapChuanBiIn.chon_in_gplx`: server chỉ kiểm giá trị ∈ {1,2,3} (ngoài tập → 422) và **dùng đúng giá trị client gửi** — đó là lựa chọn của nhân viên, không phải dữ liệu để tính lại. Chỉ khi client không gửi (`None`, vd gọi API trực tiếp) mới lấy mặc định theo `KhoaHoc.HangGPLX` đọc từ DB (hạng khóa thì không tin client). UI luôn gửi giá trị đang hiện nên nhánh `None` chỉ là lưới an toàn.
+  - **Nháp bền:** bảng `nhap_chuan_bi` thêm cột `chon_in_gplx INTEGER` (NULL = chưa đổi → luôn theo hạng khóa), thêm bằng `ALTER TABLE` khi thiếu (cùng mẫu cột `ngay_cap`). **Quy tắc ghi (CHANGES #80, sau `/reviewtdd` 16/10/2026):** chỉ ghi số khi nhân viên chọn **khác mặc định hiện tại** của khóa; chọn lại đúng giá trị mặc định → ghi NULL. Khi đổi khóa nạp sang khóa **khác loại** (mô tô ↔ ô tô), UI xóa lựa chọn tay của mọi hồ sơ đang mở (ghi NULL xuống nháp) và ô về mặc định của khóa mới — tránh học viên ô tô mang "không thời hạn" từ lúc còn ở khóa mô tô. *Giới hạn đã biết:* hồ sơ chưa mở trong phiên này mà nháp cũ còn lựa chọn khác cả hai mặc định (thực tế chỉ giá trị 1 "ghép") vẫn giữ — ô hiện giá trị đó khi mở hồ sơ nên nhân viên thấy được.
   - **UI:** ngăn Chuẩn bị có ô "Chọn in GPLX" điền sẵn + tên loại in + dòng gợi ý khóa mô tô/ô tô (`pages/tool/inGplx.ts` phản chiếu quy tắc backend); `dungNapIn` luôn gửi giá trị đang hiện.
   - **Sync CDB:** `_HV_SELECT` đọc `B.CHON_IN_GPLX`, `_INSERT_HOSO` ghi cột này sang DB đích **nguyên giá trị** (NULL/thiếu → 0). Lý do: phần mềm CDB không hiện ô chọn nhưng 6 SP đọc/xuất (`usp_NguoiLX_Select_By_MaKH/_MaBC2/_MaBC2_2XML/_MaDK`, `usp_QuangLA_PM4_ThuNhanHS_LoadThongTin/ThemMoiCapNhat`) đều lấy cột này đưa vào file BC1/BC2 gửi Sở. *Chưa xác minh Sở có dùng trường này.*
   - **Ngoài phạm vi (ghi nợ):** HV mô tô đã nạp trước 16/10/2026 mang 2; ~739 HV ở DB đích đang 0 (25 HV đã vào BC2) — cần script cập nhật riêng nếu muốn.
@@ -2049,6 +2049,7 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 | --- | --- | --- |
+| 16/10/2026 | 6.26 | **Sửa sau `/reviewtdd` "Chọn in GPLX"** (CHANGES #80, biên bản `tdd-review-16-10-2026-in-gplx.md`): §9.3a +cột `chon_in_gplx` · §10 Phục vụ +`NAP-01` · §10.2 làm rõ server dùng đúng giá trị client gửi (chỉ kiểm tập) · quy tắc ghi nháp (chọn lại mặc định → NULL; đổi khóa khác loại → xóa lựa chọn tay) · dòng `MaLoaiHs` "bắt đầu bằng A". |
 | 16/10/2026 | 6.25 | **"Chọn in GPLX" theo hạng khóa** (CHANGES #79): §10.1/§10.2 `CHON_IN_GPLX` hết gán cứng 2 — ô chọn 1/2/3, mặc định A*→3 / còn lại→2, 422 ngoài tập, nháp `nhap_chuan_bi.chon_in_gplx` (+ALTER), UI ngăn Chuẩn bị; Sync CDB chép nguyên giá trị (NULL→0). |
 | 16/10/2026 | 6.24 | **Quản lý mẫu giải trình** (CHANGES #78): §11D.13 ghi UI hộp sửa/xóa/thêm mẫu dùng lại `PUT mau-giai-trinh` (thay toàn bộ + `phien_ban`), không thêm endpoint. |
 | 16/10/2026 | 6.23 | **Sửa sau /reviewtdd §11D.13** (KQD-04 đổi, CHANGES #77, biên bản `tdd-review-16-10-2026-kqd04.md`; subagent soát độc lập: 3 Chặn · 11 Nên sửa · 6 Ghi nhận, user chọn sửa tất cả): **lô một giao dịch thật** (`autocommit=False`) + `cap_nhat` bước chuyển lỗi → 200 `chua_chuyen_90`; **lô kiểm đủ điểm** theo `hv_chua_du` §11D.9; **giải trình riêng được giữ** (chung không đè, `ghi_de_rieng`); **HV 90 Không đạt/trống kết luận** có chip đỏ + tab "Cần xử lý"; chặn đua trạng thái + `MaCSDT`; biên lô; mẫu theo `target_key` + `phien_ban` + khóa ghi cấu hình; mất kết nối `khong_ro`; sơ đồ §11D.1 + trình tự lô. |
