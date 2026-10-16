@@ -105,49 +105,47 @@
 
       <!-- ===== KQD-01/02/04 ===== -->
       <section data-page="cap-nhat" class="page flex flex-col min-h-0 flex-1">
+        <!-- HEADER GỌN (16/10/2026): 2 hàng thay cho 4 khối — nhường chỗ cho danh sách -->
         <div class="shrink-0 bg-card border-b border-border">
-          <div class="px-4 py-2 flex items-center gap-2">
-            <span class="text-[13px] font-bold">Cập nhật kết quả đào tạo</span>
-            <span class="text-[10px] font-semibold text-kq bg-kq-soft border border-kq-border rounded-full px-1.5 py-px">KQD-01 · KQD-02 · KQD-04</span>
-            <span class="ml-2 text-[12px] text-muted-foreground">Gõ điểm gốc thẳng trên lưới — quy đổi &amp; kết luận hiện ngay.</span>
-          </div>
-          <div class="px-4 pb-2 grid grid-cols-[minmax(360px,1.4fr)_auto] gap-x-6 gap-y-2 items-end">
-            <div>
-              <label class="field-label">Khóa học <span class="text-muted-foreground font-normal">(chỉ khóa đã có Báo cáo 1 — gõ tên hoặc MaKH để lọc)</span></label>
-              <div class="relative mt-0.5">
-                <svg class="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-                <select class="field-input !pl-8"><option>B-K148 · hạng B · KG 02/09/2026 · 45 HV (03:38 · 09/10:5 · từ chối:1 · giải trình:1)</option><option>C1-K22 · hạng C1 · KG 15/08/2026 · 30 HV</option></select>
-              </div>
+          <div class="px-4 py-1.5 flex items-center gap-3">
+            <div class="relative w-[430px] shrink-0" title="Khóa học — chỉ khóa đã có Báo cáo 1; gõ tên hoặc MaKH để lọc">
+              <svg class="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              <select class="field-input !pl-8 !py-1"><option>B-K148 · hạng B · KG 02/09/2026 · 45 HV</option><option>C1-K22 · hạng C1 · KG 15/08/2026 · 30 HV</option></select>
             </div>
-            <div class="flex items-end gap-2 text-[12px] text-muted-foreground">
-              <span>Chương trình khóa:</span>
-              <label class="inline-flex items-center gap-1 cursor-pointer"><input type="radio" name="ct" checked onchange="setCT('cu')"> Cũ (TT12/2025)</label>
-              <label class="inline-flex items-center gap-1 cursor-pointer"><input type="radio" name="ct" onchange="setCT('moi')"> Mới (TT108/2026)</label>
-              <span class="text-[11px] text-muted-foreground/70">(lưu theo khóa, phía tool)</span>
-              <button onclick="openKT()" class="ml-3 inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-kq-border bg-kq-soft text-kq text-[12.5px] font-semibold hover:brightness-95">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Kiểm trước kết xuất <span class="text-[10px] font-semibold border border-kq-border rounded-full px-1.5">KQD-07</span>
-              </button>
+            <div class="flex items-center gap-2 text-[12px] text-muted-foreground whitespace-nowrap" title="Chương trình lưu theo từng khóa, phía tool">
+              <span>Chương trình:</span>
+              <label class="inline-flex items-center gap-1 cursor-pointer"><input type="radio" name="ct" checked onchange="setCT('cu')"> Cũ</label>
+              <label class="inline-flex items-center gap-1 cursor-pointer"><input type="radio" name="ct" onchange="setCT('moi')"> Mới</label>
             </div>
-          </div>
-          <div class="px-4 py-1.5 border-t border-border/70 flex items-center gap-2 bg-muted/30 flex-wrap">
-            <span class="text-[12px] text-muted-foreground mr-1">Lọc trạng thái:</span>
-            <button onclick="setFilter('all',this)" class="flt px-2.5 py-1 rounded-full text-[12px] border border-border">Tất cả</button>
-            <button onclick="setFilter('dangky',this)" class="flt px-2.5 py-1 rounded-full text-[12px] border border-border">Đã đăng ký (03/04)</button>
-            <button onclick="setFilter('capnhat',this)" class="flt px-2.5 py-1 rounded-full text-[12px] border border-border">Đã cập nhật (09/10)</button>
-            <button onclick="setFilter('tuchoi',this)" class="flt px-2.5 py-1 rounded-full text-[12px] border border-border">Sở từ chối (14)</button>
-            <button onclick="setFilter('giaitrinh',this)" class="flt px-2.5 py-1 rounded-full text-[12px] border border-border">Đang giải trình (90)</button>
+            <button onclick="openKT()" class="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-kq-border bg-kq-soft text-kq text-[12.5px] font-semibold hover:brightness-95 whitespace-nowrap">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Kiểm trước kết xuất
+            </button>
             <div class="relative ml-auto">
               <svg class="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-              <input class="field-input !w-56 !pl-8" placeholder="Tìm tên / CCCD" oninput="renderGrid()" id="q" />
+              <input class="field-input !w-52 !pl-8 !py-1" placeholder="Tìm tên / CCCD" oninput="renderGrid()" id="q" />
             </div>
+          </div>
+          <div class="px-4 py-1 border-t border-border/70 flex items-center gap-1.5 bg-muted/30 flex-wrap">
+            <div id="tabs" class="flex items-center gap-1.5 flex-wrap"></div>
+            <button onclick="toggleLegend()" class="h-7 px-2 rounded-md text-[12px] text-muted-foreground hover:bg-muted underline underline-offset-2 whitespace-nowrap">Chú giải</button>
+            <button id="gtBtn" onclick="toggleGt()" class="ml-auto h-7 px-2.5 rounded-md border border-kq-border bg-kq-soft text-kq text-[12px] font-semibold hover:brightness-95 whitespace-nowrap">Giải trình chung <span id="gtMark" class="hidden ml-0.5">●</span> <span id="gtArrow">▾</span></button>
+          </div>
+          <div id="legend" class="hidden px-4 py-1.5 border-t border-border/70 bg-card text-[12px]"></div>
+          <!-- Giải trình chung của khóa (KQD-04) — thu gọn mặc định, mở bằng nút ở hàng tab -->
+          <div id="gtChung" class="hidden px-4 py-1.5 border-t border-kq-border bg-kq-soft/60 flex items-center gap-2">
+            <textarea id="gtChungTxt" rows="1" class="field-input !h-9 flex-1 min-w-0" placeholder="Giải trình chung cho học viên Sở từ chối (giải trình riêng vẫn được ưu tiên)"></textarea>
+            <select id="gtMau" onchange="chonMau()" class="field-input !w-[230px] !py-1"></select>
+            <button onclick="luuMau()" class="h-8 px-2 rounded-md border border-kq-border bg-card text-kq text-[12px] font-medium hover:brightness-95 whitespace-nowrap">Lưu thành mẫu</button>
+            <button onclick="openMau()" class="h-8 px-2 rounded-md border border-border bg-card text-[12px] font-medium hover:bg-muted whitespace-nowrap">Quản lý mẫu</button>
+            <span class="text-[11.5px] text-muted-foreground whitespace-nowrap" title="Mẫu lưu theo cơ sở 70004 — không ghi tên hoặc số căn cước học viên"><span id="gtDem" class="tabnum">0</span>/1000</span>
           </div>
         </div>
 
         <div class="flex-1 min-h-0 overflow-auto bg-card">
-          <table class="w-full text-[13px] border-collapse min-w-[1280px]">
+          <table class="w-full text-[13px] border-collapse min-w-[1380px]">
             <thead class="sticky-h">
               <tr class="bg-kq text-white text-left">
-                <th class="font-semibold px-2 py-1.5 w-9 text-center">STT</th>
+                <th class="font-semibold px-2 py-1.5 w-9 text-center" id="thSel">STT</th>
                 <th class="font-semibold px-2 py-1.5 w-44">Họ và tên</th>
                 <th class="font-semibold px-2 py-1.5 w-[116px]">Số CCCD</th>
                 <th class="font-semibold px-2 py-1.5 w-11 text-center">Hạng</th>
@@ -158,8 +156,8 @@
                 <th class="font-semibold col-mon">Đường trường<div class="text-[10px] font-normal opacity-80">/100</div></th>
                 <th class="font-semibold px-2 py-1.5 w-[70px] text-center">Giờ đường<div class="text-[10px] font-normal opacity-80">≥20</div></th>
                 <th class="font-semibold px-2 py-1.5 w-[74px] text-center">Km đường<div class="text-[10px] font-normal opacity-80">≥810</div></th>
-                <th class="font-semibold px-2 py-1.5 w-[108px] text-center">Kết luận</th>
-                <th class="font-semibold px-2 py-1.5 w-28">Trạng thái</th>
+                <th class="font-semibold px-2 py-1.5 w-[132px] text-center">Kết luận</th>
+                <th class="font-semibold px-2 py-1.5 w-[190px]">Trạng thái <span class="text-[10px] font-normal opacity-80">· việc cần làm</span></th>
                 <th class="font-semibold px-2 py-1.5 w-[112px] text-center">Lưu</th>
               </tr>
             </thead>
@@ -167,12 +165,17 @@
           </table>
         </div>
 
+        <div id="bulkBar" class="hidden shrink-0 border-t border-kq-border bg-kq-soft px-4 py-2 flex items-center gap-3 text-[13px]">
+          <span>Đã chọn <b id="bulkN" class="tabnum">0</b> học viên Sở từ chối</span>
+          <button onclick="selClear()" class="text-[12px] text-muted-foreground hover:text-foreground underline">Bỏ chọn</button>
+          <button onclick="openBulk()" class="ml-auto h-9 px-4 rounded-lg bg-kq text-white font-semibold text-[13px] hover:brightness-110">Giải trình &amp; chuyển chờ kết xuất lại (<span id="bulkN2" class="tabnum">0</span>)</button>
+        </div>
         <div class="shrink-0 border-t border-border bg-card px-4 py-2 flex items-center gap-4 text-[12px] text-muted-foreground">
           <span>Ngưỡng đạt từng môn = <b class="text-foreground">5,0</b> (xét trên điểm chưa làm tròn).</span>
           <span class="inline-flex items-center gap-1 text-success">●<span class="text-muted-foreground">môn ≥5</span></span>
           <span class="inline-flex items-center gap-1 text-destructive">●<span class="text-muted-foreground">môn &lt;5</span></span>
-          <span class="text-muted-foreground/70">Giờ sân (khóa cứng), km sân, số giấy HTKH, ngày cấp → nằm trong <b>Chi tiết</b> mỗi dòng.</span>
-          <button class="ml-auto inline-flex items-center gap-2 h-9 px-5 rounded-lg bg-kq text-white font-semibold text-[13px] hover:brightness-110"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>Lưu tất cả hàng hợp lệ (<span id="nHopLe" class="tabnum">0</span>)</button>
+          <span class="text-muted-foreground/70 hidden xl:inline">Giờ sân, km sân, số giấy HTKH, ngày cấp → trong <b>Chi tiết</b>.</span>
+          <button class="ml-auto shrink-0 whitespace-nowrap inline-flex items-center gap-2 h-9 px-5 rounded-lg bg-kq text-white font-semibold text-[13px] hover:brightness-110"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>Lưu tất cả hàng hợp lệ (<span id="nHopLe" class="tabnum">0</span>)</button>
         </div>
       </section>
 
@@ -245,6 +248,50 @@
   </div>
 </div>
 
+<!-- ===== HỘP XÁC NHẬN GIẢI TRÌNH HÀNG LOẠT (KQD-04 #77) ===== -->
+<div id="modalGT" class="hidden fixed inset-0 z-[60] grid place-items-center">
+  <div class="absolute inset-0 bg-black/40" onclick="closeBulk()"></div>
+  <div class="relative w-[560px] max-h-[86vh] bg-card rounded-xl shadow-2xl flex flex-col">
+    <div class="px-5 py-3 border-b border-border font-bold text-[15px]">Giải trình &amp; chuyển chờ kết xuất lại</div>
+    <div class="px-5 py-3 overflow-auto space-y-3 text-[13px]">
+      <div id="gtTomTat"></div>
+      <div>
+        <label class="field-label">Nội dung giải trình <span class="text-muted-foreground font-normal">(áp cho mọi người được chuyển · ≤ 1000 ký tự)</span></label>
+        <textarea id="gtBulkTxt" rows="3" class="field-input mt-1" oninput="bulkCheck()"></textarea>
+        <div id="gtRong" class="hidden mt-1 text-[12px] font-semibold text-destructive">Phải có nội dung giải trình mới chuyển được — học viên chưa giải trình thì không kết xuất được.</div>
+      </div>
+      <div id="gtGiu" class="hidden rounded-lg border border-kq-border bg-kq-soft px-3 py-2 text-[12.5px]">
+        <span id="gtGiuTxt"></span>
+        <label class="mt-1 flex items-center gap-1.5 cursor-pointer"><input type="checkbox" id="gtGhiDe" onchange="bulkCheck()"> Ghi đè giải trình riêng bằng nội dung này <span class="text-muted-foreground">(mặc định tắt)</span></label>
+      </div>
+      <div id="gtBoQua"></div>
+      <div class="text-[12px] text-muted-foreground">Sau khi chuyển: học viên sang <b>Đã giải trình</b> — việc kết xuất lại làm ở <b>phần mềm CDB</b>. Tool không kết xuất.</div>
+    </div>
+    <div class="px-5 py-3 border-t border-border flex items-center gap-2">
+      <label class="text-[11.5px] text-muted-foreground inline-flex items-center gap-1 cursor-pointer"><input type="checkbox" id="gtMock"> giả lập mất kết nối</label>
+      <button onclick="closeBulk()" class="ml-auto h-9 px-4 rounded-lg border border-border text-[13px] hover:bg-muted">Hủy</button>
+      <button id="gtOk" onclick="doBulk()" class="h-9 px-5 rounded-lg bg-kq text-white font-semibold text-[13px] hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed">Chuyển <span id="gtOkN" class="tabnum">0</span> học viên</button>
+    </div>
+  </div>
+</div>
+<!-- ===== QUẢN LÝ MẪU GIẢI TRÌNH (KQD-04 #78) ===== -->
+<div id="modalMau" class="hidden fixed inset-0 z-[60] grid place-items-center">
+  <div class="absolute inset-0 bg-black/40" onclick="closeMau()"></div>
+  <div class="relative w-[640px] max-h-[86vh] bg-card rounded-xl shadow-2xl flex flex-col">
+    <div class="px-5 py-3 border-b border-border flex items-baseline gap-2"><span class="font-bold text-[15px]">Quản lý mẫu giải trình</span><span class="text-[12px] text-muted-foreground">cơ sở 70004 · tối đa 20 mẫu × 1000 ký tự</span></div>
+    <div class="px-5 pt-3 text-[12px] text-muted-foreground">Mẫu dùng chung cho cả cơ sở — <b>không ghi tên hoặc số căn cước học viên</b>.</div>
+    <div id="mauList" class="px-5 py-3 overflow-auto space-y-2"></div>
+    <div id="mauLoi" class="hidden mx-5 mb-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-[12.5px] text-destructive"></div>
+    <div class="px-5 py-3 border-t border-border flex items-center gap-2">
+      <button onclick="mauThem()" class="h-9 px-3 rounded-lg border border-kq-border bg-kq-soft text-kq text-[13px] font-semibold hover:brightness-95">+ Thêm mẫu</button>
+      <span id="mauDem" class="text-[12px] text-muted-foreground tabnum"></span>
+      <button onclick="closeMau()" class="ml-auto h-9 px-4 rounded-lg border border-border text-[13px] hover:bg-muted">Hủy</button>
+      <button onclick="mauLuu()" class="h-9 px-5 rounded-lg bg-kq text-white font-semibold text-[13px] hover:brightness-110">Lưu thay đổi</button>
+    </div>
+  </div>
+</div>
+<div id="toast" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-[70] max-w-[760px] rounded-lg bg-foreground text-white text-[13px] px-4 py-2.5 shadow-xl"></div>
+
 <!-- ===== KHUNG KIỂM TRƯỚC KẾT XUẤT (KQD-07) ===== -->
 <div id="drawerKT" class="hidden fixed inset-0 z-50">
   <div class="absolute inset-0 bg-black/30" onclick="closeKT()"></div>
@@ -283,37 +330,176 @@
     { stt:4, ten:"Phạm Thị Dung",   ns:"08/02/2002", cccd:"079202011567", hang:"B", madk:"75032-20260902-000015", tt:"09", d:[28,,88,7,86], gd:22, km:815 },
     { stt:5, ten:"Võ Minh Em",      ns:"30/09/2001", cccd:"079201011688", hang:"B", madk:"75032-20260902-000016", tt:"09", d:[27,6,82,6,81], gd:20 },
     { stt:6, ten:"Đặng Quốc Phúc",  ns:"14/04/2000", cccd:"079200011790", hang:"B", madk:"75032-20260902-000017", tt:"10", d:[24,4,79,5,80], gd:18, km:700 },
-    { stt:7, ten:"Bùi Thanh Giang", ns:"19/12/2001", cccd:"079201011821", hang:"B", madk:"75032-20260902-000018", tt:"14", d:[28,7,85,6,84], gd:21, km:820, lydo:"Ảnh chân dung không đạt chuẩn, đề nghị cập nhật lại ảnh rồi nộp lại." },
+    { stt:7, ten:"Bùi Thanh Giang", ns:"19/12/2001", cccd:"079201011821", hang:"B", madk:"75032-20260902-000018", tt:"14", d:[28,7,85,6,84], gd:21, km:820, lydo:"Ảnh chân dung không đạt chuẩn, đề nghị cập nhật lại ảnh rồi nộp lại.", gt:"Đã nộp lại ảnh chân dung đạt chuẩn." },
     { stt:8, ten:"Hoàng Hữu Hạnh",  ns:"05/06/1998", cccd:"079198011934", hang:"B", madk:"75032-20260902-000019", tt:"90", d:[27,6.5,81,5.5,82], gd:20, km:812, lydo:"Thiếu chữ ký biên bản sát hạch — đang giải trình với Sở." },
     { stt:9, ten:"Ngô Thị Kim",     ns:"27/01/2002", cccd:"079202012045", hang:"B", madk:"75032-20260902-000020", tt:"12", d:[29,9,90,8,88], gd:24, km:830 },
     { stt:10,ten:"Dương Đức Nam",   ns:"11/08/2000", cccd:"079200012156", hang:"B", madk:"75032-20260902-000021", tt:"12", d:[28,8,86,7,85], gd:22, km:818 },
     { stt:11,ten:"Phan Thị Lan",    ns:"16/03/2001", cccd:"079201012267", hang:"B", madk:"75032-20260902-000022", tt:"09", d:[29,9,92,8,90], gd:23, km:825 },
+    { stt:13,ten:"Vũ Thị Oanh",     ns:"09/09/2001", cccd:"079201012489", hang:"B", madk:"75032-20260902-000024", tt:"14", d:[25,6,76,6,80], gd:19, km:790, lydo:"Điểm sa hình chưa đạt theo biên bản sát hạch, đề nghị kiểm tra lại." },
+    { stt:14,ten:"Trịnh Văn Pha",   ns:"21/05/2000", cccd:"079200012590", hang:"B", madk:"75032-20260902-000025", tt:"14", d:[29,8,88,7,86], gd:22, km:822, lydo:"Ảnh chân dung không đạt chuẩn, đề nghị cập nhật lại ảnh rồi nộp lại." },
+    { stt:15,ten:"Lương Quốc Tín",  ns:"03/03/2000", cccd:"079200012701", hang:"B", madk:"75032-20260902-000026", tt:"14", d:[28,7,86,6,85], lydo:"Thiếu số giờ thực hành đường theo biên bản DAT." },
+    { stt:16,ten:"Đoàn Thị Uyên",   ns:"17/07/2001", cccd:"079201012812", hang:"B", madk:"75032-20260902-000027", tt:"90", d:[24,6,78,6,70], gd:20, km:812, gt:"Đã giải trình." },
     { stt:12,ten:"Mai Văn Long",    ns:"02/10/1999", cccd:"079199012378", hang:"B", madk:"75032-20260902-000023", tt:"09", d:[28,7,84,7,83], gd:21, km:816 },
   ];
+  // [chip, màu, việc cần làm] — tên nghiệp vụ, mã TT_XuLy chỉ để tooltip (KQD-01 #77)
   const TT_LABEL = {
-    "03":["Đã đăng ký","text-muted-foreground bg-muted border-border"],
-    "09":["Đã cập nhật · Đạt","text-success bg-success/10 border-success/40"],
-    "10":["Đã cập nhật · K.đạt","text-destructive bg-destructive/10 border-destructive/40"],
-    "12":["Đã kết xuất gửi Sở","text-primary bg-primary/10 border-primary/40"],
-    "14":["Sở từ chối","text-destructive bg-destructive/10 border-destructive/40"],
-    "90":["Đang giải trình","text-warning bg-warning/10 border-warning/40"],
+    "03":["Chưa nhập điểm","text-muted-foreground bg-muted border-border","Nhập điểm rồi Lưu"],
+    "04":["Chưa nhập điểm","text-muted-foreground bg-muted border-border","Nhập điểm rồi Lưu"],
+    "09":["Đã nhập · chờ kết xuất","text-success bg-success/10 border-success/40","Kết xuất ở phần mềm CDB"],
+    "10":["Đã nhập · Không đạt","text-destructive bg-destructive/10 border-destructive/40","Không kết xuất"],
+    "12":["Đã gửi Sở · chờ duyệt","text-primary bg-primary/10 border-primary/40","🔒 chờ Sở phản hồi"],
+    "13":["Sở đã duyệt","text-primary bg-primary/10 border-primary/40","🔒 hoàn thành"],
+    "14":["Sở từ chối","text-white bg-destructive border-destructive","Sửa điểm + giải trình"],
+    "90":["Đã giải trình","text-warning bg-warning/10 border-warning/50","Chờ kết xuất lại ở phần mềm CDB"],
   };
 
-  let filter="all";
-  function setFilter(f, el){ filter=f; document.querySelectorAll(".flt").forEach(b=>b.className="flt px-2.5 py-1 rounded-full text-[12px] border border-border"); el.classList.add("bg-kq","text-white","border-kq"); renderGrid(); }
-  function matchFilter(tt){ return filter==="all" || (filter==="dangky"&&(tt==="03"||tt==="04")) || (filter==="capnhat"&&(tt==="09"||tt==="10")) || (filter==="tuchoi"&&tt==="14") || (filter==="giaitrinh"&&tt==="90"); }
+
+  // Dải tab có đếm theo NHÓM VIỆC (thay dropdown 4 mã trạng thái)
+  let filter="all"; const SEL=new Set();
+  const TABS=[
+    {k:"all",     lbl:"Tất cả",              m:()=>true},
+    {k:"chuanhap",lbl:"Chưa nhập",           m:h=>h.tt==="03"||h.tt==="04"},
+    {k:"chokx",   lbl:"Chờ kết xuất",        m:h=>h.tt==="09"||h.tt==="90", tip:"Đã nhập (Đạt) + đã giải trình, chờ kết xuất ở phần mềm CDB"},
+    {k:"khongdat",lbl:"Không đạt",           m:h=>h.tt==="10"},
+    {k:"tuchoi",  lbl:"Cần xử lý",          m:h=>h.tt==="14"||(h.tt==="90"&&!datNow(h)), red:true, tip:"Sở từ chối + Đang giải trình nhưng không đạt (không kết xuất được)"},
+    {k:"dagui",   lbl:"Đã gửi / Hoàn thành", m:h=>h.tt==="12"||h.tt==="13"},
+  ];
+  function matchFilter(h){ return TABS.find(t=>t.k===filter).m(h); }
+  function setFilter(k){ filter=k; SEL.clear(); renderTabs(); renderGrid(); if(k==="tuchoi") toggleGt(true); }
+  function renderTabs(){
+    document.getElementById("tabs").innerHTML=TABS.map(t=>{
+      const n=HV.filter(t.m).length, on=t.k===filter;
+      const cls = on ? "bg-kq text-white border-kq" : (t.red&&n>0 ? "bg-destructive/10 text-destructive border-destructive/50 font-semibold" : "bg-card text-foreground border-border hover:bg-muted");
+      return `<button title="${t.tip||""}" onclick="setFilter('${t.k}')" class="px-3 py-1 rounded-full text-[12.5px] border ${cls} whitespace-nowrap">${t.lbl} <span class="tabnum ${on?'opacity-90':'opacity-70'}">${n}</span></button>`;
+    }).join("");
+  }
+  function toggleLegend(){
+    const el=document.getElementById("legend"); el.classList.toggle("hidden");
+    el.innerHTML=Object.entries(TT_LABEL).filter(([k])=>k!=="04").map(([k,[l,c,hint]])=>`<span class="inline-flex items-center gap-1.5 mr-4 mb-1"><span title="TT_XuLy=${k}" class="text-[11px] font-semibold border rounded-full px-2 py-0.5 ${c} whitespace-nowrap">${l}</span><span class="text-muted-foreground">${hint}</span></span>`).join("");
+  }
+  // --- giải trình chung / mẫu ---
+  // --- mẫu giải trình: lưu theo cơ sở đích, tối đa 20 × 1000 ký tự (TDD §11D.13) ---
+  let MAU=["Đã cập nhật lại điểm thực hành theo biên bản sát hạch nội bộ.","Đã bổ sung chữ ký biên bản sát hạch, đề nghị Sở xem xét lại.","Đã cập nhật lại ảnh chân dung đạt chuẩn, nộp lại hồ sơ."], MAU_D=[];
+  function renderMau(){ document.getElementById("gtMau").innerHTML = `<option value="">— chọn mẫu —</option>` + MAU.map((m,i)=>`<option value="${i}">${m.length>70?m.slice(0,70)+"…":m}</option>`).join(""); }
+  function chonMau(){ const v=document.getElementById("gtMau").value; if(v!==""){ document.getElementById("gtChungTxt").value=MAU[+v]; gtDem(); refreshChips(); } }
+  function luuMau(){
+    const v=document.getElementById("gtChungTxt").value.trim();
+    if(!v) return toast("Chưa có nội dung để lưu thành mẫu.");
+    if(v.length>1000) return toast("Mẫu tối đa 1000 ký tự.", true);
+    if(MAU.includes(v)) return toast("Mẫu này đã có trong danh sách.");
+    if(MAU.length>=20) return toast("Đã đủ 20 mẫu — vào “Quản lý mẫu” xóa bớt rồi lưu lại.", true);
+    MAU.push(v); renderMau(); toast("Đã lưu thành mẫu (lưu theo cơ sở, dùng lại cho các khóa).");
+  }
+  function openMau(){ MAU_D=MAU.slice(); document.getElementById("mauLoi").classList.add("hidden"); renderMauList(); document.getElementById("modalMau").classList.remove("hidden"); }
+  function closeMau(){ document.getElementById("modalMau").classList.add("hidden"); }
+  function renderMauList(){
+    document.getElementById("mauList").innerHTML = MAU_D.map((m,i)=>`<div class="flex items-start gap-2"><span class="mt-2 w-5 text-right text-[12px] text-muted-foreground tabnum">${i+1}</span><textarea rows="2" oninput="MAU_D[${i}]=this.value; mauDem()" class="field-input flex-1">${m}</textarea><button onclick="mauXoa(${i})" class="mt-1 h-8 px-2 rounded-md border border-destructive/40 text-destructive text-[12px] hover:bg-destructive/5">Xóa</button></div>`).join("") || `<div class="text-[13px] text-muted-foreground py-6 text-center">Chưa có mẫu nào. Bấm “+ Thêm mẫu”.</div>`;
+    mauDem();
+  }
+  function mauDem(){ document.getElementById("mauDem").textContent = `${MAU_D.length}/20 mẫu`; }
+  function mauThem(){ if(MAU_D.length>=20){ return mauLoi("Tối đa 20 mẫu — xóa bớt rồi thêm."); } MAU_D.push(""); renderMauList(); }
+  function mauXoa(i){ MAU_D.splice(i,1); renderMauList(); }
+  function mauLoi(t){ const e=document.getElementById("mauLoi"); e.textContent=t; e.classList.remove("hidden"); }
+  function mauLuu(){
+    const ds=[]; for(const raw of MAU_D){ const t=raw.trim(); if(!t||ds.includes(t)) continue; if(t.length>1000) return mauLoi("Có mẫu dài hơn 1000 ký tự — rút gọn rồi lưu lại."); ds.push(t); }
+    MAU=ds; renderMau(); closeMau(); toast(`Đã lưu ${ds.length} mẫu giải trình (mẫu rỗng/trùng đã được loại).`);
+  }
+  function gtDem(){ const v=document.getElementById("gtChungTxt").value; document.getElementById("gtDem").textContent=v.length; document.getElementById("gtMark").classList.toggle("hidden", !v.trim()); }
+  function toggleGt(open){ const p=document.getElementById("gtChung"); const show = open===undefined ? p.classList.contains("hidden") : open; p.classList.toggle("hidden", !show); document.getElementById("gtArrow").textContent = show ? "▴" : "▾"; }
+  document.addEventListener("input",e=>{ if(e.target.id==="gtChungTxt"){ gtDem(); refreshChips(); } });
+  // warn=true: thông báo vàng đứng lâu (không tự tắt) — dùng cho cảnh báo "chưa giải trình thì không kết xuất được"
+  function toast(msg, warn){
+    const t=document.getElementById("toast"); clearTimeout(t._h);
+    t.className = "fixed bottom-5 left-1/2 -translate-x-1/2 z-[70] max-w-[760px] rounded-lg text-[13px] px-4 py-2.5 shadow-xl flex items-start gap-3 " + (warn ? "bg-warning/15 border border-warning text-warning" : "bg-foreground text-white");
+    t.innerHTML = `<span>${msg}</span>` + (warn ? `<button onclick="document.getElementById('toast').classList.add('hidden')" class="shrink-0 font-bold" aria-label="Đóng">✕</button>` : "");
+    if(!warn) t._h=setTimeout(()=>t.classList.add("hidden"),4200);
+  }
+  // chip cảnh báo trên dòng (TDD §11D.13): 90 không đạt · 14 Đạt thiếu giải trình
+  function chipExtra(h){
+    if(h.tt==="90" && !datNow(h)) return `<span class="chip c-red" style="white-space:normal;line-height:1.25" title="HV 90 mà Không đạt/trống kết luận — phần mềm CDB không kết xuất">Đang giải trình nhưng không đạt — sẽ không kết xuất</span>`;
+    if(h.tt==="14" && datNow(h) && !giaiTrinhCua(h)) return `<span class="chip c-warn" style="white-space:normal;line-height:1.25" title="Chưa có giải trình nên chưa chuyển sang Đang giải trình">Thiếu giải trình — chưa kết xuất được</span>`;
+    return "";
+  }
+  function refreshChips(){ HV.forEach(h=>{ const el=document.getElementById(`chip-${h.stt}`); if(el) el.innerHTML=chipExtra(h); }); }
+  // --- Đạt hiện thời của 1 HV (từ ô nhập nếu đang hiện, không thì điểm lưu) ---
+  function datNow(h){
+    const def=monNg();
+    return [0,1,2,3,4].every(i=>{ const el=document.getElementById(`m-${h.stt}-${i}`); const raw=el?el.value:(h.d?h.d[i]:""); const v=parseFloat(String(raw??"").replace(",","."));
+      if(isNaN(v)) return false; const x=quyDoi(v,def[i][0],def[i][1]); return x!=null&&x>=5; });
+  }
+  function giaiTrinhCua(h){ return ((h.gt||"").trim()) || document.getElementById("gtChungTxt").value.trim(); }
+  // --- Lưu 1 HV (mô phỏng quy tắc 14→90) ---
+  function luu(stt){
+    const h=HV.find(x=>x.stt===stt); const dat=datNow(h);
+    if(h.tt==="14"){
+      if(dat && giaiTrinhCua(h)){ h.tt="90"; renderTabs(); renderGrid(); toast(`Đã lưu ${h.ten} — ĐẠT · chuyển sang "Đã giải trình" (chờ kết xuất lại ở phần mềm CDB).`); }
+      else if(dat){ toast(`<b>Đã lưu điểm ${h.ten} — CHƯA có giải trình</b> nên chưa chuyển sang "Đang giải trình" và <b>chưa kết xuất lại được</b>. Nhập giải trình (riêng hoặc chung của khóa) rồi Lưu lại.`, true); }
+      else { toast(`Đã lưu điểm ${h.ten} — Không đạt, còn ở "Cần xử lý" (phần mềm CDB không kết xuất học viên Không đạt).`, true); }
+    } else if(h.tt==="90"){ toast(`Đã lưu ${h.ten} — giữ "Đã giải trình".`); }
+    else { toast(`Đã lưu ${h.ten}.`); }
+  }
+  // --- chọn nhiều + hộp hàng loạt ---
+  function selToggle(stt,on){ on?SEL.add(stt):SEL.delete(stt); updBulk(); }
+  function selAll(on){ HV.filter(h=>h.tt==="14").forEach(h=>on?SEL.add(h.stt):SEL.delete(h.stt)); renderGrid(); }
+  function selClear(){ SEL.clear(); renderGrid(); }
+  function updBulk(){ const n=SEL.size; document.getElementById("bulkBar").classList.toggle("hidden",n===0); document.getElementById("bulkN").textContent=n; document.getElementById("bulkN2").textContent=n; }
+  let BULK=[];
+  function openBulk(){
+    document.getElementById("gtBulkTxt").value=document.getElementById("gtChungTxt").value;
+    document.getElementById("modalGT").classList.remove("hidden"); bulkCheck();
+  }
+  function closeBulk(){ document.getElementById("modalGT").classList.add("hidden"); }
+  function bulkCheck(){
+    const rows=[...SEL].map(st=>HV.find(h=>h.stt===st)); const txt=document.getElementById("gtBulkTxt").value.trim();
+    const du=[], bo=[];
+    const val=id=>{ const e=document.getElementById(id); return e?e.value.trim():null; };
+    rows.forEach(h=>{
+      if(h.tt==="90") bo.push([h,"đã ở Đang giải trình"]);
+      else if(h.tt!=="14") bo.push([h,"không còn ở Sở từ chối"]);
+      else if(!datNow(h)) bo.push([h,"Không đạt — không được kết xuất"]);
+      else {
+        const gd=val(`gd-${h.stt}`)??(h.gd==null?"":String(h.gd)), km=val(`km-${h.stt}`)??(h.km==null?"":String(h.km));
+        if(!gd||!km) bo.push([h,"chưa đủ: thiếu giờ/km thực hành đường"]); else du.push(h);
+      }
+    });
+    BULK=du;
+    const giu=du.filter(h=>(h.gt||"").trim()).length, ghiDe=document.getElementById("gtGhiDe")&&document.getElementById("gtGhiDe").checked;
+    document.getElementById("gtGiu").classList.toggle("hidden", giu===0);
+    document.getElementById("gtGiuTxt").innerHTML = `<b>${giu}</b> người đã có giải trình riêng — ${ghiDe?"sẽ bị <b>ghi đè</b>":"<b>giữ nguyên</b>"}.`;
+    document.getElementById("gtRong").classList.toggle("hidden", txt.length>0);
+    document.getElementById("gtTomTat").innerHTML=`<div class="rounded-lg border border-border bg-muted/40 px-3 py-2">Đã chọn <b>${rows.length}</b> · <span class="text-success font-semibold">đủ điều kiện ${du.length}</span> · <span class="${bo.length?'text-warning':'text-muted-foreground'} font-semibold">bỏ qua ${bo.length}</span></div>`;
+    document.getElementById("gtBoQua").innerHTML = bo.length ? `<div class="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2"><div class="text-[12px] font-semibold text-warning mb-1">Sẽ KHÔNG chuyển (giữ nguyên Sở từ chối):</div>${bo.map(([h,l])=>`<div class="text-[12.5px]">• <b>${h.ten}</b> — ${l}</div>`).join("")}</div>` : "";
+    const ok=du.length>0&&txt.length>0&&txt.length<=1000;
+    const b=document.getElementById("gtOk"); b.disabled=!ok; document.getElementById("gtOkN").textContent=du.length;
+  }
+  function doBulk(){
+    const txt=document.getElementById("gtBulkTxt").value.trim(); const n=BULK.length;
+    if(document.getElementById("gtMock").checked){
+      closeBulk(); renderTabs(); renderGrid();
+      return toast("<b>Không rõ kết quả</b> — mất kết nối khi lưu. Danh sách đã được tải lại; kiểm tra trạng thái rồi mới gửi lại (gửi lại là an toàn, người đã chuyển sẽ được bỏ qua).", true);
+    }
+    const bo=SEL.size-n, ghiDe=document.getElementById("gtGhiDe").checked; let giu=0;
+    BULK.forEach(h=>{ h.tt="90"; if(ghiDe||!(h.gt||"").trim()) h.gt=txt; else giu++; });
+    SEL.clear(); closeBulk(); renderTabs(); renderGrid(); updBulk();
+    toast(`Đã chuyển ${n} học viên sang "Đã giải trình"${giu?` · giữ giải trình riêng ${giu}`:""}${bo?` · bỏ qua ${bo}`:""}. Kết xuất lại ở phần mềm CDB.`);
+  }
   function setCT(v){ CT=v; renderGrid(); }
 
   function cellInput(h,i){ const seed=h.d?h.d[i]:""; return `<input class="cell-diem" id="m-${h.stt}-${i}" value="${seed===undefined?'':seed}" oninput="rowCompute(${h.stt})" inputmode="decimal"><div class="qd text-muted-foreground" id="qd-${h.stt}-${i}">—</div>`; }
 
   function renderGrid(){
+    const t14=HV.filter(h=>h.tt==='14');
+    document.getElementById('thSel').innerHTML = filter==='tuchoi' ? `<input type="checkbox" onchange="selAll(this.checked)" aria-label="Chọn tất cả học viên Sở từ chối" title="Chọn tất cả học viên Sở từ chối" ${t14.length&&t14.every(h=>SEL.has(h.stt))?'checked':''}>` : 'STT';
+    const coGt=HV.some(h=>h.tt==='14'||h.tt==='90'); document.getElementById('gtBtn').classList.toggle('hidden', !coGt); if(!coGt) document.getElementById('gtChung').classList.add('hidden');
+    updBulk();
     const q=(document.getElementById("q").value||"").toLowerCase();
-    const rows=HV.filter(h=>matchFilter(h.tt) && (!q || h.ten.toLowerCase().includes(q) || h.cccd.includes(q)));
+    const rows=HV.filter(h=>matchFilter(h) && (!q || h.ten.toLowerCase().includes(q) || h.cccd.includes(q)));
     document.getElementById("tblHV").innerHTML = rows.map(h=>{
       const [lbl,cls]=TT_LABEL[h.tt];
       const khoa=(h.tt==="12"||h.tt==="13");
       const suaLai=(h.tt==="14"||h.tt==="90");
-      const stBadge=`<span class="text-[11px] font-semibold border rounded-full px-2 py-0.5 ${cls} whitespace-nowrap">${lbl}</span>`;
+      const hint=TT_LABEL[h.tt][2];
+      const stBadge=`<div><span title="TT_XuLy=${h.tt}" class="inline-block text-[11px] font-semibold border rounded-full px-2 py-0.5 ${cls} whitespace-nowrap">${lbl}</span><div class="text-[11px] text-muted-foreground mt-0.5 leading-tight">${hint}</div><div id="chip-${h.stt}" class="mt-1 flex flex-col gap-1 items-start">${chipExtra(h)}</div></div>`;
       if(khoa){
         const def=monNg(); const qd=h.d.map((g,i)=>quyDoi(g,def[i][0],def[i][1]));
         const monCells=qd.map(x=>`<td class="col-mon px-2 py-1.5"><div class="text-[13px] font-semibold tabnum ${x>=5?'text-success':'text-destructive'}">${f1(x)}</div></td>`).join("");
@@ -333,11 +519,11 @@
       const monCells=[0,1,2,3,4].map(i=>`<td class="col-mon px-2 py-1.5">${cellInput(h,i)}</td>`).join("");
       const gd=h.gd??"", km=h.km??"";
       const btn = suaLai
-        ? `<div class="flex flex-col gap-1 items-stretch"><button id="luu-${h.stt}" class="h-7 px-3 rounded-md bg-kq text-white text-[12px] font-medium hover:brightness-110 disabled:opacity-40">Lưu</button><button onclick="openDrawer(${h.stt})" class="h-7 px-2 rounded-md border border-destructive/40 text-destructive text-[11px] font-medium hover:bg-destructive/5">Giải trình / Chi tiết</button></div>`
-        : `<div class="flex flex-col gap-1 items-stretch"><button id="luu-${h.stt}" class="h-7 px-3 rounded-md bg-kq text-white text-[12px] font-medium hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed">Lưu</button><button onclick="openDrawer(${h.stt})" class="h-7 px-2 rounded-md border border-border text-muted-foreground text-[11px] font-medium hover:bg-muted">Chi tiết ⋯</button></div>`;
+        ? `<div class="flex flex-col gap-1 items-stretch"><button id="luu-${h.stt}" onclick="luu(${h.stt})" class="h-7 px-3 rounded-md bg-kq text-white text-[12px] font-medium hover:brightness-110 disabled:opacity-40">Lưu</button><button onclick="openDrawer(${h.stt})" class="h-7 px-2 rounded-md border border-destructive/40 text-destructive text-[11px] font-medium hover:bg-destructive/5">Giải trình / Chi tiết</button></div>`
+        : `<div class="flex flex-col gap-1 items-stretch"><button id="luu-${h.stt}" onclick="luu(${h.stt})" class="h-7 px-3 rounded-md bg-kq text-white text-[12px] font-medium hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed">Lưu</button><button onclick="openDrawer(${h.stt})" class="h-7 px-2 rounded-md border border-border text-muted-foreground text-[11px] font-medium hover:bg-muted">Chi tiết ⋯</button></div>`;
       return `<tr class="lrow align-top" id="r-${h.stt}">
-        <td class="px-2 py-2 text-center tabnum">${h.stt}</td>
-        <td class="px-2 py-2 font-medium whitespace-nowrap">${h.ten}<div class="text-[11px] text-muted-foreground tabnum">${h.ns}</div></td>
+        <td class="px-2 py-2 text-center tabnum">${(filter==="tuchoi"&&h.tt==="14")?`<input type="checkbox" ${SEL.has(h.stt)?"checked":""} onchange="selToggle(${h.stt},this.checked)" aria-label="Chọn ${h.ten}">`:h.stt}</td>
+        <td class="px-2 py-2 font-medium"><span class="whitespace-nowrap">${h.ten}</span><div class="text-[11px] text-muted-foreground tabnum">${h.ns}</div>${(h.tt==="14"&&h.lydo)?`<div title="${h.lydo}" class="text-[11px] text-destructive leading-tight mt-0.5 max-w-[210px] truncate">Sở: ${h.lydo}</div>`:""}</td>
         <td class="px-2 py-2 mono">${h.cccd}</td>
         <td class="px-2 py-2 text-center">${h.hang}</td>
         ${monCells}
@@ -367,10 +553,10 @@
     const full=qd.every(x=>x!=null), dat=full&&qd.every(x=>x>=5);
     const kl=document.getElementById(`kl-${stt}`);
     if(kl){ kl.innerHTML = !full ? `<span class="text-[11px] text-muted-foreground">đang nhập…</span>`
-      : (dat ? `<span class="text-[12px] font-bold text-success bg-success/10 border border-success/50 rounded-full px-2.5 py-0.5">✓ ĐẠT</span>`
-             : `<span class="text-[12px] font-bold text-destructive bg-destructive/10 border border-destructive/50 rounded-full px-2.5 py-0.5">✗ Không đạt</span>`); }
+      : (dat ? `<span class="whitespace-nowrap text-[12px] font-bold text-success bg-success/10 border border-success/50 rounded-full px-2.5 py-0.5">✓ ĐẠT</span>`
+             : `<span class="whitespace-nowrap text-[12px] font-bold text-destructive bg-destructive/10 border border-destructive/50 rounded-full px-2.5 py-0.5">✗ Không đạt</span>`); }
     const btn=document.getElementById(`luu-${stt}`); if(btn) btn.disabled=!full;
-    updateCount();
+    updateCount(); if(typeof refreshChips==="function") refreshChips();
   }
   function warnDuong(stt){
     const g=document.getElementById(`gd-${stt}`), k=document.getElementById(`km-${stt}`); if(!g) return;
@@ -406,15 +592,17 @@
   function closeDrawer(){ document.getElementById("drawer").classList.add("hidden"); }
 
   /* ===== KQD-07: kiểm trước kết xuất (giả lập theo kịch bản, đúng hình dạng response /kiem-truoc) ===== */
-  const KT_LD = { chua_co_diem:["Chưa có điểm","c-gray"], thieu_mon:["Thiếu môn","c-red"], thieu_gio_km:["Thiếu giờ/km thực hành","c-red"], thieu_ket_luan:["Thiếu kết luận","c-red"] };
+  const KT_LD = { chua_co_diem:["Chưa có điểm","c-gray"], thieu_mon:["Thiếu môn","c-red"], thieu_gio_km:["Thiếu giờ/km thực hành","c-red"], thieu_ket_luan:["Thiếu kết luận","c-red"], thieu_giai_trinh:["Thiếu giải trình — chưa kết xuất được","c-warn"], khong_dat_o_90:["Đang giải trình nhưng không đạt","c-red"], giai_trinh_trong:["Đang giải trình nhưng giải trình trống","c-warn"] };
   const KT_DATA = {
-    thieu: { tong:8, du:2, mo_to_bo_qua:0, dem:{chua_co_diem:3,thieu_mon:1,thieu_gio_km:4,thieu_ket_luan:1}, thieu:[
+    thieu: { tong:10, du:2, mo_to_bo_qua:0, dem:{chua_co_diem:3,thieu_mon:1,thieu_gio_km:4,thieu_ket_luan:1,thieu_giai_trinh:1,khong_dat_o_90:1}, thieu:[
       { stt:1, ly_do:["chua_co_diem","thieu_gio_km"], mon_thieu:[] },
       { stt:2, ly_do:["chua_co_diem","thieu_gio_km"], mon_thieu:[] },
       { stt:3, ly_do:["chua_co_diem","thieu_gio_km"], mon_thieu:[] },
       { stt:4, ly_do:["thieu_mon"], mon_thieu:["Mô phỏng"] },
       { stt:5, ly_do:["thieu_gio_km"], mon_thieu:[] },
       { stt:6, ly_do:["thieu_ket_luan"], mon_thieu:[], canhbao:["Giờ đường 18 < 20","Km đường 700 < 810"] },
+      { stt:7, ly_do:["thieu_giai_trinh"], mon_thieu:[] },
+      { stt:16, ly_do:["khong_dat_o_90"], mon_thieu:[] },
     ] },
     du:    { tong:8, du:8, mo_to_bo_qua:0, dem:{chua_co_diem:0,thieu_mon:0,thieu_gio_km:0,thieu_ket_luan:0}, thieu:[] },
     trong: { tong:0, du:0, mo_to_bo_qua:0, dem:{}, thieu:[] },
@@ -430,7 +618,7 @@
   function locKT(k){ ktLoc = ktLoc===k ? null : k; renderKT(); }
   function goHV(stt){
     closeKT(); setSub("cap-nhat");
-    setFilter("all", document.querySelector(".flt")); document.getElementById("q").value=""; renderGrid();
+    document.getElementById("q").value=""; setFilter("all");
     const tr=document.getElementById("r-"+stt); if(!tr) return;
     tr.scrollIntoView({block:"center",behavior:"smooth"}); tr.classList.remove("flash"); void tr.offsetWidth; tr.classList.add("flash");
   }
@@ -472,8 +660,7 @@
 
   function setSub(sub){ document.querySelectorAll(".sub-btn").forEach(b=>{const on=b.dataset.sub===sub; b.classList.toggle("bg-kq-soft",on); b.classList.toggle("text-kq",on); b.classList.toggle("font-semibold",on); b.classList.toggle("text-muted-foreground",!on);}); document.querySelectorAll(".page").forEach(p=>p.classList.toggle("hidden", p.dataset.page!==sub)); }
 
-  document.querySelector('.flt').classList.add("bg-kq","text-white","border-kq");
-  renderGrid(); setSub("cap-nhat");
+  renderMau(); renderTabs(); renderGrid(); setSub("cap-nhat");
 </script>
 </body>
 </html>

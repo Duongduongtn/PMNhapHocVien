@@ -1287,7 +1287,7 @@ Mở exe
 
 > **Phục vụ:** DGT-01/02/03/04. Không chạm nghiệp vụ Nạp/Sync/TCB — thuần đóng gói + khởi chạy + vòng đời phiên của tool. Quyết định kỹ thuật: TDD-decisions §16.
 
-## 11D. Cập nhật kết quả đào tạo (tool — workspace riêng) — KQD-01..10 (CHANGES #42, #45, #53, #65, #69, #72, #75)
+## 11D. Cập nhật kết quả đào tạo (tool — workspace riêng) — KQD-01..10 (CHANGES #42, #45, #53, #65, #69, #72, #75, #77)
 
 > Ghi **CSDL đích** `GPLX_CDB_CSDT` (bảng `NguoiLX_HoSo`) như SYNC/TCB. Chỉ nhập KQĐT (`TT_XuLy` 03→09/10), **không** kết xuất XML. Schema đã probe: `docs/DB-GPLX_CDB_CSDT.md` §5. Quyết định kỹ thuật: TDD-decisions §17.
 
@@ -1301,7 +1301,7 @@ Mở exe
   - **Ghi giải trình (KQD-04):** SP `_CapNhat` **không** có tham số ghi `GiaiTrinh`/`LyDoTuChoiKQDT`. Cột `GiaiTrinh nvarchar(1000)` có sẵn trong `NguoiLX_HoSo` nhưng không SP nhập-liệu nào ghi → KQD-04 ghi bằng **`UPDATE` tham số hóa riêng cột `GiaiTrinh`** (pymssql `%s`, `WHERE MaDK=%s AND MaKhoaHoc=%s`, validate `len ≤ 1000` phía app), **chạy TRƯỚC khi gọi `_CapNhat`** trên cùng `sqlserver_conn_dich(target_key)`: lỗi ở bước GiaiTrinh thì chưa đụng điểm/trạng thái (HV vẫn 14/90, báo lỗi sạch); giải trình ghi xong mà SP lỗi thì vô hại (trạng thái chưa đổi, lần sau ghi đè). `LyDoTuChoiKQDT` (lý do Sở từ chối) do luồng Sở ghi — read SP `_GetHocVien`/`_CNKQDT` **không** trả cột này, cần `SELECT` riêng nếu KQD-04 muốn hiển thị cho nhân viên đọc.
 
 ### 11D.1 Máy trạng thái TT_XuLy (DM_TrangThai)
-`03`/`04` Đã đăng ký khóa học → `09` Đã cập nhật KQ (Đạt) / `10` (Không đạt) → `12` Đã kết xuất gửi Sở (**do PM cũ**) → `13` Hoàn thành / `14` Sở từ chối / `90` Đang giải trình. Tool chỉ đi 03→09/10 (KQD-02) và sửa lại 14/90 (KQD-04). Lọc màn KQD-01 map: Đã đăng ký=03/04 · Đã cập nhật=09/10 · Sở từ chối=14 · Giải trình=90.
+`03`/`04` Đã đăng ký khóa học → `09` Đã cập nhật KQ (Đạt) / `10` (Không đạt) → `12` Đã kết xuất gửi Sở (**do PM cũ**) → `13` Hoàn thành / `14` Sở từ chối / `90` Đang giải trình. Tool đi 03→09/10 (KQD-02), sửa lại 14/90 (KQD-04) và **chuyển 14→90 khi HV đã sửa xong + Đạt + có giải trình (KQD-04, CHANGES #77)** — SP không bao giờ tự đặt `90`, nên bước này do tool UPDATE trực tiếp, có guard SQL (§11D.13). Lọc màn KQD-01 map: Đã đăng ký=03/04 · Đã cập nhật=09/10 · Sở từ chối=14 · Giải trình=90.
 
 ```
  ┌───────────────────── TOOL (máy CSDT) ─────────────────────┐   ┌──── NGOÀI TOOL (PM cũ / Sở) ────┐
@@ -1310,7 +1310,7 @@ Mở exe
  │  Đã đăng  │   [KQD-02]                                     │   │   gửi Sở            (Sở duyệt)   │
  │  ký khóa  └── Trượt (KetLuan=0) ►  10 Không đạt ───────────┼───┤      │                           │
  │                                                            │   │      ├─► 14 Sở từ chối           │
- │   14 / 90 ◄── sửa điểm + giải trình, SP GIỮ NGUYÊN 14/90 ──┤   │      └─► 90 Đang giải trình      │
+ │   14 ──► sửa điểm + giải trình ──► 90 (tool UPDATE, #77) ──┤   │      └─► ❔ 90 (ai đặt: §11D.13)  │
  │   [KQD-04]                                                 │   │                                 │
  │                                                            │   └─────────────────────────────────┘
  │   ✗ TUYỆT ĐỐI không gọi _CapNhat cho 12 / 13 (SP không     │        14/90 quay lại tool để sửa ──┐
@@ -1322,6 +1322,17 @@ Mở exe
 ```
 
 > Mũi tên `12 → 09/10` chỉ mở qua `POST /local/ketqua/mo-khoa` (KQD-05), **mức CƠ SỞ** — không phải đường đi thường của KQD-02/04.
+
+**Nhánh Sở từ chối / Đang giải trình (KQD-04 đổi, CHANGES #77 — sau `/reviewtdd` §11D.13):**
+
+```
+  Đã gửi Sở(12) ─(Sở từ chối)─► Sở từ chối(14) ─┬─ sửa điểm: Đạt + có giải trình ─► Đang giải trình(90) ─(PM CDB kết xuất lại)─► Đã gửi Sở(12)
+                                                │      [tool tự chuyển; guard SQL: đang 14 + KetLuanCSDT=1 + GiaiTrinh<>'']
+                                                ├─ Đạt, thiếu giải trình ─► giữ 14 (nhắc ghi giải trình)
+                                                └─ Không đạt ─► giữ 14 (CDB không kết xuất HV Không đạt)
+  Đang giải trình(90) ─(sửa điểm tiếp)─► giữ 90   ⚠ nếu thành Không đạt/trống kết luận: vẫn 90, KHÔNG kết xuất được → chip đỏ "Cần xử lý" (§11D.13)
+  ❔ "12 → 90" do phần mềm CDB đặt hay không: chưa xác minh (nghiệm thu máy CSĐT, BUILD-PLAN task 145)
+```
 
 ### 11D.2 Quy đổi điểm (từ "Sổ theo dõi KQ học tập TT17")
 Nhân viên nhập **điểm gốc**, app quy đổi /10, GHI 5 điểm per-môn (KHÔNG ghi trung bình):
@@ -1372,7 +1383,7 @@ DB **không có** trigger/computed/constraint tính 3 cờ (verify 06/10: 0 trig
 `SoGiayCNTN` = `MaDK + '-' + MaHangMoi` (verify 100% mẫu thật, vd `75032-20260803-000001-B`), tự sinh khi Đạt. `NgayRaQDTN`, `TGBatDau`, `TGKetThuc` điền sẵn từ ngày khóa (`KhoaHoc.NgayKG/NgayBG/NgayThi`), cho sửa.
 
 ### 11D.6 API (tool, đề xuất — chốt khi code)
-`GET /local/ketqua/khoa?q=` (gợi ý khóa đã BC1, kèm đếm HV 5 nhóm trạng thái gồm **`ketxuat`=12**) · `GET /local/ketqua/hoc-vien?ma_kh&trang_thai&q` (lưới; `trang_thai` nhận cả `ketxuat` (12) cho KQD-03) · `POST /local/ketqua/cap-nhat` (1 HV: điểm gốc + hạng + cờ chương trình → app quy đổi → ghi `GiaiTrinh` trước (nếu có) → gọi SP) · **`GET /local/ketqua/mo-khoa`** (KQD-05/03 — cổng B-1 **chỉ đọc**: trả `mo_duoc` + `goi_chua_gui`/`goi_da_gui` (mỗi gói: id·ten_file·ngay_tao·kich_thuoc) + `so_hv_mo`/`so_hv_bo_qua`/`so_khoa`; panel gói KQD-03 + modal mở khóa KQD-05 dùng chung) · `POST /local/ketqua/mo-khoa` (KQD-05, §11D.7) · `POST /local/ketqua/xoa-diem` (KQD-06, §11D.8 — reset HV 09/10 về chưa có điểm; sửa lẻ dùng lại `/cap-nhat` với quy-đổi môn cũ) · **`POST /local/ketqua/mo-sua-sau-gui`** (KQD-05 #53, §11D.7b — body `ma_dk[]` + `ly_do`; lùi đúng các HV được chọn, không xóa gói) · **`GET /local/ketqua/sua-sau-gui`** (khối đỏ KQD-03: nhật ký ∩ HV chưa về `12`) · **`GET /local/ketqua/kiem-truoc?ma_kh=`** (KQD-07, §11D.9, chỉ đọc). **`POST /local/ketqua/xuat-excel?ma_kh=`** (KQD-09, §11D.11 — dựng `.xlsx` kết quả học tập của khóa và **lưu vào thư mục `output`**, chỉ SELECT DB) · **`POST /local/ketqua/mo-thu-muc-xuat`** (mở thư mục output) · **`POST /local/ketqua/xuat-so-theo-doi?ma_kh=`** (KQD-10, §11D.12 — Sổ theo dõi mẫu Phụ lục VI, lưu vào `output`) · **`POST /local/ketqua/dat/xem-truoc`** + **`POST /local/ketqua/dat/luu`** (KQD-08, §11D.10 — nạp giờ/km đường từ PDF DAT: xem trước chỉ đọc, lưu một transaction chỉ 2 cột) · **KQD-03 "Theo dõi kết xuất" KHÔNG có endpoint `ket-xuat` riêng** (chốt khi code): tiến độ khóa ghép từ `/khoa` (đếm sẵn), panel gói từ `GET /mo-khoa` (CSĐT-wide, tải 1 lần), lưới HV từ `/hoc-vien?trang_thai=ketxuat|capnhat` — tránh thừa endpoint + khỏi nhồi danh sách gói vào mỗi lần chọn khóa. Tất cả gác session + `target_key` như §11B. **Combobox khóa:** debounce ~300ms + giới hạn ~20 gợi ý, chỉ đếm HV-theo-trạng-thái cho khóa thực sự hiển thị (tránh aggregate nặng mỗi phím gõ).
+`GET /local/ketqua/khoa?q=` (gợi ý khóa đã BC1, kèm đếm HV 5 nhóm trạng thái gồm **`ketxuat`=12**) · `GET /local/ketqua/hoc-vien?ma_kh&trang_thai&q` (lưới; `trang_thai` nhận cả `ketxuat` (12) cho KQD-03) · `POST /local/ketqua/cap-nhat` (1 HV: điểm gốc + hạng + cờ chương trình → app quy đổi → ghi `GiaiTrinh` trước (nếu có) → gọi SP) · **`GET /local/ketqua/mo-khoa`** (KQD-05/03 — cổng B-1 **chỉ đọc**: trả `mo_duoc` + `goi_chua_gui`/`goi_da_gui` (mỗi gói: id·ten_file·ngay_tao·kich_thuoc) + `so_hv_mo`/`so_hv_bo_qua`/`so_khoa`; panel gói KQD-03 + modal mở khóa KQD-05 dùng chung) · `POST /local/ketqua/mo-khoa` (KQD-05, §11D.7) · `POST /local/ketqua/xoa-diem` (KQD-06, §11D.8 — reset HV 09/10 về chưa có điểm; sửa lẻ dùng lại `/cap-nhat` với quy-đổi môn cũ) · **`POST /local/ketqua/mo-sua-sau-gui`** (KQD-05 #53, §11D.7b — body `ma_dk[]` + `ly_do`; lùi đúng các HV được chọn, không xóa gói) · **`GET /local/ketqua/sua-sau-gui`** (khối đỏ KQD-03: nhật ký ∩ HV chưa về `12`) · **`GET /local/ketqua/kiem-truoc?ma_kh=`** (KQD-07, §11D.9, chỉ đọc). **`POST /local/ketqua/xuat-excel?ma_kh=`** (KQD-09, §11D.11 — dựng `.xlsx` kết quả học tập của khóa và **lưu vào thư mục `output`**, chỉ SELECT DB) · **`POST /local/ketqua/mo-thu-muc-xuat`** (mở thư mục output) · **`POST /local/ketqua/xuat-so-theo-doi?ma_kh=`** (KQD-10, §11D.12 — Sổ theo dõi mẫu Phụ lục VI, lưu vào `output`) · **`POST /local/ketqua/giai-trinh-lo`** (KQD-04 #77, §11D.13 — giải trình + chuyển `14`→`90` hàng loạt, một giao dịch) · **`GET`/`PUT /local/ketqua/mau-giai-trinh`** (mẫu giải trình lưu phía tool, **theo `target_key`**, kèm `phien_ban`; §11D.13) · **`POST /local/ketqua/dat/xem-truoc`** + **`POST /local/ketqua/dat/luu`** (KQD-08, §11D.10 — nạp giờ/km đường từ PDF DAT: xem trước chỉ đọc, lưu một transaction chỉ 2 cột) · **KQD-03 "Theo dõi kết xuất" KHÔNG có endpoint `ket-xuat` riêng** (chốt khi code): tiến độ khóa ghép từ `/khoa` (đếm sẵn), panel gói từ `GET /mo-khoa` (CSĐT-wide, tải 1 lần), lưới HV từ `/hoc-vien?trang_thai=ketxuat|capnhat` — tránh thừa endpoint + khỏi nhồi danh sách gói vào mỗi lần chọn khóa. Tất cả gác session + `target_key` như §11B. **Combobox khóa:** debounce ~300ms + giới hạn ~20 gợi ý, chỉ đếm HV-theo-trạng-thái cho khóa thực sự hiển thị (tránh aggregate nặng mỗi phím gõ).
 
 ### 11D.7 Mở khóa để sửa sau kết xuất (KQD-05) — gỡ chặn `12` có kiểm soát
 > Nghiệp vụ + lý do (DB không nối HV↔gói): TDD-decisions §19. Verify DB live 07/10/2026 trên `GPLX_CDB_CSDT`.
@@ -1413,7 +1424,7 @@ DB **không có** trigger/computed/constraint tính 3 cờ (verify 06/10: 0 trig
 ### 11D.9 Kiểm trước kết xuất (KQD-07, CHANGES #65) — chỉ đọc
 > Bổ sung 12/10/2026 từ tư vấn theo schema DB đích. Không đổi schema, không ghi DB; kết xuất vẫn thuộc PM cũ.
 
-- **Endpoint (đề xuất, chốt khi code):** `GET /local/ketqua/kiem-truoc?ma_kh=` — gác session + `target_key` như §11D.6. Đọc HV của đúng khóa `ma_kh` có `TT_XuLy IN ('03','04','09','10')` (cùng nguồn với `/hoc-vien`, nên dùng lại hàm đọc có sẵn, không viết SELECT thứ hai). Trả `{ma_kh, tong, du, thieu:[{ma_dk, ho_ten, so_cccd, tt_xuly, ly_do:[…], mon_thieu:[…]}], dem:{chua_co_diem, thieu_mon, thieu_gio_km, thieu_ket_luan}, mo_to_bo_qua}` — `tong` **không gồm** học viên mô tô (đếm riêng ở `mo_to_bo_qua`).
+- **Endpoint (đề xuất, chốt khi code):** `GET /local/ketqua/kiem-truoc?ma_kh=` — gác session + `target_key` như §11D.6. Đọc HV của đúng khóa `ma_kh` có `TT_XuLy IN ('03','04','09','10','90')` (`90` thêm ở CHANGES #77 — HV đã giải trình, chờ kết xuất lại. **HV `90` mà `KetLuanCSDT` NULL → `thieu_ket_luan`; `KetLuanCSDT=0` → chip `khong_dat_o_90` ("Đang giải trình nhưng không đạt — sẽ không kết xuất"); `GiaiTrinh` rỗng → chip `giai_trinh_trong`** — §11D.13) (cùng nguồn với `/hoc-vien`, nên dùng lại hàm đọc có sẵn, không viết SELECT thứ hai). Trả `{ma_kh, tong, du, thieu:[{ma_dk, ho_ten, so_cccd, tt_xuly, ly_do:[…], mon_thieu:[…]}], dem:{chua_co_diem, thieu_mon, thieu_gio_km, thieu_ket_luan}, mo_to_bo_qua}` — `tong` **không gồm** học viên mô tô (đếm riêng ở `mo_to_bo_qua`).
 - **Luật thuần (backend, không DB), hàm `hv_chua_du(hv)`** (không còn tham số `hang`; router lọc hạng mô tô — mã hạng bắt đầu `A` — trước khi gọi) đặt cạnh luật quy đổi trong `ketqua_quydoi.py`:
   - `chua_co_diem` ⇔ cả 5 `DiemKQ*` rỗng (không kèm điều kiện `TT_XuLy` — HV 09/10 mà rỗng điểm cũng là chưa có điểm);
   - `thieu_mon` ⇔ có ≥1 điểm nhưng thiếu ≥1 trong **5 môn bắt buộc** (cùng luật ô đỏ KQD-02, mọi hạng ô tô; môn thiếu trả ở `mon_thieu`);
@@ -1559,6 +1570,50 @@ DB **không có** trigger/computed/constraint tính 3 cờ (verify 06/10: 0 trig
 > **Phục vụ:** KQD-01/02/03/04/05/06/07/08/09/10. Dừng ở `TT_XuLy` 09/10/12 — kết xuất XML/gửi Sở thuộc PM cũ. Quy đổi điểm/giờ/km: nguồn `thamkhao/` (TT17 + Sổ theo dõi). Quyết định: TDD-decisions §17 (quy đổi) + §19 (mở khóa).
 
 ---
+
+### 11D.13 Sửa lại HV Sở từ chối → "Đang giải trình" + giải trình hàng loạt (KQD-04 đổi, CHANGES #77)
+> **Phục vụ:** KQD-04, KQD-01, KQD-03, KQD-07. Lý do + phương án: TDD-decisions §27. Sau `/reviewtdd` 16/10/2026 (biên bản `tdd-review-16-10-2026-kqd04.md`: 20 phát hiện, 3 Chặn đã đóng).
+> Verify DB 16/10/2026 trên `GPLX_CDB_CSDT` (DESKTOP-UBV2GQI): `usp_NguoiLX_KetQuaDaoTao_CSDT` (SP đọc danh sách kết xuất của phần mềm CDB) lọc `@TrangThai='47'` = `TT_XuLy IN ('09','90') AND KetLuanCSDT=1`; **không** có `14` ⇒ HV bị Sở từ chối sửa xong mà vẫn ở `14` thì **không vào danh sách kết xuất**. Không thủ tục nào trong DB đặt `TT_XuLy='90'` (quét mọi DB) ⇒ bước `14→90` do tool làm (hoặc phần mềm CDB — chưa xác minh được vì máy dev không cài).
+
+- **Quy tắc (server quyết, không tin client):**
+
+| Đang ở | Sau khi ghi điểm / chuyển lô | Kết quả |
+|---|---|---|
+| `14` | `KetLuanCSDT=1` **và** `GiaiTrinh` hiệu lực không rỗng | → `90` |
+| `14` | Đạt nhưng chưa có giải trình | giữ `14`, response `tt_moi='14'` + `thieu_giai_trinh=true` |
+| `14` | Không đạt | giữ `14` |
+| `90` | sửa tiếp | giữ `90` (SP đã giữ) — nếu thành Không đạt/trống kết luận: **vẫn `90`** nhưng hiện chip đỏ "Cần xử lý" (xem "HV 90 không kết xuất được") |
+| `12`/`13` | — | chặn 409 như cũ |
+
+- **Cảnh báo bắt buộc "chưa giải trình thì không kết xuất được" (user chốt 16/10/2026):** học viên `14` Đạt mà thiếu giải trình **không được im lặng giữ `14`** — UI phải nói rõ ở 4 chỗ: (1) sau khi Lưu một người: thông báo vàng đứng lâu (không tự tắt như toast thường) *"Đã lưu điểm — CHƯA có giải trình nên chưa chuyển sang Đang giải trình và chưa kết xuất lại được. Nhập giải trình rồi Lưu lại."* kèm `thieu_giai_trinh=true` từ response; (2) **chip cảnh báo trên dòng** học viên `14` Đạt thiếu giải trình: "Thiếu giải trình — chưa kết xuất được" (cam, tính ở client từ điểm đang nhập + ô giải trình + giải trình chung; server vẫn quyết ở bước ghi); (3) hộp chuyển hàng loạt: nếu `noi_dung` rỗng thì nút khóa + dòng đỏ "Phải có nội dung giải trình mới chuyển được"; (4) kiểm trước kết xuất (KQD-07) liệt kê học viên `14` Đạt thiếu giải trình kèm lý do `thieu_giai_trinh`. Cùng ý với `giai_trinh_trong` của HV `90`.
+- **Một hàm chuyển duy nhất** `chuyen_14_sang_90(cur, ma_dk[], giai_trinh)` — cả `/cap-nhat` (sau SP ghi điểm) lẫn `/giai-trinh-lo` (không ghi điểm, **không tính lại điểm/cờ CŨ-MỚI**) gọi đúng hàm này với **cùng guard SQL**: `TT_XuLy='14' AND KetLuanCSDT=1 AND ISNULL(GiaiTrinh,'')<>''`.
+- **Giải trình hiệu lực:** `giai_trinh` riêng nếu `strip()` không rỗng; ngược lại `giai_trinh_chung` nếu có; ngược lại **giữ nguyên cột** (không xóa). Xóa giải trình chỉ khi gửi `giai_trinh=''` **và** `giai_trinh_chung=None`. Giải trình chung **không bao giờ đè** giải trình riêng đã có.
+- **`POST /local/ketqua/cap-nhat` (mở rộng):** thêm `giai_trinh_chung: str | None`. Thứ tự (cùng kết nối, trạng thái tự lưu từng lệnh như `cap_nhat` hiện có): (1) đọc HV (`TT_XuLy`, `MaCSDT`…) — `MaCSDT` ≠ cơ sở của máy → 403; `12`/`13` → 409; (2) ghi `GiaiTrinh` hiệu lực với điều kiện `AND TT_XuLy NOT IN ('12','13')`; (3) **đọc lại `TT_XuLy` ngay trước SP** — khác giá trị đã đọc → 409 `trang_thai_da_doi` ("trạng thái vừa đổi, tải lại"); (4) SP `_CapNhat`; (5) nếu HV đang `14` và Đạt → `chuyen_14_sang_90`; SELECT lại `TT_XuLy` để trả `tt_moi`. **Bước (5) lỗi sau khi (4) đã ghi** → **200** kèm `canh_bao: 'chua_chuyen_90'` (điểm đã lưu; UI hiện nút "Chuyển lại"), KHÔNG trả 502 làm nhân viên tưởng chưa lưu.
+- **`POST /local/ketqua/giai-trinh-lo`** body `{ ma_dk: string[], noi_dung: string, ghi_de_rieng: bool = false }`:
+  0. **Biên:** `ma_dk` khử trùng, bỏ rỗng/khoảng trắng; `1..200` (vượt → 422); `noi_dung.strip()` rỗng hoặc `> 1000` → 422; `IN (...)` dựng bằng `%s` tham số hóa. Gác `require_session` + `target_key`; `timeout` 30 giây.
+  1. SELECT từng HV (`TT_XuLy`, `KetLuanCSDT`, `MaCSDT`, `MaKhoaHoc`, điểm/giờ-km/`SoGiayCNTN`, `GiaiTrinh`): không thấy → bỏ qua `khong_tim_thay`; `MaCSDT` ≠ cơ sở máy → `khong_thuoc_co_so`; `12`/`13` → `da_gui_hoac_hoan_thanh`; `90` → `da_o_dang_giai_trinh` (không báo lỗi — gọi lại an toàn); không phải `14` → `khong_con_o_so_tu_choi`; `KetLuanCSDT` ≠ 1 → `khong_dat`; **Đạt nhưng `hv_chua_du(hv)` (§11D.9, một nguồn) còn thiếu điểm/giờ-km hoặc `SoGiayCNTN` rỗng → `chua_du_diem` kèm môn/mục thiếu**.
+  2. **Giao dịch thật:** mở kết nối **không tự lưu** (`autocommit=False`); `BEGIN TRAN` → với người đủ điều kiện: `UPDATE ... SET GiaiTrinh = CASE WHEN %s=1 OR ISNULL(GiaiTrinh,'')='' THEN %s ELSE GiaiTrinh END, TT_XuLy='90', NgaySua=GETDATE() WHERE MaDK IN (...) AND TT_XuLy='14' AND KetLuanCSDT=1` → `COMMIT`. Lỗi → `ROLLBACK`, trả **502 `lo_loi`** + `da_chuyen=[]` (không chuyển nửa chừng). Người đã có giải trình riêng được **giữ nguyên** trừ khi `ghi_de_rieng=true`.
+  3. Trả `{da_chuyen: [...], bo_qua: [{ma_dk, ly_do, chi_tiet?}], giu_rieng: N}` (SELECT lại trạng thái, không tin rowcount). **Mất kết nối khi COMMIT/đọc lại** → 502 `{ketqua: 'khong_ro'}`; UI tự `GET /hoc-vien` làm tươi và hiện "Kiểm tra lại trước khi gửi lại". Gọi lại cùng danh sách là **idempotent**.
+
+```
+  NV(UI)           Tool(server)                         DB đích
+    │ tích N HV        │                                    │
+    │──POST lô────────►│ SELECT từng HV ───────────────────►│ (14? Đạt? cơ sở? đủ điểm?)
+    │                  │ lọc → bo_qua[ly_do]                │
+    │                  │ BEGIN TRAN ───────────────────────►│
+    │                  │ UPDATE ... IN(...) + guard ───────►│ (HV đổi trạng thái giữa chừng → không khớp guard)
+    │                  │ COMMIT ───────────────────────────►│
+    │                  │ SELECT lại TT_XuLy ───────────────►│ ← lỗi/mất kết nối ở đây = "khong_ro"
+    │◄─{da_chuyen, bo_qua, giu_rieng}                       │
+```
+- **Mẫu giải trình:** lưu **theo `target_key`** (`config['mau_giai_trinh'][target_key] = [...]`) — máy nhiều cơ sở đích không lẫn mẫu; tối đa 20 mẫu × 1000 ký tự, vượt → 422 nêu rõ (không cắt âm thầm), mẫu rỗng/trùng bị loại. `GET` trả `{mau: [...], phien_ban}`; `PUT` gửi kèm `phien_ban`, lệch → 409 `mau_da_doi` (UI nạp lại). **Ghi cấu hình có khóa** (`threading.Lock` + ghi file tạm rồi `os.replace`) để lưu mẫu không làm mất thay đổi cấu hình khác (tích CŨ/MỚI, `sync_targets`) khi hai thao tác trùng giờ. UI cảnh báo trên màn mẫu: "Mẫu dùng chung cho cả cơ sở — không ghi tên hoặc số căn cước học viên." **UI quản lý mẫu (CHANGES #78):** hộp "Quản lý mẫu" giữ bản nháp danh sách ở client; sửa/xóa/thêm xong gửi **một `PUT` thay toàn bộ danh sách** (không thêm endpoint); server loại mẫu rỗng/trùng, `> 20` hoặc `> 1000` ký tự → 422 nêu rõ; `phien_ban` lệch (người khác vừa lưu) → 409 `mau_da_doi`, UI nạp lại danh sách và giữ nháp để người dùng gộp tay.
+- **`LyDoTuChoiKQDT` lên lưới:** SELECT lưới (`_SQL_HV` ở `routers/ketqua.py`) đọc thêm `LyDoTuChoiKQDT` + `GiaiTrinh` (hai cột `nvarchar(1000)` cho một khóa — chấp nhận được, đã `WHERE MaKhoaHoc`). `LyDoTuChoiKQDT` do luồng Sở ghi, tool chỉ đọc.
+- **Nhóm trạng thái:** `_NHOM_TT` đổi từ tuple mã sang **điều kiện SQL** vì "chờ kết xuất" nay có điều kiện: `TT_XuLy IN ('09','10')` **hoặc** `(TT_XuLy='90' AND KetLuanCSDT=1)`. Một nguồn dùng chung cho đếm `/khoa`, lọc `/hoc-vien` và `kiem_truoc`. Khóa nhóm `giaitrinh` giữ cho `90` mọi kết luận. Bộ lọc lưới KQD-01 đổi sang nhóm việc: **chưa nhập (03/04) · chờ kết xuất · không đạt (10) · cần xử lý (14 + 90 không đạt/trống kết luận) · đã gửi/hoàn thành (12/13) · tất cả**.
+- **HV 90 không kết xuất được:** HV `90` mà `KetLuanCSDT=0` hoặc NULL (nhập lại thành Không đạt sau khi đã giải trình, hoặc dữ liệu từ PM CDB) → chip đỏ "Đang giải trình nhưng không đạt — sẽ không kết xuất", xếp tab **Cần xử lý** cùng `14`; KQD-07 đếm vào `khong_dat_o_90` / `thieu_ket_luan`. HV `90` có `GiaiTrinh` trống (do `usp_CSDT_PheDuyetKQDT_TiepNhan` xóa trắng ở phản hồi Sở) → chip `giai_trinh_trong` ở KQD-07 — vi phạm bất biến "90 phải có giải trình" nên phải thấy được.
+- **Nhãn trạng thái UI (một nguồn):** `03/04` Chưa nhập điểm · `09` Đã nhập · chờ kết xuất · `10` Đã nhập · Không đạt · `12` Đã gửi Sở · chờ duyệt · `13` Sở đã duyệt · `14` Sở từ chối · `90` Đã giải trình · chờ kết xuất lại; kèm dòng "việc cần làm". Mã `TT_XuLy` chỉ ở tooltip.
+- **Bất biến:** chỉ HV `14` mới được tool đẩy lên `90`; mọi SQL tham số hóa; `12`/`13` không đụng; không sinh XML; mọi đường ghi lọc theo `MaCSDT` của máy.
+- **Rủi ro biết trước:** (a) phần mềm CDB cũng có thể đặt `90` ở màn giải trình riêng — vô hại (cùng giá trị, guard `14`) nhưng cần nghiệm thu máy CSĐT; (b) `usp_CSDT_PheDuyetKQDT_TiepNhan` **xóa trắng `GiaiTrinh`** ở lần phản hồi Sở kế tiếp → giải trình chỉ sống tới lúc đó (chip `giai_trinh_trong` bắt ca này); (c) HV `90` mà Sở trả `13/14` cho bản kết xuất cũ → SP tiếp nhận (yêu cầu `12`) có thể báo lỗi, HV kẹt (như §11D.7b — không chặn, chỉ cảnh báo); (d) **khe hở nhỏ còn lại giữa "đọc lại trạng thái" và SP `_CapNhat`** vì SP không nhận guard `TT_XuLy` — chấp nhận, máy một người dùng; (e) `_NHOM_TT` đổi cấu trúc chạm cả `kiem_truoc` và đếm khóa → `impact` + test hồi quy KQD-01/03/07.
+- **Kiểm thử:** unit quy tắc bảng trên (Đạt+GT→90 · Đạt thiếu GT→14 · Không đạt→14 · đang 90→90 · 12/13→409) · giải trình hiệu lực (riêng/chung/giữ nguyên/xóa) · `giai-trinh-lo` (lô lẫn 14 Đạt / 14 Không đạt / 14 Đạt thiếu điểm / 90 / 09 / 13 / khác cơ sở → chỉ chuyển người đủ điều kiện; lỗi giữa lô rollback; mã trùng/rỗng/>200 → 422; gọi lại idempotent) · `cap_nhat` bước chuyển lỗi → 200 `chua_chuyen_90` · đổi trạng thái giữa chừng → 409 · mẫu (theo cơ sở, `phien_ban` lệch → 409, vượt giới hạn → 422) · vitest nhãn trạng thái · Playwright lưới + hộp hàng loạt (API giả). Ghi thật nghiệm thu ở máy CSDT.
 
 ## 11E. Phân công giáo viên – xe cho khóa (tool — workspace riêng) — PCG-01..06 (CHANGES #54, #66)
 
@@ -1990,6 +2045,9 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 | --- | --- | --- |
+| 16/10/2026 | 6.24 | **Quản lý mẫu giải trình** (CHANGES #78): §11D.13 ghi UI hộp sửa/xóa/thêm mẫu dùng lại `PUT mau-giai-trinh` (thay toàn bộ + `phien_ban`), không thêm endpoint. |
+| 16/10/2026 | 6.23 | **Sửa sau /reviewtdd §11D.13** (KQD-04 đổi, CHANGES #77, biên bản `tdd-review-16-10-2026-kqd04.md`; subagent soát độc lập: 3 Chặn · 11 Nên sửa · 6 Ghi nhận, user chọn sửa tất cả): **lô một giao dịch thật** (`autocommit=False`) + `cap_nhat` bước chuyển lỗi → 200 `chua_chuyen_90`; **lô kiểm đủ điểm** theo `hv_chua_du` §11D.9; **giải trình riêng được giữ** (chung không đè, `ghi_de_rieng`); **HV 90 Không đạt/trống kết luận** có chip đỏ + tab "Cần xử lý"; chặn đua trạng thái + `MaCSDT`; biên lô; mẫu theo `target_key` + `phien_ban` + khóa ghi cấu hình; mất kết nối `khong_ro`; sơ đồ §11D.1 + trình tự lô. |
+| 16/10/2026 | 6.22 | **+§11D.13 Sửa lại HV Sở từ chối → "Đang giải trình" + giải trình hàng loạt** (KQD-04 đổi, CHANGES #77, decisions §27): quy tắc `14`→`90` khi Đạt + có giải trình (tool UPDATE có guard SQL, vì SP không đặt `90` và SP danh sách kết xuất của CDB chỉ lấy `09`/`90`); `POST /giai-trinh-lo` một giao dịch; mẫu giải trình phía tool; lưới đọc thêm `LyDoTuChoiKQDT`; nhóm "còn sót kết xuất" + KQD-07 gồm `90` Đạt; bảng nhãn trạng thái nghiệp vụ. Sửa §11D.1 (sơ đồ) + §11D.6 (API) + §11D.9. |
 | 12/10/2026 | 6.21 | **Sửa sau /reviewtdd §11D.12** (KQD-10, CHANGES #76, biên bản `tdd-review-12-10-2026-kqd10.md`; subagent soát độc lập: 0 Chặn · 5 Nên sửa · 6 Ghi nhận): **xếp tên theo thanh điệu từng âm tiết (sửa code — Hòa/Hoà, Thúy/Thuý)** · viền xám, chân trang cỡ 10, hàng 5/9 = 15,75 đúng mẫu · footer 0,3 · độ rộng cột theo ký tự hoa/thường · chiều cao khối cơ sở tự tăng · `so_hv_trong_ket_qua` + dòng giải thích · §11D.6 `GET`→`POST xuat-excel` · số dòng/trang là ước lượng. |
 | 12/10/2026 | 6.20 | **+§11D.12 Xuất Sổ theo dõi kết quả học tập — mẫu Phụ lục VI (KQD-10)** (CHANGES #75): endpoint `POST /xuat-so-theo-doi`, hàm thuần `ketqua_so.py`, định dạng bám file mẫu (A4 dọc, lặp 2 hàng tiêu đề, `Trang x/y`), xếp tên tiếng Việt, kết quả chỉ khi đủ 5 điểm, không bìa/chữ ký; KQD-09 `Ngày lập` chỉ `dd/mm/yyyy`; TDD-decisions §26. |
 | 12/10/2026 | 6.19 | **§11D.11: lưu vào thư mục `output` + bỏ dấu chấm thừa giờ/km** (KQD-09, CHANGES #74): `GET /xuat-excel` → `POST` ghi file vào `paths.output_dir()` (không ghi đè, `_2`…), trả đường dẫn; thêm `POST /mo-thu-muc-xuat`; định dạng ô giờ/km sân số nguyên `0`. |

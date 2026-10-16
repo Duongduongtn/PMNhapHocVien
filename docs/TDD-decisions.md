@@ -378,3 +378,22 @@
   - **Độ rộng cột theo chữ hoa/thường** (DB lưu tên viết hoa).
   - **Thêm dòng giải thích** "N học viên có kết luận nhưng thiếu điểm nên để trống kết quả" (không đổi luật §26, chỉ giải thích).
 
+
+## 27. HV Sở từ chối sửa xong → "Đang giải trình" + giải trình hàng loạt (16/10/2026)
+
+- **Bối cảnh:** SP ghi điểm `_CapNhat` giữ nguyên `14/90/13`; SP đọc danh sách kết xuất của phần mềm CDB (`usp_NguoiLX_KetQuaDaoTao_CSDT`, `@TrangThai='47'`) chỉ lấy `TT_XuLy IN ('09','90') AND KetLuanCSDT=1`; **không thủ tục nào trong DB đặt `TT_XuLy='90'`** (quét mọi DB trên máy dev 16/10). ⇒ HV `14` sửa xong ở tool **kẹt ở `14`, không kết xuất lại được**. User: "lưu xong chuyển sang Đang giải trình + có giải trình; nhiều HV nên giải trình hàng loạt".
+- **Quyết định:**
+  - **Chuyển `14`→`90` khi: kết luận Đạt VÀ có giải trình.** Không đạt giữ `14` (CDB không kết xuất HV Không đạt, lên `90` chỉ nằm treo). Thiếu giải trình giữ `14` + nhắc. *(Giả định do tôi đề xuất, user gật khi duyệt kế hoạch — đổi được.)*
+  - Tool tự `UPDATE` `TT_XuLy='90'` với guard SQL (`TT_XuLy='14' AND KetLuanCSDT=1 AND GiaiTrinh<>''`), không gọi SP.
+  - Giải trình hàng loạt bằng 2 cách dùng chung 1 nội dung: **giải trình chung của khóa + mẫu lưu sẵn** (lưu phía tool) và **tích nhiều HV → một hộp xác nhận → một giao dịch**.
+  - Lưới thêm cột Trạng thái + dải tab có đếm + lý do Sở từ chối trên dòng — để nhìn là biết HV đang ở đâu, cần làm gì.
+- **Phương án đã cân:** (A) lưu là chuyển `90` dù Không đạt — loại: HV Không đạt nằm treo `90` vĩnh viễn · (B) chỉ cần Đạt, giải trình tùy chọn — loại: nộp lại Sở mà không kèm lời giải trình · (C) không tự chuyển, chờ phần mềm CDB — loại cho tới khi xác minh được phần mềm CDB có thao tác này (máy dev không cài).
+- **Đánh đổi / rủi ro:** nghiệm thu máy CSDT: kiểm phần mềm CDB có tự đặt `90` ở màn giải trình không (nếu có → hai nơi cùng đặt, vô hại); `usp_CSDT_PheDuyetKQDT_TiepNhan` xóa trắng `GiaiTrinh` ở lần phản hồi kế tiếp; HV `90` mà Sở trả lời bản kết xuất cũ thì SP tiếp nhận (yêu cầu `12`) có thể báo lỗi.
+- **Phạm vi:** chỉ tool máy CSĐT, nhóm KQD; không đổi schema CDB; không sinh XML.
+- **Nguồn:** user 16/10/2026; PRD KQD-01/03/04/07; TDD §11D.13; CHANGES #77.
+- **Cập nhật 16/10/2026 (sau `/reviewtdd` §11D.13, CHANGES #77):**
+  - **Giải trình riêng được giữ:** giải trình chung chỉ ghi cho người chưa có; ghi đè là lựa chọn tường minh (`ghi_de_rieng`, mặc định tắt) — khớp PRD KQD-04.
+  - **Lô là giao dịch thật** và **kiểm đủ điểm/giờ-km/số giấy** (cùng luật KQD-07) trước khi chuyển — tránh đẩy HV thiếu dữ liệu sang chờ kết xuất.
+  - **HV `90` Không đạt/trống kết luận không được biến mất:** chip đỏ, tab "Cần xử lý" (đổi tên từ "Sở từ chối" vì chứa cả hai nhóm).
+  - **Mẫu giải trình theo cơ sở đích** + ghi cấu hình có khóa (đụng hàm cấu hình dùng chung — chấp nhận, ghi vào BUILD-PLAN task 137).
+  - **Đánh đổi:** `_NHOM_TT` đổi thành điều kiện SQL (chạm đếm khóa/lọc lưới/kiểm trước); `PRD` phải đồng bộ (tab đổi tên, chip giải trình trống) qua `/capnhat`.
