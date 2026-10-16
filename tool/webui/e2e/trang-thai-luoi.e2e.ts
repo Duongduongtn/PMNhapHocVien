@@ -58,7 +58,7 @@ test.describe("KQD-01 #77 — cột Trạng thái + dải tab", () => {
     await expect(tab(page, "Chờ kết xuất")).toContainText("2");       // 09 + 90 Đạt
     await expect(tab(page, "Không đạt")).toContainText("1");
     await expect(tab(page, "Cần xử lý")).toContainText("4");          // 14 ×3 + 90 Không đạt
-    await expect(tab(page, "Đã gửi / Hoàn thành")).toContainText("1");
+    await expect(tab(page, "Đã gửi/Hoàn thành")).toContainText("1");
   });
 
   test("bấm tab Cần xử lý chỉ còn 14 và 90 không đạt", async ({ page }) => {

@@ -14,6 +14,10 @@ import {
   setChuongTrinhKQD,
   getGiaiTrinhKQD,
   capNhatKQD,
+  giaiTrinhLoKQD,
+  dsMauGiaiTrinhKQD,
+  luuMauGiaiTrinhKQD,
+  ApiLoi,
   xoaDiemKQD,
   moKhoaTrangThai,
   dsSuaSauGui,
@@ -35,6 +39,7 @@ import {
 import KiemTruocKetXuat from "./KiemTruocKetXuat";
 import NapDatModal from "./NapDatModal";
 import { bangNhau, chuanHoaGio, parseGio, soHien } from "./gioThucHanh";
+import { chiTietBoQua, thongBaoSauLuu, tomTatKetQuaLo, xemTruocLo } from "./giaiTrinhLo";
 import { CANH_BAO_NHAN, TABS, TT_NHAN, canhBaoDong, demTab, khopTab, type TabKQD } from "./trangThai";
 
 // KQD-01 (lưới + lọc) + KQD-02 (nhập điểm gốc → quy đổi → ghi CDB). Ghi CSDL ĐÍCH qua
@@ -165,6 +170,20 @@ export default function CapNhatKQDT() {
   const [loc, setLoc] = useState<TabKQD>("all");
   const [moChuGiai, setMoChuGiai] = useState(false);
   const [moCongCu, setMoCongCu] = useState(false); // menu "Công cụ": nạp DAT · xuất Excel · xuất Sổ
+  // KQD-04 #77 (task 141): giải trình chung của khóa + mẫu + chuyển hàng loạt
+  const [gtChung, setGtChung] = useState("");
+  const [moGtChung, setMoGtChung] = useState(false);
+  const [mau, setMau] = useState<{ mau: string[]; phien_ban: number }>({ mau: [], phien_ban: 0 });
+  const [moQlMau, setMoQlMau] = useState(false);
+  const [mauNhap, setMauNhap] = useState<string[]>([]);
+  const [mauLoi, setMauLoi] = useState("");
+  const [mauServer, setMauServer] = useState<string[] | null>(null); // bản mới nhất khi 409 (để gộp tay)
+  const [chonGt, setChonGt] = useState<Set<string>>(new Set()); // HV Sở từ chối được tích để chuyển hàng loạt
+  const [moLo, setMoLo] = useState(false);
+  const [loTxt, setLoTxt] = useState("");
+  const [loGhiDe, setLoGhiDe] = useState(false);
+  const [loBusy, setLoBusy] = useState(false);
+  const [canhBao, setCanhBao] = useState(""); // thông báo VÀNG đứng lâu (không tự tắt) — cảnh báo chưa giải trình
   const [qHv, setQHv] = useState("");
   const [hoSo, setHoSo] = useState<HocVienKQD[] | null>(null);
   const [loadingHv, setLoadingHv] = useState(false);
@@ -207,6 +226,11 @@ export default function CapNhatKQDT() {
     luatKQD().then((r) => { if (r.mon_bat_buoc.length) setMonBatBuoc(r.mon_bat_buoc); }).catch(() => { /* giữ mặc định 5 môn */ });
   }, []);
 
+  useEffect(() => {
+    if (!targetKey) return;
+    dsMauGiaiTrinhKQD(targetKey).then(setMau).catch(() => { /* không có mẫu cũng không sao */ });
+  }, [targetKey]);
+
   const timer = useRef<number | undefined>(undefined);
   useEffect(() => {
     if (!targetKey) return;
@@ -241,7 +265,7 @@ export default function CapNhatKQDT() {
 
   function chonKhoa(k: KhoaKQD) {
     setKhoa(k); setMoGoiY(false); setQ(`${k.ten_kh} · ${k.ma_kh}`);
-    setLoc("all"); setQHv(""); setTrang(0); setNhap({}); setChon(new Set());
+    setLoc("all"); setQHv(""); setTrang(0); setNhap({}); setChon(new Set()); setChonGt(new Set()); setGiaiTrinh({});
     void taiHoSo(k, "all");
     taiGoiVaChoKx();
     getChuongTrinhKQD(k.ma_kh).then((r) => setCt(r.ct)).catch(() => setCt("cu"));
@@ -333,6 +357,77 @@ export default function CapNhatKQDT() {
     }
   }
 
+  // ── KQD-04 #77: mẫu giải trình ──
+  // Trả về null nếu lưu được, ngược lại là LÝ DO THẬT từ server. Mẫu bị người khác cập nhật (409) → nạp bản mới nhất
+  // vào `mauServer` để người dùng đối chiếu và gộp tay (bản nháp của mình được giữ nguyên).
+  async function luuDsMau(ds: string[]): Promise<string | null> {
+    try {
+      setMau(await luuMauGiaiTrinhKQD({ mau: ds, phien_ban: mau.phien_ban }, targetKey ?? undefined));
+      setMauServer(null);
+      return null;
+    } catch (e) {
+      const loi = e instanceof ApiLoi ? e.chiTiet : null;
+      if (loi && typeof loi === "object" && (loi as { loi?: string }).loi === "mau_da_doi") {
+        try {
+          const moi = await dsMauGiaiTrinhKQD(targetKey ?? undefined);
+          setMau(moi); setMauServer(moi.mau);
+        } catch { /* giữ nguyên, người dùng thử lại */ }
+      }
+      return e instanceof Error ? e.message : "Không lưu được mẫu.";
+    }
+  }
+  async function luuThanhMau() {
+    const t = gtChung.trim();
+    if (!t) { setToast("Chưa có nội dung để lưu thành mẫu."); return; }
+    if (t.length > 1000) { setCanhBao("Mẫu tối đa 1000 ký tự — rút gọn nội dung rồi lưu lại."); return; }
+    if (mau.mau.includes(t)) { setToast("Mẫu này đã có trong danh sách."); return; }
+    const loi = await luuDsMau([...mau.mau, t]);
+    if (loi === null) setToast("Đã lưu thành mẫu (theo cơ sở đích, dùng lại cho các khóa).");
+    else setCanhBao(`Không lưu được mẫu: ${loi}`);
+  }
+  function moQuanLyMau() { setMauNhap(mau.mau.slice()); setMauLoi(""); setMauServer(null); setMoQlMau(true); }
+  async function luuQuanLyMau() {
+    setMauLoi("");
+    if (mauNhap.some((m) => m.length > 1000)) { setMauLoi("Có mẫu dài hơn 1000 ký tự — rút gọn rồi lưu lại."); return; }
+    const loi = await luuDsMau(mauNhap);
+    if (loi === null) { setMoQlMau(false); setToast("Đã lưu danh sách mẫu giải trình."); }
+    else setMauLoi(loi);
+  }
+
+  // ── KQD-04 #77: giải trình + chuyển HV Sở từ chối → Đang giải trình HÀNG LOẠT ──
+  const tenTheoMa = (ma: string) => (hoSo ?? []).find((h) => h.ma_dk === ma)?.ho_ten ?? ma;
+  const giaiTrinhRieng = (h: HocVienKQD) => giaiTrinh[h.ma_dk] ?? h.giai_trinh ?? "";
+  function moHopLo() { setLoTxt(gtChung); setLoGhiDe(false); setMoLo(true); }
+  async function chuyenLo() {
+    const noiDung = loTxt.trim();
+    if (!noiDung || !khoa) return;
+    if (noiDung.length > 1000) return;
+    setLoBusy(true);
+    try {
+      // CHỈ gửi người đang hiện trong hộp (thuộc khóa đang xem) — không gửi mã còn sót từ khóa khác
+      const r = await giaiTrinhLoKQD({ ma_dk: hvChonGt.map((h) => h.ma_dk), noi_dung: noiDung, ghi_de_rieng: loGhiDe }, targetKey ?? undefined);
+      setMoLo(false); setChonGt(new Set());
+      setGiaiTrinh((c) => { const n = { ...c }; r.da_chuyen.forEach((m) => delete n[m]); return n; });   // bỏ cache cũ → lấy từ DB
+      setToast(tomTatKetQuaLo(r, tenTheoMa));
+      if (r.bo_qua.length > 0) {
+        setCanhBao(`Không chuyển ${r.bo_qua.length} học viên:\n` + chiTietBoQua(r.bo_qua, tenTheoMa).map((d) => `• ${d}`).join("\n"));
+      }
+      await taiHoSo(khoa);
+    } catch (e) {
+      setMoLo(false);
+      const loi = e instanceof ApiLoi ? e.chiTiet : null;
+      const khongRo = !(e instanceof ApiLoi)                                             // lỗi mạng phía trình duyệt: không biết đã tới server chưa
+        || (loi && typeof loi === "object" && (loi as { ketqua?: string }).ketqua === "khong_ro");
+      if (khongRo) {
+        // KHÔNG biết đã chuyển chưa: tải lại danh sách để nhân viên tự kiểm
+        setCanhBao("Không rõ kết quả — mất kết nối khi lưu. Danh sách đã được tải lại: kiểm tra trạng thái rồi mới gửi lại (gửi lại là an toàn, người đã chuyển sẽ được bỏ qua).");
+        await taiHoSo(khoa);
+      } else {
+        setCanhBao(e instanceof Error ? e.message : "Không chuyển được — chưa chuyển học viên nào.");
+      }
+    } finally { setLoBusy(false); }
+  }
+
   async function luu(h: HocVienKQD) {
     const nr = nhap[h.ma_dk] ?? gocNhap(h);
     const gio = parseGio(nr.gio_duong);
@@ -369,6 +464,9 @@ export default function CapNhatKQDT() {
     if (Object.keys(diem_goc).length === 0) { setToast("Chưa nhập điểm mới nào để lưu."); return; }
     if (thieu) { setToast("Môn chưa có điểm phải nhập đủ (không có điểm cũ để giữ)."); return; }
     const coGiu = Object.keys(giu).length > 0;
+    if ((h.tt_xuly === "14" || h.tt_xuly === "90") && gtChung.trim().length > 1000) {
+      setToast("Giải trình chung quá 1000 ký tự — rút gọn rồi lưu lại."); return;
+    }
     setLuuBusy(h.ma_dk); setToast("");
     try {
       const r = await capNhatKQD({
@@ -382,9 +480,15 @@ export default function CapNhatKQDT() {
         tg_bat_dau: ct_detail.tg_bat_dau || undefined,
         tg_ket_thuc: ct_detail.tg_ket_thuc || undefined,
         // KQD-04: chỉ gửi giải trình cho HV Sở từ chối/giải trình (null = không đụng cột)
-        giai_trinh: (h.tt_xuly === "14" || h.tt_xuly === "90") ? (giaiTrinh[h.ma_dk] ?? "") : null,
+        // `giaiTrinh[ma_dk]` chỉ có khi nhân viên đã mở/ sửa ô riêng; chưa có → undefined thì KHÔNG đụng cột (giữ giải trình đã lưu)
+        giai_trinh: (h.tt_xuly === "14" || h.tt_xuly === "90") ? (giaiTrinh[h.ma_dk] ?? null) : null,
+        // giải trình chung chỉ cho HV Sở từ chối / đang giải trình; server chỉ ghi khi cột đang trống (không đè riêng)
+        giai_trinh_chung: (h.tt_xuly === "14" || h.tt_xuly === "90") && gtChung.trim() ? gtChung.trim() : null,
       }, targetKey ?? undefined);
-      setToast(`Đã lưu ${h.ho_ten} — ${r.ket_luan === "dat" ? "ĐẠT" : "Không đạt"}${r.so_giay ? ` · ${r.so_giay}` : ""}`);
+      const tb = thongBaoSauLuu({ ten: h.ho_ten, ttTruoc: h.tt_xuly, ketLuan: r.ket_luan, ttMoi: r.tt_moi,
+        thieuGiaiTrinh: r.thieu_giai_trinh, canhBao: r.canh_bao, soGiay: r.so_giay });
+      if (tb.vang) { setCanhBao(tb.text); setToast(""); } else { setToast(tb.text); }
+      setGiaiTrinh((c) => { const n = { ...c }; delete n[h.ma_dk]; return n; });   // lần sau lấy lại từ DB
       if (khoa) await taiHoSo(khoa, loc);  // làm tươi trạng thái/điểm
       setNhap((cur) => { const c = { ...cur }; delete c[h.ma_dk]; return c; });
     } catch (e) {
@@ -423,6 +527,12 @@ export default function CapNhatKQDT() {
   const hvChon = (hoSo ?? []).filter((h) => chon.has(h.ma_dk) && h.tt_xuly === "12");
   const chonDuoc = trenTrang.filter((h) => h.tt_xuly === "12").map((h) => h.ma_dk);
   const chonHetTrang = hetGoiChuaGui && chonDuoc.length > 0 && chonDuoc.every((m) => chon.has(m));
+  // KQD-04 #77: chọn nhiều HV Sở từ chối (14) ở tab "Cần xử lý" để giải trình hàng loạt
+  const chonDuocGt = loc === "canxuly" ? trenTrang.filter((h) => h.tt_xuly === "14").map((h) => h.ma_dk) : [];
+  const chonHetTrangGt = chonDuocGt.length > 0 && chonDuocGt.every((m) => chonGt.has(m));
+  const hvChonGt = (hoSo ?? []).filter((h) => chonGt.has(h.ma_dk));
+  const coHvGiaiTrinh = (hoSo ?? []).some((h) => h.tt_xuly === "14" || h.tt_xuly === "90");
+  const xemTruoc = xemTruocLo(hvChonGt, giaiTrinhRieng);
 
   if (chuaChonDich) {
     return (
@@ -523,16 +633,22 @@ export default function CapNhatKQDT() {
               const dor = !bat && t.canhBao && n > 0;
               return (
                 <button key={t.key} title={t.tip} onClick={() => chonLoc(t.key)}
-                  className={"px-3 py-1 rounded-full text-[12.5px] border whitespace-nowrap transition-colors " +
+                  className={"px-2.5 py-1 rounded-full text-[12.5px] border whitespace-nowrap transition-colors " +
                     (bat ? "bg-kq text-white border-kq" : dor ? "bg-destructive/10 text-destructive border-destructive/50 font-semibold" : "border-border bg-card hover:bg-muted")}>
                   {t.nhan} <span className="tabular-nums opacity-80">{n.toLocaleString("vi-VN")}</span>
                 </button>
               );
             })}
             <button onClick={() => setMoChuGiai((v) => !v)} className="h-7 px-2 rounded-md text-[12px] text-muted-foreground hover:bg-muted underline underline-offset-2 whitespace-nowrap">Chú giải</button>
-            <div className="relative ml-auto">
+            {coHvGiaiTrinh && (
+              <button onClick={() => setMoGtChung((v) => !v)} aria-expanded={moGtChung}
+                className="ml-auto h-7 px-2.5 rounded-md border border-kq-border bg-kq-soft text-kq text-[12px] font-semibold hover:brightness-95 whitespace-nowrap">
+                Giải trình chung {gtChung.trim() && <span title="Đã có nội dung">●</span>} {moGtChung ? "▴" : "▾"}
+              </button>
+            )}
+            <div className={"relative " + (coHvGiaiTrinh ? "" : "ml-auto")}>
               <Icon name="search" className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <input value={qHv} onChange={(e) => { setQHv(e.target.value); setTrang(0); }} placeholder="Tìm tên / CCCD" className="w-52 text-[13px] pl-8 pr-2 py-1 rounded-lg border border-input bg-card focus:outline-none focus:border-kq" />
+              <input value={qHv} onChange={(e) => { setQHv(e.target.value); setTrang(0); }} placeholder="Tìm tên / CCCD" className="w-40 text-[13px] pl-8 pr-2 py-1 rounded-lg border border-input bg-card focus:outline-none focus:border-kq" />
             </div>
           </div>
         )}
@@ -548,6 +664,29 @@ export default function CapNhatKQDT() {
         )}
       </div>
 
+      {khoa && coHvGiaiTrinh && moGtChung && (
+        <div className="shrink-0 px-4 py-2 border-b border-kq-border bg-kq-soft/60 flex items-center gap-2 flex-wrap">
+          <textarea value={gtChung} onChange={(e) => setGtChung(e.target.value)} rows={1}
+            placeholder="Giải trình chung cho học viên Sở từ chối (giải trình riêng của từng người vẫn được ưu tiên)"
+            aria-label="Giải trình chung của khóa"
+            className="flex-1 min-w-[260px] h-9 text-[13px] px-2 py-1.5 rounded-lg border border-input bg-card focus:outline-none focus:border-kq resize-none" />
+          <select value="" onChange={(e) => { if (e.target.value !== "") setGtChung(mau.mau[Number(e.target.value)] ?? ""); }}
+            aria-label="Chọn mẫu giải trình" className="w-[230px] h-9 text-[13px] px-2 rounded-lg border border-input bg-card">
+            <option value="">— chọn mẫu ({mau.mau.length}) —</option>
+            {mau.mau.map((m, i) => <option key={i} value={i}>{m.length > 60 ? m.slice(0, 60) + "…" : m}</option>)}
+          </select>
+          <button onClick={() => void luuThanhMau()} disabled={gtChung.length > 1000} className="h-8 px-2 rounded-md border border-kq-border bg-card text-kq text-[12px] font-medium hover:brightness-95 whitespace-nowrap disabled:opacity-40">Lưu thành mẫu</button>
+          <button onClick={moQuanLyMau} className="h-8 px-2 rounded-md border border-border bg-card text-[12px] font-medium hover:bg-muted whitespace-nowrap">Quản lý mẫu</button>
+          <span className={"text-[11.5px] tabular-nums whitespace-nowrap " + (gtChung.length > 1000 ? "text-destructive font-semibold" : "text-muted-foreground")} title="Mẫu lưu theo cơ sở đích — không ghi tên hoặc số căn cước học viên">{gtChung.length}/1000{gtChung.length > 1000 ? " — quá dài" : ""}</span>
+        </div>
+      )}
+      {canhBao && (
+        <div role="alert" className="shrink-0 px-4 py-2 bg-warning/10 border-b border-warning/50 text-[12.5px] text-warning flex items-start gap-2">
+          <Icon name="warn" className="w-4 h-4 mt-0.5 shrink-0" />
+          <span className="font-medium whitespace-pre-line">{canhBao}</span>
+          <button onClick={() => setCanhBao("")} aria-label="Đóng cảnh báo" className="ml-auto shrink-0 font-bold text-warning hover:brightness-75">✕</button>
+        </div>
+      )}
       {toast && (
         <div className="shrink-0 px-4 py-1.5 bg-kq-soft border-b border-kq-border text-[12.5px] text-kq flex items-center gap-2">
           <Icon name="check" className="w-4 h-4" sw={3} /> {toast}
@@ -583,7 +722,11 @@ export default function CapNhatKQDT() {
                 <thead className="sticky top-0 z-10">
                   <tr className="bg-kq text-white text-left">
                     <th className="font-semibold px-2 py-1.5 w-10 text-center">
-                      {hetGoiChuaGui && chonDuoc.length > 0 ? (
+                      {loc === "canxuly" && chonDuocGt.length > 0 ? (
+                        <input type="checkbox" checked={chonHetTrangGt} aria-label="Chọn tất cả học viên Sở từ chối ở trang này"
+                          title="Chọn tất cả học viên Sở từ chối ở trang này"
+                          onChange={(e) => setChonGt((cur) => { const c = new Set(cur); chonDuocGt.forEach((m) => (e.target.checked ? c.add(m) : c.delete(m))); return c; })} />
+                      ) : hetGoiChuaGui && chonDuoc.length > 0 ? (
                         <input type="checkbox" checked={chonHetTrang} aria-label="Chọn tất cả học viên đã gửi Sở ở trang này"
                           title="Chọn tất cả học viên đã gửi Sở ở trang này"
                           onChange={(e) => setChon((cur) => { const c = new Set(cur); chonDuoc.forEach((m) => (e.target.checked ? c.add(m) : c.delete(m))); return c; })} />
@@ -657,7 +800,12 @@ export default function CapNhatKQDT() {
                     const gioKmDoi = !bangNhau(gioSai ? null : gioVal, h.gio_duong) || !bangNhau(kmVal, h.km_duong);
                     return (
                       <tr key={h.ma_dk} className="border-b border-border/80 hover:bg-kq-soft/40 align-top">
-                        <td className="px-2 py-2 text-center tabular-nums text-muted-foreground">{stt}</td>
+                        <td className="px-2 py-2 text-center tabular-nums text-muted-foreground">
+                          {loc === "canxuly" && h.tt_xuly === "14"
+                            ? <input type="checkbox" checked={chonGt.has(h.ma_dk)} aria-label={`Chọn ${h.ho_ten}`}
+                                onChange={(e) => setChonGt((cur) => { const c = new Set(cur); if (e.target.checked) c.add(h.ma_dk); else c.delete(h.ma_dk); return c; })} />
+                            : stt}
+                        </td>
                         <td className="px-2 py-2 font-medium truncate" title={h.ho_ten}>{h.ho_ten}<div className="text-[11px] text-muted-foreground tabular-nums">{h.ngay_sinh}</div>
                           {h.tt_xuly === "14" && h.ly_do_tu_choi && (
                             <div title={h.ly_do_tu_choi} className="text-[11px] font-normal text-destructive leading-tight mt-0.5 truncate">Sở: {h.ly_do_tu_choi}</div>
@@ -676,7 +824,7 @@ export default function CapNhatKQDT() {
                               if (hop.every((v) => v != null)) return hop.every((v) => (v as number) >= 5);
                               return h.ket_luan === "dat" ? true : h.ket_luan === "khong_dat" ? false : null;
                             })(),
-                            coGiaiTrinh: (giaiTrinh[h.ma_dk] ?? h.giai_trinh ?? "").trim() !== "",
+                            coGiaiTrinh: (giaiTrinh[h.ma_dk] ?? h.giai_trinh ?? "").trim() !== "" || gtChung.trim() !== "",
                           }))}
                         </td>
                         {MON5.map(cell)}
@@ -735,6 +883,105 @@ export default function CapNhatKQDT() {
           </>
         )}
       </div>
+
+      {/* KQD-04 #77 — thanh chuyển hàng loạt */}
+      {chonGt.size > 0 && (
+        <div className="shrink-0 mx-4 mb-2 rounded-lg border border-kq-border bg-kq-soft px-3 py-2 flex items-center gap-3 text-[13px]">
+          <span>Đã chọn <b className="tabular-nums">{chonGt.size.toLocaleString("vi-VN")}</b> học viên Sở từ chối</span>
+          <button onClick={() => setChonGt(new Set())} className="text-[12px] text-muted-foreground hover:text-foreground underline">Bỏ chọn</button>
+          <button onClick={moHopLo} className="ml-auto h-8 px-4 rounded-lg bg-kq text-white font-semibold text-[13px] hover:brightness-110">
+            Giải trình &amp; chuyển chờ kết xuất lại ({chonGt.size.toLocaleString("vi-VN")})
+          </button>
+        </div>
+      )}
+
+      {moLo && (
+        <div className="fixed inset-0 z-50 grid place-items-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => !loBusy && setMoLo(false)} />
+          <div role="dialog" aria-label="Giải trình và chuyển chờ kết xuất lại" className="relative w-[560px] max-w-[94vw] max-h-[86vh] bg-card rounded-xl shadow-2xl flex flex-col">
+            <div className="px-5 py-3 border-b border-border font-bold text-[15px]">Giải trình &amp; chuyển chờ kết xuất lại</div>
+            <div className="px-5 py-3 overflow-auto space-y-3 text-[13px]">
+              <div className="rounded-lg border border-border bg-muted/40 px-3 py-2">
+                Đã chọn <b>{hvChonGt.length}</b> · <span className="text-success font-semibold">đủ điều kiện {xemTruoc.du.length}</span> ·{" "}
+                <span className={(xemTruoc.boQua.length ? "text-warning" : "text-muted-foreground") + " font-semibold"}>bỏ qua {xemTruoc.boQua.length}</span>
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold text-muted-foreground">Nội dung giải trình <span className="font-normal">(áp cho mọi người được chuyển · ≤ 1000 ký tự)</span></label>
+                <textarea value={loTxt} onChange={(e) => setLoTxt(e.target.value)} rows={3} aria-label="Nội dung giải trình hàng loạt"
+                  className="mt-1 w-full text-[13px] px-2 py-1.5 rounded-lg border border-input bg-card focus:outline-none focus:border-kq" />
+                <div className={"mt-0.5 text-right text-[11.5px] tabular-nums " + (loTxt.length > 1000 ? "text-destructive font-semibold" : "text-muted-foreground")}>{loTxt.length}/1000{loTxt.length > 1000 ? " — quá dài, rút gọn mới chuyển được" : ""}</div>
+                {loTxt.trim() === "" && (
+                  <div className="mt-1 text-[12px] font-semibold text-destructive">Phải có nội dung giải trình mới chuyển được — học viên chưa giải trình thì không kết xuất được.</div>
+                )}
+              </div>
+              {xemTruoc.giuRieng > 0 && (
+                <div className="rounded-lg border border-kq-border bg-kq-soft px-3 py-2 text-[12.5px]">
+                  <b>{xemTruoc.giuRieng}</b> người đã có giải trình riêng — {loGhiDe ? <b>sẽ bị ghi đè</b> : <b>giữ nguyên</b>}.
+                  <label className="mt-1 flex items-center gap-1.5 cursor-pointer">
+                    <input type="checkbox" checked={loGhiDe} onChange={(e) => setLoGhiDe(e.target.checked)} /> Ghi đè giải trình riêng bằng nội dung này <span className="text-muted-foreground">(mặc định tắt)</span>
+                  </label>
+                </div>
+              )}
+              {xemTruoc.boQua.length > 0 && (
+                <div className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2">
+                  <div className="text-[12px] font-semibold text-warning mb-1">Sẽ KHÔNG chuyển (giữ nguyên trạng thái):</div>
+                  {xemTruoc.boQua.map((b) => <div key={b.hv.ma_dk} className="text-[12.5px]">• <b>{b.hv.ho_ten}</b> — {b.lyDo}</div>)}
+                </div>
+              )}
+              <div className="text-[12px] text-muted-foreground">Sau khi chuyển: học viên sang <b>Đã giải trình</b> — việc kết xuất lại làm ở <b>phần mềm CDB</b>. Tool không kết xuất. Server kiểm lại từng người (cả số giấy) trước khi chuyển.</div>
+            </div>
+            <div className="px-5 py-3 border-t border-border flex items-center gap-2">
+              <button onClick={() => setMoLo(false)} disabled={loBusy} className="ml-auto h-9 px-4 rounded-lg border border-border text-[13px] hover:bg-muted disabled:opacity-50">Hủy</button>
+              <button onClick={() => void chuyenLo()} disabled={loBusy || loTxt.trim() === "" || loTxt.length > 1000 || xemTruoc.du.length === 0}
+                className="h-9 px-5 rounded-lg bg-kq text-white font-semibold text-[13px] hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-1.5">
+                {loBusy && <Icon name="refresh" className="w-3.5 h-3.5 animate-spin" />} Chuyển {xemTruoc.du.length} học viên
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {moQlMau && (
+        <div className="fixed inset-0 z-50 grid place-items-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setMoQlMau(false)} />
+          <div role="dialog" aria-label="Quản lý mẫu giải trình" className="relative w-[640px] max-w-[94vw] max-h-[86vh] bg-card rounded-xl shadow-2xl flex flex-col">
+            <div className="px-5 py-3 border-b border-border flex items-baseline gap-2">
+              <span className="font-bold text-[15px]">Quản lý mẫu giải trình</span>
+              <span className="text-[12px] text-muted-foreground">theo cơ sở đích · tối đa 20 mẫu × 1000 ký tự</span>
+            </div>
+            <div className="px-5 pt-3 text-[12px] text-muted-foreground">Mẫu dùng chung cho cả cơ sở — <b>không ghi tên hoặc số căn cước học viên</b>.</div>
+            <div className="px-5 py-3 overflow-auto space-y-2">
+              {mauNhap.length === 0 && <div className="text-[13px] text-muted-foreground py-6 text-center">Chưa có mẫu nào. Bấm “+ Thêm mẫu”.</div>}
+              {mauNhap.map((m, i) => (
+                <div key={i} className="flex items-start gap-2">
+                  <span className="mt-2 w-5 text-right text-[12px] text-muted-foreground tabular-nums">{i + 1}</span>
+                  <textarea value={m} rows={2} aria-label={`Mẫu ${i + 1}`}
+                    onChange={(e) => setMauNhap((cur) => cur.map((x, k) => (k === i ? e.target.value : x)))}
+                    className="flex-1 text-[13px] px-2 py-1.5 rounded-lg border border-input bg-card focus:outline-none focus:border-kq" />
+                  <span className={"mt-2 w-14 text-right text-[11px] tabular-nums " + (m.length > 1000 ? "text-destructive font-semibold" : "text-muted-foreground")}>{m.length}/1000</span>
+                  <button onClick={() => setMauNhap((cur) => cur.filter((_, k) => k !== i))}
+                    className="mt-1 h-8 px-2 rounded-md border border-destructive/40 text-destructive text-[12px] hover:bg-destructive/5">Xóa</button>
+                </div>
+              ))}
+            </div>
+            {mauLoi && <div className="mx-5 mb-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-[12.5px] text-destructive">{mauLoi}</div>}
+            {mauServer && (
+              <div className="mx-5 mb-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-[12.5px]">
+                <div className="font-semibold text-warning mb-1">Danh sách mới nhất trên máy ({mauServer.length} mẫu) — đối chiếu, gộp vào bản nháp của bạn rồi bấm Lưu thay đổi:</div>
+                {mauServer.length === 0 ? <div className="text-muted-foreground">(trống)</div>
+                  : mauServer.map((m, i) => <div key={i} className="truncate" title={m}>{i + 1}. {m}</div>)}
+              </div>
+            )}
+            <div className="px-5 py-3 border-t border-border flex items-center gap-2">
+              <button onClick={() => { if (mauNhap.length >= 20) setMauLoi("Tối đa 20 mẫu — xóa bớt rồi thêm."); else setMauNhap((c) => [...c, ""]); }}
+                className="h-9 px-3 rounded-lg border border-kq-border bg-kq-soft text-kq text-[13px] font-semibold hover:brightness-95">+ Thêm mẫu</button>
+              <span className="text-[12px] text-muted-foreground tabular-nums">{mauNhap.length}/20 mẫu</span>
+              <button onClick={() => setMoQlMau(false)} className="ml-auto h-9 px-4 rounded-lg border border-border text-[13px] hover:bg-muted">Hủy</button>
+              <button onClick={() => void luuQuanLyMau()} className="h-9 px-5 rounded-lg bg-kq text-white font-semibold text-[13px] hover:brightness-110">Lưu thay đổi</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Drawer Chi tiết (phần phụ, phần lớn tự điền) */}
       {drawer && (() => {

@@ -62,10 +62,21 @@ export interface KhoaHoc {
   ma_loai_hs: number; // 1 = mô tô, 2 = ô tô
 }
 
+// Lỗi API: `.chiTiet` giữ nguyên `detail` của server (có thể là object {loi|ketqua, thong_bao,…}) để UI phân loại.
+export class ApiLoi extends Error {
+  chiTiet: unknown;
+  constructor(msg: string, chiTiet?: unknown) {
+    super(msg);
+    this.chiTiet = chiTiet;
+  }
+}
+
 async function json<T>(r: Response): Promise<T> {
   if (!r.ok) {
     const d = await r.json().catch(() => null);
-    throw new Error(d?.detail || `${r.status} ${r.statusText}`);
+    const dt = d?.detail;
+    const msg = typeof dt === "string" ? dt : (dt && typeof dt === "object" && typeof dt.thong_bao === "string" ? dt.thong_bao : "");
+    throw new ApiLoi(msg || `${r.status} ${r.statusText}`, dt);
   }
   return r.json() as Promise<T>;
 }
@@ -1130,6 +1141,7 @@ export interface CapNhatKQDIn {
   tg_bat_dau?: string;
   tg_ket_thuc?: string;
   giai_trinh?: string | null; // KQD-04: null = không đụng; '' = xóa; chuỗi = ghi
+  giai_trinh_chung?: string | null; // KQD-04 #77: giải trình chung của khóa — chỉ ghi khi cột đang trống
 }
 // KQD-04: lý do Sở từ chối (chỉ đọc) + giải trình hiện có.
 export const getGiaiTrinhKQD = (maDk: string, targetKey?: string) =>
@@ -1144,6 +1156,8 @@ export interface CapNhatKQDOut {
   so_giay: string | null;
   quy_doi: DiemGocKQD;
   ct: ChuongTrinh;
+  thieu_giai_trinh?: boolean; // KQD-04 #77: HV 14 Đạt mà chưa có giải trình → chưa kết xuất được
+  canh_bao?: string | null; // "chua_chuyen_90": đã lưu điểm nhưng bước chuyển sang 90 lỗi
 }
 export const capNhatKQD = (body: CapNhatKQDIn, targetKey?: string) =>
   fetch(`${BASE}/local/ketqua/cap-nhat?${qs({ target_key: targetKey })}`, {
@@ -1151,6 +1165,43 @@ export const capNhatKQD = (body: CapNhatKQDIn, targetKey?: string) =>
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(body),
   }).then(json<CapNhatKQDOut>);
+
+// ── KQD-04 #77 (task 137): giải trình + chuyển 14→90 HÀNG LOẠT, mẫu giải trình ──
+export interface GiaiTrinhLoBoQua {
+  ma_dk: string;
+  ly_do: string;
+  chi_tiet?: { ly_do: string[]; mon_thieu: string[] };
+}
+export interface GiaiTrinhLoKetQua {
+  ok: boolean;
+  da_chuyen: string[];
+  bo_qua: GiaiTrinhLoBoQua[];
+  giu_rieng: number;
+}
+export const giaiTrinhLoKQD = (
+  body: { ma_dk: string[]; noi_dung: string; ghi_de_rieng?: boolean },
+  targetKey?: string,
+) =>
+  fetch(`${BASE}/local/ketqua/giai-trinh-lo?${qs({ target_key: targetKey })}`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(body),
+  }).then(json<GiaiTrinhLoKetQua>);
+
+export interface MauGiaiTrinh {
+  mau: string[];
+  phien_ban: number;
+}
+export const dsMauGiaiTrinhKQD = (targetKey?: string) =>
+  fetch(`${BASE}/local/ketqua/mau-giai-trinh?${qs({ target_key: targetKey })}`, {
+    headers: authHeaders(),
+  }).then(json<MauGiaiTrinh>);
+export const luuMauGiaiTrinhKQD = (body: { mau: string[]; phien_ban: number | null }, targetKey?: string) =>
+  fetch(`${BASE}/local/ketqua/mau-giai-trinh?${qs({ target_key: targetKey })}`, {
+    method: "PUT",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(body),
+  }).then(json<MauGiaiTrinh>);
 
 // KQD-06: xóa điểm (reset HV 09/10 về chưa có điểm, TT='03'). 409 nếu HV không ở 09/10.
 export const xoaDiemKQD = (maDk: string, targetKey?: string) =>

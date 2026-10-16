@@ -45,7 +45,7 @@ export const TABS: TabDef[] = [
   { key: "canxuly", nhan: "Cần xử lý", canhBao: true,
     khop: (h) => h.tt_xuly === "14" || (h.tt_xuly === "90" && h.ket_luan !== "dat"),
     tip: "Sở từ chối + Đang giải trình nhưng không đạt (không kết xuất được)" },
-  { key: "dagui", nhan: "Đã gửi / Hoàn thành", khop: (h) => h.tt_xuly === "12" || h.tt_xuly === "13" },
+  { key: "dagui", nhan: "Đã gửi/Hoàn thành", khop: (h) => h.tt_xuly === "12" || h.tt_xuly === "13" },
 ];
 
 export function demTab(ds: HvTrangThai[] | null): Record<TabKQD, number> {
