@@ -127,7 +127,8 @@ _SQL_HV = (
     "SELECT A.MaDK, A.HoVaTen, A.NgaySinh, A.SoCMT, B.SoHoSo, "
     "B.HangGPLX, gp.MaHangMoi, B.TT_XuLy, B.KetLuanCSDT, "
     "B.DiemKQLyThuyet, B.DiemKQMoPhong, B.DiemKQHinh, B.DiemKQTienLui, B.DiemKQThucHanh, "
-    "B.TGThucHanhHinh, B.QDThucHanhHinh, B.TGThucHanhDuong, B.TongQDThucHanh, B.SoGiayCNTN "
+    "B.TGThucHanhHinh, B.QDThucHanhHinh, B.TGThucHanhDuong, B.TongQDThucHanh, B.SoGiayCNTN, "
+    "B.GiaiTrinh, B.LyDoTuChoiKQDT "
     "FROM dbo.NguoiLX_HoSo B JOIN dbo.NguoiLX A ON A.MaDK = B.MaDK "
     "LEFT JOIN dbo.DM_HangGPLX gp ON gp.MaHang = B.HangGPLX "
     "WHERE B.MaKhoaHoc = %s AND B.TrangThai = 1{loc} "
@@ -200,6 +201,9 @@ def ds_hoc_vien(
             },
             "gio_duong": _so2(r["TGThucHanhDuong"]),
             "km_duong": _so2(r["TongQDThucHanh"]),
+            # KQD-04 #77: lý do Sở từ chối + giải trình hiện ngay trên dòng lưới (không phải mở chi tiết)
+            "ly_do_tu_choi": ((r.get("LyDoTuChoiKQDT") or "").strip() or None),
+            "giai_trinh": ((r.get("GiaiTrinh") or "").strip() or None),
         }
         for r in rows
     ]
@@ -577,7 +581,7 @@ def _ngay(v: str):
 # (không tin cờ client). Dùng chung cho `/cap-nhat` và (task 137) `/giai-trinh-lo`.
 _SQL_14_SANG_90 = (
     "UPDATE dbo.NguoiLX_HoSo SET TT_XuLy='90', NgaySua=GETDATE() "
-    "WHERE MaDK=%s AND MaKhoaHoc=%s AND TT_XuLy='14' AND KetLuanCSDT=1 AND ISNULL(GiaiTrinh,'')<>''"
+    "WHERE MaDK=%s AND MaKhoaHoc=%s AND TT_XuLy='14' AND KetLuanCSDT=1 AND LTRIM(RTRIM(ISNULL(GiaiTrinh,'')))<>''"
 )
 _SQL_DOC_LAI_TT = "SELECT TT_XuLy, ISNULL(GiaiTrinh,'') AS GiaiTrinh FROM dbo.NguoiLX_HoSo WHERE MaDK=%s"
 
@@ -749,6 +753,174 @@ def cap_nhat(body: CapNhatIn, target_key: str | None = None,
         "quy_doi": kq.quy_doi_tron,
         "ct": ct,
     }
+
+
+# ── KQD-04 đổi (#77, task 137): giải trình + chuyển 14→90 HÀNG LOẠT, mẫu giải trình ──
+LO_TOI_DA = 200
+NOI_DUNG_TOI_DA = 1000
+
+_SQL_LO_DOC = (
+    "SELECT B.MaDK, B.MaKhoaHoc, B.MaCSDT, B.TT_XuLy, B.KetLuanCSDT, ISNULL(B.GiaiTrinh,'') AS GiaiTrinh, "
+    "B.HangGPLX, gp.MaHangMoi, B.DiemKQLyThuyet, B.DiemKQMoPhong, B.DiemKQHinh, B.DiemKQTienLui, "
+    "B.DiemKQThucHanh, B.TGThucHanhHinh, B.QDThucHanhHinh, B.TGThucHanhDuong, B.TongQDThucHanh, B.SoGiayCNTN "
+    "FROM dbo.NguoiLX_HoSo B LEFT JOIN dbo.DM_HangGPLX gp ON gp.MaHang = B.HangGPLX "
+    "WHERE B.TrangThai = 1 AND B.MaDK IN ({ph})"
+)
+# Giải trình riêng được GIỮ (chỉ ghi chung cho người cột đang trống) trừ khi tham số đầu = 1 (ghi_de_rieng).
+# Guard trong SQL: đúng HV 14 + Đạt — người nào đổi trạng thái giữa chừng thì không khớp, không bị ghi đè.
+_SQL_LO_GHI = (
+    "UPDATE dbo.NguoiLX_HoSo SET "
+    "GiaiTrinh = CASE WHEN %s = 1 OR LTRIM(RTRIM(ISNULL(GiaiTrinh,''))) = '' THEN %s ELSE GiaiTrinh END, "
+    "TT_XuLy = '90', NgaySua = GETDATE() "
+    "WHERE MaDK IN ({ph}) AND TT_XuLy = '14' AND KetLuanCSDT = 1"
+)
+_SQL_LO_DOC_LAI = "SELECT MaDK, TT_XuLy FROM dbo.NguoiLX_HoSo WHERE MaDK IN ({ph})"
+_KHONG_RO = {"ketqua": "khong_ro", "thong_bao": "Không rõ kết quả — kiểm tra lại danh sách trước khi gửi lại."}
+
+
+class GiaiTrinhLoIn(BaseModel):
+    ma_dk: list[str]
+    noi_dung: str
+    ghi_de_rieng: bool = False
+
+
+def phan_loai_lo(ma_dk: list[str], rows: dict[str, dict], ma_may: str | None) -> tuple[list[str], list[dict]]:
+    """THUẦN (không DB): tách lô thành (đủ điều kiện, bỏ qua kèm lý do). Một nguồn luật `hv_chua_du` với KQD-07."""
+    du: list[str] = []
+    bo: list[dict] = []
+    for ma in ma_dk:
+        r = rows.get(ma)
+        if r is None:
+            bo.append({"ma_dk": ma, "ly_do": "khong_tim_thay"})
+            continue
+        ma_hv = (r.get("MaCSDT") or "").strip()
+        if ma_may and ma_hv and ma_may != ma_hv:
+            bo.append({"ma_dk": ma, "ly_do": "khong_thuoc_co_so"})
+            continue
+        tt = (r.get("TT_XuLy") or "").strip()
+        if tt in ("12", "13"):
+            bo.append({"ma_dk": ma, "ly_do": "da_gui_hoac_hoan_thanh"})
+            continue
+        if tt == "90":
+            bo.append({"ma_dk": ma, "ly_do": "da_o_dang_giai_trinh"})     # gọi lại an toàn — không phải lỗi
+            continue
+        if tt != "14":
+            bo.append({"ma_dk": ma, "ly_do": "khong_con_o_so_tu_choi"})
+            continue
+        if _ket_luan(r.get("KetLuanCSDT")) != "dat":
+            bo.append({"ma_dk": ma, "ly_do": "khong_dat"})
+            continue
+        hv = {
+            "tt_xuly": tt, "ket_luan": "dat",
+            "diem": {"ly_thuyet": _diem(r.get("DiemKQLyThuyet")), "mo_phong": _diem(r.get("DiemKQMoPhong")),
+                     "hinh": _diem(r.get("DiemKQHinh")), "tien_lui": _diem(r.get("DiemKQTienLui")),
+                     "duong": _diem(r.get("DiemKQThucHanh"))},
+            "gio_san": r.get("TGThucHanhHinh"), "km_san": r.get("QDThucHanhHinh"),
+            "gio_duong": r.get("TGThucHanhDuong"), "km_duong": r.get("TongQDThucHanh"),
+        }
+        kq = ketqua_quydoi.hv_chua_du(hv)
+        ly_do = list(kq["ly_do"])
+        if not (r.get("SoGiayCNTN") or "").strip():
+            ly_do.append("thieu_so_giay")
+        if ly_do:
+            bo.append({"ma_dk": ma, "ly_do": "chua_du_diem", "chi_tiet": {"ly_do": ly_do, "mon_thieu": kq["mon_thieu"]}})
+            continue
+        du.append(ma)
+    return du, bo
+
+
+@router.post("/giai-trinh-lo")
+def giai_trinh_lo(body: GiaiTrinhLoIn, target_key: str | None = None,
+                  phien: Phien = Depends(require_session)) -> dict:
+    """Giải trình + chuyển HV Sở từ chối `14` → `90` HÀNG LOẠT (TDD §11D.13). Một giao dịch thật:
+    lỗi thì KHÔNG chuyển ai (502 `lo_loi`); mất kết nối đúng lúc COMMIT → 502 `khong_ro`. Gọi lại an toàn."""
+    ma_dk = list(dict.fromkeys(m.strip() for m in body.ma_dk if m and m.strip()))
+    if not ma_dk:
+        raise HTTPException(status_code=422, detail="Chưa chọn học viên nào.")
+    if len(ma_dk) > LO_TOI_DA:
+        raise HTTPException(status_code=422, detail=f"Tối đa {LO_TOI_DA} học viên một lượt.")
+    noi_dung = (body.noi_dung or "").strip()
+    if not noi_dung:
+        raise HTTPException(status_code=422, detail="Phải có nội dung giải trình mới chuyển được.")
+    if len(noi_dung) > NOI_DUNG_TOI_DA:
+        raise HTTPException(status_code=422, detail=f"Giải trình tối đa {NOI_DUNG_TOI_DA} ký tự.")
+
+    db = _db_dich(target_key)
+    ph = ", ".join(["%s"] * len(ma_dk))
+    da_chuyen: list[str] = []
+    giu = 0
+    try:
+        with sqlserver_conn_dich(db, autocommit=False, timeout=30) as conn:
+            cur = conn.cursor(as_dict=True)
+            cur.execute(_SQL_LO_DOC.format(ph=ph), tuple(ma_dk))
+            rows = {str(r["MaDK"]).strip(): r for r in cur.fetchall()}
+            ma_may = sync_helpers.get_ma_csdt_tu_qtht(conn)
+            du, bo_qua = phan_loai_lo(ma_dk, rows, ma_may)
+            if du:
+                ph_du = ", ".join(["%s"] * len(du))
+                try:
+                    cur.execute(_SQL_LO_GHI.format(ph=ph_du), (1 if body.ghi_de_rieng else 0, noi_dung, *du))
+                except Exception:
+                    conn.rollback()
+                    raise HTTPException(status_code=502, detail={
+                        "loi": "lo_loi", "da_chuyen": [],
+                        "thong_bao": "Không chuyển được — chưa chuyển học viên nào. Thử lại."})
+                try:
+                    conn.commit()
+                except Exception:
+                    raise HTTPException(status_code=502, detail=_KHONG_RO)
+                # đọc lại trạng thái thật (không tin rowcount)
+                try:
+                    cur.execute(_SQL_LO_DOC_LAI.format(ph=ph_du), tuple(du))
+                    sau = {str(r["MaDK"]).strip(): (r["TT_XuLy"] or "").strip() for r in cur.fetchall()}
+                except Exception:
+                    raise HTTPException(status_code=502, detail=_KHONG_RO)
+                for m in du:
+                    if sau.get(m) == "90":
+                        da_chuyen.append(m)
+                    else:
+                        bo_qua.append({"ma_dk": m, "ly_do": "khong_con_o_so_tu_choi"})   # đổi trạng thái giữa chừng
+    except HTTPException:
+        raise
+    except ConfigChuaDay as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=502, detail={
+            "loi": "lo_loi", "da_chuyen": [],
+            "thong_bao": "Không kết nối được CSDL đích — chưa chuyển học viên nào."})
+    # giu_rieng: số người ĐÃ CHUYỂN mà giải trình riêng được giữ (đếm sau khi đọc lại trạng thái)
+    if not body.ghi_de_rieng:
+        giu = sum(1 for m in da_chuyen if (rows[m].get("GiaiTrinh") or "").strip())
+    return {"ok": True, "da_chuyen": da_chuyen, "bo_qua": bo_qua, "giu_rieng": giu}
+
+
+class MauGiaiTrinhIn(BaseModel):
+    mau: list[str]
+    phien_ban: int | None = None
+
+
+def _khoa_co_so(target_key: str | None) -> str:
+    """Khóa lưu mẫu theo cơ sở đích: target_key, thiếu thì target đang chọn."""
+    return (target_key or config_store.get_sync_config().get("selected") or "mac_dinh").strip()
+
+
+@router.get("/mau-giai-trinh")
+def doc_mau_giai_trinh(target_key: str | None = None) -> dict:
+    """Mẫu giải trình của cơ sở đích + `phien_ban` (PUT gửi lại để phát hiện người khác vừa lưu)."""
+    return config_store.get_mau_giai_trinh(_khoa_co_so(target_key))
+
+
+@router.put("/mau-giai-trinh")
+def luu_mau_giai_trinh(body: MauGiaiTrinhIn, target_key: str | None = None) -> dict:
+    """Thay TOÀN BỘ danh sách mẫu (sửa/xóa/thêm gom một lần). Rỗng/trùng bị loại; >20 mẫu hoặc >1000 ký tự →
+    422 nêu rõ; `phien_ban` lệch → 409 `mau_da_doi`."""
+    try:
+        return config_store.set_mau_giai_trinh(_khoa_co_so(target_key), body.mau, body.phien_ban)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except config_store.MauDaDoi:
+        raise HTTPException(status_code=409, detail={
+            "loi": "mau_da_doi", "thong_bao": "Mẫu vừa được người khác cập nhật — tải lại danh sách."})
 
 
 # ── KQD-06: Xóa điểm (reset HV về chưa có điểm) — chỉ HV chưa kết xuất (09/10) ──

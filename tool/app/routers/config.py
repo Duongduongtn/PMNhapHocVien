@@ -51,8 +51,8 @@ def put_config(cfg: ConfigIn) -> dict:
     GỘP vào cấu hình đã có: chỉ ghi đè các trường kết nối của `ConfigIn`, giữ nguyên khóa khác trong
     `config.enc` (cấu hình Sync, chương trình KQĐT theo khóa `kqd_chuong_trinh`, …). Trước đây ghi đè
     toàn bộ nên lưu khối ① làm rơi các khóa đó."""
-    saved = config_store.load_config()
-    config_store.save_config({**saved, **_resolve_secrets(cfg.model_dump())})
+    moi = _resolve_secrets(cfg.model_dump())
+    config_store.sua_config(lambda data: data.update(moi))   # đọc-sửa-ghi trong khóa (KQD-04 #77)
     return config_store.masked_config()
 
 
@@ -67,10 +67,10 @@ def put_co_so(body: CoSoIn) -> dict:
 
     GÁC PHIÊN (khác `PUT /local/config` là bước mồi lần đầu): tên này đi vào file nộp ra ngoài, chỉ
     người đã đăng nhập tool được sửa."""
-    data = config_store.load_config()
-    data["co_quan_chu_quan"] = body.co_quan_chu_quan.strip()[:200]
-    data["ten_co_so_dao_tao"] = body.ten_co_so_dao_tao.strip()[:200]
-    config_store.save_config(data)
+    def _sua(data: dict) -> None:
+        data["co_quan_chu_quan"] = body.co_quan_chu_quan.strip()[:200]
+        data["ten_co_so_dao_tao"] = body.ten_co_so_dao_tao.strip()[:200]
+    config_store.sua_config(_sua)
     return config_store.masked_config()
 
 

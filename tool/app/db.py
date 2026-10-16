@@ -74,13 +74,14 @@ def _params_dich(database: str) -> dict:
 
 
 @contextmanager
-def sqlserver_conn_dich(database: str, autocommit: bool = True):
+def sqlserver_conn_dich(database: str, autocommit: bool = True, timeout: int = 0):
     """Mở CONNECTION tới CSDL đích (database truyền vào). Mỗi usp_* ở CDB tự
     BEGIN/COMMIT nên để autocommit; đồng bộ sinh MaDK + INSERT giữ trong một
     connection giống luồng nạp."""
     import pymssql  # lazy import
 
-    conn = pymssql.connect(login_timeout=5, charset="UTF-8", autocommit=autocommit, **_params_dich(database))
+    extra = {"timeout": int(timeout)} if timeout and timeout > 0 else {}   # timeout truy vấn (giây); 0 = không giới hạn
+    conn = pymssql.connect(login_timeout=5, charset="UTF-8", autocommit=autocommit, **extra, **_params_dich(database))
     try:
         yield conn
     finally:

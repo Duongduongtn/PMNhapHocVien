@@ -10,6 +10,8 @@ Mật khẩu SQL Server + API key VPS KHÔNG bao giờ ghi ra dạng thường v
 from __future__ import annotations
 
 import json
+import os
+import threading
 from typing import Any
 
 from cryptography.fernet import Fernet
@@ -42,11 +44,28 @@ def load_config() -> dict[str, Any]:
     return json.loads(raw.decode("utf-8"))
 
 
+# KQD-04 #77 (TDD §11D.13): ghi cấu hình có KHÓA + ghi file tạm rồi thay (`os.replace`) để hai thao tác lưu
+# trùng giờ (vd lưu mẫu giải trình lúc tích CŨ/MỚI) không làm mất thay đổi của nhau hay để lại file cụt.
+_LOCK = threading.RLock()
+
+
 def save_config(data: dict[str, Any]) -> None:
-    """Mã hóa + ghi cấu hình xuống đĩa."""
-    _fernet()  # bảo đảm CONFIG_DIR + key tồn tại
-    token = _fernet().encrypt(json.dumps(data, ensure_ascii=False).encode("utf-8"))
-    CONFIG_FILE.write_bytes(token)
+    """Mã hóa + ghi cấu hình xuống đĩa (nguyên tử: file tạm → os.replace)."""
+    with _LOCK:
+        _fernet()  # bảo đảm CONFIG_DIR + key tồn tại
+        token = _fernet().encrypt(json.dumps(data, ensure_ascii=False).encode("utf-8"))
+        tam = CONFIG_FILE.with_name(CONFIG_FILE.name + ".tmp")
+        tam.write_bytes(token)
+        os.replace(tam, CONFIG_FILE)
+
+
+def sua_config(ham) -> Any:
+    """Đọc → `ham(data)` sửa tại chỗ → ghi, TRONG một khóa (tránh mất cập nhật khi hai luồng cùng sửa)."""
+    with _LOCK:
+        data = load_config()
+        kq = ham(data)
+        save_config(data)
+        return kq
 
 
 def masked_config() -> dict[str, Any]:
@@ -98,25 +117,25 @@ def save_sync_config(
     """Ghi cấu hình Sync vào config.enc (giữ nguyên các khóa cấu hình Nạp).
 
     targets: list dict {key, name, database}. Trả về cấu hình Sync đã lưu."""
-    data = load_config()
-    data["sync_targets"] = [
-        {
-            "key": str(t["key"]).strip(),
-            "name": str(t.get("name", t["key"])).strip(),
-            "database": str(t.get("database", "")).strip(),
+    def _sua(data: dict) -> None:
+        data["sync_targets"] = [
+            {
+                "key": str(t["key"]).strip(),
+                "name": str(t.get("name", t["key"])).strip(),
+                "database": str(t.get("database", "")).strip(),
+            }
+            for t in targets
+        ]
+        keys = {t["key"] for t in data["sync_targets"]}
+        data["sync_selected"] = selected if selected in keys else (
+            data["sync_targets"][0]["key"] if data["sync_targets"] else ""
+        )
+        opts = options or {}
+        data["sync_options"] = {
+            "tt_xuly_force": (opts.get("tt_xuly_force") or SYNC_TT_XULY_MAC_DINH),
+            "update_tong_so_hv": bool(opts.get("update_tong_so_hv", True)),
         }
-        for t in targets
-    ]
-    keys = {t["key"] for t in data["sync_targets"]}
-    data["sync_selected"] = selected if selected in keys else (
-        data["sync_targets"][0]["key"] if data["sync_targets"] else ""
-    )
-    opts = options or {}
-    data["sync_options"] = {
-        "tt_xuly_force": (opts.get("tt_xuly_force") or SYNC_TT_XULY_MAC_DINH),
-        "update_tong_so_hv": bool(opts.get("update_tong_so_hv", True)),
-    }
-    save_config(data)
+    sua_config(_sua)   # đọc-sửa-ghi TRONG khóa (KQD-04 #77)
     return get_sync_config()
 
 
@@ -132,12 +151,59 @@ def get_kqd_chuong_trinh(ma_kh: str) -> str:
 
 
 def set_kqd_chuong_trinh(ma_kh: str, ct: str) -> str:
-    data = load_config()
-    m = dict(data.get("kqd_chuong_trinh") or {})
-    m[(ma_kh or "").strip()] = "moi" if ct == "moi" else "cu"
-    data["kqd_chuong_trinh"] = m
-    save_config(data)
+    def _sua(data: dict) -> None:
+        m = dict(data.get("kqd_chuong_trinh") or {})
+        m[(ma_kh or "").strip()] = "moi" if ct == "moi" else "cu"
+        data["kqd_chuong_trinh"] = m
+    sua_config(_sua)
     return get_kqd_chuong_trinh(ma_kh)
+
+
+# --- Mẫu giải trình (KQD-04 #77) — lưu THEO CƠ SỞ ĐÍCH (target_key), phía tool ---------------
+MAU_TOI_DA = 20
+MAU_DO_DAI_TOI_DA = 1000
+
+
+class MauDaDoi(Exception):
+    """`phien_ban` client gửi lệch bản đang lưu — người khác vừa lưu mẫu."""
+
+
+def chuan_hoa_mau(mau: list[str]) -> list[str]:
+    """Bỏ mẫu rỗng/trùng (giữ thứ tự), cắt khoảng trắng. Quá 20 mẫu hoặc 1 mẫu > 1000 ký tự → ValueError
+    (từ chối rõ ràng, KHÔNG cắt âm thầm)."""
+    out: list[str] = []
+    for m in mau or []:
+        t = (m or "").strip()
+        if not t:
+            continue
+        if len(t) > MAU_DO_DAI_TOI_DA:
+            raise ValueError(f"Mẫu giải trình tối đa {MAU_DO_DAI_TOI_DA} ký tự.")
+        if t not in out:
+            out.append(t)
+    if len(out) > MAU_TOI_DA:
+        raise ValueError(f"Tối đa {MAU_TOI_DA} mẫu giải trình — xóa bớt rồi lưu lại.")
+    return out
+
+
+def get_mau_giai_trinh(target_key: str) -> dict[str, Any]:
+    d = (load_config().get("mau_giai_trinh") or {}).get((target_key or "").strip()) or {}
+    return {"mau": list(d.get("mau") or []), "phien_ban": int(d.get("phien_ban") or 0)}
+
+
+def set_mau_giai_trinh(target_key: str, mau: list[str], phien_ban: int | None) -> dict[str, Any]:
+    ds = chuan_hoa_mau(mau)
+    k = (target_key or "").strip()
+
+    def _sua(data: dict) -> None:
+        tat_ca = dict(data.get("mau_giai_trinh") or {})
+        cu = tat_ca.get(k) or {}
+        pb_cu = int(cu.get("phien_ban") or 0)
+        if phien_ban is not None and int(phien_ban) != pb_cu:
+            raise MauDaDoi()
+        tat_ca[k] = {"mau": ds, "phien_ban": pb_cu + 1}
+        data["mau_giai_trinh"] = tat_ca
+    sua_config(_sua)
+    return get_mau_giai_trinh(k)
 
 
 def get_sync_target(key: str | None = None) -> dict[str, Any] | None:
