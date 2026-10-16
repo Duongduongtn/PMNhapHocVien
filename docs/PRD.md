@@ -930,7 +930,7 @@
 
 #### [KQD-07] Kiểm trước kết xuất (theo từng khóa, chỉ đọc)
 
-**Trạng thái:** ⏳ Todo — yêu cầu đổi 16/10/2026 (CHANGES #77): xét thêm HV `90`. *Phần đã làm trước đó (✅ Done):* task 119 (backend) + task 120 (UI) xong 12/10/2026: luật `hv_chua_du` + `GET /local/ketqua/kiem-truoc` + `GET /local/ketqua/luat`, khung "Kiểm trước kết xuất" ở màn Cập nhật KQĐT; tool 693 pytest · webui 65 vitest · Playwright 5 ca với API giả (chưa chạy UI với DB thật).
+**Trạng thái:** 🔄 In Progress — task 139 (backend `kiem-truoc` xét `90` + `14` Đạt, 3 lý do mới) **xong 16/10/2026** (940 pytest pass, review-nghiepvu đủ); UI (task 140–142) chưa làm. Yêu cầu đổi 16/10/2026 (CHANGES #77): xét thêm HV `90`. *Phần đã làm trước đó (✅ Done):* task 119 (backend) + task 120 (UI) xong 12/10/2026: luật `hv_chua_du` + `GET /local/ketqua/kiem-truoc` + `GET /local/ketqua/luat`, khung "Kiểm trước kết xuất" ở màn Cập nhật KQĐT; tool 693 pytest · webui 65 vitest · Playwright 5 ca với API giả (chưa chạy UI với DB thật).
 **Story:** Là nhân viên nạp DB, trước khi sang phần mềm CDB cũ bấm kết xuất, tôi muốn một danh sách các học viên của khóa còn thiếu điểm, thiếu giờ thực hành hoặc thiếu kết luận, để sửa hết một lượt rồi mới kết xuất, không phải gửi Sở xong mới phát hiện thiếu rồi mở khóa sửa lại.
 
 **Done khi:**
