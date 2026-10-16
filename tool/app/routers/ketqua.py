@@ -31,10 +31,22 @@ router = APIRouter(prefix="/local/ketqua", tags=["ketqua"])
 # "Còn sót kết xuất" của KQD-03 = đã cập nhật chưa kết xuất = dùng lại nhóm "capnhat" (09/10).
 _NHOM_TT: dict[str, tuple[str, ...]] = {
     "dangky": ("03", "04"),      # Đã đăng ký khóa học
-    "capnhat": ("09", "10"),     # Đã cập nhật KQ (Đạt 09 / Không đạt 10) — cũng là "còn sót kết xuất" (KQD-03)
     "tuchoi": ("14",),           # Sở từ chối
     "giaitrinh": ("90",),        # Đang giải trình
     "ketxuat": ("12",),          # Đã kết xuất gửi Sở (KQD-03 — chỉ xem)
+}
+
+# Nhóm CÓ ĐIỀU KIỆN (KQD-04 đổi #77, TDD §11D.13): tuple mã không biểu diễn được "90 mà Đạt". Một nguồn cho
+# ĐẾM theo khóa (`/khoa`) và LỌC lưới (`/hoc-vien`). `{a}` = bí danh bảng NguoiLX_HoSo.
+#  capnhat  = "còn sót kết xuất" KQD-03: 09/10 + 90 Đạt (HV 90 Không đạt/trống kết luận KHÔNG kết xuất được)
+#  chokx    = tab "Chờ kết xuất": 09 + 90 Đạt          · khongdat = tab "Không đạt": 10
+#  canxuly  = tab "Cần xử lý": 14 + 90 Không đạt/trống kết luận · dagui = tab "Đã gửi / Hoàn thành": 12/13
+_NHOM_DK: dict[str, str] = {
+    "capnhat": "({a}.TT_XuLy IN ('09','10') OR ({a}.TT_XuLy = '90' AND {a}.KetLuanCSDT = 1))",
+    "chokx": "({a}.TT_XuLy = '09' OR ({a}.TT_XuLy = '90' AND {a}.KetLuanCSDT = 1))",
+    "khongdat": "({a}.TT_XuLy = '10')",
+    "canxuly": "({a}.TT_XuLy = '14' OR ({a}.TT_XuLy = '90' AND ({a}.KetLuanCSDT IS NULL OR {a}.KetLuanCSDT = 0)))",
+    "dagui": "({a}.TT_XuLy IN ('12','13'))",
 }
 
 
@@ -73,13 +85,23 @@ def ds_khoa(q: str = "", target_key: str | None = None) -> list[dict]:
             f"AND h.TrangThai = 1 AND h.TT_XuLy IN ({ds}))"
         )
 
+    def _dem_dk(nhom: str) -> str:
+        return (
+            "(SELECT COUNT(*) FROM dbo.NguoiLX_HoSo h WHERE h.MaKhoaHoc = k.MaKH "
+            f"AND h.TrangThai = 1 AND {_NHOM_DK[nhom].format(a='h')})"
+        )
+
     sql = (
         "SELECT TOP 50 k.MaKH, k.TenKH, k.HangGPLX, "
         "CONVERT(varchar(10), k.NgayKG, 103) AS NgayKG, "
         "CONVERT(varchar(10), k.NgayBG, 103) AS NgayBG, "
         "CONVERT(varchar(10), k.NgayThi, 103) AS NgayThi, "
         + _dem(_NHOM_TT["dangky"]) + " AS dem_dangky, "
-        + _dem(_NHOM_TT["capnhat"]) + " AS dem_capnhat, "
+        + _dem_dk("capnhat") + " AS dem_capnhat, "
+        + _dem_dk("chokx") + " AS dem_chokx, "
+        + _dem_dk("khongdat") + " AS dem_khongdat, "
+        + _dem_dk("canxuly") + " AS dem_canxuly, "
+        + _dem_dk("dagui") + " AS dem_dagui, "
         + _dem(_NHOM_TT["tuchoi"]) + " AS dem_tuchoi, "
         + _dem(_NHOM_TT["giaitrinh"]) + " AS dem_giaitrinh, "
         + _dem(_NHOM_TT["ketxuat"]) + " AS dem_ketxuat "
@@ -112,6 +134,10 @@ def ds_khoa(q: str = "", target_key: str | None = None) -> list[dict]:
             "dem": {
                 "dangky": r["dem_dangky"],
                 "capnhat": r["dem_capnhat"],
+                "chokx": r["dem_chokx"],
+                "khongdat": r["dem_khongdat"],
+                "canxuly": r["dem_canxuly"],
+                "dagui": r["dem_dagui"],
                 "tuchoi": r["dem_tuchoi"],
                 "giaitrinh": r["dem_giaitrinh"],
                 "ketxuat": r["dem_ketxuat"],
@@ -152,12 +178,14 @@ def _ket_luan(v) -> str | None:
     return "dat" if int(v) == 1 else "khong_dat"
 
 
-def _doc_hv_khoa(ma_kh: str, nhom: tuple[str, ...] | None, target_key: str | None) -> list[dict]:
+def _doc_hv_khoa(ma_kh: str, nhom: tuple[str, ...] | str | None, target_key: str | None) -> list[dict]:
     """Đọc HV của 1 khóa ở DB đích, lọc theo tập TT_XuLy (None = tất cả). Dùng chung /hoc-vien + /kiem-truoc."""
     db = _db_dich(target_key)
     params: list = [ma_kh]
     loc = ""
-    if nhom:
+    if isinstance(nhom, str):                      # khóa của _NHOM_DK — nhóm có điều kiện (KQD-04 #77)
+        loc = " AND " + _NHOM_DK[nhom].format(a="B")
+    elif nhom:
         loc = " AND B.TT_XuLy IN (" + ", ".join(["%s"] * len(nhom)) + ")"
         params.extend(nhom)
     try:
@@ -179,7 +207,8 @@ def ds_hoc_vien(
 
     Tìm nhanh tên/CCCD lọc phía client (như TraCuuCDB). Trả về cả HV đã kết xuất/hoàn thành
     (12/13) khi 'all' để lưới hiện dòng chỉ-đọc (KQD-02 khóa sửa)."""
-    rows = _doc_hv_khoa(ma_kh, _NHOM_TT.get(trang_thai), target_key)
+    nhom = trang_thai if trang_thai in _NHOM_DK else _NHOM_TT.get(trang_thai)
+    rows = _doc_hv_khoa(ma_kh, nhom, target_key)
     return [
         {
             "ma_dk": r["MaDK"],
@@ -215,7 +244,7 @@ def kiem_truoc(ma_kh: str = Query(..., min_length=1), target_key: str | None = N
 
     Chỉ HV TT_XuLy 03/04/09/10 (12/13/14/90 không xét). Hạng mô tô không nhập KQĐT → không xét,
     đếm riêng ở `mo_to_bo_qua`. Luật ở `ketqua_quydoi.hv_chua_du` (một nguồn với KQD-02)."""
-    rows = _doc_hv_khoa(ma_kh, _NHOM_TT["dangky"] + _NHOM_TT["capnhat"], target_key)
+    rows = _doc_hv_khoa(ma_kh, _NHOM_TT["dangky"] + ("09", "10"), target_key)   # task 139 sẽ thêm 90
     thieu: list[dict] = []
     dem = {k: 0 for k in (ketqua_quydoi.LY_DO_CHUA_CO_DIEM, ketqua_quydoi.LY_DO_THIEU_MON,
                           ketqua_quydoi.LY_DO_THIEU_GIO_KM, ketqua_quydoi.LY_DO_THIEU_KET_LUAN)}
