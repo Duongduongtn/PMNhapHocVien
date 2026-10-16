@@ -8,6 +8,7 @@ import { ODate } from "../../components/ODate";
 import { ComboLoc } from "../../components/ComboLoc";
 import { boDau, nghiSaiChinhTa, ymdToVN } from "../../lib/format";
 import { tachDiaChiGoc, lamTuoiNhapDiaChi } from "../../lib/diachi";
+import { IN_GPLX_NHAN, IN_GPLX_THU_TU, ghiChuMacDinh, inGplxMacDinh, laInGplx, type InGplx } from "./inGplx";
 import {
   getKhoaHoc,
   getGiayTo,
@@ -56,6 +57,7 @@ function vnToYmd(v: string): string {
 }
 
 interface Nhap {
+  chonInGplx?: InGplx; // "Chọn in GPLX" đã chọn; undefined = dùng mặc định theo hạng khóa (mô tô 3 / ô tô 2)
   diaChi: DiaChiMoi | null; // NAP-03: operator map/chọn tay — bắt buộc mới nạp được
   chiTiet: string;
   noiCap?: string; // mã Sở GTVT (nơi cấp); operator sửa khi suy từ CCCD sai (BUG-10)
@@ -105,6 +107,7 @@ function goiNhap(n: Nhap) {
     tick_json: n.tick ? JSON.stringify(n.tick) : null,
     jp2_b64: n.jp2,
     anh_preview: n.anhPreview,
+    chon_in_gplx: n.chonInGplx ?? null, // null = theo mặc định của hạng khóa
   };
 }
 
@@ -575,7 +578,7 @@ export default function NapHoSo() {
     setXacNhanXoaNhap(false);
     try {
       const d = await nhapDoc(uuid);
-      const co = d.dia_chi_json || d.chi_tiet || d.jp2_b64 || d.anh_preview || d.tick_json || d.noi_cap || d.ngay_cap;
+      const co = d.dia_chi_json || d.chi_tiet || d.jp2_b64 || d.anh_preview || d.tick_json || d.noi_cap || d.ngay_cap || d.chon_in_gplx;
       if (!co) return; // chưa có nháp bền → để prefill client (NAP-03) lo ô chi tiết
       setNhap((prev) => {
         const cu = prev[uuid];
@@ -592,6 +595,7 @@ export default function NapHoSo() {
           jp2: d.jp2_b64 ?? cu?.jp2 ?? null,
           anhPreview: d.anh_preview ?? cu?.anhPreview ?? null,
           tick,
+          chonInGplx: laInGplx(d.chon_in_gplx) ? d.chon_in_gplx : cu?.chonInGplx,
         } };
       });
     } catch { /* chưa có nháp / lỗi mạng → dùng prefill client */ }
@@ -669,6 +673,7 @@ export default function NapHoSo() {
       noi_tt_ma_dvql: n.diaChi.ma_dvql,
       giay_to_tick: tick,
       anh_jp2_b64: n.jp2,
+      chon_in_gplx: n.chonInGplx ?? inGplxMacDinh(khoa.hang_gplx), // gửi đúng giá trị đang hiện trên ô "Chọn in GPLX"
     };
   };
 
@@ -886,6 +891,22 @@ export default function NapHoSo() {
                       />
                     </div>
 
+                    </div>
+
+                    {/* Chọn in GPLX — điền sẵn theo hạng khóa (mô tô → không thời hạn, ô tô → có thời hạn), sửa được */}
+                    <div className="rounded-lg border border-border bg-card p-4">
+                      <label className="field-label" htmlFor="chon-in-gplx">
+                        Chọn in GPLX <span className="text-[11px] font-normal text-muted-foreground">(điền sẵn theo hạng của khóa)</span>
+                      </label>
+                      <select
+                        id="chon-in-gplx"
+                        className="field-input mt-1"
+                        value={layNhap(selRow.uuid).chonInGplx ?? inGplxMacDinh(khoa?.hang_gplx)}
+                        onChange={(e) => capNhatNhap(selRow.uuid, { chonInGplx: Number(e.target.value) as InGplx })}
+                      >
+                        {IN_GPLX_THU_TU.map((v) => <option key={v} value={v}>{IN_GPLX_NHAN[v]}</option>)}
+                      </select>
+                      <p className="mt-1 text-[11.5px] text-muted-foreground">{ghiChuMacDinh(khoa?.hang_gplx)}</p>
                     </div>
 
                     {/* Ngày cấp + Nơi cấp căn cước — điền sẵn từ hồ sơ VPS, operator sửa được (CHANGES #43) */}

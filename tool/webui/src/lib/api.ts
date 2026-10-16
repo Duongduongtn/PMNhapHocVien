@@ -448,6 +448,8 @@ export interface NapIn {
   chi_tiet_ct?: string;
   giay_to_tick: number[];
   anh_jp2_b64?: string | null;
+  // "Chọn in GPLX": 1 ghép · 2 có thời hạn · 3 không thời hạn. Bỏ trống → server mặc định theo hạng khóa (mô tô 3 / ô tô 2).
+  chon_in_gplx?: 1 | 2 | 3;
 }
 
 export interface NapKetQua {
@@ -542,6 +544,7 @@ export interface NhapChuanBi {
   jp2_b64: string | null;
   anh_preview: string | null;
   updated_at: string | null;
+  chon_in_gplx?: number | null; // "Chọn in GPLX" đã chọn (1/2/3); null = theo mặc định của hạng
 }
 
 // Cờ NHẸ (không kèm ảnh) để vẽ 2 chip cả lưới. Danh sách rỗng → không gọi mạng.
