@@ -3,7 +3,7 @@ import {
   DS_HANG_GPLX, bangMoi, docBang, duocMienLyThuyet, gomBang, khoaHang, loiBang, soGplxLa, tachKhoaHang, tenHang, trungHangDangKy,
 } from "./gplxDaCo";
 
-const b = (over = {}) => ({ ...bangMoi(), hang: "B2", so: "790000000123", ...over });
+const b = (over = {}) => ({ ...bangMoi(), hang: "B2", so: "790000000123", ngay_tt: "15/08/2012", ngay_cap: "27/04/2018", ...over });
 
 describe("bảng hạng GPLX", () => {
   it("nhãn luật mới lưu đúng mã DM_HangGPLX", () => {
@@ -70,7 +70,9 @@ describe("thông báo nghiệp vụ", () => {
     expect(soGplxLa("")).toBe(false);
   });
   it("lỗi chặn: thiếu hạng, số, ngày sai; bằng mô tô bỏ qua hết hạn", () => {
-    expect(loiBang(bangMoi())).toEqual(["Chưa chọn hạng", "Chưa nhập số GPLX"]);
+    expect(loiBang(bangMoi())).toEqual(["Chưa chọn hạng", "Chưa nhập số GPLX", "Chưa nhập ngày trúng tuyển", "Chưa nhập ngày cấp"]);
+    expect(loiBang(b({ ngay_cap: "01/01/2010" }))).toEqual(["Ngày cấp phải sau ngày trúng tuyển"]);
+    expect(loiBang(b({ ngay_hh: "27/04/2018" }))).toEqual(["Ngày hết hạn phải sau ngày cấp"]);
     expect(loiBang(b({ ngay_cap: "27/04" }))).toEqual(["Ngày cấp chưa đúng dd/mm/yyyy"]);
     expect(loiBang(b({ hang: "A1", ngay_hh: "27" }))).toEqual([]);
     expect(loiBang(b())).toEqual([]);

@@ -14,7 +14,7 @@ client = TestClient(app)
 _HV = {"ho_ten": "NGUYỄN VĂN AN", "ngay_sinh": "20000101", "gioi_tinh": "M", "so_cmt": "079200000001",
        "noi_tt_ma_dvhc": "00097"}
 _TEN = {"HoVaTen": "NGUYỄN VĂN AN", "HoVaTenIn": "NGUYỄN VĂN AN"}
-_KHOA = {"ma_kh": "K1", "hang_gplx": "A1m", "hang_dt": "A1m", "ma_so_gtvt": "70"}
+_KHOA = {"ma_kh": "K1", "hang_gplx": "A1", "hang_dt": "A1", "ma_so_gtvt": "70"}
 B2 = {"nhom": "cu", "hang": "B2", "so": "790000000123", "ngay_tt": "20120815", "ngay_cap": "20180427",
       "ngay_hh": "20280427", "don_vi": "70"}
 A1 = {"nhom": "moi", "hang": "A1m", "so": "790000000456", "ngay_tt": "20250905", "ngay_cap": "20250920",
@@ -72,6 +72,31 @@ def test_khong_doi_so_va_thu_tu_tham_so_sp():
 def test_du_lieu_sai_bao_ro(sua, tu_khoa):
     with pytest.raises(ValueError, match=r"(?i)" + tu_khoa.replace("|", r"\|")):
         nap.dung_chuoi_gplx_da_co([{**B2, **sua}])
+
+
+@pytest.mark.parametrize("sua,tu_khoa", [
+    ({"ngay_cap": ""}, "bắt buộc"),
+    ({"ngay_tt": ""}, "bắt buộc"),
+    ({"ngay_cap": "20100101"}, "sau ngày trúng tuyển"),
+    ({"ngay_cap": "20990101"}, "sau hôm nay"),
+    ({"ngay_hh": "20180427"}, "hết hạn"),
+])
+def test_quy_tac_ngay_khop_form_cu(sua, tu_khoa):
+    with pytest.raises(ValueError, match=tu_khoa):
+        nap.dung_chuoi_gplx_da_co([{**B2, **sua}])
+
+
+def test_trung_hang_dang_ky_bi_chan():
+    with pytest.raises(ValueError, match="trùng hạng"):
+        nap.dung_chuoi_gplx_da_co([B2], "B2")
+    assert nap.dung_chuoi_gplx_da_co([B2], "A1m")["p_HangGPLXDaCo"] == "B2"
+
+
+def test_chua_du_18_tuoi_khi_cap_bi_chan():
+    with pytest.raises(ValueError, match="18 tuổi"):
+        nap.dung_chuoi_gplx_da_co([B2], ngay_sinh="20050101")
+    assert nap.dung_chuoi_gplx_da_co([B2], ngay_sinh="20000427")["p_HangGPLXDaCo"] == "B2"
+    assert nap.dung_chuoi_gplx_da_co([B2], ngay_sinh="20000000")["p_HangGPLXDaCo"] == "B2"  # chỉ có năm sinh
 
 
 def test_qua_nhieu_bang_va_vuot_100_ky_tu():
@@ -168,6 +193,6 @@ def test_nap_don_sai_gplx_tra_400_truoc_khi_dung_db(auth_headers):
     r = client.post("/local/nap", headers=auth_headers, json={
         "uuid": "u1", "ma_khoa_hoc": "K1", "ho_ten": "A", "ngay_sinh": "20000101", "gioi_tinh": "M",
         "so_cmt": "079200000001", "noi_tt_ma_dvhc": "00097", "noi_tt_ma_dvql": "00097",
-        "gplx_da_co": [{"hang": "Z9", "so": "1"}]})
+        "gplx_da_co": [{"hang": "Z9", "so": "1", "ngay_tt": "20100101", "ngay_cap": "20180101"}]})
     assert r.status_code == 400
     assert "hạng" in r.json()["detail"]

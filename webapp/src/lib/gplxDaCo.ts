@@ -28,22 +28,21 @@ export const DS_HANG_GPLX = [
   ...LUAT_CU.map(([ma, ten]) => ({ ma: `cu:${ma}`, ten: `${ten} — luật cũ` })),
 ];
 
-// Bản chụp DM_DVHC mã 2 ký tự (DB Nạp, 02/11/2026) vì app web không đọc được SQL Server. Tool đọc trực tiếp từ DB.
-// Cờ 1 = tỉnh trước sáp nhập; bằng cũ cấp từ các tỉnh này nên vẫn phải chọn được. Tên trùng khác mã nên hiện kèm mã.
-const NOI_CAP: [string, string, 1?][] = [
-  ["00", "Cục QLHC"], ["99", "Cục ĐBVN"], ["01", "Hà Nội"], ["02", "Hà Giang", 1], ["04", "Cao Bằng"], ["06", "Bắc Kạn", 1],
-  ["08", "Tuyên Quang"], ["10", "Lào Cai", 1], ["11", "Điện Biên"], ["12", "Lai Châu"], ["14", "Sơn La"], ["15", "Lào Cai"],
-  ["17", "Hòa Bình", 1], ["19", "Thái Nguyên"], ["20", "Lạng Sơn"], ["22", "Quảng Ninh"], ["24", "Bắc Ninh"], ["25", "Phú Thọ"],
-  ["26", "Vĩnh Phúc", 1], ["27", "Bắc Ninh", 1], ["30", "Hải Dương", 1], ["31", "Hải Phòng"], ["33", "Hưng Yên"], ["34", "Thái Bình", 1],
-  ["35", "Hà Nam", 1], ["36", "Nam Định", 1], ["37", "Ninh Bình"], ["38", "Thanh Hóa"], ["40", "Nghệ An"], ["42", "Hà Tĩnh"],
-  ["44", "Quảng Trị"], ["45", "Quảng Trị", 1], ["46", "Thừa Thiên Huế"], ["48", "Đà Nẵng"], ["49", "Quảng Nam", 1], ["51", "Quảng Ngãi"],
-  ["52", "Gia Lai"], ["54", "Phú Yên", 1], ["56", "Khánh Hòa"], ["58", "Ninh Thuận", 1], ["60", "Bình Thuận", 1], ["62", "Kon Tum", 1],
-  ["64", "Gia Lai", 1], ["66", "Đắk Lắk"], ["67", "Đắk Nông", 1], ["68", "Lâm Đồng"], ["70", "Bình Phước", 1], ["72", "Tây Ninh", 1],
-  ["74", "Bình Dương", 1], ["75", "Đồng Nai"], ["77", "Bà Rịa - Vũng Tàu", 1], ["79", "Hồ Chí Minh"], ["80", "Tây Ninh"], ["82", "Đồng Tháp"],
-  ["83", "Bến Tre", 1], ["84", "Trà Vinh", 1], ["86", "Vĩnh Long"], ["87", "Đồng Tháp", 1], ["89", "An Giang", 1], ["91", "An Giang"],
-  ["92", "Cần Thơ"], ["93", "Hậu Giang", 1], ["94", "Sóc Trăng", 1], ["95", "Bạc Liêu", 1], ["96", "Cà Mau"],
+// Bản chụp DM_DonViGTVT cấp Sở (DB Nạp, 02/11/2026), nguồn phần mềm cũ dùng in tờ khai; app web không đọc được SQL Server.
+// Mã 00 đặt tên Cục QLHC theo scripts/them_cuc_qlhc_dm_donvigtvt.sql.
+const NOI_CAP: [string, string][] = [
+  ["00", "Cục QLHC"], ["01", "Hà Nội"], ["02", "Hà Giang"], ["04", "Cao Bằng"], ["06", "Bắc Kạn"], ["08", "Tuyên Quang"],
+  ["10", "Lào Cai"], ["11", "Điện Biên"], ["12", "Lai Châu"], ["14", "Sơn La"], ["15", "Yên Bái"], ["17", "Hoà Bình"], ["19", "Thái Nguyên"],
+  ["20", "Lạng Sơn"], ["22", "Quảng Ninh"], ["24", "Bắc Giang"], ["25", "Phú Thọ"], ["26", "Vĩnh Phúc"], ["27", "Bắc Ninh"], ["30", "Hải Dương"],
+  ["31", "Hải Phòng"], ["33", "Hưng Yên"], ["34", "Thái Bình"], ["35", "Hà Nam"], ["36", "Nam Định"], ["37", "Ninh Bình"], ["38", "Thanh Hóa"],
+  ["40", "Nghệ An"], ["42", "Hà Tĩnh"], ["44", "Quảng Bình"], ["45", "Quảng Trị"], ["46", "Thừa Thiên Huế"], ["48", "Đà Nẵng"], ["49", "Quảng Nam"],
+  ["51", "Quảng Ngãi"], ["52", "Bình Định"], ["54", "Phú Yên"], ["56", "Khánh Hoà"], ["58", "Ninh Thuận"], ["60", "Bình Thuận"], ["62", "Kon Tum"],
+  ["64", "Gia Lai"], ["66", "Đắk Lắk"], ["67", "Đắk Nông"], ["68", "Lâm Đồng"], ["70", "Bình Phước"], ["72", "Tây Ninh"], ["74", "Bình Dương"],
+  ["75", "Đồng Nai"], ["77", "Bà Rịa - Vũng Tàu"], ["79", "Hồ Chí Minh"], ["80", "Long An"], ["82", "Tiền Giang"], ["83", "Bến Tre"], ["84", "Trà Vinh"],
+  ["86", "Vĩnh Long"], ["87", "Đồng Tháp"], ["89", "An Giang"], ["91", "Kiên Giang"], ["92", "Cần Thơ"], ["93", "Hậu Giang"], ["94", "Sóc Trăng"],
+  ["95", "Bạc Liêu"], ["96", "Cà Mau"], ["99", "Tổng cục đường bộ Việt Nam"],
 ];
-export const DS_NOI_CAP_GPLX = NOI_CAP.map(([ma, ten, cu]) => ({ ma, ten: `${ma} — ${ten}${cu ? " (trước sáp nhập)" : ""}` }));
+export const DS_NOI_CAP_GPLX = NOI_CAP.map(([ma, ten]) => ({ ma, ten: `${ma} — ${ten}` }));
 
 export const bangMoi = (): BangGplx => ({ nhom: "cu", hang: "", so: "", ngay_tt: "", ngay_cap: "", ngay_hh: "", don_vi: "" });
 export const khoaHang = (b: BangGplx) => (b.hang ? `${b.nhom}:${b.hang}` : "");
@@ -92,11 +91,16 @@ export function loiBang(b: BangGplx): string[] {
   const loi: string[] = [];
   if (!b.hang) loi.push("Chưa chọn hạng");
   if (!b.so.trim()) loi.push("Chưa nhập số GPLX");
+  if (!b.ngay_tt.trim()) loi.push("Chưa nhập ngày trúng tuyển");
+  if (!b.ngay_cap.trim()) loi.push("Chưa nhập ngày cấp");
   const ten = { ngay_tt: "Ngày trúng tuyển", ngay_cap: "Ngày cấp", ngay_hh: "Ngày hết hạn" } as const;
   for (const f of NGAY) {
     if (f === "ngay_hh" && laBangMoTo(b.hang)) continue;
     if (b[f].trim() && !vnToYmd(b[f])) loi.push(`${ten[f]} chưa đúng dd/mm/yyyy`);
   }
+  const [tt, cap, hh] = [vnToYmd(b.ngay_tt), vnToYmd(b.ngay_cap), laBangMoTo(b.hang) ? "" : vnToYmd(b.ngay_hh)];
+  if (tt && cap && cap < tt) loi.push("Ngày cấp phải sau ngày trúng tuyển");
+  if (cap && hh && hh <= cap) loi.push("Ngày hết hạn phải sau ngày cấp");
   return loi;
 }
 

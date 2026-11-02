@@ -110,9 +110,12 @@ _GPLX_THAM_SO = (("p_SoGPLXDaCo", "so"), ("p_HangGPLXDaCo", "hang"), ("p_NgayTTG
 _GPLX_TEN_NGAY = {"ngay_tt": "ngày trúng tuyển", "ngay_cap": "ngày cấp", "ngay_hh": "ngày hết hạn"}
 
 
-def dung_chuoi_gplx_da_co(ds: list[dict] | None) -> dict[str, str | None]:
+def dung_chuoi_gplx_da_co(ds: list[dict] | None, hang_dang_ky: str | None = None,
+                          ngay_sinh: str | None = None) -> dict[str, str | None]:
     """Danh sách bằng → giá trị 6 tham số SP. Không có bằng → NULL như trước. Sai → ValueError (nạp lô
-    thành dòng lỗi của đúng học viên đó, không hỏng cả lô)."""
+    thành dòng lỗi của đúng học viên đó, không hỏng cả lô). Quy tắc khớp form cũ FPT.GPLX.CSDT: bắt buộc hạng,
+    số, ngày cấp, ngày trúng tuyển; không trùng hạng cần cấp; cấp không trước trúng tuyển, không sau hôm nay;
+    hết hạn sau ngày cấp; đủ 18 tuổi khi cấp."""
     if not ds:
         return {ts: None for ts, _ in _GPLX_THAM_SO}
     if len(ds) > GPLX_TOI_DA:
@@ -134,6 +137,18 @@ def dung_chuoi_gplx_da_co(ds: list[dict] | None) -> dict[str, str | None]:
                     datetime.strptime(gt[f], "%Y%m%d")
                 except ValueError:
                     raise ValueError(f"GPLX đã có, bằng {i}: {ten} không hợp lệ.") from None
+        if not gt["ngay_cap"] or not gt["ngay_tt"]:
+            raise ValueError(f"GPLX đã có, bằng {i}: bắt buộc nhập ngày cấp và ngày trúng tuyển.")
+        if hang_dang_ky and gt["hang"] == hang_dang_ky.strip():
+            raise ValueError(f"GPLX đã có, bằng {i}: không được trùng hạng đăng ký của khóa.")
+        if gt["ngay_cap"] < gt["ngay_tt"]:
+            raise ValueError(f"GPLX đã có, bằng {i}: ngày cấp phải sau ngày trúng tuyển.")
+        if gt["ngay_cap"] > datetime.now().strftime("%Y%m%d"):
+            raise ValueError(f"GPLX đã có, bằng {i}: ngày cấp không được sau hôm nay.")
+        if gt["ngay_hh"] and gt["ngay_hh"] <= gt["ngay_cap"]:
+            raise ValueError(f"GPLX đã có, bằng {i}: ngày hết hạn phải sau ngày cấp.")
+        if re.fullmatch(r"\d{8}", ngay_sinh or "") and gt["ngay_cap"] < f"{int(ngay_sinh[:4]) + 18}{ngay_sinh[4:]}":
+            raise ValueError(f"GPLX đã có, bằng {i}: chưa đủ 18 tuổi khi cấp GPLX.")
         dong.append(gt)
     kq = {ts: "|".join(d[f] for d in dong) for ts, f in _GPLX_THAM_SO}
     if any(len(v) > 100 for v in kq.values()):
@@ -188,7 +203,7 @@ def build_params_sp_gop(hv: dict, khoa: dict, so_ho_so: str, ten: dict,
         ("p_SoNamLX", hv.get("so_nam_lx")),                   # None → không vỡ check thâm niên
         ("p_SoKmLX", hv.get("so_km_lx")),
         ("p_GiayTo", giay_to_str),                            # '1,2,3,'
-        *dung_chuoi_gplx_da_co(hv.get("gplx_da_co")).items(),  # 6 cột GPLX đã có (NAP-07); không có bằng → NULL
+        *dung_chuoi_gplx_da_co(hv.get("gplx_da_co"), khoa.get("hang_gplx"), hv.get("ngay_sinh")).items(),  # 6 cột GPLX đã có (NAP-07); không có bằng → NULL
         ("p_NoiCapGPLXDaCo", None),                           # dữ liệu cũ gần như không dùng cột này
         ("p_GhiChu", None),
         ("p_SO_CMND_CU", None),

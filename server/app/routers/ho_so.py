@@ -11,7 +11,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, status
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
@@ -36,8 +36,8 @@ class GplxBang(BaseModel):
     nhom: Literal["cu", "moi"]
     hang: str
     so: str = Field(min_length=1, max_length=20, pattern=r"^[^|]+$")
-    ngay_tt: str = ""
-    ngay_cap: str = ""
+    ngay_tt: str = Field(min_length=8)   # bắt buộc như form cũ FPT.GPLX.CSDT
+    ngay_cap: str = Field(min_length=8)  # bắt buộc như form cũ
     ngay_hh: str = ""
     don_vi: str = Field("", pattern=r"^(\d{2})?$")
 
@@ -57,6 +57,16 @@ class GplxBang(BaseModel):
             except ValueError:
                 raise ValueError("ngày phải là yyyymmdd hợp lệ") from None
         return v
+
+    @model_validator(mode="after")
+    def _thu_tu_ngay(self) -> "GplxBang":
+        if self.ngay_cap < self.ngay_tt:
+            raise ValueError("ngày cấp phải sau ngày trúng tuyển")
+        if self.ngay_cap > datetime.now().strftime("%Y%m%d"):
+            raise ValueError("ngày cấp không được sau hôm nay")
+        if self.ngay_hh and self.ngay_hh <= self.ngay_cap:
+            raise ValueError("ngày hết hạn phải sau ngày cấp")
+        return self
 
 
 def _kiem_gplx(ds: list[GplxBang] | None) -> list[GplxBang] | None:

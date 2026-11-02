@@ -26,7 +26,7 @@ async function vao(page: Page, mo: Mo, opts: { hang?: string; hv01?: Record<stri
   await page.route("**/local/khoa-hoc?**", (r) => r.fulfill({ json: [{ ma_kh: "K001", ten_kh: "Khóa thử", hang_gplx: hang, hang_dt: hang, ma_so_gtvt: "01", ma_loai_hs: hang.startsWith("A") ? 1 : 2 }] }));
   await page.route("**/local/dvhc/so-gtvt", (r) => r.fulfill({ json: [] }));
   await page.route("**/local/dvhc/noi-cap-gplx", (r) => r.fulfill({ json: [
-    { ma: "00", ten: "00 — Cục QLHC" }, { ma: "70", ten: "70 — Bình Phước (trước sáp nhập)" }, { ma: "79", ten: "79 — Hồ Chí Minh" },
+    { ma: "00", ten: "00 — Tổng cục đường bộ Việt Nam" }, { ma: "70", ten: "70 — Bình Phước" }, { ma: "79", ten: "79 — Hồ Chí Minh" },
   ] }));
   await page.route("**/local/giay-to?**", (r) => r.fulfill({ json: [{ ma_gt: 1, ten_gt: "CCCD" }] }));
   await page.route("**/local/nap/danh-sach", (r) => r.fulfill({ json: [hv("u01", "Nguyễn Thị Hoà", opts.hv01), hv("u02", "Trần Văn Bình")] }));
@@ -99,15 +99,13 @@ test.describe("NAP-07 — GPLX đã có ở màn Nạp", () => {
     await expect(ngan(page).getByText("Ngày hết hạn")).toBeVisible();
   });
 
-  test("ô Nơi cấp tìm theo mã, tên không dấu, Cục QLHC; ô ngày tự chèn dấu /", async ({ page }) => {
+  test("ô Nơi cấp tìm theo mã và tên không dấu; ô ngày tự chèn dấu /", async ({ page }) => {
     await vao(page, moi());
     await tich(page).check();
     const nc = ngan(page).getByPlaceholder("Gõ mã hoặc tên tỉnh");
     await nc.click();
     await nc.fill("binh phuoc");
-    await expect(ngan(page).getByRole("button", { name: "70 — Bình Phước (trước sáp nhập)" })).toBeVisible();
-    await nc.fill("qlhc");
-    await expect(ngan(page).getByRole("button", { name: "00 — Cục QLHC" })).toBeVisible();
+    await expect(ngan(page).getByRole("button", { name: "70 — Bình Phước" })).toBeVisible();
     await nc.fill("79");
     await nc.press("Enter");
     await expect(nc).toHaveValue("79 — Hồ Chí Minh");

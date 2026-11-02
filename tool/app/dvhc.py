@@ -130,19 +130,12 @@ def ds_xa(ma_dvql: str, db: str | None = None) -> list[dict]:
 
 
 def ds_noi_cap_gplx() -> list[dict]:
-    """Danh sách 'Nơi cấp' của GPLX đã có (NAP-07, TDD §10.6): khác ds_so_gtvt ở chỗ GỒM CẢ tỉnh đã sáp nhập,
-    vì bằng cũ cấp từ các tỉnh đó (vd '70' Bình Phước). Nhãn kèm mã để gõ được cả mã lẫn tên; tên trùng khác mã."""
+    """Danh sách 'Nơi cấp' của GPLX đã có (NAP-07, TDD §10.6): DM_DonViGTVT cấp Sở, nguồn phần mềm cũ dùng in tờ khai
+    (usf_QuangLA_PM4_ThuNhanHS_getTenDVCap). KHÔNG dùng DM_DVHC: cùng mã khác tên, vd '80' là Long An ở đây, Tây Ninh ở kia."""
     with _cur_dvhc(None) as cur:
-        cur.execute("SELECT MaDvhc, TenNganGon, LoaiDvhc, TrangThai FROM DM_DVHC "
-                    "WHERE LEN(MaDvhc)=2 AND LoaiDvhc IN ('C','TW','TI') AND MaDvhc<>'90' "
-                    "ORDER BY CASE WHEN LoaiDvhc='C' THEN 0 ELSE 1 END, MaDvhc")
+        cur.execute("SELECT MaDV, TenDV FROM DM_DonViGTVT WHERE LoaiDV='SO' ORDER BY MaDV")
         rows = cur.fetchall()
-    out = []
-    for r in rows:
-        cu = r["LoaiDvhc"] != "C" and not r["TrangThai"]
-        out.append({"ma": r["MaDvhc"],
-                    "ten": f'{r["MaDvhc"]} — {(r["TenNganGon"] or "").strip()}{" (trước sáp nhập)" if cu else ""}'})
-    return out
+    return [{"ma": r["MaDV"], "ten": f'{r["MaDV"]} — {(r["TenDV"] or "").strip()}'} for r in rows]
 
 
 def ds_so_gtvt(db: str | None = None) -> list[dict]:

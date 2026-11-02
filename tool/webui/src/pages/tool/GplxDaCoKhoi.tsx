@@ -98,7 +98,7 @@ export function GplxDaCoKhoi({
           ))}
           <button type="button" className="btn btn-secondary btn-row mt-3" onClick={() => onDoi([...ds, bangMoi()])}>+ Thêm GPLX</button>
           {trungHangDangKy(hangKhoa, ds) && (
-            <p className="mt-2 rounded-md bg-warning/10 px-2 py-1.5 text-[12px] text-warning">GPLX đã có trùng hạng đăng ký của khóa — kiểm lại, vẫn nạp được.</p>
+            <p className="mt-2 rounded-md bg-destructive/10 px-2 py-1.5 text-[12px] text-destructive">GPLX đã có không được trùng hạng đăng ký của khóa — sửa lại mới nạp được.</p>
           )}
           {duocMienLyThuyet(hangKhoa, ds) && (
             <p className="mt-2 rounded-md bg-success/10 px-2 py-1.5 text-[12px] text-success">Khóa mô tô, đã có bằng ô tô: miễn thi lý thuyết.</p>

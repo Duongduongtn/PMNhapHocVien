@@ -96,10 +96,15 @@ export function loiBang(b: BangGplx): string[] {
   const loi: string[] = [];
   if (!b.hang) loi.push("Chưa chọn hạng");
   if (!b.so.trim()) loi.push("Chưa nhập số GPLX");
+  if (!b.ngay_tt.trim()) loi.push("Chưa nhập ngày trúng tuyển");
+  if (!b.ngay_cap.trim()) loi.push("Chưa nhập ngày cấp");
   const ten = { ngay_tt: "Ngày trúng tuyển", ngay_cap: "Ngày cấp", ngay_hh: "Ngày hết hạn" } as const;
   for (const f of NGAY_FIELDS) {
     if (f === "ngay_hh" && laBangMoTo(b.hang)) continue;
     if (b[f].trim() && !vnToYmd(b[f])) loi.push(`${ten[f]} chưa đúng dd/mm/yyyy`);
   }
+  const [tt, cap, hh] = [vnToYmd(b.ngay_tt), vnToYmd(b.ngay_cap), laBangMoTo(b.hang) ? "" : vnToYmd(b.ngay_hh)];
+  if (tt && cap && cap < tt) loi.push("Ngày cấp phải sau ngày trúng tuyển");
+  if (cap && hh && hh <= cap) loi.push("Ngày hết hạn phải sau ngày cấp");
   return loi;
 }

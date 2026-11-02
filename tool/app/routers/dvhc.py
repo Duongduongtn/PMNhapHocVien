@@ -47,7 +47,7 @@ def list_so_gtvt():
 
 @router.get("/noi-cap-gplx")
 def list_noi_cap_gplx():
-    """Danh sách 'Nơi cấp' của GPLX đã có (NAP-07): gồm cả tỉnh trước sáp nhập + các Cục."""
+    """Danh sách 'Nơi cấp' của GPLX đã có (NAP-07): DM_DonViGTVT cấp Sở, cùng nguồn phần mềm cũ in tờ khai."""
     return _guard(dvhc.ds_noi_cap_gplx)
 
 

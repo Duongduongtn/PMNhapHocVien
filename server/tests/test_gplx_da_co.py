@@ -13,7 +13,7 @@ from tests.test_nap import TOOL_KEY, _login as _login_nap
 
 B2 = {"nhom": "cu", "hang": "B2", "so": "790000000123", "ngay_tt": "20120815", "ngay_cap": "20180427",
       "ngay_hh": "20280427", "don_vi": "70"}
-A1 = {"nhom": "moi", "hang": "A1m", "so": "790000000456", "ngay_tt": "", "ngay_cap": "", "ngay_hh": "", "don_vi": ""}
+A1 = {"nhom": "moi", "hang": "A1m", "so": "790000000456", "ngay_tt": "20250905", "ngay_cap": "20250920", "ngay_hh": "", "don_vi": ""}
 
 
 def _gui(api: TestClient, **kw):
@@ -38,6 +38,7 @@ def test_khong_gui_la_null(api):
 @pytest.mark.parametrize("sua", [
     {"hang": "Z9"}, {"hang": ""}, {"so": ""}, {"so": "1" * 21}, {"so": "12|3"},
     {"don_vi": "700"}, {"ngay_cap": "20181332"}, {"ngay_tt": "15/08/2012"}, {"nhom": "khac"},
+    {"ngay_cap": ""}, {"ngay_tt": ""}, {"ngay_cap": "20100101"}, {"ngay_cap": "20990101"}, {"ngay_hh": "20180427"},
 ])
 def test_du_lieu_sai_422_ngay_luc_gui(api, sua):
     _, r = _gui(api, gplx_da_co=[{**B2, **sua}])

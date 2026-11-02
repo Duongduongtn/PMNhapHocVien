@@ -114,7 +114,7 @@ def _nap_mot(body: NapIn) -> dict:
     trùng CCCD / SP từ chối), ConfigChuaDay, Exception (lỗi DB). Trả dict kết quả đầy đủ.
     SP gộp atomic → lỗi tự rollback, bản ghi KHÔNG nửa vời.
     """
-    nap.dung_chuoi_gplx_da_co(body.gplx_da_co)  # sai → báo ngay, trước khi đụng DB
+    nap.dung_chuoi_gplx_da_co(body.gplx_da_co, ngay_sinh=body.ngay_sinh)  # sai → báo ngay, trước khi đụng DB
     try:
         jp2 = base64.b64decode(body.anh_jp2_b64) if body.anh_jp2_b64 else None
     except Exception:
