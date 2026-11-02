@@ -103,7 +103,8 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 - **Vì sao:** file `DAT C1-K12` tải từ DAT ngày 02/11/2026 đổi mẫu: thêm cột Hạng, Mã khóa, đảo Họ tên với Mã học viên, giờ dạng `24.660`. Code đọc cột theo vị trí nên cả 72 dòng báo `Giờ 'C1' sai dạng`. User yêu cầu cả hai mẫu đều nạp được.
 - **Giả định:** `24.660` là giờ thập phân (24,66 giờ). File không ghi đơn vị; user chưa đối chiếu với DAT, bảng xác nhận hiện giờ cũ → mới trước khi lưu.
 - **Đã sửa:** PRD `KQD-08`, Changelog v4.29 · `tool/app/ketqua_dat.py`, `tool/tests/test_ketqua_dat.py` (5 test đọc mẫu thật trước đó bị bỏ qua do file đã chuyển vào thư mục con, nay chạy lại). TDD §11D.10 v6.31.
-- **Còn nợ:** 2 dòng mã có chữ `G` đầu trong file (STT 24, 26 của C1-K12) user chốt giữ chặn, nhập tay ở lưới điểm; hỏi bên DAT nghĩa của chữ `G`. Exe đóng gói 02/11/2026 16:54.
+- **Đính chính:** commit `b89b7a1` ghi "mã có chữ G đầu, giữ chặn, nhập tay" là chẩn đoán sai. User chỉ ra và đã kiểm trên file: `G` là chữ cuối của họ tên dài tràn sang ô mã (tên thiếu `G` + mã thừa `G`, thêm vào thì khớp DB nguyên văn). Đã sửa cách đọc, không cần nhập tay hay hỏi bên DAT.
+- **Còn nợ:** chưa thử lại trên màn hình với bản đã sửa tràn chữ.
 
 ## #87 — Thông báo đã gửi nêu tên học viên · 02/11/2026
 

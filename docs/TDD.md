@@ -1502,7 +1502,7 @@ DB **không có** trigger/computed/constraint tính 3 cờ (verify 06/10: 0 trig
 - **Kiểm thử:** unit `hv_chua_du` (đủ 5 môn → đủ; thiếu 1 môn; chưa có điểm; thiếu giờ-km; thiếu kết luận; hạng mô tô không xét — đếm `mo_to_bo_qua`; giờ đường dưới ngưỡng không vào lý do) + API bằng cursor giả (HV 12/13 không vào danh sách).
 
 ### 11D.10 Nạp giờ/km đường từ PDF DAT (KQD-08, CHANGES #69) + giờ `hh:mm` ở lưới (KQD-02)
-> Cập nhật 02/11/2026 (CHANGES #88): `doc_pdf_dat` tìm cột theo tên tiêu đề, nhận cả mẫu cũ 7 cột và mẫu mới 9 cột (giờ thập phân `24.660`). Hàng tiêu đề phải có ít nhất 2 tên cột; bảng có STT mà thiếu cột bắt buộc, hoặc hơn 7 cột mà không có tiêu đề → báo mẫu lạ.
+> Cập nhật 02/11/2026 (CHANGES #88): `doc_pdf_dat` tìm cột theo tên tiêu đề, nhận cả mẫu cũ 7 cột và mẫu mới 9 cột (giờ thập phân `24.660`). Hàng tiêu đề phải có ít nhất 2 tên cột; bảng có STT mà thiếu cột bắt buộc, hoặc hơn 7 cột mà không có tiêu đề → báo mẫu lạ. Chữ cái dính trước đúng dạng mã `ddddd-dddddddd-dddddd`, khi cột mã đứng ngay sau cột họ tên, là chữ cuối của tên tràn cột: chuyển về họ tên.
 > Bổ sung 12/10/2026. Quyết định: TDD-decisions §24. **Không đổi schema CDB**; ghi 2 cột có sẵn.
 
 ```

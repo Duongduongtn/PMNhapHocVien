@@ -489,6 +489,26 @@ def test_mau_moi_9_cot_doc_dung_cot_theo_tieu_de(monkeypatch):
     assert (b["ma_hv"], b["gio"], b["km"], b["ghi_chu"]) == ("75032-20260730-000002", 26.57, 1008.19, "KHÔNG ĐẠT")
 
 
+def test_mau_moi_chu_cuoi_cua_ten_tran_sang_o_ma(monkeypatch):
+    _gia_pdfplumber(monkeypatch, [_Trang(_DAU, [[_HDR_MOI_1, _HDR_MOI_2,
+        ["1", "NGUYỄN THỊ NGỌC HƯƠN", "G75032-20260730-000024", "01/01/2000", "C1", "K", "24.660", "907,60", "ĐẠT"],
+        ["2", "LÊ VĂN AN", "75032-20260730-000025", "01/01/2000", "C1", "K", "24.000", "900,00", "ĐẠT"],
+        ["3", "LÊ VĂN B", "G75032", "01/01/2000", "C1", "K", "24.000", "900,00", "ĐẠT"],
+    ]])])
+    a, b, c = d.doc_pdf_dat(b"x")["dong"]
+    assert (a["ho_ten"], a["ma_hv"]) == ("NGUYỄN THỊ NGỌC HƯƠNG", "75032-20260730-000024")
+    assert (b["ho_ten"], b["ma_hv"]) == ("LÊ VĂN AN", "75032-20260730-000025")
+    assert (c["ho_ten"], c["ma_hv"]) == ("LÊ VĂN B", "G75032")   # không đúng dạng mã thì giữ nguyên
+
+
+def test_mau_cu_ma_dung_truoc_ten_khong_chuyen_chu(monkeypatch):
+    _gia_pdfplumber(monkeypatch, [_Trang(_DAU, [[_HDR,
+        ["1", "G75032-20260730-000024", "A", "01/01/2000", "10:00", "500,00", "ĐẠT"],
+    ]])])
+    x = d.doc_pdf_dat(b"x")["dong"][0]
+    assert (x["ho_ten"], x["ma_hv"]) == ("A", "G75032-20260730-000024")
+
+
 def test_mau_cu_hai_hang_tieu_de_van_doc_dung(monkeypatch):
     _gia_pdfplumber(monkeypatch, [_Trang(_DAU, [[
         ["STT", "Mã học viên", "Họ và tên", "Ngày sinh", "Đào tạo thực hành trên đường", "", "Ghi chú"],

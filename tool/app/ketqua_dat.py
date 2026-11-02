@@ -66,6 +66,10 @@ _COT_MAU_CU = {"ma_hv": 1, "ho_ten": 2, "ngay_sinh": 3, "gio": 4, "km": 5, "ghi_
 _COT_BAT_BUOC = {"ma_hv": "mã học viên", "ho_ten": "họ tên", "gio": "thời gian", "km": "quãng đường"}
 
 
+# Tên dài làm chữ cuối sát mép cột: pdfplumber đưa chữ đó sang ô mã kế bên, vd `G75032-20260730-000024`.
+_MA_DINH_CHU_TEN = re.compile(r"([^\W\d_]+)(\d{5}-\d{8}-\d{6})")
+
+
 def _chu_tieu_de(v) -> str:
     """Bỏ dấu + khoảng trắng, vì PDF hay dính chữ ("Quãngđường", "Mãkhóa")."""
     t = unicodedata.normalize("NFD", str(v or "")).replace("đ", "d").replace("Đ", "d")
@@ -138,6 +142,10 @@ def doc_pdf_dat(data: bytes) -> dict:
                             "gio": None, "km": None,
                             "ghi_chu": lay("ghi_chu"), "loi": None,
                         }
+                        m_dinh = _MA_DINH_CHU_TEN.fullmatch(d["ma_hv"])
+                        if m_dinh and cot["ma_hv"] == cot["ho_ten"] + 1:
+                            d["ho_ten"] += m_dinh[1]
+                            d["ma_hv"] = m_dinh[2]
                         try:
                             d["gio"] = doc_gio(lay("gio"))
                             d["km"] = doc_km(lay("km"))
