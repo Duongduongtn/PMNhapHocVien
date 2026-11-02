@@ -398,3 +398,14 @@
   - **HV `90` Không đạt/trống kết luận không được biến mất:** chip đỏ, tab "Cần xử lý" (đổi tên từ "Sở từ chối" vì chứa cả hai nhóm).
   - **Mẫu giải trình theo cơ sở đích** + ghi cấu hình có khóa (đụng hàm cấu hình dùng chung — chấp nhận, ghi vào BUILD-PLAN task 137).
   - **Đánh đổi:** `_NHOM_TT` đổi thành điều kiện SQL (chạm đếm khóa/lọc lưới/kiểm trước); `PRD` phải đồng bộ (tab đổi tên, chip giải trình trống) qua `/capnhat`.
+
+## 28. GPLX đã có: nơi nhập, nhiều bằng, không đổi schema DB Nạp (02/11/2026)
+
+- **Bối cảnh:** tool truyền trống 7 trường, học viên `A1`/`A1m` đã có bằng ô tô nạp bằng tool không được ghi nhận miễn lý thuyết. DB Nạp: 6.973/39.930 hồ sơ có điền, 0 trùng hạng đăng ký.
+- **Quyết định (user chốt 02/11/2026):**
+  - Nhập được ở app web; tool kéo về tự điền và sửa được; có chip + lọc ở màn Nạp.
+  - **Không thêm bớt schema DB Nạp:** ghi qua 7 cột và tham số SP có sẵn.
+  - Nhiều bằng nối `|` theo cùng thứ tự ở mọi cột, theo đúng cách phần mềm cũ từng ghi.
+  - **Giữ Sync như hiện tại:** DB đích không bắt buộc nhập, nhưng hàm miễn lý thuyết, BC1/BC2 và XML đều đọc các cột này; 454/741 hồ sơ đích đang có giá trị.
+- **Đánh đổi:** số GPLX lên VPS tăng dữ liệu cá nhân ở đó (dọn cùng cơ chế 30 ngày). Cách nối `|` chỉ có 1 hồ sơ mẫu, chưa biết file gửi Sở có nhận.
+- Nguồn: CHANGES #81; TDD §10.6.

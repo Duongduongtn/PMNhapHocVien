@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mock GPLX đã có</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script>
+  tailwind.config = {
+    theme: { extend: {
+      fontFamily: { sans: ['"Be Vietnam Pro"', "system-ui", "sans-serif"] },
+      colors: {
+        background: "hsl(210 40% 96%)", foreground: "hsl(222 47% 11%)", card: "hsl(0 0% 100%)",
+        primary: "hsl(222 76% 40%)", muted: "hsl(210 40% 96%)", "muted-foreground": "hsl(215 16% 47%)",
+        accent: "hsl(224 76% 94%)", destructive: "hsl(0 72% 51%)", success: "hsl(142 71% 38%)",
+        warning: "hsl(32 90% 42%)", border: "hsl(214 32% 91%)", input: "hsl(214 32% 88%)",
+      },
+      borderRadius: { lg: "0.625rem", md: "0.5rem", sm: "0.375rem" },
+    } },
+  };
+</script>
+<style>
+  body { font-family: "Be Vietnam Pro", system-ui, sans-serif; background: hsl(210 40% 96%); color: hsl(222 47% 11%); }
+  .field-label { display: block; font-size: 11px; font-weight: 600; color: hsl(215 16% 40%); margin-bottom: 3px; }
+  .field-input { width: 100%; font-size: 13px; padding: 6px 8px; border-radius: 8px; border: 1px solid hsl(214 32% 88%); background: #fff; }
+  .field-input:focus { outline: none; border-color: hsl(222 76% 40%); box-shadow: 0 0 0 3px hsl(222 76% 40% / .15); }
+  .chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; border-radius: 6px; padding: 2px 6px; white-space: nowrap; }
+  .chip-gplx { color: hsl(222 76% 40%); background: hsl(224 76% 94%); }
+  .chip-mo { color: hsl(215 16% 47%); background: hsl(210 40% 96%); border: 1px solid hsl(214 32% 91%); }
+  .note { font-size: 12px; border-radius: 8px; padding: 6px 8px; }
+  .note-ok { color: hsl(142 71% 26%); background: hsl(142 60% 94%); }
+  .note-warn { color: hsl(32 90% 30%); background: hsl(40 90% 93%); }
+  .note-info { color: hsl(222 76% 35%); background: hsl(224 76% 96%); }
+</style>
+</head>
+<body class="min-h-screen">
+<div class="max-w-[1240px] mx-auto px-4 py-5 space-y-6">
+
+  <header>
+    <h1 class="text-lg font-bold">Mock "GPLX đã có" — chờ anh duyệt</h1>
+    <p class="text-[13px] text-muted-foreground mt-1">Dữ liệu minh họa. Bấm thử: ô tích, thêm/xóa bằng, đổi hạng, đổi khóa, bộ lọc.</p>
+  </header>
+
+  <section class="space-y-2">
+    <h2 class="text-sm font-bold">1. Tool · màn Nạp hồ sơ</h2>
+    <div class="flex flex-wrap items-center gap-2 bg-card border border-border rounded-lg px-3 py-2">
+      <label class="text-[13px] font-semibold" for="khoa">Khóa đích</label>
+      <select id="khoa" class="field-input !w-auto">
+        <option value="A1m">K001 — Khóa mô tô A1 (mã A1m)</option>
+        <option value="B1">K002 — Khóa ô tô B (mã B1)</option>
+      </select>
+    </div>
+
+    <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div class="bg-card border border-border rounded-lg overflow-hidden">
+        <div class="flex flex-wrap items-center gap-2 p-3 border-b border-border">
+          <span class="text-[13px] font-semibold rounded-md bg-accent text-primary px-2 py-1">Cần xử lý <span id="demTong">4</span></span>
+          <span class="text-[13px] text-muted-foreground px-2 py-1">Đã nạp 0</span>
+          <span class="flex-1"></span>
+          <button class="text-[12px] font-semibold border border-border rounded-md px-2 py-1">Chỉ sẵn sàng</button>
+          <button id="locGplx" aria-pressed="false" class="text-[12px] font-semibold border border-border rounded-md px-2 py-1">Có GPLX đã có <span id="demGplx" class="tabular-nums">2</span></button>
+        </div>
+        <ul id="ds"></ul>
+        <p id="dsRong" class="hidden p-6 text-center text-[13px] text-muted-foreground">Không có học viên nào có GPLX đã có.</p>
+      </div>
+
+      <aside class="bg-card border border-border rounded-lg p-3 space-y-3" aria-label="Ngăn chuẩn bị hồ sơ">
+        <div>
+          <h3 class="text-sm font-bold">Chuẩn bị hồ sơ</h3>
+          <p id="tenChon" class="text-[13px] text-muted-foreground"></p>
+        </div>
+        <div class="rounded-lg border border-border p-3 text-[12.5px] text-muted-foreground">Địa chỉ · Ảnh · Chọn in GPLX · Ngày cấp căn cước… (giữ nguyên như hiện tại)</div>
+        <div id="khoiTool" class="rounded-lg border border-border p-3"></div>
+      </aside>
+    </div>
+    <p class="text-[12px] text-muted-foreground">Nguồn "Từ app web": giá trị người thu hồ sơ đã nhập, kéo về tự điền. Nhân viên sửa thì bản sửa được ưu tiên và lưu cùng nháp.</p>
+  </section>
+
+  <section class="space-y-2">
+    <h2 class="text-sm font-bold">2. App web · điện thoại (sau "Thông tin từ căn cước")</h2>
+    <div class="w-full max-w-[375px] bg-card border border-border rounded-2xl p-4 space-y-3">
+      <div class="rounded-lg border border-border p-3 text-[12.5px] text-muted-foreground">Thông tin từ căn cước: Số CCCD · Họ tên · Ngày sinh…</div>
+      <div id="khoiWeb" class="rounded-lg border border-border p-3"></div>
+    </div>
+  </section>
+</div>
+
+<script>
+const LUAT_MOI = [["A1m","A1"],["A2","A"],["A01","A.01"],["A02","A.02"],["B1","B"],["B11","B.01"],["C1","C1"],["C","C"],["D1","D1"],["D","D"]];
+const LUAT_CU = [["A1","A1"],["A2","A2"],["A3","A3"],["B11","B1 số tự động"],["B1","B1"],["B2","B2"],["C","C"],["D","D"],["E","E"],["FB2","FB2"],["FC","FC"],["FD","FD"],["FE","FE"]];
+// DM_DVHC mã 2 ký tự (DB Nạp thật, 02/11/2026): tỉnh còn hiệu lực + tỉnh trước sáp nhập + 2 Cục.
+const NOI_CAP = [["00","Cục QLHC"],["99","Cục ĐBVN"],["01","Hà Nội"],["02","Hà Giang",1],["04","Cao Bằng"],["06","Bắc Kạn",1],["08","Tuyên Quang"],["10","Lào Cai",1],["11","Điện Biên"],["12","Lai Châu"],["14","Sơn La"],["15","Lào Cai"],["17","Hòa Bình",1],["19","Thái Nguyên"],["20","Lạng Sơn"],["22","Quảng Ninh"],["24","Bắc Ninh"],["25","Phú Thọ"],["26","Vĩnh Phúc",1],["27","Bắc Ninh",1],["30","Hải Dương",1],["31","Hải Phòng"],["33","Hưng Yên"],["34","Thái Bình",1],["35","Hà Nam",1],["36","Nam Định",1],["37","Ninh Bình"],["38","Thanh Hóa"],["40","Nghệ An"],["42","Hà Tĩnh"],["44","Quảng Trị"],["45","Quảng Trị",1],["46","Thừa Thiên Huế"],["48","Đà Nẵng"],["49","Quảng Nam",1],["51","Quảng Ngãi"],["52","Gia Lai"],["54","Phú Yên",1],["56","Khánh Hòa"],["58","Ninh Thuận",1],["60","Bình Thuận",1],["62","Kon Tum",1],["64","Gia Lai",1],["66","Đắk Lắk"],["67","Đắk Nông",1],["68","Lâm Đồng"],["70","Bình Phước",1],["72","Tây Ninh",1],["74","Bình Dương",1],["75","Đồng Nai"],["77","Bà Rịa - Vũng Tàu",1],["79","Hồ Chí Minh"],["80","Tây Ninh"],["82","Đồng Tháp"],["83","Bến Tre",1],["84","Trà Vinh",1],["86","Vĩnh Long"],["87","Đồng Tháp",1],["89","An Giang",1],["91","An Giang"],["92","Cần Thơ"],["93","Hậu Giang",1],["94","Sóc Trăng",1],["95","Bạc Liêu",1],["96","Cà Mau"]];
+const laMoTo = (ma) => /^A/.test(ma);
+const baoMien = (ma) => /B1|B2|C|D|E|F/.test(ma);
+const tenHang = (h) => (h.nhom === "moi" ? LUAT_MOI : LUAT_CU).find((x) => x[0] === h.ma)?.[1] ?? h.ma;
+const bang = (nhom, ma, so = "", ngayTt = "", ngayCap = "", hetHan = "", dv = "") => ({ nhom, ma, so, ngayTt, ngayCap, hetHan, dv });
+
+const hv = [
+  { id: 1, ten: "NGUYỄN THỊ HOÀ", ds: [bang("cu", "B2", "790000000123", "15/08/2012", "27/04/2018", "27/04/2028", "70"), bang("moi", "A1m", "790000000456", "05/09/2025", "20/09/2025", "", "70")], tuWeb: true },
+  { id: 2, ten: "TRẦN VĂN BÌNH", ds: [] },
+  { id: 3, ten: "LÊ ĐỨC ANH", ds: [bang("cu", "A1", "790000000789", "26/12/2019", "10/01/2020", "", "79")] },
+  { id: 4, ten: "PHẠM THU HÀ", ds: [] },
+];
+let chon = 1, chiGplx = false;
+const web = { bat: false, ds: [] };
+const $ = (id) => document.getElementById(id);
+const hangKhoa = () => $("khoa").value;
+
+const boDau = (t) => (t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
+const maskNgay = (v) => { const d = v.replace(/\D/g, "").slice(0, 8); return d.length > 4 ? `${d.slice(0, 2)}/${d.slice(2, 4)}/${d.slice(4)}` : d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d; };
+
+// Ô gõ để tìm: gõ tới đâu lọc tới đó, không phân biệt dấu; Enter chọn dòng đầu; bấm vào là hiện cả danh sách.
+function combo(nhan, options, value, onChon, phu) {
+  const d = document.createElement("div"); d.className = "relative";
+  const l = document.createElement("label"); l.className = "field-label"; l.textContent = nhan;
+  const i = document.createElement("input"); i.className = "field-input"; i.placeholder = phu; i.setAttribute("role", "combobox"); i.setAttribute("aria-label", nhan); i.autocomplete = "off";
+  const ten = () => options.find((x) => x.k === value)?.t ?? "";
+  i.value = ten();
+  const ul = document.createElement("ul"); ul.className = "hidden absolute z-20 left-0 right-0 mt-1 max-h-56 overflow-auto bg-card border border-border rounded-lg shadow-lg"; ul.setAttribute("role", "listbox");
+  const loc = (q) => (q.trim() ? options.filter((x) => boDau(x.t).includes(boDau(q))) : options);
+  const veDs = (q) => {
+    ul.innerHTML = "";
+    const ds = loc(q);
+    if (!ds.length) { const e = document.createElement("li"); e.className = "px-2 py-1.5 text-[12.5px] text-muted-foreground"; e.textContent = "Không tìm thấy"; ul.append(e); }
+    ds.forEach((x) => {
+      const li = document.createElement("li"); li.className = "px-2 py-1.5 text-[13px] cursor-pointer hover:bg-accent"; li.setAttribute("role", "option"); li.textContent = x.t;
+      li.onmousedown = (e) => { e.preventDefault(); value = x.k; onChon(x.k); };
+      ul.append(li);
+    });
+    ul.classList.remove("hidden");
+  };
+  i.onfocus = () => { i.select(); veDs(""); };
+  i.oninput = () => veDs(i.value);
+  i.onblur = () => { ul.classList.add("hidden"); i.value = ten(); };
+  i.onkeydown = (e) => { if (e.key === "Enter") { const ds = loc(i.value); if (ds[0]) { e.preventDefault(); onChon(ds[0].k); } } if (e.key === "Escape") i.blur(); };
+  l.append(i); d.append(l, ul); return d;
+}
+
+const DS_HANG = [
+  ...LUAT_MOI.map(([ma, ten]) => ({ k: `moi:${ma}`, t: `${ten} — luật mới` })),
+  ...LUAT_CU.map(([ma, ten]) => ({ k: `cu:${ma}`, t: `${ten} — luật cũ` })),
+];
+const DS_NOI_CAP = NOI_CAP.map(([m, t, cu]) => ({ k: m, t: `${m} — ${t}${cu ? " (trước sáp nhập)" : ""}` }));
+
+function o(nhan, kieu, h, truong, phu, laNgay) {
+  const d = document.createElement("div");
+  const l = document.createElement("label"); l.className = "field-label"; l.textContent = nhan;
+  const i = document.createElement("input"); i.className = "field-input"; i.value = h[truong] ?? ""; i.placeholder = phu ?? "";
+  i.inputMode = kieu; i.setAttribute("aria-label", nhan);
+  i.oninput = () => { if (laNgay) i.value = maskNgay(i.value); h[truong] = i.value; };
+  i.onchange = () => ve();
+  l.append(i); d.append(l); return d;
+}
+
+function veKhoi(el, trangThai, opts) {
+  el.innerHTML = "";
+  const nhan = document.createElement("label");
+  nhan.className = "flex items-center gap-2 text-[13px] font-semibold cursor-pointer";
+  const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = trangThai.ds.length > 0 || trangThai.bat === true;
+  cb.onchange = () => {
+    trangThai.bat = cb.checked;
+    trangThai.ds = cb.checked ? [bang("cu", "B2")] : [];
+    trangThai.tuWeb = false;
+    ve();
+  };
+  nhan.append(cb, document.createTextNode(opts.nhan));
+  el.append(nhan);
+  if (!cb.checked) return;
+
+  if (trangThai.tuWeb) {
+    const t = document.createElement("p"); t.className = "mt-2 note note-info"; t.textContent = "Từ app web — kiểm lại với bằng thật, sửa nếu cần.";
+    el.append(t);
+  }
+  trangThai.ds.forEach((h, i) => {
+    const k = document.createElement("div"); k.className = "mt-3 border-t border-border pt-3 space-y-2";
+    const dau = document.createElement("div"); dau.className = "flex items-center justify-between";
+    dau.innerHTML = `<span class="text-[12.5px] font-semibold">Bằng ${i + 1}</span>`;
+    const x = document.createElement("button"); x.className = "text-[12px] text-destructive"; x.textContent = "Xóa";
+    x.onclick = () => { trangThai.ds.splice(i, 1); trangThai.tuWeb = false; if (!trangThai.ds.length) trangThai.bat = false; ve(); };
+    dau.append(x); k.append(dau);
+
+    const luoi = document.createElement("div"); luoi.className = `grid gap-2 ${opts.motCot ? "grid-cols-1" : "grid-cols-2"}`;
+    luoi.append(combo("Hạng", DS_HANG, `${h.nhom}:${h.ma}`, (k) => { const [n, m] = k.split(":"); h.nhom = n; h.ma = m; ve(); }, "Gõ hạng, ví dụ B2"));
+    luoi.append(o("Số GPLX", "numeric", h, "so", "12 chữ số"));
+    luoi.append(o("Ngày trúng tuyển", "numeric", h, "ngayTt", "dd/mm/yyyy", true));
+    luoi.append(o("Ngày cấp", "numeric", h, "ngayCap", "dd/mm/yyyy", true));
+    if (!laMoTo(h.ma)) luoi.append(o("Ngày hết hạn", "numeric", h, "hetHan", "dd/mm/yyyy", true));
+    luoi.append(combo("Nơi cấp", DS_NOI_CAP, h.dv, (k) => { h.dv = k; ve(); }, "Gõ mã hoặc tên tỉnh"));
+    k.append(luoi);
+
+    if (h.so && h.so.replace(/\D/g, "").length !== 12) {
+      const n = document.createElement("p"); n.className = "note note-warn"; n.textContent = "Số GPLX thường có 12 chữ số — kiểm lại, vẫn lưu được.";
+      k.append(n);
+    }
+    el.append(k);
+  });
+  const them = document.createElement("button");
+  them.className = "mt-3 text-[12.5px] font-semibold text-primary border border-border rounded-md px-2 py-1";
+  them.textContent = "+ Thêm GPLX";
+  them.onclick = () => { trangThai.ds.push(bang("moi", "A1m")); ve(); };
+  el.append(them);
+
+  if (opts.coKhoa) {
+    const hk = hangKhoa();
+    if (trangThai.ds.some((h) => h.ma === hk)) {
+      const n = document.createElement("p"); n.className = "mt-2 note note-warn"; n.textContent = "GPLX đã có trùng hạng đăng ký của khóa — kiểm lại, vẫn nạp được.";
+      el.append(n);
+    }
+    if (["A1", "Am", "A1m"].includes(hk) && trangThai.ds.some((h) => baoMien(h.ma))) {
+      const n = document.createElement("p"); n.className = "mt-2 note note-ok"; n.textContent = "Khóa mô tô, đã có bằng ô tô: miễn thi lý thuyết.";
+      el.append(n);
+    }
+  }
+}
+
+function ve() {
+  const ds = $("ds"); ds.innerHTML = "";
+  const hien = hv.filter((x) => !chiGplx || x.ds.length);
+  hien.forEach((x) => {
+    const li = document.createElement("li");
+    li.className = `flex items-center gap-2 px-3 py-2 border-b border-border cursor-pointer ${x.id === chon ? "bg-accent" : ""}`;
+    li.onclick = () => { chon = x.id; ve(); };
+    const chip = x.ds.length ? `<span class="chip chip-gplx">GPLX: ${x.ds.map(tenHang).join(", ")}</span>` : "";
+    li.innerHTML = `<span class="flex-1 min-w-0"><span class="block text-[13px] font-semibold truncate">${x.ten}</span><span class="block text-[12px] text-muted-foreground truncate">Số 5, Hà Nội</span></span>${chip}<span class="chip chip-mo">Chờ</span>`;
+    ds.append(li);
+  });
+  $("dsRong").classList.toggle("hidden", hien.length > 0);
+  $("demGplx").textContent = hv.filter((x) => x.ds.length).length;
+  $("locGplx").setAttribute("aria-pressed", String(chiGplx));
+  $("locGplx").className = `text-[12px] font-semibold border rounded-md px-2 py-1 ${chiGplx ? "border-primary bg-accent text-primary" : "border-border"}`;
+  const hvChon = hv.find((x) => x.id === chon);
+  $("tenChon").textContent = hvChon.ten;
+  veKhoi($("khoiTool"), hvChon, { nhan: "Học viên đã có GPLX", coKhoa: true, motCot: false });
+  veKhoi($("khoiWeb"), web, { nhan: "Đã có GPLX", coKhoa: false, motCot: true });
+}
+$("locGplx").onclick = () => { chiGplx = !chiGplx; ve(); };
+$("khoa").onchange = ve;
+ve();
+</script>
+</body>
+</html>

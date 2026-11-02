@@ -154,6 +154,7 @@ CREATE TABLE ho_so_thu_thap (
   noi_tt_raw    TEXT,                             -- địa chỉ text thô từ QR
   ngay_cap_cccd DATE,
   noi_cap_cccd  VARCHAR(100),
+  gplx_da_co    JSONB,                -- GPLX đã có (§10.6, CHANGES #81); NULL = không có; dọn cùng PII
   -- Ảnh thô
   anh_tho_path  TEXT,                             -- đường dẫn file trên VPS
   -- Chống trùng & truy vết
@@ -291,6 +292,8 @@ GET  /api/nap/da-xoa?since=<ts>  DS uuid đã chuyển 'deleted' từ mốc <ts>
 GET  /api/nap/tra-uuid?ma_dk=<>  Tra uuid gốc theo ma_dk (VPS lưu ma_dk khi da-nap) — fallback cho QLY-08 bước 2 khi staging nap_xong local không còn
 ```
 > **CAS (review #24):** `tra-ve-cho-nap` chuyển nguyên tử `UPDATE … SET trang_thai='pending', ma_dk=NULL WHERE uuid=:u AND trang_thai='imported'`; 0 dòng bị sửa → **409**. Gọi lại khi đã `pending` → 0 dòng → coi như **idempotent** (báo "đã về chờ nạp", không lỗi) để nhánh retry QLY-08 bước 4 an toàn.
+
+> **GPLX đã có (CHANGES #81, #82, §10.6):** `POST/PUT` hồ sơ (§4.3) nhận `gplx_da_co` (danh sách bằng hoặc null), kiểm ngay trên VPS, sai → 422. `GET /api/ho-so/cua-toi` và `GET /api/nap/keo` trả kèm. App web chỉ gửi trường này trong `PUT` khi người dùng có sửa khối GPLX. Tool local: `NhapChuanBiIn`, `NapIn` nhận `gplx_da_co` (Pydantic kiểm hình dạng); kiểm nghiệp vụ ở `dung_chuoi_gplx_da_co()`; `GET /local/dvhc/noi-cap-gplx` trả danh sách Nơi cấp.
 
 ### 4.5 Quản trị PII (admin)
 
@@ -902,6 +905,63 @@ Thuần client (webui), KHÔNG đổi endpoint nạp (`nap_lo` giữ nguyên). M
 > Lưu ý khi code (CHANGES #26): nếu muốn tiến độ mượt theo từng HV mà `nap_lo` hiện trả 1 lần cho cả lô, cân nhắc nạp tuần tự từng `uuid` ở client (gọi `nap_lo` 1-uuid nhiều lần như "Nạp lại nhanh") để cập nhật thanh % — quyết lúc code, không thêm endpoint server nếu tránh được.
 
 ---
+
+### 10.6 GPLX đã có (NAP-07, THU-07 — CHANGES #81)
+> **Phục vụ:** `NAP-07`, `THU-07`. *Vì sao không đổi schema DB Nạp: 7 cột và tham số SP đã có sẵn, phần mềm cũ đang ghi đúng các cột này.*
+
+```
+App web: tích "Đã có GPLX" → nhập → gửi → VPS ho_so_thu_thap.gplx_da_co (JSONB)
+                                               │ GET /api/nap/keo
+Tool:    keo_ve.gplx_da_co_json ───────────────┘
+           │ hiển thị = nháp nếu đã sửa, không thì giá trị VPS
+         nhap_chuan_bi.gplx_da_co_json (nhân viên sửa)
+           │ Nạp → dung_chuoi_gplx_da_co() → 6 tham số @p_*DaCo của SP gộp
+         DB Nạp NguoiLX_HoSo → Sync chép nguyên (không đổi) → DB đích
+```
+
+**Cấu trúc 1 bằng (JSON):** `{"nhom":"cu|moi","hang":"B2","so":"…","ngay_tt":"yyyymmdd","ngay_cap":"yyyymmdd","ngay_hh":"yyyymmdd","don_vi":"70"}`. **`hang` luôn là MÃ `DM_HangGPLX`** (`A1m`, `B11`), không phải nhãn; `nhom` + mã tra ngược ra nhãn. Ô Hạng dùng khóa `moi:B1` / `cu:B1` làm `ma` của `ComboLoc` (mã trùng giữa hai nhóm), tách ra khi lưu.
+
+**Thứ tự ưu tiên:**
+```
+ VPS gplx_da_co ──kéo/làm tươi──► keo_ve.gplx_da_co_json (dòng cho)
+                                       │
+ nhân viên sửa ──PUT nháp──► nhap_chuan_bi.gplx_da_co_json
+        NULL     → dùng keo_ve
+        '[]'     → không có bằng (nhân viên đã xóa hết)
+        có JSON  → dùng nháp; VPS đổi thì hiện cờ "App web có bản mới" + nút "Dùng bản app web"
+                                       │ hiển thị = nháp ?? keo_ve (ghép MỘT chỗ ở UI)
+                 chip / lọc / số đếm / Nạp ◄─┘
+ Nạp xong ok: ghi giá trị đã nạp vào keo_ve TRƯỚC nhap_xoa(uuid)
+```
+
+**Ghi xuống SP (`nap.py`, hàm thuần):**
+- Một bằng: ghi thẳng. Nhiều bằng: nối `|` theo cùng thứ tự ở cả 6 cột, ô trống giữ vị trí (`20180427|` ; hết hạn `|`). Không có bằng: giữ NULL như hiện tại. `@p_NoiCapGPLXDaCo` luôn NULL (dữ liệu cũ gần như không dùng).
+- Kiểm trong `dung_chuoi_gplx_da_co()`: `hang` thuộc tập mã, ngày `yyyymmdd` hợp lệ, không chứa `|`, tối đa 8 bằng, `so` ≤ 20 ký tự, `don_vi` mã 2 số, mỗi chuỗi nối ≤ 100 ký tự (`varchar(100)`, đã kiểm DB). Nạp lô: lỗi thành dòng `loi` của đúng học viên đó, không làm hỏng cả lô (`NapIn` chỉ kiểm hình dạng). Nạp đơn: 400. VPS dùng cùng quy tắc, sai → 422 ngay lúc gửi.
+
+**Bảng hạng (phản chiếu ở `tool/webui` và `webapp`):**
+
+| Nhóm | Nhãn → mã `DM_HangGPLX` |
+|---|---|
+| Luật mới | A1 → `A1m` · A → `A2` · A.01 → `A01` · A.02 → `A02` · B → `B1` · B.01 → `B11` · C1 → `C1` · C → `C` · D1 → `D1` · D → `D` |
+| Luật cũ | A1 → `A1` · A2 → `A2` · A3 → `A3` · B1 số tự động → `B11` · B1 → `B1` · B2 → `B2` · C · D · E · FB2 · FC · FD · FE (giữ mã) |
+
+Suy từ `KhoaHoc` thật (`B`→`B1`, `B.01`→`B11`, `C1`→`C1`) + mô tả danh mục; `A`→`A2` mới có 2 khóa, cần đối chiếu ô Hạng phần mềm cũ. `nhom` chỉ để hiển thị lại đúng nhãn, không ghi xuống DB.
+
+**Ô nhập (dùng lại component có sẵn):** Hạng và Nơi cấp dùng `components/ComboLoc` (lọc theo `boDau` trên chuỗi hiện, nên đưa mã vào nhãn: `70 — Bình Phước (trước sáp nhập)` là gõ được cả mã lẫn tên). Ngày dùng `components/ODate` (`maskNgay` tự chèn `/`, có nút lịch). App web dùng `ODate` của `webapp` và một ô gõ tìm tương đương.
+
+**Danh sách Nơi cấp:** `DM_DVHC` mã 2 ký tự, `LoaiDvhc IN ('C','TW','TI')`, **bất kể `TrangThai`**, bỏ `90`. Khác `dvhc.ds_so_gtvt` (nơi cấp căn cước, chỉ tỉnh còn hiệu lực): bằng cũ cấp từ tỉnh đã sáp nhập, ví dụ `70` Bình Phước (3.447 hồ sơ) đã `TrangThai=0`. Mọi mã 2 số trong dữ liệu cũ đều có trong `DM_DVHC`. Tên trùng khác mã (`72`/`80` Tây Ninh, `89`/`91` An Giang) nên phải hiện mã. Hàm riêng `dvhc.ds_noi_cap_gplx()` + `GET /local/dvhc/noi-cap-gplx`, **không sửa `ds_so_gtvt`**; server dựng nhãn từ `TrangThai`. App web không đọc được SQL Server nên dùng bản chụp danh sách trong code (danh mục gần như không đổi).
+
+**Miễn lý thuyết:** `usf_BaBT_GetMaNoidungSathach` / `usf_BaBT_GetNoidungSathach` (bản đang chạy) áp cho `A1`, `Am`, `A1m` khi `HangGPLXDaCo` chứa `B1`, `B11`…`B15`, `B2`, `C`, `D`, `E`, `FB2`, `FC`, `FD`, `FE` (dò `CHARINDEX`, nên chuỗi `A1|B2` vẫn khớp). UI chỉ báo, không tự đổi gì ở DB.
+
+**Ca khó:**
+- **Kéo lại từ VPS:** `keo_ve_upsert` làm tươi `keo_ve.gplx_da_co_json` khi dòng còn `cho`. Nháp khác NULL vẫn được ưu tiên (NULL = chưa sửa, `'[]'` = đã xóa hết, JSON = bản đã sửa). UI so nháp với `keo_ve`: khác nhau và VPS vừa đổi thì hiện cờ "App web có bản mới" + nút "Dùng bản app web" (đưa nháp về NULL). `goiNhap` gửi đủ trường mỗi lần lưu nên `nhap_luu` (`INSERT OR REPLACE`) không làm mất cột này. Sửa ở app web: `GET /cua-toi` trả kèm để form hiện đúng.
+- **Sau khi nạp:** `keo_ve_cap_nhat(..., gplx_da_co_json=…)` ghi danh sách đã nạp TRƯỚC `nhap_xoa`, để chip + lọc tab Đã nạp vẫn đúng. Dòng `xong` không bị `keo_ve_upsert` đè. Gỡ về chờ nạp (QLY-08) rồi kéo lại thì lấy lại giá trị VPS (chấp nhận).
+- **Chip + lọc:** `nhap_co` trả thêm `gplx_da_co_json`, `_KEO_COLS` thêm cột; dữ liệu nhỏ, không phải ảnh.
+- **Trùng hạng đăng ký:** dữ liệu cũ 0/6.973; cảnh báo, không chặn. Số GPLX 98% dài 12 chữ số; khác thì nhắc, không chặn.
+- **Migrate:** SQLite `keo_ve` + `nhap_chuan_bi` dùng guard `PRAGMA table_info` + `ALTER` như `ngay_cap`. VPS: `init.sql` chỉ chạy cho DB mới, nên API tự chạy `ALTER TABLE ho_so_thu_thap ADD COLUMN IF NOT EXISTS gplx_da_co JSONB` lúc khởi động, trước khi nhận truy vấn; checklist deploy kiểm `\d ho_so_thu_thap`. Model dùng `JSON().with_variant(JSONB, "postgresql")`.
+- **PII:** `gplx_da_co` là dữ liệu cá nhân: `jobs/pii.py` dọn cùng số căn cước; xóa mềm hồ sơ (THU-05) đặt NULL; không ghi vào audit/log; lỗi 422 không log giá trị trường này. Bản ở `keo_ve` máy tool cùng nhóm PII staging như `so_cccd`.
+
+**Rủi ro đã biết:** nhiều bằng nối `|` chỉ có 1 hồ sơ mẫu (hạng `A1|A1`, 2023); chưa biết file gửi Sở có nhận; tờ khai `usp_rpt_PM4_InToKhai` in nguyên dấu `|`. Đối chiếu ở nghiệm thu máy CSĐT. Cách làm và lý do: `TDD-decisions` §28.
 
 ## 11. Quản lý hồ sơ đã có & tạo khóa (tool)
 
@@ -2049,6 +2109,8 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 | --- | --- | --- |
+| 02/11/2026 | 6.28 | **Sửa sau `/reviewtdd` §10.6** (CHANGES #82, biên bản `tdd-review-02-11-2026-gplx-da-co.md`): `hang` lưu mã; thứ tự ưu tiên + cờ "App web có bản mới"; `/cua-toi` trả kèm; lỗi từng dòng khi nạp lô; VPS kiểm + tự ALTER; PII xóa mềm; `ds_noi_cap_gplx`. |
+| 02/11/2026 | 6.27 | **+§10.6 GPLX đã có** (CHANGES #81, `NAP-07`, `THU-07`): JSONB `ho_so_thu_thap.gplx_da_co`, cột nháp SQLite, ghi 6 tham số SP nối `|`, bảng nhãn ↔ mã hạng; §3, §4.4 ghi chú; ô gõ tìm Hạng + Nơi cấp (có Cục QLHC, tỉnh trước sáp nhập), ô ngày tự chèn `/`. Không đổi schema DB Nạp, không sửa Sync. |
 | 16/10/2026 | 6.26 | **Sửa sau `/reviewtdd` "Chọn in GPLX"** (CHANGES #80, biên bản `tdd-review-16-10-2026-in-gplx.md`): §9.3a +cột `chon_in_gplx` · §10 Phục vụ +`NAP-01` · §10.2 làm rõ server dùng đúng giá trị client gửi (chỉ kiểm tập) · quy tắc ghi nháp (chọn lại mặc định → NULL; đổi khóa khác loại → xóa lựa chọn tay) · dòng `MaLoaiHs` "bắt đầu bằng A". |
 | 16/10/2026 | 6.25 | **"Chọn in GPLX" theo hạng khóa** (CHANGES #79): §10.1/§10.2 `CHON_IN_GPLX` hết gán cứng 2 — ô chọn 1/2/3, mặc định A*→3 / còn lại→2, 422 ngoài tập, nháp `nhap_chuan_bi.chon_in_gplx` (+ALTER), UI ngăn Chuẩn bị; Sync CDB chép nguyên giá trị (NULL→0). |
 | 16/10/2026 | 6.24 | **Quản lý mẫu giải trình** (CHANGES #78): §11D.13 ghi UI hộp sửa/xóa/thêm mẫu dùng lại `PUT mau-giai-trinh` (thay toàn bộ + `phien_ban`), không thêm endpoint. |

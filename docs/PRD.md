@@ -351,6 +351,46 @@
 
 ### 🔵 SHOULD (nên có, không gấp)
 
+#### [NAP-07] Nhập GPLX đã có ở màn Nạp (nhiều bằng, luật cũ + luật mới)
+
+**Trạng thái:** ⚠️ Partial — code + test xong 02/11/2026 (CHANGES #81, #82), chưa nghiệm thu ghi thật máy CSĐT (nạp một bằng + hai bằng, mở phần mềm cũ, miễn lý thuyết, Sync giữ chuỗi).
+**Story:** Là nhân viên nạp DB, tôi muốn ghi GPLX học viên đang có khi nạp, để học viên mô tô đã có bằng ô tô được ghi nhận miễn thi lý thuyết và hồ sơ khớp phần mềm cũ.
+
+**Steps to Complete:**
+1. Trong ngăn Chuẩn bị, tích "Học viên đã có GPLX" để mở khối nhập (mặc định thu gọn).
+2. Nhập từng bằng: Hạng, Số GPLX, Ngày trúng tuyển, Ngày cấp, Ngày hết hạn, Nơi cấp; "+ Thêm GPLX" nếu có nhiều bằng.
+3. Nạp: hệ thống ghi vào DB Nạp qua SP gộp đang dùng.
+
+**Done khi:**
+- ⬜ Khối "GPLX đã có" thu gọn mặc định; hiện đủ 6 ô cho từng bằng; thêm/xóa được nhiều bằng (ví dụ B2 luật cũ + A1 luật mới); lưu cùng nháp bền.
+- ⬜ Ô Hạng là **ô gõ để tìm** (gõ tới đâu lọc tới đó, không phân biệt dấu), mỗi dòng ghi rõ **luật mới / luật cũ**, lưu đúng mã `DM_HangGPLX`: A1 mới → `A1m`, A → `A2`, B → `B1`, B.01 → `B11`, C1 → `C1`; hạng luật cũ giữ nguyên mã.
+- ⬜ Ô Nơi cấp là **ô gõ để tìm theo mã hoặc tên tỉnh** (gõ `70` hoặc `binh phuoc`), gồm tỉnh hiện tại, tỉnh trước sáp nhập (ghi rõ) và **Cục QLHC**, Cục ĐBVN; lưu mã 2 số vào `DonViCapGPLXDaCo`.
+- ⬜ Ô ngày tự chèn dấu `/` khi gõ (`dd/mm/yyyy`), có nút lịch.
+- ⬜ Ghi qua 6 tham số `@p_*DaCo` của SP gộp: một bằng ghi thẳng; nhiều bằng nối `|` theo cùng thứ tự ở mọi cột (hạng `A1|B2`); ngày nhập `dd/mm/yyyy`, lưu `yyyymmdd`; ô trống giữ vị trí. `NoiCapGPLXDaCo` để trống. Không có bằng → giữ NULL như hiện tại. **Không thêm bớt cột nào ở DB Nạp.**
+- ⬜ Dòng học viên có chip "GPLX: B2, A1"; bộ lọc "Có GPLX đã có" kèm số lượng, dùng ở cả tab Cần xử lý và Đã nạp.
+- ⬜ Hồ sơ kéo từ VPS có GPLX đã có (`THU-07`) → tự điền, ghi chú "Từ app web", sửa được; bản nhân viên sửa được ưu tiên và không bị lần kéo sau đè; nếu app web đổi sau đó thì hiện cờ "App web có bản mới" kèm nút "Dùng bản app web".
+- ⬜ Khóa `A1`/`Am`/`A1m` + có bằng ô tô → dòng báo "miễn thi lý thuyết". Trùng đúng hạng đăng ký → cảnh báo, không chặn. Số GPLX khác 12 chữ số → nhắc, không chặn. Bằng mô tô ẩn ô Ngày hết hạn.
+- ⬜ Dữ liệu sai (hạng ngoài danh sách, ngày không hợp lệ, chứa `|`, chuỗi nối quá 100 ký tự) → từ chối và báo rõ: VPS trả 422 ngay lúc gửi; tool nạp lô báo lỗi đúng dòng học viên đó, nạp đơn trả 400.
+- ⬜ **Nghiệm thu máy CSĐT:** nạp thật 1 học viên một bằng + 1 học viên hai bằng; mở phần mềm cũ xem hiển thị; nội dung sát hạch ra miễn lý thuyết; Đồng bộ CDB giữ nguyên chuỗi.
+- ❌ Không làm ở `MoKhoaKhacDialog`, Tra cứu DB, sửa hồ sơ đã nạp, nhập bù hồ sơ cũ.
+- ❌ Không sửa Đồng bộ CDB: đã chép sẵn 7 cột.
+
+> Nguồn: user 02/11/2026 · CHANGES #81. Số liệu DB Nạp: 6.973/39.930 hồ sơ có GPLX đã có, 0 hồ sơ trùng hạng đăng ký.
+
+#### [THU-07] Nhập GPLX đã có ở app web
+
+**Trạng thái:** ⚠️ Partial — code + test xong 02/11/2026 (CHANGES #81, #82), chưa deploy VPS nên chưa thử trên hệ thống thật.
+**Story:** Là nhân viên thu nhận, tôi muốn ghi GPLX học viên đang có lúc gặp trực tiếp, để nhân viên nạp không phải hỏi lại.
+
+**Done khi:**
+- ⬜ Form thu nhận có ô tích "Đã có GPLX" sau "Thông tin từ căn cước"; tích vào mở khối nhập một cột, cùng trường và cùng bảng hạng với `NAP-07`; không bắt buộc.
+- ⬜ Lưu lên VPS khi gửi hồ sơ, sửa được khi hồ sơ còn sửa được; tool kéo về nhận được.
+- ⬜ Số GPLX nằm trong cơ chế dọn dữ liệu cá nhân 30 ngày như số căn cước.
+- ⬜ Dùng tốt ở khổ điện thoại 375px.
+- ❌ Không quét hay đọc tự động GPLX.
+
+> Nguồn: user 02/11/2026 · CHANGES #81. Phụ thuộc `NAP-07`.
+
 #### [THU-04] Cảnh báo trùng CCCD khi thu nhận (app web)
 
 **Trạng thái:** ✅ Done — 01/10/2026. Cảnh báo trùng CCCD app web (task 31): `GET /api/ho-so/kiem-trung` soi hàng đợi pending/importing + banner mềm ở màn xác nhận, vẫn cho gửi. Kiểm: server 67 test (+5 kiểm-trùng, +validate cccd) · review-baomat không lỗ CHẶN (giữ hiển thị tên đầy đủ người gửi theo chủ dự án chốt) · deploy live. Đối chiếu DB thật vẫn ở NAP-06.
@@ -1509,3 +1549,5 @@
 | 16/10/2026 | v4.20 — **Đồng bộ PRD với TDD v6.23 §11D.13 sau `/reviewtdd`** (CHANGES #78): KQD-01 tab "Sở từ chối" → **"Cần xử lý"** (gồm `14` + `90` Không đạt/trống kết luận) + tab "Không đạt" + 2 chip cảnh báo trên dòng; KQD-04 cảnh báo bắt buộc "chưa giải trình thì không kết xuất được" (4 chỗ), giải trình riêng được giữ + ô tích ghi đè, lô kiểm đủ điều kiện, mất kết nối báo "không rõ kết quả", mẫu theo cơ sở; KQD-07 +3 chip lý do. KQD-01/03/04/07 đã ⏳ từ v4.19. Số story giữ 61. | BA/PM |
 | 16/10/2026 | v4.21 — **KQD-04 thêm "Quản lý mẫu" giải trình** (CHANGES #78): sửa/xóa/thêm mẫu trong một hộp, lưu theo cơ sở, giới hạn 20 × 1000 ký tự. Số story giữ 61. | BA/PM |
 | 16/10/2026 | v4.22 — **NAP-01/NAP-05: ô "Chọn in GPLX"** (CHANGES #79): thay "`CHON_IN_GPLX=2` bắt buộc" bằng ô chọn 3 giá trị, mặc định theo hạng khóa (mô tô 3 / ô tô 2), đổi được từng học viên; Đồng bộ CDB chép nguyên giá trị. NAP-05 ✅→⚠️ (chờ nghiệm thu máy CSĐT). Không thêm/bớt mã, số story giữ 61. | BA/PM |
+| 02/11/2026 | v4.23 — **+`NAP-07`, +`THU-07` GPLX đã có** (CHANGES #81): nhập ở app web và tool, nhiều bằng luật cũ + luật mới, chip + lọc ở màn Nạp, không đổi schema DB Nạp, Sync giữ nguyên. Số story 61→63. | BA/PM |
+| 02/11/2026 | v4.24 — `NAP-07` +cờ "App web có bản mới" (CHANGES #82, user chốt sau `/reviewtdd`). | BA/PM |
