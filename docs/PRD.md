@@ -364,12 +364,13 @@
 **Done khi:**
 - ⬜ Khối "GPLX đã có" thu gọn mặc định; hiện đủ 6 ô cho từng bằng; thêm/xóa được nhiều bằng (ví dụ B2 luật cũ + A1 luật mới); lưu cùng nháp bền.
 - ⬜ Ô Hạng là **ô gõ để tìm** (gõ tới đâu lọc tới đó, không phân biệt dấu), mỗi dòng ghi rõ **luật mới / luật cũ**, lưu đúng mã `DM_HangGPLX`: A1 mới → `A1m`, A → `A2`, B → `B1`, B.01 → `B11`, C1 → `C1`; hạng luật cũ giữ nguyên mã.
-- ⬜ Ô Nơi cấp là **ô gõ để tìm theo mã hoặc tên tỉnh** (gõ `70` hoặc `binh phuoc`), gồm tỉnh hiện tại, tỉnh trước sáp nhập (ghi rõ) và **Cục QLHC**, Cục ĐBVN; lưu mã 2 số vào `DonViCapGPLXDaCo`.
+- ⬜ Ô Nơi cấp là **ô gõ để tìm theo mã hoặc tên tỉnh** (gõ `70` hoặc `binh phuoc`), lấy từ `DM_DonViGTVT` cấp Sở (65 đơn vị, cùng nguồn phần mềm cũ in tờ khai), có **Cục QLHC mã `00`** sau khi chạy `scripts/them_cuc_qlhc_dm_donvigtvt.sql` ở DB Nạp; lưu mã 2 số vào `DonViCapGPLXDaCo`.
 - ⬜ Ô ngày tự chèn dấu `/` khi gõ (`dd/mm/yyyy`), có nút lịch.
 - ⬜ Ghi qua 6 tham số `@p_*DaCo` của SP gộp: một bằng ghi thẳng; nhiều bằng nối `|` theo cùng thứ tự ở mọi cột (hạng `A1|B2`); ngày nhập `dd/mm/yyyy`, lưu `yyyymmdd`; ô trống giữ vị trí. `NoiCapGPLXDaCo` để trống. Không có bằng → giữ NULL như hiện tại. **Không thêm bớt cột nào ở DB Nạp.**
 - ⬜ Dòng học viên có chip "GPLX: B2, A1"; bộ lọc "Có GPLX đã có" kèm số lượng, dùng ở cả tab Cần xử lý và Đã nạp.
 - ⬜ Hồ sơ kéo từ VPS có GPLX đã có (`THU-07`) → tự điền, ghi chú "Từ app web", sửa được; bản nhân viên sửa được ưu tiên và không bị lần kéo sau đè; nếu app web đổi sau đó thì hiện cờ "App web có bản mới" kèm nút "Dùng bản app web".
-- ⬜ Khóa `A1`/`Am`/`A1m` + có bằng ô tô → dòng báo "miễn thi lý thuyết". Trùng đúng hạng đăng ký → cảnh báo, không chặn. Số GPLX khác 12 chữ số → nhắc, không chặn. Bằng mô tô ẩn ô Ngày hết hạn.
+- ⬜ Khóa `A1`/`Am`/`A1m` + có bằng ô tô → dòng báo "miễn thi lý thuyết". Số GPLX khác 12 chữ số → nhắc, không chặn. Bằng mô tô ẩn ô Ngày hết hạn.
+- ⬜ **Quy tắc khớp form cũ (chặn nạp):** bắt buộc hạng, số GPLX, ngày trúng tuyển, ngày cấp; GPLX đã có không được trùng hạng đăng ký của khóa; ngày cấp không trước ngày trúng tuyển, không sau hôm nay; ngày hết hạn sau ngày cấp; đủ 18 tuổi khi cấp.
 - ⬜ Dữ liệu sai (hạng ngoài danh sách, ngày không hợp lệ, chứa `|`, chuỗi nối quá 100 ký tự) → từ chối và báo rõ: VPS trả 422 ngay lúc gửi; tool nạp lô báo lỗi đúng dòng học viên đó, nạp đơn trả 400.
 - ⬜ **Nghiệm thu máy CSĐT:** nạp thật 1 học viên một bằng + 1 học viên hai bằng; mở phần mềm cũ xem hiển thị; nội dung sát hạch ra miễn lý thuyết; Đồng bộ CDB giữ nguyên chuỗi.
 - ❌ Không làm ở `MoKhoaKhacDialog`, Tra cứu DB, sửa hồ sơ đã nạp, nhập bù hồ sơ cũ.
@@ -383,7 +384,7 @@
 **Story:** Là nhân viên thu nhận, tôi muốn ghi GPLX học viên đang có lúc gặp trực tiếp, để nhân viên nạp không phải hỏi lại.
 
 **Done khi:**
-- ⬜ Form thu nhận có ô tích "Đã có GPLX" sau "Thông tin từ căn cước"; tích vào mở khối nhập một cột, cùng trường và cùng bảng hạng với `NAP-07`; không bắt buộc.
+- ⬜ Form thu nhận có ô tích "Đã có GPLX" sau "Thông tin từ căn cước"; tích vào mở khối nhập một cột, cùng trường và cùng bảng hạng với `NAP-07`; ô tích không bắt buộc, đã tích thì kiểm như `NAP-07` (trừ trùng hạng và 18 tuổi, kiểm ở tool khi nạp).
 - ⬜ Lưu lên VPS khi gửi hồ sơ, sửa được khi hồ sơ còn sửa được; tool kéo về nhận được.
 - ⬜ Số GPLX nằm trong cơ chế dọn dữ liệu cá nhân 30 ngày như số căn cước.
 - ⬜ Dùng tốt ở khổ điện thoại 375px.
@@ -1551,3 +1552,5 @@
 | 16/10/2026 | v4.22 — **NAP-01/NAP-05: ô "Chọn in GPLX"** (CHANGES #79): thay "`CHON_IN_GPLX=2` bắt buộc" bằng ô chọn 3 giá trị, mặc định theo hạng khóa (mô tô 3 / ô tô 2), đổi được từng học viên; Đồng bộ CDB chép nguyên giá trị. NAP-05 ✅→⚠️ (chờ nghiệm thu máy CSĐT). Không thêm/bớt mã, số story giữ 61. | BA/PM |
 | 02/11/2026 | v4.23 — **+`NAP-07`, +`THU-07` GPLX đã có** (CHANGES #81): nhập ở app web và tool, nhiều bằng luật cũ + luật mới, chip + lọc ở màn Nạp, không đổi schema DB Nạp, Sync giữ nguyên. Số story 61→63. | BA/PM |
 | 02/11/2026 | v4.24 — `NAP-07` +cờ "App web có bản mới" (CHANGES #82, user chốt sau `/reviewtdd`). | BA/PM |
+| 02/11/2026 | v4.25 — `NAP-07`, `THU-07` khớp form cũ (CHANGES #83): chặn trùng hạng đăng ký, bắt buộc ngày cấp + trúng tuyển, thứ tự ngày, 18 tuổi; Nơi cấp lấy `DM_DonViGTVT`. | BA/PM |
+| 02/11/2026 | v4.26 — `NAP-07` giữ Cục QLHC mã `00` (CHANGES #84, user chốt), kèm script bật ở DB Nạp. | BA/PM |

@@ -409,3 +409,5 @@
   - **Giữ Sync như hiện tại:** DB đích không bắt buộc nhập, nhưng hàm miễn lý thuyết, BC1/BC2 và XML đều đọc các cột này; 454/741 hồ sơ đích đang có giá trị.
 - **Đánh đổi:** số GPLX lên VPS tăng dữ liệu cá nhân ở đó (dọn cùng cơ chế 30 ngày). Cách nối `|` chỉ có 1 hồ sơ mẫu, chưa biết file gửi Sở có nhận.
 - Nguồn: CHANGES #81; TDD §10.6.
+- **Đổi 02/11/2026 (CHANGES #83) sau khi rà DB + DLL phần mềm cũ:** *Đã từng chốt:* trùng hạng đăng ký chỉ cảnh báo; ngày không bắt buộc; Nơi cấp lấy `DM_DVHC`, có "Cục QLHC". *Vì sao đổi:* form cũ chặn trùng hạng và bắt buộc ngày; tờ khai đọc tên từ `DM_DonViGTVT`, nên `DM_DVHC` làm in sai tên (mã `80`).
+- **Cục QLHC (user chốt 02/11/2026, CHANGES #84):** giữ lựa chọn này, mã `00` theo DB đích; script đổi tên + bật ở `DM_DonViGTVT` DB Nạp. Tờ khai DB Nạp in "Cục QLHC"; DB đích vẫn ghi `00` là "Cục CSGT".

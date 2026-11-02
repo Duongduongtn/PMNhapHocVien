@@ -4,6 +4,8 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 84 | 02/11/2026 | ✏️ Sửa (user chốt) | `NAP-07` · `THU-07` | **Giữ Cục QLHC mã `00`** theo DB đích; thêm script bật ở `DM_DonViGTVT` DB Nạp. | ✅ v4.26 | ✅ v6.30 | — | ✅ |
+| 83 | 02/11/2026 | ✏️ Sửa (khớp form cũ) | `NAP-07` · `THU-07` | **Rà DB + DLL phần mềm cũ:** chặn trùng hạng đăng ký, bắt buộc ngày cấp + trúng tuyển, thứ tự ngày, 18 tuổi; Nơi cấp đổi sang `DM_DonViGTVT` (65 đơn vị). Cách lưu `\|` có bằng chứng. | ✅ v4.25 | ✅ v6.29 | 🟡 mock chưa đổi danh sách Nơi cấp | ✅ chưa commit |
 | 82 | 02/11/2026 | ✏️ Sửa (sau `/reviewtdd`) | `NAP-07` · `THU-07` | **`/reviewtdd` §10.6 (2 Chặn, 11 Nên sửa, 2 Ghi nhận):** đã sửa TDD; user chốt cờ "App web có bản mới". Hoãn: hồ sơ xóa mềm còn giữ số căn cước. | ✅ v4.24 | ✅ v6.28 | — | ✅ chưa deploy |
 | 81 | 02/11/2026 | ➕ Thêm | `NAP-07` · `THU-07` | **GPLX đã có:** nhập ở app web, tool tự điền và sửa được; nhiều bằng luật cũ + luật mới (nối `\|`); chip + lọc ở màn Nạp; không đổi schema DB Nạp; Sync giữ nguyên. Số story 61→63. | ✅ v4.23 | ✅ v6.27 §10.6 + decisions §28 | ✅ mock `ui-mock/gplxdaco.html` đã duyệt + SCREENS #36 | ✅ chưa deploy |
 | 80 | 16/10/2026 | ✏️ Sửa (sau `/reviewtdd`) | `NAP-05` · `NAP-01` | **`/reviewtdd` "Chọn in GPLX" (0 Chặn, 4 Nên sửa):** làm rõ server dùng đúng giá trị client gửi; bảng nháp §9.3a +cột; "Phục vụ" +NAP-01; **user chốt (A):** đổi sang khóa khác loại mô tô↔ô tô thì **xóa lựa chọn tay**, ô về mặc định khóa mới; chọn lại đúng mặc định = chưa đổi (lưu trống). NAP-05 giữ ⚠️. Số story giữ 61. | — | ✅ v6.26 | — | ✅ `NapHoSo.tsx` + 2 ca e2e |
@@ -90,6 +92,21 @@
 Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên quan
 
 ---
+
+## #84 — Giữ Cục QLHC mã 00, script bật ở DB Nạp · 02/11/2026
+
+- **Mã:** `NAP-07`, `THU-07`.
+- **Vì sao:** user yêu cầu giữ Cục QLHC, lấy mã theo DB đích và có script bật ở DB Nạp. DB đích: `DM_DVHC` `00` = Cục QLHC; `DM_DonViGTVT` `00` = "Cục CSGT". DB Nạp: `DM_DonViGTVT` `00` = "Tổng cục đường bộ Việt Nam", tắt; chưa có GPLX đã có nào dùng `00`.
+- **Đã làm:** `scripts/them_cuc_qlhc_dm_donvigtvt.sql` (đã thử trong giao dịch hủy, tờ khai ra `Cục QLHC`) · bản chụp app web · PRD v4.26 · TDD v6.30.
+- **Còn nợ:** chạy script trên từng DB Nạp · tên `00` ở DB đích là "Cục CSGT", khác DB Nạp.
+
+## #83 — GPLX đã có khớp form cũ sau khi rà DB + DLL · 02/11/2026
+
+- **Mã:** `NAP-07`, `THU-07`. Số story giữ 63.
+- **Vì sao:** user yêu cầu rà schema/procedure để suy ra và chốt. Rà ra form cũ `FPT.GPLX.CSDT.dll` có quy tắc chặn mà thiết kế #81 chưa có, và tờ khai đọc tên đơn vị từ `DM_DonViGTVT` chứ không phải `DM_DVHC`.
+- **Bằng chứng cách lưu `|`:** lưới `dgvsDSGPLXHienCo`; `getTenDVCap('70|79')` ra `Bình Phước|Hồ Chí Minh`; hồ sơ `A1|A1` đã qua BC2 `720/23`, kết quả sát hạch `DA`.
+- **Đã sửa:** PRD v4.25 · TDD v6.29 · decisions §28 · code tool, VPS, app web + test.
+- **Còn nợ:** mock chưa đổi danh sách Nơi cấp · mở phần mềm cũ đối chiếu `A`→`A2` · chạy Sync một hồ sơ hai bằng.
 
 ## #82 — /reviewtdd §10.6 GPLX đã có · 02/11/2026
 
@@ -992,7 +1009,9 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 > `/capnhat` đọc mục này ở Bước 0b để biết có thay đổi nào chưa ghi sổ không.
 > So bằng **danh sách mã**, không so bằng thời gian sửa file.
 
-- **Cập nhật:** 02/11/2026 (#82 ✏️ sau `/reviewtdd` §10.6, số story giữ 63)
+- **Cập nhật:** 02/11/2026 (#84 ✏️ giữ Cục QLHC mã 00, số story giữ 63)
+- **Cập nhật trước:** 02/11/2026 (#83 ✏️ khớp form cũ, số story giữ 63)
+- **Cập nhật trước:** 02/11/2026 (#82 ✏️ sau `/reviewtdd` §10.6, số story giữ 63)
 - **Cập nhật trước:** 02/11/2026 (#81 ➕ `NAP-07`, `THU-07` GPLX đã có; số story 61→63)
 - **Cập nhật trước:** 16/10/2026 (#80 ✏️ sau `/reviewtdd` Chọn in GPLX — đổi khóa khác loại xóa lựa chọn tay; không thêm/bớt mã, số story giữ 61. Trước đó #79 ✏️ NAP-05/NAP-01 ô "Chọn in GPLX" theo hạng khóa — NAP-05 ✅→⚠️ chờ nghiệm thu máy CSĐT; không thêm/bớt mã, số story giữ 61)
 - **Cập nhật trước:** 16/10/2026 (#78 ✏️ đồng bộ PRD v4.20 + mock với TDD v6.23 §11D.13 — tab "Cần xử lý", cảnh báo thiếu giải trình, KQD-07 +3 chip; số story giữ 61. Trước đó cùng ngày: #77 ✏️ `KQD-04` HV Sở từ chối sửa xong → "Đang giải trình" + giải trình hàng loạt; `KQD-01` cột Trạng thái + tab đếm; `KQD-03`/`KQD-07` gồm `90` Đạt; hạ KQD-01/03/04/07 → ⏳; số story giữ 61; PRD v4.19 + TDD v6.22 §11D.13 + decisions §27. Trước đó 12/10/2026: #76 ✏️ `/reviewtdd` §11D.12 `KQD-10`: TDD v6.21 + PRD v4.18 + 6 sửa code; số story giữ 61. Trước đó cùng ngày: #75 ➕ `KQD-10` Xuất Sổ theo dõi kết quả học tập (mẫu Phụ lục VI); **số story 60→61**; PRD v4.17 + TDD v6.20 §11D.12 + decisions §26. Trước đó cùng ngày: #74 ✏️ `KQD-09` lưu file vào thư mục `output` + bỏ dấu chấm thừa giờ/km sân; PRD v4.16 + TDD v6.19; số story giữ 60. Trước đó cùng ngày: #73 ✏️ `/reviewtdd` §11D.11 `KQD-09`: TDD v6.18 + PRD v4.15 + 4 sửa code; số story giữ 60. Trước đó cùng ngày: #72 ➕ `KQD-09` Xuất Excel kết quả học tập theo khóa; **số story 59→60**; PRD v4.14 + TDD v6.17 §11D.11 + decisions §25. Trước đó cùng ngày: #71 ✏️ `/reviewtdd` §11D.10 `KQD-08`: đồng bộ TDD v6.16 + 2 sửa code; số story giữ 59. Trước đó cùng ngày: #70 ✏️ chốt 6 điểm sau /kiemthu `KQD-08`/`KQD-02`; số story giữ 59; PRD v4.13 + TDD v6.15. Trước đó cùng ngày: #69 ➕ `KQD-08` Nạp giờ/km đường từ PDF DAT theo khóa + ✏️ `KQD-02` ô giờ nhận `hh:mm` & nạp sẵn giờ/km đã lưu, KQD-02 hạ ⚠️→⏳ Todo; **số story 58→59**; PRD v4.12 + TDD v6.14 §11D.10 + decisions §24. Trước đó cùng ngày: #68 ✏️ `KQD-07`/`PCG-06` ghi quyết định đã chốt (5 môn mọi hạng ô tô, mô tô không xét, chốt UX qua mock) + đồng bộ TDD §11D.9/§11E.10 với code; số story giữ 58; PRD v4.11 + TDD v6.13. Trước đó cùng ngày: #67 ✏️ `QLY-07` đổi nền cả khóa ghi đè đúng file ở `DuongDanAnh`, hạ ⚠️→⏳ Todo; PRD v4.10 + TDD v6.12 §11.6; số story giữ 58. Trước đó cùng ngày: #65 ➕ `KQD-07` Kiểm trước kết xuất + #66 ➕ `PCG-06` Hạn giấy tờ xe/GPLX giáo viên/GV-xe ngưng còn phân công — hai story chỉ đọc, ⏳ Todo, không đổi schema; **số story 56→58**; PRD v4.9 + TDD v6.11 (§11D.9, §11E.10)). Trước đó 11/10/2026 (#64 ✏️ TNB ghi lại hành vi thực tế khi dựng UI task 106-115 vào PRD v4.8 + TDD v6.10; số story giữ 56. Trước đó cùng ngày: #63 ✏️ TNB ghi lại hành vi thực tế của backend task 96–105 vào TDD v6.9 + PRD v4.7; số story giữ 56. Trước đó cùng ngày: #62 ✏️ TNB đồng bộ PRD v4.6 + mockup với TDD §11F v6.8 sau /reviewtdd: bỏ "chuyển HV giữa BC2 mở", BC1 suy từ khóa; số story giữ 56. Trước đó cùng ngày: #61 ✏️ TNB thiết kế lại luồng thêm HV vào BC2 (3 bước, 4 nhóm HV, tên trạng thái nghiệp vụ); số story giữ 56. Trước đó cùng ngày: #60 ➕ Feature "Tốt nghiệp & Báo cáo 2" — **prefix mới `TNB`**, 7 story `TNB-01..07` ⏳ Todo, phân hệ #5 DB Nạp; +PRD v4.4 +TDD §11F v6.6 +decisions §23; **số story 49→56**. Trước đó cùng ngày: #59 ✏️ PCG /reviewtdd §11E: dấu vân tay + khóa ghi + giới hạn đầu vào; số story giữ 49. Trước đó cùng ngày: #58 ✏️ PCG chốt 9 điểm mơ hồ sau /kiemthu; số story giữ 49. Trước đó 10/10/2026: #57 ✏️ PCG UX: làm rõ bản nháp + nút Phân công, giữ bản nháp trên máy; số story giữ 49. Trước đó cùng ngày: #56 ✏️ PCG: cảnh báo lệch hạng GV chỉ khi dạy thực hành + bảng hợp hạng; số story giữ 49. Trước đó cùng ngày: #55 ✏️ PCG: trùng GV/xe chỉ cảnh báo + bỏ cảnh báo "đang ở khóa khác"; số story giữ 49, không mã mới. Trước đó cùng ngày: #54 ➕ Feature "Phân công giáo viên – xe" — **prefix mới PCG**, 5 story `PCG-01..05` ⏳ Todo, phân hệ #4; +PRD chương 🟣 (v4.3) + TDD §11E (v6.4) + decisions §22 + SCREENS #24/#25; **số story 44→49**. Trước đó cùng ngày: #53 ✏️ `KQD-05` "Sửa sau gửi" chọn từng HV thay khóa cứng M1 — KQD-05 hạ ⚠️→⏳ Todo; số story giữ 44, không thêm/nghỉ hưu mã. PRD v4.2 · TDD v6.3 §11D.7b · decisions §21.)

@@ -949,7 +949,9 @@ Suy từ `KhoaHoc` thật (`B`→`B1`, `B.01`→`B11`, `C1`→`C1`) + mô tả d
 
 **Ô nhập (dùng lại component có sẵn):** Hạng và Nơi cấp dùng `components/ComboLoc` (lọc theo `boDau` trên chuỗi hiện, nên đưa mã vào nhãn: `70 — Bình Phước (trước sáp nhập)` là gõ được cả mã lẫn tên). Ngày dùng `components/ODate` (`maskNgay` tự chèn `/`, có nút lịch). App web dùng `ODate` của `webapp` và một ô gõ tìm tương đương.
 
-**Danh sách Nơi cấp:** `DM_DVHC` mã 2 ký tự, `LoaiDvhc IN ('C','TW','TI')`, **bất kể `TrangThai`**, bỏ `90`. Khác `dvhc.ds_so_gtvt` (nơi cấp căn cước, chỉ tỉnh còn hiệu lực): bằng cũ cấp từ tỉnh đã sáp nhập, ví dụ `70` Bình Phước (3.447 hồ sơ) đã `TrangThai=0`. Mọi mã 2 số trong dữ liệu cũ đều có trong `DM_DVHC`. Tên trùng khác mã (`72`/`80` Tây Ninh, `89`/`91` An Giang) nên phải hiện mã. Hàm riêng `dvhc.ds_noi_cap_gplx()` + `GET /local/dvhc/noi-cap-gplx`, **không sửa `ds_so_gtvt`**; server dựng nhãn từ `TrangThai`. App web không đọc được SQL Server nên dùng bản chụp danh sách trong code (danh mục gần như không đổi).
+**Danh sách Nơi cấp:** `DM_DonViGTVT` với `LoaiDV='SO'` (65 đơn vị). Đây là nguồn `usf_QuangLA_PM4_ThuNhanHS_getTenDVCap` dùng in tờ khai, và mọi mã trong dữ liệu cũ đều có. **Không dùng `DM_DVHC`:** cùng mã khác tên (`80` là Long An ở đây, Tây Ninh ở kia; `15`, `24`, `44`, `52`, `82`, `91` cũng khác). `@p_NoiCapGPLXDaCo` là mã nước ngoài cấp (`DM_QuocTich`), form cũ chỉ cho nhập một trong hai.
+
+**Cục QLHC (user chốt, CHANGES #84):** mã `00`, khớp `DM_DVHC` ở cả DB Nạp và DB đích ("Cục Cảnh sát quản lý hành chính"). `DM_DonViGTVT` DB Nạp ghi `00` là "Tổng cục đường bộ Việt Nam" và tắt → chạy `scripts/them_cuc_qlhc_dm_donvigtvt.sql` để đổi tên + bật; tool đọc danh sách từ DB nên tự hiện sau khi chạy. **Chưa khớp:** `DM_DonViGTVT` DB đích ghi `00` là "Cục CSGT", script không đụng DB đích; Sync chỉ chép mã `00`. Hàm riêng `dvhc.ds_noi_cap_gplx()` + `GET /local/dvhc/noi-cap-gplx`, **không sửa `ds_so_gtvt`**; server dựng nhãn từ `TrangThai`. App web không đọc được SQL Server nên dùng bản chụp danh sách trong code (danh mục gần như không đổi).
 
 **Miễn lý thuyết:** `usf_BaBT_GetMaNoidungSathach` / `usf_BaBT_GetNoidungSathach` (bản đang chạy) áp cho `A1`, `Am`, `A1m` khi `HangGPLXDaCo` chứa `B1`, `B11`…`B15`, `B2`, `C`, `D`, `E`, `FB2`, `FC`, `FD`, `FE` (dò `CHARINDEX`, nên chuỗi `A1|B2` vẫn khớp). UI chỉ báo, không tự đổi gì ở DB.
 
@@ -957,11 +959,11 @@ Suy từ `KhoaHoc` thật (`B`→`B1`, `B.01`→`B11`, `C1`→`C1`) + mô tả d
 - **Kéo lại từ VPS:** `keo_ve_upsert` làm tươi `keo_ve.gplx_da_co_json` khi dòng còn `cho`. Nháp khác NULL vẫn được ưu tiên (NULL = chưa sửa, `'[]'` = đã xóa hết, JSON = bản đã sửa). UI so nháp với `keo_ve`: khác nhau và VPS vừa đổi thì hiện cờ "App web có bản mới" + nút "Dùng bản app web" (đưa nháp về NULL). `goiNhap` gửi đủ trường mỗi lần lưu nên `nhap_luu` (`INSERT OR REPLACE`) không làm mất cột này. Sửa ở app web: `GET /cua-toi` trả kèm để form hiện đúng.
 - **Sau khi nạp:** `keo_ve_cap_nhat(..., gplx_da_co_json=…)` ghi danh sách đã nạp TRƯỚC `nhap_xoa`, để chip + lọc tab Đã nạp vẫn đúng. Dòng `xong` không bị `keo_ve_upsert` đè. Gỡ về chờ nạp (QLY-08) rồi kéo lại thì lấy lại giá trị VPS (chấp nhận).
 - **Chip + lọc:** `nhap_co` trả thêm `gplx_da_co_json`, `_KEO_COLS` thêm cột; dữ liệu nhỏ, không phải ảnh.
-- **Trùng hạng đăng ký:** dữ liệu cũ 0/6.973; cảnh báo, không chặn. Số GPLX 98% dài 12 chữ số; khác thì nhắc, không chặn.
+- **Quy tắc khớp form cũ** (chuỗi thông báo trong `FPT.GPLX.CSDT.dll`, đối chiếu 6.973 hồ sơ): bắt buộc hạng, số, ngày cấp, ngày trúng tuyển (0 hồ sơ thiếu); "GPLX hiện có không được chứa hạng cần cấp" (0 hồ sơ trùng) → **chặn**; ngày cấp không trước trúng tuyển (0 vi phạm), không sau hôm nay; hết hạn sau ngày cấp (4 vi phạm cũ); đủ 18 tuổi khi cấp. Trùng hạng và 18 tuổi chỉ kiểm ở tool (VPS chưa biết khóa). Số GPLX 98% dài 12 chữ số; khác thì nhắc, không chặn.
 - **Migrate:** SQLite `keo_ve` + `nhap_chuan_bi` dùng guard `PRAGMA table_info` + `ALTER` như `ngay_cap`. VPS: `init.sql` chỉ chạy cho DB mới, nên API tự chạy `ALTER TABLE ho_so_thu_thap ADD COLUMN IF NOT EXISTS gplx_da_co JSONB` lúc khởi động, trước khi nhận truy vấn; checklist deploy kiểm `\d ho_so_thu_thap`. Model dùng `JSON().with_variant(JSONB, "postgresql")`.
 - **PII:** `gplx_da_co` là dữ liệu cá nhân: `jobs/pii.py` dọn cùng số căn cước; xóa mềm hồ sơ (THU-05) đặt NULL; không ghi vào audit/log; lỗi 422 không log giá trị trường này. Bản ở `keo_ve` máy tool cùng nhóm PII staging như `so_cccd`.
 
-**Rủi ro đã biết:** nhiều bằng nối `|` chỉ có 1 hồ sơ mẫu (hạng `A1|A1`, 2023); chưa biết file gửi Sở có nhận; tờ khai `usp_rpt_PM4_InToKhai` in nguyên dấu `|`. Đối chiếu ở nghiệm thu máy CSĐT. Cách làm và lý do: `TDD-decisions` §28.
+**Cách lưu nhiều bằng đã có bằng chứng:** form cũ có lưới `dgvsDSGPLXHienCo` + `btnThemGPLXHienCo`; hàm `getTenDVCap` nhận danh sách và giữ dấu ngăn (`70|79` → `Bình Phước|Hồ Chí Minh`); hồ sơ mẫu `A1|A1` (2023) đã qua BC2 `720/23` và có kết quả sát hạch `DA`. **Còn lại:** tờ khai in nguyên dấu `|` như hồ sơ cũ; `A`→`A2` đối chiếu ở nghiệm thu máy CSĐT. Cách làm và lý do: `TDD-decisions` §28.
 
 ## 11. Quản lý hồ sơ đã có & tạo khóa (tool)
 
@@ -2109,6 +2111,8 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 | --- | --- | --- |
+| 02/11/2026 | 6.30 | §10.6 Cục QLHC mã `00` + script bật ở DB Nạp (CHANGES #84). |
+| 02/11/2026 | 6.29 | **§10.6 khớp form cũ** (CHANGES #83): Nơi cấp đổi sang `DM_DonViGTVT`; chặn trùng hạng, bắt buộc ngày, thứ tự ngày, 18 tuổi; ghi bằng chứng cách lưu `\|`. |
 | 02/11/2026 | 6.28 | **Sửa sau `/reviewtdd` §10.6** (CHANGES #82, biên bản `tdd-review-02-11-2026-gplx-da-co.md`): `hang` lưu mã; thứ tự ưu tiên + cờ "App web có bản mới"; `/cua-toi` trả kèm; lỗi từng dòng khi nạp lô; VPS kiểm + tự ALTER; PII xóa mềm; `ds_noi_cap_gplx`. |
 | 02/11/2026 | 6.27 | **+§10.6 GPLX đã có** (CHANGES #81, `NAP-07`, `THU-07`): JSONB `ho_so_thu_thap.gplx_da_co`, cột nháp SQLite, ghi 6 tham số SP nối `|`, bảng nhãn ↔ mã hạng; §3, §4.4 ghi chú; ô gõ tìm Hạng + Nơi cấp (có Cục QLHC, tỉnh trước sáp nhập), ô ngày tự chèn `/`. Không đổi schema DB Nạp, không sửa Sync. |
 | 16/10/2026 | 6.26 | **Sửa sau `/reviewtdd` "Chọn in GPLX"** (CHANGES #80, biên bản `tdd-review-16-10-2026-in-gplx.md`): §9.3a +cột `chon_in_gplx` · §10 Phục vụ +`NAP-01` · §10.2 làm rõ server dùng đúng giá trị client gửi (chỉ kiểm tập) · quy tắc ghi nháp (chọn lại mặc định → NULL; đổi khóa khác loại → xóa lựa chọn tay) · dòng `MaLoaiHs` "bắt đầu bằng A". |
