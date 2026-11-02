@@ -4,7 +4,7 @@
 
 | # | Ngày | Mức | Story | Bug | Trạng thái | Deploy |
 |---|---|---|---|---|---|---|
-| 19 | 02/11/2026 | 🔴 Chặn | `NAP-07` · `NAP-03` · `SYNC-01` | **Tool: Enter ở ô gõ để lọc chọn sai không báo**, cùng gốc BUG-17. Sửa ở `ComboLoc` dùng chung: Enter chỉ chọn khi còn đúng một khả năng. Đã đóng gói exe, chưa commit. | ✅ Đã sửa | ⬜ |
+| 19 | 02/11/2026 | 🔴 Chặn | `NAP-07` · `NAP-03` · `SYNC-01` | **Tool: Enter ở ô gõ để lọc chọn sai không báo**, cùng gốc BUG-17. Sửa ở `ComboLoc` dùng chung: Enter chỉ chọn khi còn đúng một khả năng. Đã đóng gói exe, commit `0146041`. | ✅ Đã sửa | ⬜ |
 | 18 | 02/11/2026 | 🔴 Chặn | `THU-01` · `THU-07` | **Ngày không có thật vẫn hiện ✓ và gửi được** (`45/13/1990`, `31/02/2021`, năm `9999`). Chỉ kiểm dạng số. Sửa: kiểm ngày có thật ở form nhập và form sửa. | ✅ Đã sửa | ✅ |
 | 17 | 02/11/2026 | 🔴 Chặn | `THU-07` | **Enter ở ô Hạng, Nơi cấp chọn sai không báo.** Gõ `B1` ra "B1 số tự động", `A` ra A1, `C` ra C1, `Ha` ra Hà Nội. Sửa: Enter chỉ chọn khi còn đúng một khả năng. Tool cùng lỗi, xem BUG-19. | ✅ Đã sửa app web | ✅ |
 | 16 | 02/11/2026 | 🟠 Nặng | `THU-01` · `THU-07` | **Dòng "Đã đủ thông tin bắt buộc" hiện xanh khi khối GPLX còn lỗi.** Danh sách thiếu chỉ tính 4 ô căn cước, trong khi nút gửi có kiểm GPLX nên báo đủ mà bấm vẫn bị chặn. Sửa: thêm "GPLX đã có" vào danh sách thiếu. | ✅ Đã sửa | ✅ |

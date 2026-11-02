@@ -44,6 +44,11 @@ def test_doc_km_sai_dang(raw):
 
 
 # ---- đọc PDF mẫu thật (bỏ qua nếu máy không có thư mục thamkhao/) --------------
+def _mau(ten: str) -> Path:
+    """File mẫu nằm ở thamkhao/ hoặc thư mục con; không có thì trả đường dẫn không tồn tại để test bỏ qua."""
+    return next(_THAMKHAO.rglob(ten), _THAMKHAO / ten)
+
+
 @pytest.mark.parametrize("ten,ma_kh,hang,so_dong", [
     ("DAT B.01-K39.pdf", "75032K260002", "B.01", 60),
     ("DAT B.01-K40.pdf", "75032K260003", "B.01", 30),
@@ -51,7 +56,7 @@ def test_doc_km_sai_dang(raw):
     ("DAT C1-K11.pdf", "75032K26C1005", "C1", 32),
 ])
 def test_doc_pdf_mau(ten, ma_kh, hang, so_dong):
-    p = _THAMKHAO / ten
+    p = _mau(ten)
     if not p.exists():
         pytest.skip("không có file mẫu")
     r = d.doc_pdf_dat(p.read_bytes())
@@ -61,7 +66,7 @@ def test_doc_pdf_mau(ten, ma_kh, hang, so_dong):
 
 
 def test_doc_pdf_dong_chua_chay_dat():
-    p = _THAMKHAO / "DAT C1-K10.pdf"
+    p = _mau("DAT C1-K10.pdf")
     if not p.exists():
         pytest.skip("không có file mẫu")
     r = d.doc_pdf_dat(p.read_bytes())
@@ -463,6 +468,57 @@ def test_s7_bang_thieu_cot_ghi_chu_van_doc_duoc(monkeypatch):
     _gia_pdfplumber(monkeypatch, [_Trang(_DAU, [[["1", "M1", "A", "01/01/2000", "10:00", "500,00"]]])])
     r = d.doc_pdf_dat(b"x")
     assert len(r["dong"]) == 1 and r["dong"][0]["ghi_chu"] == "" and r["dong"][0]["km"] == 500.0
+
+
+_HDR_MOI_1 = ["STT", "Họ tên", "Mã học viên", "Ngày sinh", "Hạng đào tạo", "Mã khóa học", "Đào tạo thực hành trên đường", "", "Ghi chú"]
+_HDR_MOI_2 = ["", "", "", "", "", "", "Thời gian", "Quãng đường (km)", ""]
+
+
+def test_mau_moi_9_cot_doc_dung_cot_theo_tieu_de(monkeypatch):
+    _gia_pdfplumber(monkeypatch, [
+        _Trang(_DAU, [[_HDR_MOI_1, _HDR_MOI_2,
+                       ["1", "NGUYỄN\nVĂN AN", "75032-20260730-000001", "01/01/2000", "C1", "75032K260002", "24.660", "907,60", "ĐẠT"]]]),
+        # Trang sau chỉ lặp hàng tiêu đề thứ hai, và viết dính "Quãngđường".
+        _Trang("", [[["", "", "", "", "", "", "Thời gian", "Quãngđường (km)", ""],
+                     ["2", "LÊ THỊ BÌNH", "75032-20260730-000002", "02/02/2001", "C1", "75032K260002", "26.568", "1.008,19", "KHÔNG ĐẠT"]]]),
+    ])
+    r = d.doc_pdf_dat(b"x")
+    a, b = r["dong"]
+    assert (a["ma_hv"], a["ho_ten"], a["ngay_sinh"]) == ("75032-20260730-000001", "NGUYỄN VĂN AN", "01/01/2000")
+    assert (a["gio"], a["km"], a["ghi_chu"], a["loi"]) == (24.66, 907.6, "ĐẠT", None)
+    assert (b["ma_hv"], b["gio"], b["km"], b["ghi_chu"]) == ("75032-20260730-000002", 26.57, 1008.19, "KHÔNG ĐẠT")
+
+
+def test_mau_cu_hai_hang_tieu_de_van_doc_dung(monkeypatch):
+    _gia_pdfplumber(monkeypatch, [_Trang(_DAU, [[
+        ["STT", "Mã học viên", "Họ và tên", "Ngày sinh", "Đào tạo thực hành trên đường", "", "Ghi chú"],
+        ["", "", "", "", "Tổng thời gian", "Tổng quãng đường (km)", ""],
+        ["1", "M1", "A", "01/01/2000", "16:19", "1.008,19", "ĐẠT"],
+    ]])])
+    x = d.doc_pdf_dat(b"x")["dong"][0]
+    assert (x["ma_hv"], x["ho_ten"], x["gio"], x["km"], x["ghi_chu"]) == ("M1", "A", 16.32, 1008.19, "ĐẠT")
+
+
+def test_dong_le_khong_phai_tieu_de_khong_doi_cot(monkeypatch):
+    _gia_pdfplumber(monkeypatch, [_Trang(_DAU, [[
+        _HDR_MOI_1, _HDR_MOI_2,
+        ["1", "A", "M1", "01/01/2000", "C1", "K", "24.660", "907,60", "ĐẠT"],
+        ["", "Thời gian in báo cáo", "", "", "", "", "", "", ""],
+        ["2", "B", "M2", "01/01/2000", "C1", "K", "25.000", "900,00", "ĐẠT"],
+    ]])])
+    assert [x["gio"] for x in d.doc_pdf_dat(b"x")["dong"]] == [24.66, 25.0]
+
+
+def test_mau_la_thieu_cot_thi_bao_ro_khong_doc_lech(monkeypatch):
+    _gia_pdfplumber(monkeypatch, [_Trang(_DAU, [[
+        ["STT", "Họ tên", "Mã học viên", "Ngày sinh", "Số giờ", "Số km", "Ghi chú"],
+        ["1", "A", "M1", "01/01/2000", "10:00", "500,00", ""],
+    ]])])
+    with pytest.raises(d.LoiDat, match="thời gian"):
+        d.doc_pdf_dat(b"x")
+    _gia_pdfplumber(monkeypatch, [_Trang(_DAU, [[["1", "A", "M1", "x", "C1", "K", "10:00", "500,00", ""]]])])
+    with pytest.raises(d.LoiDat, match="tiêu đề"):
+        d.doc_pdf_dat(b"x")
 
 
 def test_s7_pdfplumber_nem_loi_la_thi_bao_chung_khong_lo_chi_tiet(monkeypatch):

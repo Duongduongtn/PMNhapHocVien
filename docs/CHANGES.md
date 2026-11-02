@@ -4,6 +4,7 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 88 | 02/11/2026 | ✏️ Sửa | `KQD-08` | Nạp giờ/km nhận cả mẫu PDF DAT cũ 7 cột và mới 9 cột, tìm cột theo tiêu đề; mẫu lạ báo rõ. | ✅ | ✅ §11D.10 | — | ✅ |
 | 87 | 02/11/2026 | ✏️ Sửa (UX) | `THU-01` | Thông báo đã gửi nêu tên học viên, để làm liên tiếp biết vừa gửi hồ sơ nào. | ✅ | — | — | ✅ `210c5e1` |
 | 86 | 02/11/2026 | ✏️ Sửa (UX) | `THU-01` · `THU-07` | Báo lỗi form dễ sửa trên điện thoại: tự tới ô sai đầu tiên, câu lỗi tự mất; GPLX không đỏ khi chưa nhập; chữ ô nhập 16px dưới 1024px. | ✅ | — | — | ✅ `f8f3fb7` |
 | 85 | 02/11/2026 | 🐛 Sửa + ⚙️ | `THU-05` · `NAP-07` | Job dọn 30 ngày xóa cả hồ sơ xóa mềm; cài sao lưu DB đêm trên VPS; workflow gọi cả API, sửa dọn image. | — | ✅ | ✅ mock Nơi cấp | ✅ |
@@ -95,6 +96,14 @@
 Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên quan
 
 ---
+
+## #88 — Nạp giờ/km nhận cả mẫu PDF DAT cũ và mới · 02/11/2026
+
+- **Mã:** `KQD-08`. Số story giữ 63.
+- **Vì sao:** file `DAT C1-K12` tải từ DAT ngày 02/11/2026 đổi mẫu: thêm cột Hạng, Mã khóa, đảo Họ tên với Mã học viên, giờ dạng `24.660`. Code đọc cột theo vị trí nên cả 72 dòng báo `Giờ 'C1' sai dạng`. User yêu cầu cả hai mẫu đều nạp được.
+- **Giả định:** `24.660` là giờ thập phân (24,66 giờ). File không ghi đơn vị; user chưa đối chiếu với DAT, bảng xác nhận hiện giờ cũ → mới trước khi lưu.
+- **Đã sửa:** PRD `KQD-08`, Changelog v4.29 · `tool/app/ketqua_dat.py`, `tool/tests/test_ketqua_dat.py` (5 test đọc mẫu thật trước đó bị bỏ qua do file đã chuyển vào thư mục con, nay chạy lại). TDD §11D.10 v6.31.
+- **Còn nợ:** 2 dòng mã có chữ `G` đầu trong file (STT 24, 26 của C1-K12) user chốt giữ chặn, nhập tay ở lưới điểm; hỏi bên DAT nghĩa của chữ `G`. Exe đóng gói 02/11/2026 16:54.
 
 ## #87 — Thông báo đã gửi nêu tên học viên · 02/11/2026
 
@@ -1033,7 +1042,8 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 > `/capnhat` đọc mục này ở Bước 0b để biết có thay đổi nào chưa ghi sổ không.
 > So bằng **danh sách mã**, không so bằng thời gian sửa file.
 
-- **Cập nhật:** 02/11/2026 (#87 ✏️ thông báo đã gửi nêu tên học viên, số story giữ 63)
+- **Cập nhật:** 02/11/2026 (#88 ✏️ `KQD-08` nhận cả hai mẫu PDF DAT, số story giữ 63)
+- **Cập nhật trước:** 02/11/2026 (#87 ✏️ thông báo đã gửi nêu tên học viên, số story giữ 63)
 - **Cập nhật trước:** 02/11/2026 (#86 ✏️ báo lỗi form dễ sửa trên điện thoại, số story giữ 63)
 - **Cập nhật trước:** 02/11/2026 (#85 dọn việc treo, số story giữ 63)
 - **Cập nhật trước:** 02/11/2026 (#84 ✏️ giữ Cục QLHC mã 00, số story giữ 63)

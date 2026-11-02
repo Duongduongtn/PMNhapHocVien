@@ -1502,6 +1502,7 @@ DB **không có** trigger/computed/constraint tính 3 cờ (verify 06/10: 0 trig
 - **Kiểm thử:** unit `hv_chua_du` (đủ 5 môn → đủ; thiếu 1 môn; chưa có điểm; thiếu giờ-km; thiếu kết luận; hạng mô tô không xét — đếm `mo_to_bo_qua`; giờ đường dưới ngưỡng không vào lý do) + API bằng cursor giả (HV 12/13 không vào danh sách).
 
 ### 11D.10 Nạp giờ/km đường từ PDF DAT (KQD-08, CHANGES #69) + giờ `hh:mm` ở lưới (KQD-02)
+> Cập nhật 02/11/2026 (CHANGES #88): `doc_pdf_dat` tìm cột theo tên tiêu đề, nhận cả mẫu cũ 7 cột và mẫu mới 9 cột (giờ thập phân `24.660`). Hàng tiêu đề phải có ít nhất 2 tên cột; bảng có STT mà thiếu cột bắt buộc, hoặc hơn 7 cột mà không có tiêu đề → báo mẫu lạ.
 > Bổ sung 12/10/2026. Quyết định: TDD-decisions §24. **Không đổi schema CDB**; ghi 2 cột có sẵn.
 
 ```
@@ -2111,6 +2112,7 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 | --- | --- | --- |
+| 02/11/2026 | 6.31 | §11D.10 nhận hai mẫu PDF DAT (CHANGES #88). |
 | 02/11/2026 | 6.30 | §10.6 Cục QLHC mã `00` + script bật ở DB Nạp (CHANGES #84). |
 | 02/11/2026 | 6.29 | **§10.6 khớp form cũ** (CHANGES #83): Nơi cấp đổi sang `DM_DonViGTVT`; chặn trùng hạng, bắt buộc ngày, thứ tự ngày, 18 tuổi; ghi bằng chứng cách lưu `\|`. |
 | 02/11/2026 | 6.28 | **Sửa sau `/reviewtdd` §10.6** (CHANGES #82, biên bản `tdd-review-02-11-2026-gplx-da-co.md`): `hang` lưu mã; thứ tự ưu tiên + cờ "App web có bản mới"; `/cua-toi` trả kèm; lỗi từng dòng khi nạp lô; VPS kiểm + tự ALTER; PII xóa mềm; `ds_noi_cap_gplx`. |

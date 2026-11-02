@@ -1,9 +1,12 @@
 """Đọc PDF báo cáo DAT + đối chiếu với học viên của khóa (KQD-08).
 
 PDF "Báo cáo kết quả đào tạo thực hành lái xe trên đường của khóa học" (hệ thống DAT):
-đầu file có `Mã khóa học:<mã>`; bảng 7 cột `STT · Mã học viên · Họ và tên · Ngày sinh ·
-Tổng thời gian · Tổng quãng đường · Ghi chú`. Giờ dạng `16:19` (có thể ≥ 24), km dạng
-`1.008,19`. "Mã học viên" = `NguoiLX.MaDK` (đã đối chiếu DB 12/10/2026).
+đầu file có `Mã khóa học:<mã>`. Có hai mẫu, nhận cột theo tên tiêu đề (CHANGES #88):
+- Mẫu cũ, 7 cột: `STT · Mã học viên · Họ và tên · Ngày sinh · Tổng thời gian · Tổng quãng đường · Ghi chú`,
+  giờ dạng `16:19` (có thể ≥ 24).
+- Mẫu mới, 9 cột: `STT · Họ tên · Mã học viên · Ngày sinh · Hạng đào tạo · Mã khóa học · Thời gian ·
+  Quãng đường (km) · Ghi chú`, giờ thập phân `24.660`.
+Km dạng `1.008,19`. "Mã học viên" = `NguoiLX.MaDK` (đã đối chiếu DB 12/10/2026).
 
 Luật thuần, không DB. Quyết định: TDD §11D.10, TDD-decisions §24.
 """
@@ -11,6 +14,7 @@ from __future__ import annotations
 
 import io
 import re
+import unicodedata
 
 from app import ketqua_quydoi
 
@@ -57,11 +61,38 @@ def doc_km(v) -> float | None:
     raise LoiDat(f"Quãng đường '{t}' sai dạng.")
 
 
+# Vị trí cột của mẫu cũ: dùng khi bảng không có hàng tiêu đề.
+_COT_MAU_CU = {"ma_hv": 1, "ho_ten": 2, "ngay_sinh": 3, "gio": 4, "km": 5, "ghi_chu": 6}
+_COT_BAT_BUOC = {"ma_hv": "mã học viên", "ho_ten": "họ tên", "gio": "thời gian", "km": "quãng đường"}
+
+
+def _chu_tieu_de(v) -> str:
+    """Bỏ dấu + khoảng trắng, vì PDF hay dính chữ ("Quãngđường", "Mãkhóa")."""
+    t = unicodedata.normalize("NFD", str(v or "")).replace("đ", "d").replace("Đ", "d")
+    return re.sub(r"\s+", "", "".join(ch for ch in t if not unicodedata.combining(ch))).lower()
+
+
+def _cot_cua_tieu_de(ten: str) -> str | None:
+    if "mahocvien" in ten:
+        return "ma_hv"
+    if ten in ("hoten", "hovaten"):
+        return "ho_ten"
+    if "ngaysinh" in ten:
+        return "ngay_sinh"
+    if "thoigian" in ten:
+        return "gio"
+    if "quangduong" in ten:
+        return "km"
+    if "ghichu" in ten:
+        return "ghi_chu"
+    return None
+
+
 def doc_pdf_dat(data: bytes) -> dict:
     """PDF DAT → {ma_kh, hang, dong:[{stt, ma_hv, ho_ten, ngay_sinh, gio, km, ghi_chu, loi}]}.
 
     Lỗi từng dòng (giờ/km sai dạng) ghi vào `loi`, các dòng khác vẫn đọc. File hỏng / không có
-    mã khóa / không có bảng → LoiDat."""
+    mã khóa / không có bảng / mẫu lạ → LoiDat."""
     import pdfplumber  # import trễ: test không cần thư viện, exe gói kèm
 
     try:
@@ -72,20 +103,44 @@ def doc_pdf_dat(data: bytes) -> dict:
             m_kh = re.search(r"khóa\s*học:\s*([A-Za-z0-9]+)", dau)
             m_hang = re.search(r"Hạng\s*đào\s*tạo:\s*(\S+)", dau)
             dong: list[dict] = []
+            # Giữ qua các trang: trang sau thường chỉ lặp một phần hàng tiêu đề.
+            cot_tieu_de: dict[str, int] = {}
+            co_tieu_de = False
             for trang in pdf.pages:
                 for bang in trang.extract_tables():
                     for r in bang:
-                        if not r or len(r) < 6 or not r[0] or not str(r[0]).strip().isdigit():
+                        if not r:
                             continue
+                        if not r[0] or not str(r[0]).strip().isdigit():
+                            ten = [_chu_tieu_de(o) for o in r]
+                            tim = {cot: i for i, t in enumerate(ten) if (cot := _cot_cua_tieu_de(t))}
+                            # Ít nhất 2 tên cột mới là hàng tiêu đề: dòng lẻ như "Thời gian in..." không được đổi cột.
+                            if len(tim) >= 2:
+                                cot_tieu_de.update(tim)
+                                co_tieu_de = co_tieu_de or "stt" in ten
+                            continue
+                        if len(r) < 6:
+                            continue
+                        if co_tieu_de:
+                            thieu = [ten for k, ten in _COT_BAT_BUOC.items() if k not in cot_tieu_de]
+                            if thieu:
+                                raise LoiDat(f"Mẫu file DAT lạ: không thấy cột {', '.join(thieu)}. Gửi file này để kiểm lại.")
+                            cot = {**_COT_MAU_CU, "ghi_chu": None, "ngay_sinh": None, **cot_tieu_de}
+                        elif len(r) > 7:
+                            raise LoiDat("Mẫu file DAT lạ: bảng có nhiều cột nhưng không thấy hàng tiêu đề. Gửi file này để kiểm lại.")
+                        else:
+                            cot = _COT_MAU_CU
                         c = [(x or "").strip() for x in r]
+                        lay = lambda k: c[cot[k]] if cot[k] is not None and cot[k] < len(c) else ""  # noqa: E731, B023
                         d = {
-                            "stt": int(c[0]), "ma_hv": c[1], "ho_ten": c[2], "ngay_sinh": c[3],
+                            "stt": int(c[0]), "ma_hv": re.sub(r"\s+", "", lay("ma_hv")),
+                            "ho_ten": " ".join(lay("ho_ten").split()), "ngay_sinh": lay("ngay_sinh"),
                             "gio": None, "km": None,
-                            "ghi_chu": c[6] if len(c) > 6 else "", "loi": None,
+                            "ghi_chu": lay("ghi_chu"), "loi": None,
                         }
                         try:
-                            d["gio"] = doc_gio(c[4])
-                            d["km"] = doc_km(c[5])
+                            d["gio"] = doc_gio(lay("gio"))
+                            d["km"] = doc_km(lay("km"))
                         except LoiDat as e:
                             d["loi"] = str(e)
                         dong.append(d)
