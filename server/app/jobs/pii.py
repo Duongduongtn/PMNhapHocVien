@@ -22,7 +22,7 @@ from app.config import get_settings
 from app.models.ho_so import AuditLog, HoSoThuThap
 
 # Trạng thái được phép xóa khi quá hạn. 'importing' cố ý loại trừ (EC-040).
-_XOA_DUOC = ("pending", "imported")
+_XOA_DUOC = ("pending", "imported", "deleted")  # deleted: xóa mềm vẫn còn số CCCD, phải dọn cùng hạn
 
 
 def _now() -> datetime:
@@ -50,7 +50,7 @@ def xoa_mot_ho_so(
 
 
 def xoa_pii_qua_han(db: Session, *, now: datetime | None = None, retention_days: int | None = None) -> int:
-    """Xóa bản ghi pending/imported quá hạn + file ảnh. Trả số dòng đã xóa.
+    """Xóa bản ghi pending/imported/deleted quá hạn + file ảnh. Trả số dòng đã xóa.
 
     `now`/`retention_days` cho phép test bơm thời gian; mặc định lấy giờ hệ thống + cấu hình.
     """

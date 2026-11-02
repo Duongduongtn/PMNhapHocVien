@@ -108,7 +108,7 @@ def test_e_happy_nap_co_anh_khop_app_cu(ctx, don):
     assert lx["HoVaTenIn"] == "NGUYỄN VĂN KIỂM THỬ"[:25]
     assert lx["MaQuocTich"] == "VNM"
     assert (lx["NoiTT"] or "") == "" and (lx["NoiCT"] or "") == ""
-    assert hs["CHON_IN_GPLX"] == 2 and hs["DonViHocLX"] is None
+    assert hs["CHON_IN_GPLX"] == 2 and hs["DonViHocLX"] is None  # 2 vì khóa B-K149 là ô tô
     # ảnh hướng A
     assert hs["TT_XuLy"] == "03" and hs["ChatLuongAnh"] == 1
     assert hs["DuongDanAnh"] and hs["DuongDanAnh"].endswith(f"{r['ma_dk']}.jp2")

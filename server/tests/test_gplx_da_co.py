@@ -85,6 +85,20 @@ def test_xoa_mem_xoa_luon_gplx(api, db_setup):
     assert hs.gplx_da_co is None
 
 
+def test_job_30_ngay_don_ca_ho_so_xoa_mem(api, db_setup):
+    db, _ = db_setup
+    u, _ = _gui(api, so_cccd="099999999977")
+    assert api.delete(f"/api/ho-so/{u}", headers=_login(api, "col1")).status_code == 204
+    uid = __import__("uuid").UUID(u)
+    db.expire_all()
+    hs = db.scalar(select(HoSoThuThap).where(HoSoThuThap.uuid == uid))
+    assert xoa_pii_qua_han(db, retention_days=30) == 0  # vừa xóa: chưa tới hạn
+    hs.updated_at = datetime.now(timezone.utc) - timedelta(days=40)
+    db.commit()
+    assert xoa_pii_qua_han(db, retention_days=30) == 1
+    assert db.scalar(select(HoSoThuThap).where(HoSoThuThap.uuid == uid)) is None
+
+
 def test_job_30_ngay_don_ca_gplx(api, db_setup):
     db, _ = db_setup
     u, _ = _gui(api, gplx_da_co=[B2])
