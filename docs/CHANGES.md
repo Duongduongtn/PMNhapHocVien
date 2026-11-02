@@ -4,7 +4,8 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
-| 86 | 02/11/2026 | ✏️ Sửa (UX) | `THU-01` · `THU-07` | Báo lỗi form dễ sửa trên điện thoại: tự tới ô sai đầu tiên, câu lỗi tự mất; GPLX không đỏ khi chưa nhập; chữ ô nhập 16px dưới 1024px. | ✅ | — | — | ✅ chưa commit |
+| 87 | 02/11/2026 | ✏️ Sửa (UX) | `THU-01` | Thông báo đã gửi nêu tên học viên, để làm liên tiếp biết vừa gửi hồ sơ nào. | ✅ | — | — | ✅ chưa commit |
+| 86 | 02/11/2026 | ✏️ Sửa (UX) | `THU-01` · `THU-07` | Báo lỗi form dễ sửa trên điện thoại: tự tới ô sai đầu tiên, câu lỗi tự mất; GPLX không đỏ khi chưa nhập; chữ ô nhập 16px dưới 1024px. | ✅ | — | — | ✅ `f8f3fb7` |
 | 85 | 02/11/2026 | 🐛 Sửa + ⚙️ | `THU-05` · `NAP-07` | Job dọn 30 ngày xóa cả hồ sơ xóa mềm; cài sao lưu DB đêm trên VPS; workflow gọi cả API, sửa dọn image. | — | ✅ | ✅ mock Nơi cấp | ✅ |
 | 84 | 02/11/2026 | ✏️ Sửa (user chốt) | `NAP-07` · `THU-07` | **Giữ Cục QLHC mã `00`** theo DB đích; thêm script bật ở `DM_DonViGTVT` DB Nạp. | ✅ v4.26 | ✅ v6.30 | — | ✅ |
 | 83 | 02/11/2026 | ✏️ Sửa (khớp form cũ) | `NAP-07` · `THU-07` | **Rà DB + DLL phần mềm cũ:** chặn trùng hạng đăng ký, bắt buộc ngày cấp + trúng tuyển, thứ tự ngày, 18 tuổi; Nơi cấp đổi sang `DM_DonViGTVT` (65 đơn vị). Cách lưu `\|` có bằng chứng. | ✅ v4.25 | ✅ v6.29 | ✅ | ✅ |
@@ -95,13 +96,20 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 
 ---
 
+## #87 — Thông báo đã gửi nêu tên học viên · 02/11/2026
+
+- **Mã:** `THU-01`. Số story giữ 63.
+- **Vì sao:** user hỏi nhập nhiều có nhầm không. "Đã gửi ✓" không cho biết vừa gửi hồ sơ nào.
+- **Đã sửa:** PRD `THU-01`, Changelog v4.28 · `Quet.tsx`. Cùng đợt có BUG-17, BUG-18 ở `BUGS.md`.
+- **Còn nợ:** chưa commit, chưa deploy; hoàn tác khi xóa bằng, đậm lại chữ và viền chưa làm vì user chọn phạm vi A.
+
 ## #86 — Báo lỗi form dễ sửa trên điện thoại · 02/11/2026
 
 - **Mã:** `THU-01`, `THU-07`. Số story giữ 63.
 - **Vì sao:** critique giao diện màn nhập hồ sơ (24/40): câu lỗi cũ còn nguyên sau khi đã sửa đúng, nằm xa ô sai; mở khối GPLX là báo đỏ khi chưa nhập gì; chữ 14px làm iPhone tự phóng to. User duyệt sửa.
 - **Đã sửa:** PRD `THU-01`, `THU-07`, Changelog v4.27 · `Quet.tsx`, `DaGui.tsx`, `GplxDaCoKhoi.tsx`, `gplxDaCo.ts`, `index.css`. Không đổi dữ liệu gửi nên TDD giữ nguyên.
 - **Ngoài bảng duyệt, bắt buộc để chạy được:** trên điện thoại câu lỗi chuyển vào thanh nút dính đáy, vì con trỏ đã nhảy tới ô sai ở xa thì câu lỗi cuối form không nhìn thấy. Chữ 16px áp cho mọi ô `.field-input` của app web, gồm cả màn đăng nhập và quản lý.
-- **Còn nợ:** chưa thử điện thoại thật, bàn phím ảo; chưa commit, chưa deploy. Các mục critique P2 chưa làm: vùng bấm 44px, hoàn tác khi xóa bằng, gắn nhãn cho trình đọc màn hình.
+- **Còn nợ:** đã deploy `f8f3fb7`, chưa thử điện thoại thật, bàn phím ảo. CSS build ra cú pháp `@media (width<=…)`: Safari dưới 16.4 bỏ qua, ô nhập giữ 14px. Các mục critique P2 chưa làm: vùng bấm 44px, hoàn tác khi xóa bằng, gắn nhãn cho trình đọc màn hình.
 
 ## #85 — Dọn việc treo sau deploy GPLX đã có · 02/11/2026
 
@@ -1025,7 +1033,8 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 > `/capnhat` đọc mục này ở Bước 0b để biết có thay đổi nào chưa ghi sổ không.
 > So bằng **danh sách mã**, không so bằng thời gian sửa file.
 
-- **Cập nhật:** 02/11/2026 (#86 ✏️ báo lỗi form dễ sửa trên điện thoại, số story giữ 63)
+- **Cập nhật:** 02/11/2026 (#87 ✏️ thông báo đã gửi nêu tên học viên, số story giữ 63)
+- **Cập nhật trước:** 02/11/2026 (#86 ✏️ báo lỗi form dễ sửa trên điện thoại, số story giữ 63)
 - **Cập nhật trước:** 02/11/2026 (#85 dọn việc treo, số story giữ 63)
 - **Cập nhật trước:** 02/11/2026 (#84 ✏️ giữ Cục QLHC mã 00, số story giữ 63)
 - **Cập nhật trước:** 02/11/2026 (#83 ✏️ khớp form cũ, số story giữ 63)

@@ -88,6 +88,19 @@ export function parseCccdQr(raw: string): ParseResult {
 // ---- Chuyển sang định dạng DB đích (TDD §6.2) ----
 
 // "dd/mm/yyyy" | "yyyy" → "yyyymmdd" | "yyyy0000". Rỗng/sai → "".
+/** "dd/mm/yyyy" là ngày có thật: chặn 45/13/1990, 31/02/2001 (BUG-18). */
+export function laNgayCoThat(s: string): boolean {
+  const m = s.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return !!m && docNgay(m[1] + m[2] + m[3], false) !== null;
+}
+
+/** Ngày sinh hợp lệ: ngày có thật, hoặc chỉ năm vì CCCD có người chỉ khai năm sinh. */
+export function laNgaySinh(s: string): boolean {
+  const t = s.trim();
+  if (/^\d{4}$/.test(t)) return Number(t) >= 1900 && Number(t) <= 2100;
+  return laNgayCoThat(t);
+}
+
 export function ngaySinhToDb(s: string): string {
   const t = s.trim();
   if (/^\d{4}$/.test(t)) return `${t}0000`;

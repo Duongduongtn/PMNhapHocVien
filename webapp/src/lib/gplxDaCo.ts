@@ -1,3 +1,8 @@
+import { boDau } from "./text";
+import { laNgayCoThat } from "./qr";
+
+export interface LuaChon { ma: string; ten: string; khop: string[] }
+
 // "GPLX đã có" ở app web (THU-07, TDD §10.6). Phản chiếu tool/webui/src/pages/tool/gplxDaCo.ts.
 // `hang` luôn là MÃ DM_HangGPLX; `nhom` chỉ để hiện lại đúng nhãn (mã trùng giữa hai nhóm luật).
 
@@ -23,9 +28,10 @@ const LUAT_CU: [string, string][] = [
   ["C", "C"], ["D", "D"], ["E", "E"], ["FB2", "FB2"], ["FC", "FC"], ["FD", "FD"], ["FE", "FE"],
 ];
 
-export const DS_HANG_GPLX = [
-  ...LUAT_MOI.map(([ma, ten]) => ({ ma: `moi:${ma}`, ten: `${ten} — luật mới` })),
-  ...LUAT_CU.map(([ma, ten]) => ({ ma: `cu:${ma}`, ten: `${ten} — luật cũ` })),
+// khop: chữ người dùng gõ để tìm. Ô Hạng không tìm trong "luật mới/cũ", nếu không gõ A khớp mọi dòng.
+export const DS_HANG_GPLX: LuaChon[] = [
+  ...LUAT_MOI.map(([ma, ten]) => ({ ma: `moi:${ma}`, ten: `${ten} — luật mới`, khop: [ten] })),
+  ...LUAT_CU.map(([ma, ten]) => ({ ma: `cu:${ma}`, ten: `${ten} — luật cũ`, khop: [ten] })),
 ];
 
 // Bản chụp DM_DonViGTVT cấp Sở (DB Nạp, 02/11/2026), nguồn phần mềm cũ dùng in tờ khai; app web không đọc được SQL Server.
@@ -42,7 +48,29 @@ const NOI_CAP: [string, string][] = [
   ["86", "Vĩnh Long"], ["87", "Đồng Tháp"], ["89", "An Giang"], ["91", "Kiên Giang"], ["92", "Cần Thơ"], ["93", "Hậu Giang"], ["94", "Sóc Trăng"],
   ["95", "Bạc Liêu"], ["96", "Cà Mau"], ["99", "Tổng cục đường bộ Việt Nam"],
 ];
-export const DS_NOI_CAP_GPLX = NOI_CAP.map(([ma, ten]) => ({ ma, ten: `${ma} — ${ten}` }));
+export const DS_NOI_CAP_GPLX: LuaChon[] = NOI_CAP.map(([ma, ten]) => ({ ma, ten: `${ma} — ${ten}`, khop: [ma, ten] }));
+
+const trungKhop = (o: LuaChon, t: string) => o.khop.some((k) => boDau(k) === t);
+
+/** Danh sách theo chữ đang gõ, dòng trùng khớp đứng đầu. */
+export function locLuaChon(ds: LuaChon[], q: string): LuaChon[] {
+  const t = boDau(q);
+  if (!t) return ds;
+  return [
+    ...ds.filter((o) => trungKhop(o, t)),
+    ...ds.filter((o) => !trungKhop(o, t) && o.khop.some((k) => boDau(k).includes(t))),
+  ];
+}
+
+/** Enter chỉ chọn khi chỉ còn đúng một khả năng; còn lại trả null để người nhập tự chọn (BUG-17). */
+export function chonKhiEnter(ds: LuaChon[], q: string): string | null {
+  const t = boDau(q);
+  if (!t) return null;
+  const trung = ds.filter((o) => trungKhop(o, t));
+  if (trung.length) return trung.length === 1 ? trung[0].ma : null;
+  const loc = locLuaChon(ds, q);
+  return loc.length === 1 ? loc[0].ma : null;
+}
 
 export const bangMoi = (): BangGplx => ({ nhom: "cu", hang: "", so: "", ngay_tt: "", ngay_cap: "", ngay_hh: "", don_vi: "" });
 export const khoaHang = (b: BangGplx) => (b.hang ? `${b.nhom}:${b.hang}` : "");
@@ -62,7 +90,7 @@ const NGAY = ["ngay_tt", "ngay_cap", "ngay_hh"] as const;
 
 function vnToYmd(v: string): string {
   const m = (v || "").trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  return m ? `${m[3]}${m[2]}${m[1]}` : "";
+  return m && laNgayCoThat(v) ? `${m[3]}${m[2]}${m[1]}` : "";
 }
 
 /** Dữ liệu server (ngày yyyymmdd) → state form. */

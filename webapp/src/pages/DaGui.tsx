@@ -8,6 +8,7 @@ import { dangKyGuiLai, guiLaiTatCa } from "../lib/gui";
 import { khopTim } from "../lib/text";
 import { GplxDaCoKhoi } from "../components/GplxDaCoKhoi";
 import { loiDanhSach, oSaiDau, sangServer, tenHang, tuServer, type BangGplx } from "../lib/gplxDaCo";
+import { laNgaySinh } from "../lib/qr";
 
 // Thumbnail ảnh chân dung thật (tải của mình). Chưa có ảnh/không tải được → placeholder.
 function AnhThumb({ uuid, coAnh, size = "sm" }: { uuid: string; coAnh: boolean; size?: "xs" | "sm" | "lg" }) {
@@ -567,6 +568,8 @@ function ChiTiet({ row, onDong, onCapNhat, onXoa }: { row: HoSoOut; onDong: () =
   }
 
   async function luuSua() {
+    const ns = nsHienThi(f.ngay_sinh ?? null);
+    if (ns !== "—" && !laNgaySinh(ns)) { setLoi("Ngày sinh phải là ngày có thật dd/mm/yyyy (hoặc chỉ năm yyyy)."); return; }
     const loiGplx = daSuaGplx ? loiDanhSach(gplx) : null;
     if (loiGplx) {
       setLoi(loiGplx);

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Icon } from "../components/Icon";
 import { ODate } from "../components/ODate";
 import { ApiError, kiemTrungCccd, type KiemTrungKq } from "../lib/api";
-import { kiemDoDaiTen, parseCccdQr, suyTuCccd, tinhVungQuet, type CccdFields, type GioiTinh } from "../lib/qr";
+import { kiemDoDaiTen, laNgayCoThat, laNgaySinh, parseCccdQr, suyTuCccd, tinhVungQuet, type CccdFields, type GioiTinh } from "../lib/qr";
 import { goiYDiaChi } from "../lib/dvhc";
 import { capNhatNhap, dsNhap, luuNhap, taoUuid, tuCccd } from "../lib/draft";
 import { GplxDaCoKhoi } from "../components/GplxDaCoKhoi";
@@ -157,10 +157,10 @@ export default function Quet() {
     if (!hs) return;
     try {
       await guiMot(hs);
-      baoToast("Đã gửi ✓", true);
+      baoToast(`Đã gửi: ${hs.ho_ten}`, true);
     } catch (err) {
-      if (err instanceof ApiError) baoToast(err.message, false);
-      else baoToast("Đã lưu — sẽ tự gửi khi có mạng", false);
+      if (err instanceof ApiError) baoToast(`${hs.ho_ten}: ${err.message}`, false);
+      else baoToast(`Đã lưu ${hs.ho_ten}, sẽ tự gửi khi có mạng`, false);
     }
   }
 
@@ -296,10 +296,10 @@ export default function Quet() {
 
       {/* Toast gửi nhanh (CHANGES #13) — luồng "Lưu & nhập hồ sơ tiếp" */}
       {toast && (
-        <div className="fixed left-1/2 -translate-x-1/2 bottom-20 lg:bottom-6 z-50 pointer-events-none">
+        <div className="fixed left-1/2 -translate-x-1/2 bottom-20 lg:bottom-6 z-50 pointer-events-none w-max max-w-[90vw]">
           <div
             className={
-              "flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg text-sm font-semibold text-white " +
+              "flex items-center gap-2 px-4 py-2.5 rounded-2xl shadow-lg text-sm font-semibold text-white " +
               (toast.ok ? "bg-success" : "bg-warning")
             }
           >
@@ -776,10 +776,9 @@ function kiemFields(f: CccdFields): { o: string; msg: string } | null {
   if (!/^\d{12}$/.test(f.soCccd.trim())) return { o: "cccd", msg: "Số CCCD phải có đúng 12 chữ số." };
   // CMND cũ không hiện ô nhập (CHANGES #14) — giá trị lấy từ QR, không chặn định dạng ở đây.
   if (!f.hoTen.trim()) return { o: "hoTen", msg: "Chưa có họ và tên." };
-  const ns = f.ngaySinh.trim();
-  if (!/^\d{4}$/.test(ns) && !/^\d{2}\/\d{2}\/\d{4}$/.test(ns)) return { o: "ngaySinh", msg: "Ngày sinh phải là dd/mm/yyyy (hoặc chỉ năm yyyy)." };
+  if (!laNgaySinh(f.ngaySinh)) return { o: "ngaySinh", msg: "Ngày sinh phải là ngày có thật dd/mm/yyyy (hoặc chỉ năm yyyy)." };
   if (!f.noiThuongTru.trim()) return { o: "ntt", msg: "Chưa có nơi thường trú." };
-  if (f.ngayCap.trim() && !/^\d{2}\/\d{2}\/\d{4}$/.test(f.ngayCap.trim())) return { o: "ngayCap", msg: "Ngày cấp phải là dd/mm/yyyy (hoặc bỏ trống)." };
+  if (f.ngayCap.trim() && !laNgayCoThat(f.ngayCap)) return { o: "ngayCap", msg: "Ngày cấp phải là ngày có thật dd/mm/yyyy (hoặc bỏ trống)." };
   return null;
 }
 
@@ -844,11 +843,10 @@ function Preview({
   // Cờ hợp lệ từng ô bắt buộc (để hiện ✓ xanh / báo đỏ / dòng "còn thiếu").
   const cccdOk = /^\d{12}$/.test(f.soCccd);
   const tenOk = f.hoTen.trim().length > 0 && canhBaoTen.length === 0;
-  const nsVal = f.ngaySinh.trim();
-  const nsOk = /^\d{4}$/.test(nsVal) || /^\d{2}\/\d{2}\/\d{4}$/.test(nsVal);
+  const nsOk = laNgaySinh(f.ngaySinh);
   const nttOk = f.noiThuongTru.trim().length > 0;
   const ngayCapVal = f.ngayCap.trim();
-  const ngayCapOk = /^\d{2}\/\d{2}\/\d{4}$/.test(ngayCapVal); // ô không bắt buộc: chỉ xét khi có nhập
+  const ngayCapOk = laNgayCoThat(ngayCapVal); // ô không bắt buộc: chỉ xét khi có nhập
   const trangThai = (ok: boolean, daCham: boolean): "none" | "ok" | "error" =>
     ok ? "ok" : daCham ? "error" : "none";
   const thieu = [
@@ -856,6 +854,7 @@ function Preview({
     !tenOk && "Họ tên",
     !nsOk && "Ngày sinh",
     !nttOk && "Nơi thường trú",
+    ngayCapVal && !ngayCapOk && "Ngày cấp",
     loiDanhSach(gplx) && "GPLX đã có", // đã tích thì bắt buộc đủ, nút gửi cũng chặn theo (BUG-16)
   ].filter(Boolean) as string[];
 

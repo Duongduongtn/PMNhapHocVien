@@ -4,8 +4,10 @@
 
 | # | Ngày | Mức | Story | Bug | Trạng thái | Deploy |
 |---|---|---|---|---|---|---|
-| 16 | 02/11/2026 | 🟠 Nặng | `THU-01` · `THU-07` | **Dòng "Đã đủ thông tin bắt buộc" hiện xanh khi khối GPLX còn lỗi.** Danh sách thiếu chỉ tính 4 ô căn cước, trong khi nút gửi có kiểm GPLX nên báo đủ mà bấm vẫn bị chặn. Sửa: thêm "GPLX đã có" vào danh sách thiếu. | ✅ Đã sửa | ⬜ |
-| 15 | 02/11/2026 | 🟠 Nặng | `THU-01` | **Nút chính màn nhập hồ sơ không dính đáy trên điện thoại, lệch PRD.** Cụm nút nằm cuối form, cuộn theo nội dung; mở 2 bằng GPLX thì nút "Tiếp tục" nằm dưới mép màn. Sửa: nút chính dính đáy, nút phụ ở cuối form, máy tính giữ nguyên. | ✅ Đã sửa | ⬜ |
+| 18 | 02/11/2026 | 🔴 Chặn | `THU-01` · `THU-07` | **Ngày không có thật vẫn hiện ✓ và gửi được** (`45/13/1990`, `31/02/2021`, năm `9999`). Chỉ kiểm dạng số. Sửa: kiểm ngày có thật ở form nhập và form sửa. | ✅ Đã sửa | ⬜ |
+| 17 | 02/11/2026 | 🔴 Chặn | `THU-07` | **Enter ở ô Hạng, Nơi cấp chọn sai không báo.** Gõ `B1` ra "B1 số tự động", `A` ra A1, `C` ra C1, `Ha` ra Hà Nội. Sửa: Enter chỉ chọn khi còn đúng một khả năng. Tool còn cùng lỗi ở `ComboLoc`, chưa sửa. | ✅ Đã sửa app web | ⬜ |
+| 16 | 02/11/2026 | 🟠 Nặng | `THU-01` · `THU-07` | **Dòng "Đã đủ thông tin bắt buộc" hiện xanh khi khối GPLX còn lỗi.** Danh sách thiếu chỉ tính 4 ô căn cước, trong khi nút gửi có kiểm GPLX nên báo đủ mà bấm vẫn bị chặn. Sửa: thêm "GPLX đã có" vào danh sách thiếu. | ✅ Đã sửa | ✅ |
+| 15 | 02/11/2026 | 🟠 Nặng | `THU-01` | **Nút chính màn nhập hồ sơ không dính đáy trên điện thoại, lệch PRD.** Cụm nút nằm cuối form, cuộn theo nội dung; mở 2 bằng GPLX thì nút "Tiếp tục" nằm dưới mép màn. Sửa: nút chính dính đáy, nút phụ ở cuối form, máy tính giữ nguyên. | ✅ Đã sửa | ✅ |
 | 14 | 07/10/2026 | 🟠 Nặng | `THU-01` | **iPhone (iOS Safari) không quét được QR CCCD — Android quét được.** Camera mở, thấy hình, nhưng rê mã QR ở góc trên phải thẻ mãi không nhận (treo màn quét). Gốc: `decodeTuCanvas` ưu tiên `BarcodeDetector` của máy (Android có → bắt mã nhỏ ở góc khỏe) rồi fallback `qr-scanner.scanImage` 1-lần-1-khung; **iOS Safari KHÔNG có BarcodeDetector** → luôn rơi xuống fallback yếu, quét nguyên khung 1080p nên bỏ sót mã QR nhỏ lệch góc. Sửa (phương án A): tách nhánh — máy có BarcodeDetector giữ vòng quét gốc (khung bám); **iPhone dùng lớp `QrScanner` của thư viện qr-scanner** (worker + dò lặp) **ÉP quét TOÀN khung** (`tinhVungQuet`, downscale ≤1024 giữ độ nét) thay vì vùng giữa mặc định. +4 unit test (28 vitest) + build/tsc sạch. **CHƯA verify iPhone thật** — lỗi chỉ hiện trên iOS. **CẬP NHẬT 07/10: fix A đã deploy (`c7d350a`) nhưng KHÔNG hiệu quả** — probe offline ảnh thẻ thật (zxing-cpp+pyzbar+OpenCV, kèm xoay/cắt sát/Otsu/phóng 3×) không engine nào đọc nổi QR → gốc là QR thẻ nhỏ/mờ + engine web yếu (jsQR còn yếu hơn), KHÔNG phải vùng quét. **Chốt A: giao lối iPhone cho OCR (THU-06)**, không đầu tư thêm QR iPhone. | ⏳ Vá bằng THU-06 | ⬜ (fix A đã deploy; QR iPhone không còn là lối dựa) |
 | 13 | 07/10/2026 | 🟠 Nặng | `KQD-01` · `KQD-02` | **Lưới Cập nhật KQĐT không hiện điểm + kết luận ĐÃ LƯU cho HV đã cập nhật (09/10/14/90).** Dòng các trạng thái này là dòng NHẬP: ô input lấy `value={nr[m]}` (state nhập RAM, trống) + cột Kết luận tính từ `nhap` (`!t.full`→"đang nhập…"), KHÔNG đọc `h.diem`/`h.ket_luan` đã lưu. Chỉ dòng khóa cứng 12/13 mới render điểm lưu. Hậu quả: nhân viên tưởng điểm chưa lưu (ca TRẦN THỊ VÂN ANH, điểm thực đã ghi TT=09 Đạt). Vi phạm PRD KQD-01 "lưới hiện điểm (nếu có)". Sửa: `diemHint.ts` (`hintDiem` hiện "đã lưu X,X" dưới ô khi chưa gõ + có điểm) + cột Kết luận hiện "Đạt/Không đạt · đã lưu". **Verify live CDB thật** (Vân Anh hiện đủ điểm + "Đạt · đã lưu"). | ✅ Đã sửa | ⬜ (chờ chạy lại tool) |
 | 12 | 03/10/2026 | 🟡 Nên sửa | `QLY-03` | **Xóa hẳn HV ở DB nhưng tab "Đã nạp" vẫn hiện.** `/xoa` (QLY-03) gỡ khỏi CSDT nhưng KHÔNG dọn dòng staging `'xong'` → "Đã nạp" (lọc keo_ve 'xong') còn hiện HV đã xóa. Sửa: sau `_xoa_hv_csdt` → `keo_ve_xoa(lay_uuid_theo_ma_dk(ma_dk))` (bỏ hẳn dòng staging, chỉ SQLite local; xóa hẳn ≠ gỡ nên KHÔNG về 'cho'). Frontend đã tự tải lại keoVe khi về tab Nạp (effect BUG-03). | ✅ Đã sửa | ⬜ (chờ chạy lại tool) |
@@ -25,6 +27,27 @@ Chú thích trạng thái: ✅ Đã sửa · 🔄 Đang sửa · ⏳ Đã xếp 
 
 ---
 
+## BUG-18 — Ngày không có thật vẫn gửi được · 02/11/2026
+
+- **Mức:** 🔴 Chặn · **Story:** `THU-01` · `THU-07` · **File:** `webapp/src/lib/qr.ts` (`laNgayCoThat`, `laNgaySinh`), `lib/gplxDaCo.ts`, `pages/Quet.tsx`, `pages/DaGui.tsx`
+- **Ai báo:** rà nhập nhầm 02/11/2026 khi user hỏi nhập nhiều có nhầm không; user chọn sửa.
+- **Tái hiện:** Nhập tay → Ngày sinh `45131990` → ô hiện ✓ xanh, dòng trạng thái báo đủ; Ngày cấp `31022021` → bấm gửi vẫn đi tiếp.
+- **Nguyên nhân gốc:** form chỉ so mẫu `dd/mm/yyyy`, không xét ngày có tồn tại; hàm đọc QR `docNgay` có kiểm nhưng form không dùng. Ngày cấp sai cũng không vào dòng "còn thiếu".
+- **Đã sửa:** dùng lại `docNgay` qua `laNgayCoThat`, `laNgaySinh` ở form nhập, form sửa và khối GPLX; năm-only chỉ nhận 1900-2100. API chưa kiểm ngày sinh, cố ý không thêm để nháp cũ đang chờ gửi không bị từ chối.
+- **Test hồi quy:** `webapp/src/lib/gplxDaCo.test.ts` — `BUG-18: ngày không có thật bị chặn`. Script Playwright: FAIL trên code cũ, PASS trên code mới; chưa có trong repo. Kiểm tay: 4 ca nêu ở Tái hiện, thêm `02/03/1990` và `1990` vẫn được.
+- **Deploy:** chưa.
+
+## BUG-17 — Enter ở ô Hạng, Nơi cấp chọn sai không báo · 02/11/2026
+
+- **Mức:** 🔴 Chặn · **Story:** `THU-07` · **File:** `webapp/src/lib/gplxDaCo.ts` (`locLuaChon`, `chonKhiEnter`), `components/GplxDaCoKhoi.tsx`
+- **Ai báo:** rà nhập nhầm 02/11/2026; user chọn sửa.
+- **Tái hiện:** tích "Đã có GPLX" → ô Hạng gõ `B1` rồi Enter → ra "B1 số tự động" (mã `B11`). Gõ `A` ra A1, `C` ra C1, `D` ra D1; ô Nơi cấp gõ `Ha` ra Hà Nội.
+- **Nguyên nhân gốc:** Enter lấy dòng đầu của danh sách lọc theo "chứa chuỗi", và chuỗi tìm gồm cả chữ "luật mới/cũ". Thứ tự danh sách quyết định kết quả, không phải chữ đã gõ.
+- **Đã sửa:** Hạng chỉ tìm theo tên hạng; dòng trùng khớp xếp đầu; Enter chỉ chọn khi còn đúng một khả năng. `A1`, `C`, `D` có ở cả hai luật nên Enter giữ danh sách mở để tự chọn.
+- **Test hồi quy:** `webapp/src/lib/gplxDaCo.test.ts` — 2 test `BUG-17`. Script Playwright: FAIL trên code cũ, PASS trên code mới; chưa có trong repo.
+- **Còn lại:** tool cùng cách chọn dòng đầu ở `tool/webui/src/components/ComboLoc.tsx:42`, dùng chung nhiều màn, chưa sửa.
+- **Deploy:** chưa.
+
 ## BUG-16 — Dòng "đã đủ" báo sai khi GPLX còn lỗi · 02/11/2026
 
 - **Mức:** 🟠 Nặng · **Story:** `THU-01` · `THU-07` · **File:** `webapp/src/pages/Quet.tsx` (`Preview`)
@@ -33,7 +56,7 @@ Chú thích trạng thái: ✅ Đã sửa · 🔄 Đang sửa · ⏳ Đã xếp 
 - **Nguyên nhân gốc:** `THU-07` thêm kiểm GPLX vào `giu`/`giuVaTiep` qua `loiDanhSach`, nhưng mảng `thieu` của dòng trạng thái không được nối thêm, nên hai nơi kết luận khác nhau.
 - **Đã sửa:** thêm `loiDanhSach(gplx) && "GPLX đã có"` vào `thieu`; chuyển `useState` của `gplx` lên trước chỗ dùng.
 - **Kiểm tay (webapp chưa có bộ test DOM/Playwright):** điền đủ căn cước → báo đủ; tích GPLX, bằng trống → "Còn thiếu: GPLX đã có"; điền đủ bằng → báo đủ lại; bỏ tích → vẫn báo đủ. Đã chạy bằng script Playwright một lần: 2 mục FAIL trên code cũ, PASS trên code mới.
-- **Deploy:** chưa.
+- **Deploy:** 02/11/2026, commit `f8f3fb7`.
 
 ## BUG-15 — Nút chính không dính đáy trên điện thoại · 02/11/2026
 
@@ -43,7 +66,7 @@ Chú thích trạng thái: ✅ Đã sửa · 🔄 Đang sửa · ⏳ Đã xếp 
 - **Nguyên nhân gốc:** cụm nút là khối thường cuối form, không có `sticky`. Form ngắn thì vẫn thấy nút nên lỗi ẩn; khối GPLX làm form dài mới lộ.
 - **Đã sửa:** nút chính bọc trong thanh `sticky -bottom-4` (bù đệm vùng cuộn, nếu để `bottom-0` chữ form lọt qua khe dưới thanh); hai lớp `contents` để form là cha của thanh; vùng cuộn thêm `scroll-pb-20` để ô đang focus không bị che. Thứ tự Tab trên máy tính đổi thành nút phụ trước nút chính, bố cục máy tính giữ nguyên.
 - **Kiểm tay (webapp chưa có bộ test DOM/Playwright):** ở 375 và 800, form trống và 2 bằng, cuộn đầu/giữa/cuối: nút chính luôn thấy trọn, thanh sát thanh điều hướng, nút phụ và dòng gợi ý không bị che, ô đang focus không bị che, danh sách Nơi cấp nổi trên thanh. Ở 1440: hai nút cùng hàng, nút chính bên phải, không dính. Đã chạy bằng script Playwright: FAIL trên code cũ, PASS trên code mới. Chưa thử trên điện thoại thật có bàn phím ảo. Ảnh: `anh-kiem/02-11-2026-BUG-15/`.
-- **Deploy:** chưa.
+- **Deploy:** 02/11/2026, commit `f8f3fb7`.
 
 ## BUG-14 — iPhone (iOS Safari) không quét được QR CCCD · 07/10/2026
 

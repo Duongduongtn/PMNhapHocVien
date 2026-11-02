@@ -1,17 +1,16 @@
 import { useEffect, useState } from "react";
 import { ODate } from "./ODate";
-import { boDau } from "../lib/text";
 import {
-  DS_HANG_GPLX, DS_NOI_CAP_GPLX, bangMoi, khoaHang, laBangMoTo, loiTungO, soGplxLa, tachKhoaHang, type BangGplx, type OGplx,
+  DS_HANG_GPLX, DS_NOI_CAP_GPLX, bangMoi, chonKhiEnter, khoaHang, locLuaChon, laBangMoTo, loiTungO, soGplxLa, tachKhoaHang, type BangGplx, type LuaChon, type OGplx,
 } from "../lib/gplxDaCo";
 
-// Ô gõ để tìm (cùng cách dùng với ComboLoc của tool): gõ tới đâu lọc tới đó, không phân biệt dấu, Enter chọn dòng đầu.
+// Ô gõ để tìm: gõ tới đâu lọc tới đó, không phân biệt dấu. Enter chỉ chọn khi chỉ còn đúng một khả năng (BUG-17).
 function OTim({
   nhan, value, options, onChon, placeholder, onRoi,
 }: {
   nhan: string;
   value: string;
-  options: { ma: string; ten: string }[];
+  options: LuaChon[];
   onChon: (ma: string) => void;
   placeholder: string;
   onRoi?: () => void;
@@ -19,7 +18,7 @@ function OTim({
   const [q, setQ] = useState("");
   const [mo, setMo] = useState(false);
   const ten = options.find((o) => o.ma === value)?.ten ?? "";
-  const loc = q.trim() ? options.filter((o) => boDau(o.ten).includes(boDau(q))) : options;
+  const loc = locLuaChon(options, q);
   const chon = (ma: string) => { onChon(ma); setQ(""); setMo(false); };
   return (
     <div className="relative">
@@ -32,7 +31,7 @@ function OTim({
         onChange={(e) => { setQ(e.target.value); setMo(true); }}
         onBlur={() => { window.setTimeout(() => setMo(false), 120); onRoi?.(); }}
         onKeyDown={(e) => {
-          if (e.key === "Enter") { e.preventDefault(); if (loc.length) chon(loc[0].ma); }
+          if (e.key === "Enter") { e.preventDefault(); const ma = chonKhiEnter(options, q); if (ma) chon(ma); }
           else if (e.key === "Escape") setMo(false);
           else if (e.key.startsWith("Arrow")) e.stopPropagation(); // không để form nhảy ô khi đang gõ tìm
         }}
