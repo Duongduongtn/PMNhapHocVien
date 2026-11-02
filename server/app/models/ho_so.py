@@ -21,6 +21,7 @@ from sqlalchemy import (
     Text,
     Uuid,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON
 
@@ -55,6 +56,10 @@ class HoSoThuThap(Base):
     noi_tt_raw: Mapped[str | None] = mapped_column(Text, nullable=True)
     ngay_cap_cccd: Mapped[date | None] = mapped_column(Date, nullable=True)
     noi_cap_cccd: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # GPLX đã có (THU-07, TDD §10.6) — PII. none_as_null để None lưu NULL thật, không phải JSON null.
+    gplx_da_co: Mapped[list | None] = mapped_column(
+        JSON(none_as_null=True).with_variant(JSONB(none_as_null=True), "postgresql"), nullable=True
+    )
     # Ảnh thô
     anh_tho_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Chống trùng & truy vết

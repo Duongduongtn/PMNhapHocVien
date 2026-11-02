@@ -15,9 +15,18 @@ from app.jobs.scheduler import tao_scheduler
 from app.routers import admin, admin_users, auth, ho_so, nap
 
 
+def dam_bao_cot_moi() -> None:
+    """init.sql chỉ chạy cho DB mới nên DB đang chạy phải tự thêm cột, trước khi nhận truy vấn (TDD §10.6)."""
+    if engine.dialect.name != "postgresql":
+        return
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE ho_so_thu_thap ADD COLUMN IF NOT EXISTS gplx_da_co JSONB"))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Bật scheduler job xóa PII khi khởi động, tắt khi dừng (TDD §7.3)."""
+    dam_bao_cot_moi()
     scheduler = None
     if get_settings().enable_scheduler:
         scheduler = tao_scheduler()

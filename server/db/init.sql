@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS ho_so_thu_thap (
   noi_tt_raw    TEXT,                             -- địa chỉ text thô từ QR
   ngay_cap_cccd DATE,
   noi_cap_cccd  VARCHAR(100),
+  gplx_da_co    JSONB,                 -- GPLX đã có (THU-07); PII, dọn cùng hồ sơ
   -- Ảnh thô
   anh_tho_path  TEXT,                             -- đường dẫn file trên VPS
   -- Chống trùng & truy vết

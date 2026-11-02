@@ -6,6 +6,8 @@ import { ApiError, kiemTrungCccd, type KiemTrungKq } from "../lib/api";
 import { kiemDoDaiTen, parseCccdQr, suyTuCccd, tinhVungQuet, type CccdFields, type GioiTinh } from "../lib/qr";
 import { goiYDiaChi } from "../lib/dvhc";
 import { capNhatNhap, dsNhap, luuNhap, taoUuid, tuCccd } from "../lib/draft";
+import { GplxDaCoKhoi } from "../components/GplxDaCoKhoi";
+import { loiDanhSach, type BangGplx } from "../lib/gplxDaCo";
 import { dangKyGuiLai, guiMot } from "../lib/gui";
 
 // THU-01 quét QR + preview sửa; THU-02 chụp ảnh chân dung + gửi VPS.
@@ -868,20 +870,22 @@ function Preview({
     return () => ac.abort();
   }, [f.soCccd]);
 
+  const [gplx, setGplx] = useState<BangGplx[]>([]);
+
   function giu() {
-    const e = kiemFields(f);
+    const e = kiemFields(f) ?? loiDanhSach(gplx);
     if (e) {
       setLoi(e);
       return;
     }
     const id = taoUuid();
-    luuNhap(tuCccd(id, f));
+    luuNhap(tuCccd(id, f, gplx));
     onLuu(id);
   }
 
   function giuVaTiep() {
     if (guiRef.current) return; // chặn double-tap → không tạo 2 bản ghi cùng CCCD
-    const e = kiemFields(f);
+    const e = kiemFields(f) ?? loiDanhSach(gplx);
     if (e) {
       setLoi(e);
       return;
@@ -889,7 +893,7 @@ function Preview({
     guiRef.current = true;
     setDangGui(true);
     const id = taoUuid();
-    luuNhap(tuCccd(id, f));
+    luuNhap(tuCccd(id, f, gplx));
     onLuuVaTiep(id);
   }
 
@@ -1115,6 +1119,8 @@ function Preview({
           />
         </div>
       </div>
+
+      <GplxDaCoKhoi ds={gplx} onDoi={setGplx} />
 
       {canhBaoTen.length > 0 && (
         <div className="flex items-start gap-2 text-[12px] text-warning bg-warning/10 border border-warning/30 rounded-lg px-3 py-2">

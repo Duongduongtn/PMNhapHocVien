@@ -1,3 +1,4 @@
+import type { BangGplx } from "./gplxDaCo";
 // Gọi API VPS. Dev: webapp 3022 ↔ VPS khác origin (đặt VITE_API_BASE).
 // Prod: static do nginx VPS phục vụ cùng origin với /api → BASE rỗng.
 const BASE = import.meta.env.DEV ? (import.meta.env.VITE_API_BASE ?? "http://localhost:8000") : "";
@@ -157,6 +158,7 @@ export interface HoSoGui {
   noi_tt_raw: string | null;
   ngay_cap_cccd: string | null; // yyyy-mm-dd
   noi_cap_cccd: string | null;
+  gplx_da_co?: BangGplx[] | null; // GPLX đã có (THU-07); ngày yyyymmdd
 }
 
 export interface HoSoOut {
@@ -169,6 +171,7 @@ export interface HoSoOut {
   gioi_tinh: string | null;
   noi_tt_raw: string | null;
   noi_cap_cccd: string | null;
+  gplx_da_co?: BangGplx[] | null;
   co_anh: boolean;
   ma_dk: string | null;
   created_at: string;

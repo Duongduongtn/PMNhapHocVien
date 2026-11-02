@@ -6,11 +6,12 @@ chặn IDOR (OG-001): không dựa vào sự khó đoán của uuid.
 """
 from datetime import date, datetime, timezone
 from pathlib import Path
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, status
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
@@ -23,7 +24,55 @@ from app.storage import AnhKhongHopLe, luu_anh, validate_anh
 router = APIRouter(prefix="/api/ho-so", tags=["ho-so"])
 
 
+GPLX_HANG = frozenset({"A01", "A02", "A1", "A1m", "A2", "A3", "B1", "B11", "B2", "C", "C1", "D", "D1",
+                       "E", "FB2", "FC", "FD", "FE"})
+GPLX_TOI_DA = 8
+
+
+class GplxBang(BaseModel):
+    """1 bằng GPLX đã có (THU-07, TDD §10.6). `hang` là mã DM_HangGPLX, ngày yyyymmdd, ô trống = chuỗi rỗng."""
+    # hide_input_in_errors: lỗi 422 không chép lại số GPLX (dữ liệu cá nhân)
+    model_config = ConfigDict(hide_input_in_errors=True)
+    nhom: Literal["cu", "moi"]
+    hang: str
+    so: str = Field(min_length=1, max_length=20, pattern=r"^[^|]+$")
+    ngay_tt: str = ""
+    ngay_cap: str = ""
+    ngay_hh: str = ""
+    don_vi: str = Field("", pattern=r"^(\d{2})?$")
+
+    @field_validator("hang")
+    @classmethod
+    def _hang(cls, v: str) -> str:
+        if v not in GPLX_HANG:
+            raise ValueError("hạng GPLX không hợp lệ")
+        return v
+
+    @field_validator("ngay_tt", "ngay_cap", "ngay_hh")
+    @classmethod
+    def _ngay(cls, v: str) -> str:
+        if v:
+            try:
+                datetime.strptime(v, "%Y%m%d")
+            except ValueError:
+                raise ValueError("ngày phải là yyyymmdd hợp lệ") from None
+        return v
+
+
+def _kiem_gplx(ds: list[GplxBang] | None) -> list[GplxBang] | None:
+    """Trần số bằng + độ dài sau khi nối "|" (cột varchar(100) ở DB Nạp) — báo ngay lúc gửi, không đợi tới lúc nạp."""
+    if not ds:
+        return ds
+    if len(ds) > GPLX_TOI_DA:
+        raise ValueError(f"tối đa {GPLX_TOI_DA} bằng")
+    for f in ("so", "hang", "ngay_tt", "ngay_cap", "ngay_hh", "don_vi"):
+        if len("|".join(getattr(b, f) for b in ds)) > 100:
+            raise ValueError("quá nhiều bằng, vượt giới hạn 100 ký tự")
+    return ds
+
+
 class HoSoIn(BaseModel):
+    model_config = ConfigDict(hide_input_in_errors=True)
     uuid: UUID  # client sinh — idempotency key
     so_cccd: str | None = None
     so_cmnd_cu: str | None = None
@@ -33,6 +82,9 @@ class HoSoIn(BaseModel):
     noi_tt_raw: str | None = None
     ngay_cap_cccd: date | None = None
     noi_cap_cccd: str | None = None
+    gplx_da_co: list[GplxBang] | None = None
+
+    _gplx = field_validator("gplx_da_co")(_kiem_gplx)
 
     @field_validator("gioi_tinh")
     @classmethod
@@ -43,6 +95,7 @@ class HoSoIn(BaseModel):
 
 
 class HoSoSua(BaseModel):
+    model_config = ConfigDict(hide_input_in_errors=True)
     so_cccd: str | None = None
     so_cmnd_cu: str | None = None
     ho_ten: str | None = None
@@ -51,6 +104,9 @@ class HoSoSua(BaseModel):
     noi_tt_raw: str | None = None
     ngay_cap_cccd: date | None = None
     noi_cap_cccd: str | None = None
+    gplx_da_co: list[GplxBang] | None = None  # chỉ gửi khi người dùng có sửa; exclude_unset giữ nguyên nếu không gửi
+
+    _gplx = field_validator("gplx_da_co")(_kiem_gplx)
 
     @field_validator("gioi_tinh")
     @classmethod
@@ -70,6 +126,7 @@ class HoSoOut(BaseModel):
     gioi_tinh: str | None
     noi_tt_raw: str | None
     noi_cap_cccd: str | None
+    gplx_da_co: list[dict] | None = None
     co_anh: bool
     ma_dk: str | None
     created_at: datetime
@@ -86,6 +143,7 @@ class HoSoOut(BaseModel):
             gioi_tinh=hs.gioi_tinh,
             noi_tt_raw=hs.noi_tt_raw,
             noi_cap_cccd=hs.noi_cap_cccd,
+            gplx_da_co=hs.gplx_da_co,
             co_anh=hs.anh_tho_path is not None,
             ma_dk=hs.ma_dk,
             created_at=hs.created_at,
@@ -135,6 +193,7 @@ def gui_ho_so(body: HoSoIn, response: Response, user: User = Depends(require_rol
         noi_tt_raw=body.noi_tt_raw,
         ngay_cap_cccd=body.ngay_cap_cccd,
         noi_cap_cccd=body.noi_cap_cccd,
+        gplx_da_co=[b.model_dump() for b in body.gplx_da_co] if body.gplx_da_co else None,
         created_by=user.id,
     )
     db.add(hs)
@@ -198,7 +257,7 @@ def sua_ho_so(uuid: UUID, body: HoSoSua, user: User = Depends(require_role("coll
     if hs.trang_thai != "pending":
         raise HTTPException(status.HTTP_409_CONFLICT, "Hồ sơ đã được xử lý, không sửa được")
     for truong, gia_tri in body.model_dump(exclude_unset=True).items():
-        setattr(hs, truong, gia_tri)
+        setattr(hs, truong, (gia_tri or None) if truong == "gplx_da_co" else gia_tri)
     db.commit()
     db.refresh(hs)
     return HoSoOut.tu_model(hs)
@@ -224,7 +283,7 @@ def xoa_ho_so(uuid: UUID, user: User = Depends(require_role("collector")), db: S
     rowcount = db.execute(
         update(HoSoThuThap)
         .where(HoSoThuThap.uuid == uuid, HoSoThuThap.trang_thai == "pending")
-        .values(trang_thai="deleted", updated_at=datetime.now(timezone.utc))
+        .values(trang_thai="deleted", gplx_da_co=None, updated_at=datetime.now(timezone.utc))
     ).rowcount
     if rowcount == 0:  # tool vừa lock sang importing giữa lúc đọc và ghi
         db.rollback()

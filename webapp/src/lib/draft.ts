@@ -2,6 +2,7 @@
 // Giữ nháp để gửi lại khi mất mạng (TDD §6.3, idempotent theo uuid). Trường khớp HoSoIn server.
 import { gioiTinhToMF, ngaySinhToDb, ngayToIso, type CccdFields } from "./qr";
 import type { HoSoGui } from "./api";
+import { sangServer, type BangGplx } from "./gplxDaCo";
 
 export interface HoSoNhap {
   uuid: string; // client sinh — idempotency key khi gửi
@@ -13,6 +14,7 @@ export interface HoSoNhap {
   noi_tt_raw: string;
   ngay_cap_cccd: string; // yyyy-mm-dd | ""
   noi_cap_cccd: string; // "" — QR không có, để tool/sau điền
+  gplx_da_co?: BangGplx[]; // GPLX đã có (THU-07), đã đổi sang dạng gửi server
   anh_data_url?: string; // ảnh chân dung JPEG (data URL) — giữ để gửi lại khi offline
   luc: string; // ISO — lúc giữ nháp
 }
@@ -28,7 +30,7 @@ export function taoUuid(): string {
 }
 
 // Dựng bản nháp từ các trường đã xác nhận trên màn preview (đổi sang định dạng DB).
-export function tuCccd(uuid: string, f: CccdFields): HoSoNhap {
+export function tuCccd(uuid: string, f: CccdFields, gplx: BangGplx[] = []): HoSoNhap {
   return {
     uuid,
     so_cccd: f.soCccd.trim(),
@@ -39,6 +41,7 @@ export function tuCccd(uuid: string, f: CccdFields): HoSoNhap {
     noi_tt_raw: f.noiThuongTru.trim(),
     ngay_cap_cccd: ngayToIso(f.ngayCap),
     noi_cap_cccd: "",
+    gplx_da_co: gplx.length ? sangServer(gplx) : undefined,
     luc: new Date().toISOString(),
   };
 }
@@ -89,5 +92,6 @@ export function sangHoSoGui(hs: HoSoNhap): HoSoGui {
     noi_tt_raw: hs.noi_tt_raw || null,
     ngay_cap_cccd: hs.ngay_cap_cccd || null,
     noi_cap_cccd: hs.noi_cap_cccd || null,
+    gplx_da_co: hs.gplx_da_co?.length ? hs.gplx_da_co : null,
   };
 }

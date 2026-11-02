@@ -1,0 +1,35 @@
+import { describe, expect, it } from "vitest";
+import { DS_NOI_CAP_GPLX, bangMoi, loiBang, loiDanhSach, sangServer, soGplxLa, tuServer } from "./gplxDaCo";
+import { boDau } from "./text";
+
+const b = (over = {}) => ({ ...bangMoi(), hang: "B2", so: "790000000123", ...over });
+
+describe("GPLX đã có ở app web", () => {
+  it("đổi ngày hai chiều", () => {
+    const form = tuServer([{ nhom: "cu", hang: "B2", so: "1", ngay_cap: "20180427" }]);
+    expect(form[0].ngay_cap).toBe("27/04/2018");
+    expect(sangServer(form)[0].ngay_cap).toBe("20180427");
+    expect(tuServer(null)).toEqual([]);
+  });
+  it("bằng mô tô không gửi ngày hết hạn", () => {
+    expect(sangServer([b({ hang: "A1", ngay_hh: "01/01/2030" })])[0].ngay_hh).toBe("");
+  });
+  it("chặn gửi khi thiếu hạng, số hoặc ngày sai", () => {
+    expect(loiBang(bangMoi())).toEqual(["Chưa chọn hạng", "Chưa nhập số GPLX"]);
+    expect(loiDanhSach([b(), b({ ngay_cap: "27/04" })])).toContain("bằng 2");
+    expect(loiDanhSach([b()])).toBeNull();
+    expect(loiDanhSach([])).toBeNull();
+  });
+  it("số khác 12 chữ số chỉ nhắc", () => {
+    expect(soGplxLa("7900")).toBe(true);
+    expect(soGplxLa("790000000123")).toBe(false);
+  });
+  it("danh sách Nơi cấp có Cục QLHC, tỉnh trước sáp nhập, tìm được theo mã và tên không dấu", () => {
+    const tim = (q: string) => DS_NOI_CAP_GPLX.filter((o) => boDau(o.ten).includes(boDau(q))).map((o) => o.ma);
+    expect(tim("qlhc")).toEqual(["00"]);
+    expect(tim("binh phuoc")).toEqual(["70"]);
+    expect(tim("70")).toEqual(["70"]);
+    expect(tim("tay ninh")).toEqual(["72", "80"]);
+    expect(new Set(DS_NOI_CAP_GPLX.map((o) => o.ma)).size).toBe(DS_NOI_CAP_GPLX.length);
+  });
+});

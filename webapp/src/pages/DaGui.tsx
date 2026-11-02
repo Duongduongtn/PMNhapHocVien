@@ -6,6 +6,8 @@ import { ApiError, dsDaGui, guiAnh, suaHoSo, taiAnhCuaToi, xoaHoSo, type HoSoOut
 import { dsNhap } from "../lib/draft";
 import { dangKyGuiLai, guiLaiTatCa } from "../lib/gui";
 import { khopTim } from "../lib/text";
+import { GplxDaCoKhoi } from "../components/GplxDaCoKhoi";
+import { loiDanhSach, sangServer, tenHang, tuServer, type BangGplx } from "../lib/gplxDaCo";
 
 // Thumbnail ảnh chân dung thật (tải của mình). Chưa có ảnh/không tải được → placeholder.
 function AnhThumb({ uuid, coAnh, size = "sm" }: { uuid: string; coAnh: boolean; size?: "xs" | "sm" | "lg" }) {
@@ -496,6 +498,9 @@ function ChiTiet({ row, onDong, onCapNhat, onXoa }: { row: HoSoOut; onDong: () =
   const anhDuoc = row.trang_thai === "pending" || (row.trang_thai === "imported" && !row.co_anh);
   const [che, setChe] = useState<"xem" | "sua">("xem");
   const [f, setF] = useState<HoSoSua>({});
+  // GPLX đã có: chỉ gửi khi người dùng có sửa, để lưu trường khác không làm mất bằng đã nhập (TDD §10.6).
+  const [gplx, setGplx] = useState<BangGplx[]>([]);
+  const [daSuaGplx, setDaSuaGplx] = useState(false);
   const [luu, setLuu] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
   const [xemLon, setXemLon] = useState(false); // popup phóng to ảnh (CHANGES #15)
@@ -539,6 +544,8 @@ function ChiTiet({ row, onDong, onCapNhat, onXoa }: { row: HoSoOut; onDong: () =
       ngay_sinh: row.ngay_sinh,
       noi_tt_raw: row.noi_tt_raw,
     });
+    setGplx(tuServer(row.gplx_da_co));
+    setDaSuaGplx(false);
     setLoi(null);
     setChe("sua");
   }
@@ -558,11 +565,13 @@ function ChiTiet({ row, onDong, onCapNhat, onXoa }: { row: HoSoOut; onDong: () =
   }
 
   async function luuSua() {
+    const loiGplx = daSuaGplx ? loiDanhSach(gplx) : null;
+    if (loiGplx) { setLoi(loiGplx); return; }
     setLoi(null);
     setLuu(true);
     try {
       // f.ngay_sinh đã là yyyymmdd (khởi tạo từ row + ô nhập đã vnToYmd ở onChange).
-      const moi = await suaHoSo(row.uuid, f);
+      const moi = await suaHoSo(row.uuid, daSuaGplx ? { ...f, gplx_da_co: sangServer(gplx) } : f);
       onCapNhat(moi);
       setChe("xem");
     } catch (e) {
@@ -653,6 +662,7 @@ function ChiTiet({ row, onDong, onCapNhat, onXoa }: { row: HoSoOut; onDong: () =
                 </div>
               </div>
               <OSua label="Nơi thường trú" value={f.noi_tt_raw ?? ""} onChange={(v) => set("noi_tt_raw", v)} />
+              <GplxDaCoKhoi ds={gplx} onDoi={(ds) => { setGplx(ds); setDaSuaGplx(true); }} />
             </div>
           ) : (
             <div className="mt-4 space-y-2.5">
@@ -663,6 +673,7 @@ function ChiTiet({ row, onDong, onCapNhat, onXoa }: { row: HoSoOut; onDong: () =
                   ["Giới tính", gioiTinhHienThi(row.gioi_tinh)],
                   ["Ngày sinh", nsHienThi(row.ngay_sinh)],
                   ["Nơi thường trú", row.noi_tt_raw || "—"],
+                  ...(row.gplx_da_co?.length ? ([["GPLX đã có", row.gplx_da_co.map(tenHang).join(", ")]] as [string, string][]) : []),
                   ...(row.ma_dk ? ([["Mã đăng ký", row.ma_dk]] as [string, string][]) : []),
                 ] as [string, string][]
               ).map(([k, v]) => (

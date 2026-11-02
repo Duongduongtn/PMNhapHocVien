@@ -36,6 +36,7 @@ class KeoOut(BaseModel):
     noi_tt_raw: str | None
     ngay_cap_cccd: date | None
     noi_cap_cccd: str | None
+    gplx_da_co: list[dict] | None = None
     co_anh: bool
     created_at: datetime
 
@@ -80,6 +81,7 @@ def keo(
             noi_tt_raw=hs.noi_tt_raw,
             ngay_cap_cccd=hs.ngay_cap_cccd,
             noi_cap_cccd=hs.noi_cap_cccd,
+            gplx_da_co=hs.gplx_da_co,
             co_anh=hs.anh_tho_path is not None,
             created_at=hs.created_at,
         )
