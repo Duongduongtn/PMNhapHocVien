@@ -29,10 +29,10 @@ const LUAT_CU: [string, string][] = [
   ["C", "C"], ["D", "D"], ["E", "E"], ["FB2", "FB2"], ["FC", "FC"], ["FD", "FD"], ["FE", "FE"],
 ];
 
-/** Lựa chọn cho ComboLoc: khóa `moi:B1` / `cu:B1` vì mã trùng giữa hai nhóm. */
+/** Lựa chọn cho ComboLoc: khóa `moi:B1` / `cu:B1` vì mã trùng giữa hai nhóm. Chỉ tìm theo tên hạng, không tìm trong "luật mới/cũ". */
 export const DS_HANG_GPLX = [
-  ...LUAT_MOI.map(([ma, ten]) => ({ ma: `moi:${ma}`, ten: `${ten} — luật mới` })),
-  ...LUAT_CU.map(([ma, ten]) => ({ ma: `cu:${ma}`, ten: `${ten} — luật cũ` })),
+  ...LUAT_MOI.map(([ma, ten]) => ({ ma: `moi:${ma}`, ten: `${ten} — luật mới`, khop: [ten] })),
+  ...LUAT_CU.map(([ma, ten]) => ({ ma: `cu:${ma}`, ten: `${ten} — luật cũ`, khop: [ten] })),
 ];
 
 export const bangMoi = (): BangGplx => ({ nhom: "cu", hang: "", so: "", ngay_tt: "", ngay_cap: "", ngay_hh: "", don_vi: "" });

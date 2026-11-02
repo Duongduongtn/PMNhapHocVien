@@ -114,6 +114,59 @@ test.describe("NAP-07 — GPLX đã có ở màn Nạp", () => {
     await expect(ngay).toHaveValue("27/04/2018");
   });
 
+  test("BUG-19: Enter ở ô Hạng, Nơi cấp không chọn sai", async ({ page }) => {
+    await vao(page, moi());
+    await tich(page).check();
+    const hang = ngan(page).getByPlaceholder("Gõ hạng, ví dụ B2");
+    const nc = ngan(page).getByPlaceholder("Gõ mã hoặc tên tỉnh");
+    const go = async (o: typeof hang, q: string) => {
+      await o.click();
+      await o.fill(q);
+      await o.press("Enter");
+    };
+    await go(hang, "B1");
+    await expect(hang).toHaveValue("B1 — luật cũ");
+    await go(hang, "A");
+    await expect(hang).toHaveValue("A — luật mới");
+    // Có ở cả hai luật: danh sách vẫn mở, ô giữ chữ đang gõ để tự chọn.
+    await go(hang, "C");
+    await expect(hang).toHaveValue("C");
+    await expect(ngan(page).getByRole("button", { name: "C — luật cũ", exact: true })).toBeVisible();
+    await ngan(page).getByRole("button", { name: "C — luật cũ", exact: true }).click();
+    await expect(hang).toHaveValue("C — luật cũ");
+    await go(nc, "79");
+    await expect(nc).toHaveValue("79 — Hồ Chí Minh");
+    await go(nc, "Ha");
+    await expect(nc).toHaveValue("Ha");
+  });
+
+  test("BUG-19: Enter ở ô Tỉnh, Xã không chọn nhầm", async ({ page }) => {
+    await page.route("**/local/dvhc/tinh", (r) => r.fulfill({ json: [
+      { ma_dvql: "01", ten_tinh: "Thành phố Hà Nội" }, { ma_dvql: "42", ten_tinh: "Tỉnh Hà Tĩnh" },
+    ] }));
+    await page.route("**/local/dvhc/xa?**", (r) => r.fulfill({ json: [
+      { ma_dvhc: "X1", ten_xa: "Phường Tân Định", ma_dvql: "01" }, { ma_dvhc: "X2", ten_xa: "Phường Tân Bình", ma_dvql: "01" },
+    ] }));
+    await vao(page, moi());
+    await ngan(page).getByRole("button", { name: "Chọn tay" }).click();
+    const tinh = ngan(page).getByPlaceholder("Gõ tên tỉnh/TP…");
+    await tinh.click();
+    await tinh.fill("Ha");
+    await tinh.press("Enter");
+    await expect(tinh).toHaveValue("Ha");
+    await tinh.fill("Hà Nội");
+    await tinh.press("Enter");
+    await expect(tinh).toHaveValue("Thành phố Hà Nội");
+    const xa = ngan(page).getByPlaceholder("Gõ tên phường/xã…");
+    await xa.click();
+    await xa.fill("Tân");
+    await xa.press("Enter");
+    await expect(xa).toHaveValue("Tân");
+    await xa.fill("Tân Bình");
+    await xa.press("Enter");
+    await expect(xa).toHaveValue("Phường Tân Bình");
+  });
+
   test("nhập 2 bằng: chip, báo miễn lý thuyết, nháp lưu, nạp lô gửi ngày yyyymmdd; học viên khác không có bằng", async ({ page }) => {
     const mo = moi();
     await vao(page, mo);

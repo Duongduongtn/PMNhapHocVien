@@ -4,8 +4,9 @@
 
 | # | Ngày | Mức | Story | Bug | Trạng thái | Deploy |
 |---|---|---|---|---|---|---|
-| 18 | 02/11/2026 | 🔴 Chặn | `THU-01` · `THU-07` | **Ngày không có thật vẫn hiện ✓ và gửi được** (`45/13/1990`, `31/02/2021`, năm `9999`). Chỉ kiểm dạng số. Sửa: kiểm ngày có thật ở form nhập và form sửa. | ✅ Đã sửa | ⬜ |
-| 17 | 02/11/2026 | 🔴 Chặn | `THU-07` | **Enter ở ô Hạng, Nơi cấp chọn sai không báo.** Gõ `B1` ra "B1 số tự động", `A` ra A1, `C` ra C1, `Ha` ra Hà Nội. Sửa: Enter chỉ chọn khi còn đúng một khả năng. Tool còn cùng lỗi ở `ComboLoc`, chưa sửa. | ✅ Đã sửa app web | ⬜ |
+| 19 | 02/11/2026 | 🔴 Chặn | `NAP-07` · `NAP-03` · `SYNC-01` | **Tool: Enter ở ô gõ để lọc chọn sai không báo**, cùng gốc BUG-17. Sửa ở `ComboLoc` dùng chung: Enter chỉ chọn khi còn đúng một khả năng. Đã đóng gói exe, chưa commit. | ✅ Đã sửa | ⬜ |
+| 18 | 02/11/2026 | 🔴 Chặn | `THU-01` · `THU-07` | **Ngày không có thật vẫn hiện ✓ và gửi được** (`45/13/1990`, `31/02/2021`, năm `9999`). Chỉ kiểm dạng số. Sửa: kiểm ngày có thật ở form nhập và form sửa. | ✅ Đã sửa | ✅ |
+| 17 | 02/11/2026 | 🔴 Chặn | `THU-07` | **Enter ở ô Hạng, Nơi cấp chọn sai không báo.** Gõ `B1` ra "B1 số tự động", `A` ra A1, `C` ra C1, `Ha` ra Hà Nội. Sửa: Enter chỉ chọn khi còn đúng một khả năng. Tool cùng lỗi, xem BUG-19. | ✅ Đã sửa app web | ✅ |
 | 16 | 02/11/2026 | 🟠 Nặng | `THU-01` · `THU-07` | **Dòng "Đã đủ thông tin bắt buộc" hiện xanh khi khối GPLX còn lỗi.** Danh sách thiếu chỉ tính 4 ô căn cước, trong khi nút gửi có kiểm GPLX nên báo đủ mà bấm vẫn bị chặn. Sửa: thêm "GPLX đã có" vào danh sách thiếu. | ✅ Đã sửa | ✅ |
 | 15 | 02/11/2026 | 🟠 Nặng | `THU-01` | **Nút chính màn nhập hồ sơ không dính đáy trên điện thoại, lệch PRD.** Cụm nút nằm cuối form, cuộn theo nội dung; mở 2 bằng GPLX thì nút "Tiếp tục" nằm dưới mép màn. Sửa: nút chính dính đáy, nút phụ ở cuối form, máy tính giữ nguyên. | ✅ Đã sửa | ✅ |
 | 14 | 07/10/2026 | 🟠 Nặng | `THU-01` | **iPhone (iOS Safari) không quét được QR CCCD — Android quét được.** Camera mở, thấy hình, nhưng rê mã QR ở góc trên phải thẻ mãi không nhận (treo màn quét). Gốc: `decodeTuCanvas` ưu tiên `BarcodeDetector` của máy (Android có → bắt mã nhỏ ở góc khỏe) rồi fallback `qr-scanner.scanImage` 1-lần-1-khung; **iOS Safari KHÔNG có BarcodeDetector** → luôn rơi xuống fallback yếu, quét nguyên khung 1080p nên bỏ sót mã QR nhỏ lệch góc. Sửa (phương án A): tách nhánh — máy có BarcodeDetector giữ vòng quét gốc (khung bám); **iPhone dùng lớp `QrScanner` của thư viện qr-scanner** (worker + dò lặp) **ÉP quét TOÀN khung** (`tinhVungQuet`, downscale ≤1024 giữ độ nét) thay vì vùng giữa mặc định. +4 unit test (28 vitest) + build/tsc sạch. **CHƯA verify iPhone thật** — lỗi chỉ hiện trên iOS. **CẬP NHẬT 07/10: fix A đã deploy (`c7d350a`) nhưng KHÔNG hiệu quả** — probe offline ảnh thẻ thật (zxing-cpp+pyzbar+OpenCV, kèm xoay/cắt sát/Otsu/phóng 3×) không engine nào đọc nổi QR → gốc là QR thẻ nhỏ/mờ + engine web yếu (jsQR còn yếu hơn), KHÔNG phải vùng quét. **Chốt A: giao lối iPhone cho OCR (THU-06)**, không đầu tư thêm QR iPhone. | ⏳ Vá bằng THU-06 | ⬜ (fix A đã deploy; QR iPhone không còn là lối dựa) |
@@ -27,6 +28,16 @@ Chú thích trạng thái: ✅ Đã sửa · 🔄 Đang sửa · ⏳ Đã xếp 
 
 ---
 
+## BUG-19 — Tool: Enter ở ô gõ để lọc chọn sai không báo · 02/11/2026
+
+- **Mức:** 🔴 Chặn · **Story:** `NAP-07` · `NAP-03` · `SYNC-01` · **File:** `tool/webui/src/lib/locLuaChon.ts` (mới), `components/ComboLoc.tsx`, `components/AddressCombo.tsx` (bỏ bản sao, dùng ô chung), `pages/tool/gplxDaCo.ts`
+- **Ai báo:** rà nhập nhầm 02/11/2026; user yêu cầu sửa và đóng gói lại.
+- **Tái hiện:** màn Nạp → ngăn Chuẩn bị → tích "Đã có GPLX" → ô Hạng gõ `B1` rồi Enter → ra "B1 số tự động".
+- **Nguyên nhân gốc:** như BUG-17: Enter lấy dòng đầu của danh sách lọc "chứa chuỗi". Ô này dùng chung cho chọn khóa, tra cứu, nơi cấp; `AddressCombo` có bản sao riêng nên ô Tỉnh, Xã cùng rủi ro.
+- **Đã sửa:** ô Hạng chỉ tìm theo tên hạng; dòng trùng khớp xếp đầu; Enter chỉ chọn khi còn đúng một khả năng, nên ở mọi màn dùng ô này, gõ dở còn nhiều khả năng thì phải bấm chọn.
+- **Test hồi quy:** `tool/webui/e2e/gplx-da-co.e2e.ts` — `BUG-19` (FAIL trên code cũ, PASS trên code mới) · `tool/webui/src/lib/locLuaChon.test.ts`.
+- **Deploy:** tool chạy ở máy CSĐT, đã đóng gói exe 02/11/2026, chưa mang sang máy CSĐT.
+
 ## BUG-18 — Ngày không có thật vẫn gửi được · 02/11/2026
 
 - **Mức:** 🔴 Chặn · **Story:** `THU-01` · `THU-07` · **File:** `webapp/src/lib/qr.ts` (`laNgayCoThat`, `laNgaySinh`), `lib/gplxDaCo.ts`, `pages/Quet.tsx`, `pages/DaGui.tsx`
@@ -35,7 +46,7 @@ Chú thích trạng thái: ✅ Đã sửa · 🔄 Đang sửa · ⏳ Đã xếp 
 - **Nguyên nhân gốc:** form chỉ so mẫu `dd/mm/yyyy`, không xét ngày có tồn tại; hàm đọc QR `docNgay` có kiểm nhưng form không dùng. Ngày cấp sai cũng không vào dòng "còn thiếu".
 - **Đã sửa:** dùng lại `docNgay` qua `laNgayCoThat`, `laNgaySinh` ở form nhập, form sửa và khối GPLX; năm-only chỉ nhận 1900-2100. API chưa kiểm ngày sinh, cố ý không thêm để nháp cũ đang chờ gửi không bị từ chối.
 - **Test hồi quy:** `webapp/src/lib/gplxDaCo.test.ts` — `BUG-18: ngày không có thật bị chặn`. Script Playwright: FAIL trên code cũ, PASS trên code mới; chưa có trong repo. Kiểm tay: 4 ca nêu ở Tái hiện, thêm `02/03/1990` và `1990` vẫn được.
-- **Deploy:** chưa.
+- **Deploy:** 02/11/2026, commit `210c5e1`.
 
 ## BUG-17 — Enter ở ô Hạng, Nơi cấp chọn sai không báo · 02/11/2026
 
@@ -45,8 +56,8 @@ Chú thích trạng thái: ✅ Đã sửa · 🔄 Đang sửa · ⏳ Đã xếp 
 - **Nguyên nhân gốc:** Enter lấy dòng đầu của danh sách lọc theo "chứa chuỗi", và chuỗi tìm gồm cả chữ "luật mới/cũ". Thứ tự danh sách quyết định kết quả, không phải chữ đã gõ.
 - **Đã sửa:** Hạng chỉ tìm theo tên hạng; dòng trùng khớp xếp đầu; Enter chỉ chọn khi còn đúng một khả năng. `A1`, `C`, `D` có ở cả hai luật nên Enter giữ danh sách mở để tự chọn.
 - **Test hồi quy:** `webapp/src/lib/gplxDaCo.test.ts` — 2 test `BUG-17`. Script Playwright: FAIL trên code cũ, PASS trên code mới; chưa có trong repo.
-- **Còn lại:** tool cùng cách chọn dòng đầu ở `tool/webui/src/components/ComboLoc.tsx:42`, dùng chung nhiều màn, chưa sửa.
-- **Deploy:** chưa.
+- **Còn lại:** tool cùng lỗi, xem BUG-19.
+- **Deploy:** 02/11/2026, commit `210c5e1`.
 
 ## BUG-16 — Dòng "đã đủ" báo sai khi GPLX còn lỗi · 02/11/2026
 

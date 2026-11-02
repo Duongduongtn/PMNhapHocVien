@@ -4,7 +4,7 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
-| 87 | 02/11/2026 | ✏️ Sửa (UX) | `THU-01` | Thông báo đã gửi nêu tên học viên, để làm liên tiếp biết vừa gửi hồ sơ nào. | ✅ | — | — | ✅ chưa commit |
+| 87 | 02/11/2026 | ✏️ Sửa (UX) | `THU-01` | Thông báo đã gửi nêu tên học viên, để làm liên tiếp biết vừa gửi hồ sơ nào. | ✅ | — | — | ✅ `210c5e1` |
 | 86 | 02/11/2026 | ✏️ Sửa (UX) | `THU-01` · `THU-07` | Báo lỗi form dễ sửa trên điện thoại: tự tới ô sai đầu tiên, câu lỗi tự mất; GPLX không đỏ khi chưa nhập; chữ ô nhập 16px dưới 1024px. | ✅ | — | — | ✅ `f8f3fb7` |
 | 85 | 02/11/2026 | 🐛 Sửa + ⚙️ | `THU-05` · `NAP-07` | Job dọn 30 ngày xóa cả hồ sơ xóa mềm; cài sao lưu DB đêm trên VPS; workflow gọi cả API, sửa dọn image. | — | ✅ | ✅ mock Nơi cấp | ✅ |
 | 84 | 02/11/2026 | ✏️ Sửa (user chốt) | `NAP-07` · `THU-07` | **Giữ Cục QLHC mã `00`** theo DB đích; thêm script bật ở `DM_DonViGTVT` DB Nạp. | ✅ v4.26 | ✅ v6.30 | — | ✅ |
@@ -101,7 +101,7 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 - **Mã:** `THU-01`. Số story giữ 63.
 - **Vì sao:** user hỏi nhập nhiều có nhầm không. "Đã gửi ✓" không cho biết vừa gửi hồ sơ nào.
 - **Đã sửa:** PRD `THU-01`, Changelog v4.28 · `Quet.tsx`. Cùng đợt có BUG-17, BUG-18 ở `BUGS.md`.
-- **Còn nợ:** chưa commit, chưa deploy; hoàn tác khi xóa bằng, đậm lại chữ và viền chưa làm vì user chọn phạm vi A.
+- **Còn nợ:** đã deploy `210c5e1`, chưa thử điện thoại thật; hoàn tác khi xóa bằng, đậm lại chữ và viền chưa làm vì user chọn phạm vi A.
 
 ## #86 — Báo lỗi form dễ sửa trên điện thoại · 02/11/2026
 

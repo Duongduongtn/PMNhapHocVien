@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { boDau } from "../lib/format";
+import { chonKhiEnter, locLuaChon, type LuaChon } from "../lib/locLuaChon";
 
 // Ô gõ-để-lọc dùng chung (NAP-03 địa chỉ, SYNC-01 chọn khóa): gõ tên (không dấu
-// cũng khớp nhờ boDau) → danh sách gợi ý lọc dần → bấm/Enter chọn. Nhanh hơn
-// dropdown khi danh sách dài (nhiều xã / nhiều khóa trong năm).
+// cũng khớp nhờ boDau) → danh sách gợi ý lọc dần → bấm chọn, hoặc Enter khi chỉ còn
+// đúng một khả năng (BUG-19). Nhanh hơn dropdown khi danh sách dài.
 export function ComboLoc({
   value,
   options,
@@ -13,7 +13,7 @@ export function ComboLoc({
   className,
 }: {
   value: string;
-  options: { ma: string; ten: string }[];
+  options: LuaChon[];
   onChon: (ma: string) => void;
   placeholder?: string;
   disabled?: boolean;
@@ -22,8 +22,8 @@ export function ComboLoc({
   const [q, setQ] = useState("");
   const [mo, setMo] = useState(false);
   const tenDaChon = options.find((o) => o.ma === value)?.ten ?? "";
-  const loc = q.trim() ? options.filter((o) => boDau(o.ten).includes(boDau(q))) : options;
-  const chon = (o: { ma: string; ten: string }) => {
+  const loc = locLuaChon(options, q);
+  const chon = (o: LuaChon) => {
     onChon(o.ma);
     setQ("");
     setMo(false);
@@ -39,7 +39,7 @@ export function ComboLoc({
         onChange={(e) => { setQ(e.target.value); setMo(true); }}
         onBlur={() => window.setTimeout(() => setMo(false), 120)}
         onKeyDown={(e) => {
-          if (e.key === "Enter" && loc.length) { e.preventDefault(); chon(loc[0]); }
+          if (e.key === "Enter") { e.preventDefault(); const o = chonKhiEnter(options, q); if (o) chon(o); }
           else if (e.key === "Escape") setMo(false);
         }}
       />
