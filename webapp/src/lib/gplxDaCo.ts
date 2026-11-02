@@ -86,22 +86,38 @@ export function sangServer(ds: BangGplx[]): BangGplx[] {
 
 export const soGplxLa = (so: string) => so.trim() !== "" && !/^\d{12}$/.test(so.trim());
 
-/** Lỗi chặn gửi của 1 bằng; rỗng = hợp lệ. */
-export function loiBang(b: BangGplx): string[] {
-  const loi: string[] = [];
-  if (!b.hang) loi.push("Chưa chọn hạng");
-  if (!b.so.trim()) loi.push("Chưa nhập số GPLX");
-  if (!b.ngay_tt.trim()) loi.push("Chưa nhập ngày trúng tuyển");
-  if (!b.ngay_cap.trim()) loi.push("Chưa nhập ngày cấp");
+export type OGplx = "hang" | "so" | "ngay_tt" | "ngay_cap" | "ngay_hh";
+
+/** Lỗi chặn gửi của 1 bằng kèm ô gây lỗi, để form chỉ báo ô đã rời và đưa con trỏ tới đúng ô. */
+export function loiTungO(b: BangGplx): { o: OGplx; loi: string }[] {
+  const ds: { o: OGplx; loi: string }[] = [];
+  if (!b.hang) ds.push({ o: "hang", loi: "Chưa chọn hạng" });
+  if (!b.so.trim()) ds.push({ o: "so", loi: "Chưa nhập số GPLX" });
+  if (!b.ngay_tt.trim()) ds.push({ o: "ngay_tt", loi: "Chưa nhập ngày trúng tuyển" });
+  if (!b.ngay_cap.trim()) ds.push({ o: "ngay_cap", loi: "Chưa nhập ngày cấp" });
   const ten = { ngay_tt: "Ngày trúng tuyển", ngay_cap: "Ngày cấp", ngay_hh: "Ngày hết hạn" } as const;
   for (const f of NGAY) {
     if (f === "ngay_hh" && laBangMoTo(b.hang)) continue;
-    if (b[f].trim() && !vnToYmd(b[f])) loi.push(`${ten[f]} chưa đúng dd/mm/yyyy`);
+    if (b[f].trim() && !vnToYmd(b[f])) ds.push({ o: f, loi: `${ten[f]} chưa đúng dd/mm/yyyy` });
   }
   const [tt, cap, hh] = [vnToYmd(b.ngay_tt), vnToYmd(b.ngay_cap), laBangMoTo(b.hang) ? "" : vnToYmd(b.ngay_hh)];
-  if (tt && cap && cap < tt) loi.push("Ngày cấp phải sau ngày trúng tuyển");
-  if (cap && hh && hh <= cap) loi.push("Ngày hết hạn phải sau ngày cấp");
-  return loi;
+  if (tt && cap && cap < tt) ds.push({ o: "ngay_cap", loi: "Ngày cấp phải sau ngày trúng tuyển" });
+  if (cap && hh && hh <= cap) ds.push({ o: "ngay_hh", loi: "Ngày hết hạn phải sau ngày cấp" });
+  return ds;
+}
+
+/** Lỗi chặn gửi của 1 bằng; rỗng = hợp lệ. */
+export function loiBang(b: BangGplx): string[] {
+  return loiTungO(b).map((x) => x.loi);
+}
+
+/** Tên `data-o` của ô sai đầu tiên trong khối GPLX; null = hợp lệ. */
+export function oSaiDau(ds: BangGplx[]): string | null {
+  for (let i = 0; i < ds.length; i++) {
+    const l = loiTungO(ds[i]);
+    if (l.length) return `gplx-${i}-${l[0].o}`;
+  }
+  return null;
 }
 
 /** Lỗi của cả danh sách, dùng khi bấm gửi/lưu; null = hợp lệ. */

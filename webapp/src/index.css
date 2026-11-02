@@ -45,6 +45,8 @@ body {
     border: 1px solid hsl(214 32% 88%); background: #fff; color: hsl(222 47% 11%);
     transition: border-color .15s, box-shadow .15s;
   }
+  /* iPhone tự phóng to trang khi chạm ô có chữ dưới 16px (THU-01, CHANGES #86). */
+  @media (max-width: 1023.98px) { .field-input { font-size: 16px; } }
   .field-input:focus { outline: none; border-color: hsl(222 76% 40%); box-shadow: 0 0 0 3px hsl(222 76% 40% / .15); }
   .field-input[readonly] { background: hsl(210 40% 97%); color: hsl(215 16% 35%); }
 }

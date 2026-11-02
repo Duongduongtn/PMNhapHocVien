@@ -7,7 +7,7 @@ import { dsNhap } from "../lib/draft";
 import { dangKyGuiLai, guiLaiTatCa } from "../lib/gui";
 import { khopTim } from "../lib/text";
 import { GplxDaCoKhoi } from "../components/GplxDaCoKhoi";
-import { loiDanhSach, sangServer, tenHang, tuServer, type BangGplx } from "../lib/gplxDaCo";
+import { loiDanhSach, oSaiDau, sangServer, tenHang, tuServer, type BangGplx } from "../lib/gplxDaCo";
 
 // Thumbnail ảnh chân dung thật (tải của mình). Chưa có ảnh/không tải được → placeholder.
 function AnhThumb({ uuid, coAnh, size = "sm" }: { uuid: string; coAnh: boolean; size?: "xs" | "sm" | "lg" }) {
@@ -501,6 +501,7 @@ function ChiTiet({ row, onDong, onCapNhat, onXoa }: { row: HoSoOut; onDong: () =
   // GPLX đã có: chỉ gửi khi người dùng có sửa, để lưu trường khác không làm mất bằng đã nhập (TDD §10.6).
   const [gplx, setGplx] = useState<BangGplx[]>([]);
   const [daSuaGplx, setDaSuaGplx] = useState(false);
+  const [lanLuuGplx, setLanLuuGplx] = useState(0); // tăng khi bấm lưu bị chặn vì GPLX → khối GPLX hiện đủ lỗi (CHANGES #86)
   const [luu, setLuu] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
   const [xemLon, setXemLon] = useState(false); // popup phóng to ảnh (CHANGES #15)
@@ -546,6 +547,7 @@ function ChiTiet({ row, onDong, onCapNhat, onXoa }: { row: HoSoOut; onDong: () =
     });
     setGplx(tuServer(row.gplx_da_co));
     setDaSuaGplx(false);
+    setLanLuuGplx(0);
     setLoi(null);
     setChe("sua");
   }
@@ -566,7 +568,16 @@ function ChiTiet({ row, onDong, onCapNhat, onXoa }: { row: HoSoOut; onDong: () =
 
   async function luuSua() {
     const loiGplx = daSuaGplx ? loiDanhSach(gplx) : null;
-    if (loiGplx) { setLoi(loiGplx); return; }
+    if (loiGplx) {
+      setLoi(loiGplx);
+      setLanLuuGplx((n) => n + 1);
+      requestAnimationFrame(() => {
+        const el = document.querySelector<HTMLInputElement>(`[data-o="${oSaiDau(gplx)}"] input`);
+        el?.scrollIntoView({ block: "center" });
+        el?.focus({ preventScroll: true });
+      });
+      return;
+    }
     setLoi(null);
     setLuu(true);
     try {
@@ -662,7 +673,7 @@ function ChiTiet({ row, onDong, onCapNhat, onXoa }: { row: HoSoOut; onDong: () =
                 </div>
               </div>
               <OSua label="Nơi thường trú" value={f.noi_tt_raw ?? ""} onChange={(v) => set("noi_tt_raw", v)} />
-              <GplxDaCoKhoi ds={gplx} onDoi={(ds) => { setGplx(ds); setDaSuaGplx(true); }} />
+              <GplxDaCoKhoi ds={gplx} onDoi={(ds) => { setGplx(ds); setDaSuaGplx(true); }} lanGui={lanLuuGplx} />
             </div>
           ) : (
             <div className="mt-4 space-y-2.5">

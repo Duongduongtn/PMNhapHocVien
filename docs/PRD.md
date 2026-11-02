@@ -50,7 +50,7 @@
 
 #### [THU-01] Quét QR căn cước + xác nhận/sửa (app web, mobile)
 
-**Trạng thái:** ⚠️ Partial — redesign desktop (CHANGES #30, 03/10/2026) code XONG: `Quet.tsx` thêm hook `useIsDesktop`, desktop vào thẳng form nhập tay (bỏ cổng ChonCach), nút Quét QR/Tải ảnh phụ góc phải, popover camera (`QuetPopover`) đè form tự điền, "Lưu & nhập tiếp" về form trống; mobile guard `!isDesktop` giữ nguyên. Kiểm mức 1: webapp build + typecheck sạch · 24 vitest pass · review-nghiepvu **8/8 đủ**. **CHƯA chụp Playwright 3vp (375/800/1440)** — màn sau đăng nhập + cần backend stack, chưa dựng được phiên này. Mobile vẫn ✅ như trước (task 30, deploy live `029026c`). Trước đó ✅ Done 01/10/2026: Nhập liên tiếp ("Lưu & nhập hồ sơ tiếp") + redesign UX nhập liệu (task 30, CHANGES #13/#14: ẩn ô CMND cũ, ô ngày auto-mask "/" + nút lịch giữ năm-only, desktop 2 cột + 2 nút tách hai đầu + phím tắt + nới khung). Kiểm: webapp 24 test · build · 4 review (nghiệp vụ/kỹ thuật/bảo mật/giao diện) đã vá · Playwright 1440/375 · deploy live `029026c`. Nền quét QR (task 18/28) — khung bám QR cần thẻ thật AS-001. — 08/10/2026 (CHANGES #52): thêm loạt UX desktop cho form xác nhận (nút gạt Nam/Nữ, gợi ý địa chỉ 2025, chặn+đếm CCCD 12 số, in hoa tên, phím mũi tên, icon nhãn, trạng thái ✓/đỏ từng ô, tự suy giới tính/năm sinh từ CCCD) — code+build+34 test pass, commit `5087ceb`; **vẫn chờ chụp Playwright 3vp** để chốt ✅.
+**Trạng thái:** ⚠️ Partial — CHANGES #86, BUG-15, BUG-16 code xong 02/11/2026 (kiểm Playwright với API giả, chưa thử điện thoại thật). Trước đó: redesign desktop (CHANGES #30, 03/10/2026) code XONG: `Quet.tsx` thêm hook `useIsDesktop`, desktop vào thẳng form nhập tay (bỏ cổng ChonCach), nút Quét QR/Tải ảnh phụ góc phải, popover camera (`QuetPopover`) đè form tự điền, "Lưu & nhập tiếp" về form trống; mobile guard `!isDesktop` giữ nguyên. Kiểm mức 1: webapp build + typecheck sạch · 24 vitest pass · review-nghiepvu **8/8 đủ**. **CHƯA chụp Playwright 3vp (375/800/1440)** — màn sau đăng nhập + cần backend stack, chưa dựng được phiên này. Mobile vẫn ✅ như trước (task 30, deploy live `029026c`). Trước đó ✅ Done 01/10/2026: Nhập liên tiếp ("Lưu & nhập hồ sơ tiếp") + redesign UX nhập liệu (task 30, CHANGES #13/#14: ẩn ô CMND cũ, ô ngày auto-mask "/" + nút lịch giữ năm-only, desktop 2 cột + 2 nút tách hai đầu + phím tắt + nới khung). Kiểm: webapp 24 test · build · 4 review (nghiệp vụ/kỹ thuật/bảo mật/giao diện) đã vá · Playwright 1440/375 · deploy live `029026c`. Nền quét QR (task 18/28) — khung bám QR cần thẻ thật AS-001. — 08/10/2026 (CHANGES #52): thêm loạt UX desktop cho form xác nhận (nút gạt Nam/Nữ, gợi ý địa chỉ 2025, chặn+đếm CCCD 12 số, in hoa tên, phím mũi tên, icon nhãn, trạng thái ✓/đỏ từng ô, tự suy giới tính/năm sinh từ CCCD) — code+build+34 test pass, commit `5087ceb`; **vẫn chờ chụp Playwright 3vp** để chốt ✅.
 **Story:** Là nhân viên thu nhận, tôi muốn quét QR căn cước để điền sẵn hồ sơ, để giảm gõ tay.
 
 **Steps to Complete:**
@@ -71,6 +71,7 @@
 - ✅ **Lưu & nhập hồ sơ tiếp** (CHANGES #13): màn xác nhận có thêm nút **"Lưu & nhập hồ sơ tiếp"** bên cạnh "Tiếp tục — chụp ảnh chân dung" → gửi ngay **không kèm ảnh** (chi tiết gửi + toast ở THU-02) rồi về **màn chọn cách nhập** (Quét QR / Nhập tay / Tải ảnh) để làm hồ sơ kế tiếp. Áp cho cả quét QR lẫn nhập tay (cùng đi qua màn xác nhận). **Desktop không có cổng chọn → quay về form nhập tay TRỐNG cho hồ sơ kế tiếp** (CHANGES #30).
 - ✅ **Màn xác nhận thân thiện nhập tay** (CHANGES #14): **ẩn ô "Số CMND cũ"** khỏi form (vẫn lưu/gửi giá trị từ QR nếu có); ô **ngày sinh/ngày cấp** gõ tay dd/mm/yyyy **+ nút lịch** bấm chọn, vẫn nhập được **năm-only**; **desktop**: tách vị trí 2 nút tránh bấm nhầm, bố cục gọn, **phím tắt** (autofocus ô đầu, Enter → nút chính, tab order hợp lý).
 - ✅ **Form desktop gọn + nhập nhanh hơn** (CHANGES #52): nới khung desktop (2xl→3xl); sắp lại ô (**Số CCCD + Ngày cấp cùng hàng**, Họ tên và Nơi thường trú trọn bề ngang); **Số CCCD chặn quá 12 số + bộ đếm `n/12`** (xanh khi đủ); **Họ và tên tự in hoa** khi gõ; **Giới tính dùng nút gạt Nam/Nữ** thay dropdown; **Nơi thường trú gợi ý Tỉnh/Xã 2 cấp 2025** (nhập tự do, khớp không dấu, **không ép chọn** — hợp cả địa chỉ cũ 3 cấp); **phím mũi tên nhảy giữa các ô**; **icon ở nhãn từng ô**; **trạng thái ✓/đỏ từng ô + dòng "còn thiếu/đã đủ"**; **tự suy Giới tính + Năm sinh từ số CCCD** (gợi ý mặc định, sửa đè được). Áp cho form xác nhận dùng chung (QR/nhập tay/OCR). Thuần giao diện+nhập liệu, không đổi dữ liệu gửi.
+- ✅ **Báo lỗi form dễ sửa trên điện thoại** (CHANGES #86): bấm gửi khi còn sai → con trỏ và màn hình tự tới ô sai đầu tiên, các ô bắt buộc còn sai hiện đỏ, câu báo lỗi luôn nhìn thấy (trên điện thoại nằm trong thanh nút dính đáy); sửa bất kỳ ô nào thì câu báo lỗi tự mất. Chữ trong ô nhập **16px ở khổ dưới 1024px** để iPhone không tự phóng to trang khi chạm.
 - ❌ THU-01 không tự OCR — đọc chữ trên thẻ bằng OCR **tách sang `THU-06`** (lối dự phòng khi QR không quét được, CHANGES #49); ảnh thẻ ở THU-01 chỉ dùng cắt ảnh chân dung.
 
 **Edge cases:**
@@ -380,7 +381,7 @@
 
 #### [THU-07] Nhập GPLX đã có ở app web
 
-**Trạng thái:** ⚠️ Partial — đã deploy 02/11/2026 và thử nối API thật về tool khớp (CHANGES #81-#84); chưa bấm thật trên điện thoại rồi gửi kèm ảnh.
+**Trạng thái:** ⚠️ Partial — đã deploy 02/11/2026 và thử nối API thật về tool khớp (CHANGES #81-#84); CHANGES #86 code xong, chưa deploy; chưa bấm thật trên điện thoại rồi gửi kèm ảnh.
 **Story:** Là nhân viên thu nhận, tôi muốn ghi GPLX học viên đang có lúc gặp trực tiếp, để nhân viên nạp không phải hỏi lại.
 
 **Done khi:**
@@ -388,6 +389,7 @@
 - ⬜ Lưu lên VPS khi gửi hồ sơ, sửa được khi hồ sơ còn sửa được; tool kéo về nhận được.
 - ⬜ Số GPLX nằm trong cơ chế dọn dữ liệu cá nhân 30 ngày như số căn cước.
 - ⬜ Dùng tốt ở khổ điện thoại 375px.
+- ✅ **Không báo đỏ khi chưa nhập gì** (CHANGES #86): mở khối hoặc thêm bằng không hiện lỗi; lỗi của một ô chỉ hiện sau khi rời ô đó; bấm gửi thì hiện đủ lỗi và đưa con trỏ tới ô sai đầu tiên. Áp cho cả form sửa hồ sơ đã gửi.
 - ❌ Không quét hay đọc tự động GPLX.
 
 > Nguồn: user 02/11/2026 · CHANGES #81. Phụ thuộc `NAP-07`.
@@ -1554,3 +1556,4 @@
 | 02/11/2026 | v4.24 — `NAP-07` +cờ "App web có bản mới" (CHANGES #82, user chốt sau `/reviewtdd`). | BA/PM |
 | 02/11/2026 | v4.25 — `NAP-07`, `THU-07` khớp form cũ (CHANGES #83): chặn trùng hạng đăng ký, bắt buộc ngày cấp + trúng tuyển, thứ tự ngày, 18 tuổi; Nơi cấp lấy `DM_DonViGTVT`. | BA/PM |
 | 02/11/2026 | v4.26 — `NAP-07` giữ Cục QLHC mã `00` (CHANGES #84, user chốt), kèm script bật ở DB Nạp. | BA/PM |
+| 02/11/2026 | v4.27 — `THU-01`, `THU-07` báo lỗi form dễ sửa trên điện thoại, chữ ô nhập 16px (CHANGES #86, sau critique giao diện). | BA/PM |

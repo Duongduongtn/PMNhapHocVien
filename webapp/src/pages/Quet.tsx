@@ -7,7 +7,7 @@ import { kiemDoDaiTen, parseCccdQr, suyTuCccd, tinhVungQuet, type CccdFields, ty
 import { goiYDiaChi } from "../lib/dvhc";
 import { capNhatNhap, dsNhap, luuNhap, taoUuid, tuCccd } from "../lib/draft";
 import { GplxDaCoKhoi } from "../components/GplxDaCoKhoi";
-import { loiDanhSach, type BangGplx } from "../lib/gplxDaCo";
+import { loiDanhSach, oSaiDau, type BangGplx } from "../lib/gplxDaCo";
 import { dangKyGuiLai, guiMot } from "../lib/gui";
 
 // THU-01 quét QR + preview sửa; THU-02 chụp ảnh chân dung + gửi VPS.
@@ -267,7 +267,7 @@ export default function Quet() {
         <KhungQuet onQuet={batDau} onNhapTay={nhapTay} onQuayLai={() => setGiaiDoan("chon")} loi={loiQuet} setLoi={setLoiQuet} />
       )}
       {(giaiDoan === "preview" || giaiDoan === "anh" || giaiDoan === "ketqua") && (
-        <div className="flex-1 min-h-0 overflow-y-auto p-4 lg:p-0">
+        <div className="flex-1 min-h-0 overflow-y-auto scroll-pb-20 p-4 lg:scroll-pb-0 lg:p-0">
           {giaiDoan === "preview" && (
             <Preview
               key={formKey}
@@ -772,14 +772,14 @@ function QuetPopover({
 }
 
 // ---------- Preview 7 trường cho sửa + giữ ----------
-function kiemFields(f: CccdFields): string | null {
-  if (!/^\d{12}$/.test(f.soCccd.trim())) return "Số CCCD phải có đúng 12 chữ số.";
+function kiemFields(f: CccdFields): { o: string; msg: string } | null {
+  if (!/^\d{12}$/.test(f.soCccd.trim())) return { o: "cccd", msg: "Số CCCD phải có đúng 12 chữ số." };
   // CMND cũ không hiện ô nhập (CHANGES #14) — giá trị lấy từ QR, không chặn định dạng ở đây.
-  if (!f.hoTen.trim()) return "Chưa có họ và tên.";
+  if (!f.hoTen.trim()) return { o: "hoTen", msg: "Chưa có họ và tên." };
   const ns = f.ngaySinh.trim();
-  if (!/^\d{4}$/.test(ns) && !/^\d{2}\/\d{2}\/\d{4}$/.test(ns)) return "Ngày sinh phải là dd/mm/yyyy (hoặc chỉ năm yyyy).";
-  if (!f.noiThuongTru.trim()) return "Chưa có nơi thường trú.";
-  if (f.ngayCap.trim() && !/^\d{2}\/\d{2}\/\d{4}$/.test(f.ngayCap.trim())) return "Ngày cấp phải là dd/mm/yyyy (hoặc bỏ trống).";
+  if (!/^\d{4}$/.test(ns) && !/^\d{2}\/\d{2}\/\d{4}$/.test(ns)) return { o: "ngaySinh", msg: "Ngày sinh phải là dd/mm/yyyy (hoặc chỉ năm yyyy)." };
+  if (!f.noiThuongTru.trim()) return { o: "ntt", msg: "Chưa có nơi thường trú." };
+  if (f.ngayCap.trim() && !/^\d{2}\/\d{2}\/\d{4}$/.test(f.ngayCap.trim())) return { o: "ngayCap", msg: "Ngày cấp phải là dd/mm/yyyy (hoặc bỏ trống)." };
   return null;
 }
 
@@ -815,6 +815,8 @@ function Preview({
   const [f, setF] = useState<CccdFields>(fields);
   const [loi, setLoi] = useState<string | null>(null);
   const [trung, setTrung] = useState<KiemTrungKq | null>(null); // THU-04 cảnh báo mềm
+  const [gplx, setGplx] = useState<BangGplx[]>([]);
+  const [lanGuiGplx, setLanGuiGplx] = useState(0); // tăng khi bấm gửi bị chặn vì GPLX → khối GPLX hiện đủ lỗi
   const [dangGui, setDangGui] = useState(false);
   const [cham, setCham] = useState<Record<string, boolean>>({}); // ô đã rời (để báo đỏ, không báo khi đang gõ)
   const guiRef = useRef(false); // chặn double-tap "Lưu & nhập hồ sơ tiếp"
@@ -854,6 +856,7 @@ function Preview({
     !tenOk && "Họ tên",
     !nsOk && "Ngày sinh",
     !nttOk && "Nơi thường trú",
+    loiDanhSach(gplx) && "GPLX đã có", // đã tích thì bắt buộc đủ, nút gửi cũng chặn theo (BUG-16)
   ].filter(Boolean) as string[];
 
   // THU-04 (CHANGES #13): CCCD đủ 12 số → soi hàng đợi, trùng thì cảnh báo mềm (không chặn).
@@ -870,14 +873,30 @@ function Preview({
     return () => ac.abort();
   }, [f.soCccd]);
 
-  const [gplx, setGplx] = useState<BangGplx[]>([]);
+  // Sửa dữ liệu thì câu báo lỗi tự mất (CHANGES #86). So nội dung, không so object: rời ô địa chỉ
+  // luôn tạo object mới, sẽ xóa nhầm câu lỗi vừa hiện khi con trỏ nhảy tới ô sai.
+  const noiDung = JSON.stringify([f, gplx]);
+  useEffect(() => setLoi(null), [noiDung]);
+
+  // Còn sai → báo lỗi, hiện đỏ mọi ô, đưa con trỏ tới ô sai đầu tiên. Trả true nếu phải dừng gửi.
+  function chanVaBaoLoi(): boolean {
+    const e = kiemFields(f);
+    const msg = e?.msg ?? loiDanhSach(gplx);
+    if (!msg) return false;
+    setLoi(msg);
+    if (!e) setLanGuiGplx((n) => n + 1);
+    setCham({ cccd: true, hoTen: true, ngaySinh: true, ntt: true });
+    const o = e?.o ?? oSaiDau(gplx);
+    requestAnimationFrame(() => {
+      const el = document.querySelector<HTMLInputElement>(`[data-o="${o}"] input`);
+      el?.scrollIntoView({ block: "center" });
+      el?.focus({ preventScroll: true });
+    });
+    return true;
+  }
 
   function giu() {
-    const e = kiemFields(f) ?? loiDanhSach(gplx);
-    if (e) {
-      setLoi(e);
-      return;
-    }
+    if (chanVaBaoLoi()) return;
     const id = taoUuid();
     luuNhap(tuCccd(id, f, gplx));
     onLuu(id);
@@ -885,11 +904,7 @@ function Preview({
 
   function giuVaTiep() {
     if (guiRef.current) return; // chặn double-tap → không tạo 2 bản ghi cùng CCCD
-    const e = kiemFields(f) ?? loiDanhSach(gplx);
-    if (e) {
-      setLoi(e);
-      return;
-    }
+    if (chanVaBaoLoi()) return;
     guiRef.current = true;
     setDangGui(true);
     const id = taoUuid();
@@ -1008,6 +1023,7 @@ function Preview({
       {/* Bố cục 2 cột (desktop): gom theo cụm thông tin trên thẻ — Số CCCD + Ngày cấp cùng hàng,
           Họ tên và Nơi thường trú chiếm trọn bề ngang. Thứ tự nguồn = thứ tự nhảy bằng phím mũi tên. */}
       <div className="grid gap-3 lg:grid-cols-2">
+        <div data-o="cccd">
         <Field
           label="Số CCCD"
           icon="idCard"
@@ -1031,6 +1047,8 @@ function Preview({
               : undefined
           }
         />
+        </div>
+        <div data-o="ngayCap">
         <ODate
           label="Ngày cấp"
           icon="calendar"
@@ -1039,7 +1057,8 @@ function Preview({
           nav
           state={ngayCapOk ? "ok" : ngayCapVal ? "error" : "none"}
         />
-        <div className="lg:col-span-2">
+        </div>
+        <div data-o="hoTen" className="lg:col-span-2">
           <Field
             label="Họ và tên"
             icon="user"
@@ -1050,6 +1069,7 @@ function Preview({
             state={tenOk ? "ok" : cham.hoTen || canhBaoTen.length > 0 ? "error" : "none"}
           />
         </div>
+        <div data-o="ngaySinh">
         <ODate
           label="Ngày sinh"
           icon="cake"
@@ -1060,6 +1080,7 @@ function Preview({
           nav
           state={trangThai(nsOk, !!cham.ngaySinh)}
         />
+        </div>
         <div>
           <label className="field-label flex items-center gap-1.5">
             <Icon name="users" className="w-3.5 h-3.5 text-muted-foreground" />
@@ -1110,7 +1131,7 @@ function Preview({
             })}
           </div>
         </div>
-        <div className="lg:col-span-2">
+        <div data-o="ntt" className="lg:col-span-2">
           <DiaChiField
             value={f.noiThuongTru}
             onChange={(v) => set("noiThuongTru", v)}
@@ -1120,7 +1141,7 @@ function Preview({
         </div>
       </div>
 
-      <GplxDaCoKhoi ds={gplx} onDoi={setGplx} />
+      <GplxDaCoKhoi ds={gplx} onDoi={setGplx} lanGui={lanGuiGplx} />
 
       {canhBaoTen.length > 0 && (
         <div className="flex items-start gap-2 text-[12px] text-warning bg-warning/10 border border-warning/30 rounded-lg px-3 py-2">
@@ -1143,7 +1164,7 @@ function Preview({
         </div>
       )}
 
-      {loi && (
+      {loi && isDesktop && (
         <div className="flex items-start gap-2 text-[12px] text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2">
           <Icon name="warn" className="w-4 h-4 shrink-0 mt-0.5" /> {loi}
         </div>
@@ -1160,28 +1181,41 @@ function Preview({
         </div>
       )}
 
-      {/* Desktop: 2 nút tách hai bên (primary phải, phụ trái) tránh bấm nhầm; mobile xếp dọc (CHANGES #14) */}
-      <div className="pt-1">
-        <div className="flex flex-col gap-2.5 lg:flex-row-reverse lg:items-center lg:justify-between lg:gap-4">
-          <button
-            type="submit"
-            disabled={dangGui}
-            className="w-full lg:w-auto px-5 h-11 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 whitespace-nowrap hover:brightness-110 transition shadow-sm disabled:opacity-60"
-          >
-            <Icon name="camera" className="w-4 h-4" /> Tiếp tục — chụp ảnh chân dung
-          </button>
+      {/* Desktop: 2 nút tách hai bên (primary phải, phụ trái) tránh bấm nhầm (CHANGES #14).
+          Mobile: nút chính dính đáy (BUG-15), nút phụ nằm cuối form. Hai lớp `contents` để form là cha của
+          thanh dính, nếu không thanh chỉ dính trong khối nút nhỏ này. `-bottom-4` bù đệm p-4 của vùng cuộn,
+          nếu không chữ form lọt qua khe dưới thanh. */}
+      <div className="contents lg:block lg:pt-1">
+        <div className="contents lg:flex lg:items-center lg:justify-between lg:gap-4">
           <button
             type="button"
             onClick={giuVaTiep}
             disabled={dangGui}
-            className="w-full lg:w-auto px-5 h-11 rounded-lg border border-border bg-card text-foreground font-semibold text-sm flex items-center justify-center gap-2 whitespace-nowrap hover:bg-muted transition-colors disabled:opacity-60"
+            className="mt-3 lg:mt-0 w-full lg:w-auto px-5 h-11 rounded-lg border border-border bg-card text-foreground font-semibold text-sm flex items-center justify-center gap-2 whitespace-nowrap hover:bg-muted transition-colors disabled:opacity-60"
           >
             <Icon name="send" className="w-4 h-4" /> Lưu & nhập hồ sơ tiếp
           </button>
+          <p className="lg:hidden text-[12px] text-muted-foreground text-center mt-2">
+            Gửi ngay không kèm ảnh — bổ sung ảnh sau ở "Hồ sơ đã gửi".
+          </p>
+          <div className="sticky -bottom-4 z-10 -mx-4 -mb-4 mt-2 border-t border-border bg-background px-4 py-2 lg:static lg:z-auto lg:m-0 lg:border-0 lg:bg-transparent lg:p-0">
+            {/* Con trỏ đã nhảy tới ô sai ở xa, nên câu lỗi phải nằm trong thanh luôn nhìn thấy (CHANGES #86). */}
+            {loi && !isDesktop && (
+              <div className="mb-2 flex items-start gap-2 text-[12px] text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2">
+                <Icon name="warn" className="w-4 h-4 shrink-0 mt-0.5" /> {loi}
+              </div>
+            )}
+            <button
+              type="submit"
+              disabled={dangGui}
+              className="w-full lg:w-auto px-5 h-11 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 whitespace-nowrap hover:brightness-110 transition shadow-sm disabled:opacity-60"
+            >
+              <Icon name="camera" className="w-4 h-4" /> Tiếp tục — chụp ảnh chân dung
+            </button>
+          </div>
         </div>
-        <p className="text-[12px] text-muted-foreground text-center mt-2 lg:text-right">
-          Gửi ngay không kèm ảnh — bổ sung ảnh sau ở "Hồ sơ đã gửi".
-          <span className="hidden lg:inline"> · Enter: chụp ảnh · Ctrl+Enter: lưu &amp; nhập tiếp</span>
+        <p className="hidden lg:block text-[12px] text-muted-foreground mt-2 text-right">
+          Gửi ngay không kèm ảnh — bổ sung ảnh sau ở "Hồ sơ đã gửi". · Enter: chụp ảnh · Ctrl+Enter: lưu &amp; nhập tiếp
         </p>
       </div>
     </form>

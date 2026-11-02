@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DS_NOI_CAP_GPLX, bangMoi, loiBang, loiDanhSach, sangServer, soGplxLa, tuServer } from "./gplxDaCo";
+import { DS_NOI_CAP_GPLX, bangMoi, loiBang, loiDanhSach, loiTungO, oSaiDau, sangServer, soGplxLa, tuServer } from "./gplxDaCo";
 import { boDau } from "./text";
 
 const b = (over = {}) => ({ ...bangMoi(), hang: "B2", so: "790000000123", ngay_tt: "15/08/2012", ngay_cap: "27/04/2018", ...over });
@@ -21,6 +21,14 @@ describe("GPLX đã có ở app web", () => {
     expect(loiDanhSach([b(), b({ ngay_cap: "27/04" })])).toContain("bằng 2");
     expect(loiDanhSach([b()])).toBeNull();
     expect(loiDanhSach([])).toBeNull();
+  });
+  it("mỗi lỗi gắn đúng ô, tìm được ô sai đầu tiên (CHANGES #86)", () => {
+    expect(loiTungO(bangMoi()).map((x) => x.o)).toEqual(["hang", "so", "ngay_tt", "ngay_cap"]);
+    expect(loiTungO(b({ ngay_cap: "01/01/2010" }))[0].o).toBe("ngay_cap");
+    expect(loiTungO(b({ ngay_hh: "27/04/2018" }))[0].o).toBe("ngay_hh");
+    expect(oSaiDau([b(), b({ so: "" })])).toBe("gplx-1-so");
+    expect(oSaiDau([b()])).toBeNull();
+    expect(oSaiDau([])).toBeNull();
   });
   it("số khác 12 chữ số chỉ nhắc", () => {
     expect(soGplxLa("7900")).toBe(true);
