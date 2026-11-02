@@ -8,6 +8,8 @@ import { ODate } from "../../components/ODate";
 import { ComboLoc } from "../../components/ComboLoc";
 import { boDau, nghiSaiChinhTa, ymdToVN } from "../../lib/format";
 import { tachDiaChiGoc, lamTuoiNhapDiaChi } from "../../lib/diachi";
+import { GplxDaCoKhoi } from "./GplxDaCoKhoi";
+import { docBang, gomBang, tenHang, type BangGplx } from "./gplxDaCo";
 import { IN_GPLX_NHAN, IN_GPLX_THU_TU, ghiChuMacDinh, inGplxMacDinh, laInGplx, laMoTo, type InGplx } from "./inGplx";
 import {
   getKhoaHoc,
@@ -18,6 +20,7 @@ import {
   taiAnhKeoVe,
   napLo,
   getSoGtvt,
+  getNoiCapGplx,
   nhapCo,
   nhapDoc,
   nhapLuu,
@@ -57,6 +60,8 @@ function vnToYmd(v: string): string {
 }
 
 interface Nhap {
+  gplx?: BangGplx[]; // GPLX đã có nhân viên đã sửa; undefined = chưa sửa → dùng bản kéo từ VPS (NAP-07)
+  gplxGoc?: string | null; // bản VPS lúc nhân viên sửa, để biết app web đổi sau đó
   chonInGplx?: InGplx; // "Chọn in GPLX" đã chọn; undefined = dùng mặc định theo hạng khóa (mô tô 3 / ô tô 2)
   diaChi: DiaChiMoi | null; // NAP-03: operator map/chọn tay — bắt buộc mới nạp được
   chiTiet: string;
@@ -108,6 +113,8 @@ function goiNhap(n: Nhap) {
     jp2_b64: n.jp2,
     anh_preview: n.anhPreview,
     chon_in_gplx: n.chonInGplx ?? null, // null = theo mặc định của hạng khóa
+    gplx_da_co_json: n.gplx ? JSON.stringify(gomBang(n.gplx)) : null,
+    gplx_goc_json: n.gplx ? n.gplxGoc ?? null : null,
   };
 }
 
@@ -359,6 +366,9 @@ export default function NapHoSo() {
   // Danh sách Sở GTVT cho combobox "Nơi cấp" (BUG-10) — tải 1 lần
   const [soGtvt, setSoGtvt] = useState<SoGtvt[]>([]);
   useEffect(() => { getSoGtvt().then(setSoGtvt).catch(() => {}); }, []);
+  const [noiCapGplx, setNoiCapGplx] = useState<SoGtvt[]>([]);
+  useEffect(() => { getNoiCapGplx().then(setNoiCapGplx).catch(() => {}); }, []);
+  const [chiCoGplx, setChiCoGplx] = useState(false);
 
   // Giấy tờ mặc định theo khóa + ảnh + modal
   const [giayTo, setGiayTo] = useState<GiayTo[]>([]);
@@ -492,7 +502,16 @@ export default function NapHoSo() {
     }
   };
 
+  // GPLX đã có đang hiện (ghép MỘT chỗ cho chip, lọc, số đếm, nạp): bản đã sửa, nếu không có thì bản VPS.
+  const gplxCua = (r: KeoVeRow): BangGplx[] => {
+    const sua = nhap[r.uuid]?.gplx;
+    if (sua) return sua;
+    const nhapBen = r.trang_thai === "xong" ? null : nhapCoMap[r.uuid]?.gplx_da_co_json;
+    return docBang(nhapBen ?? r.gplx_da_co_json);
+  };
+
   // Lọc + sắp xếp: Cần xử lý = chờ + lỗi (lỗi lên đầu) · Đã nạp = xong. Áp ô tìm (tên không dấu / CCCD).
+  // Bộ lọc GPLX áp ở đây để "Chọn tất cả" và nạp lô chỉ tính học viên đang hiện, không nạp nhầm người bị ẩn.
   const daLoc = useMemo(() => {
     const qn = boDau(q.trim());
     const khopTim = (r: KeoVeRow) =>
@@ -500,19 +519,23 @@ export default function NapHoSo() {
       boDau(r.ho_ten || "").includes(qn) ||
       (r.so_cccd || "").includes(q.trim()) ||
       (r.so_cmnd_cu || "").includes(q.trim());
+    const khopGplx = (r: KeoVeRow) => !chiCoGplx || gplxCua(r).length > 0;
     const canXuly = keoVe
       .filter((r) => r.trang_thai !== "xong")
       .filter(khopTim)
+      .filter(khopGplx)
       .sort((a, b) => (b.trang_thai === "loi" ? 1 : 0) - (a.trang_thai === "loi" ? 1 : 0));
-    const daNap = keoVe.filter((r) => r.trang_thai === "xong").filter(khopTim);
+    const daNap = keoVe.filter((r) => r.trang_thai === "xong").filter(khopTim).filter(khopGplx);
     return { canXuly, daNap };
-  }, [keoVe, q]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [keoVe, q, chiCoGplx, nhap, nhapCoMap]);
 
   const rows = napFilter === "canxuly" ? daLoc.canXuly : daLoc.daNap;
+  const soCoGplx = keoVe.filter((r) => (r.trang_thai === "xong") === (napFilter !== "canxuly") && gplxCua(r).length > 0).length;
   // UI-3/4: phân trang cột list (client). Đổi nhóm/ô tìm/cỡ → về trang 1.
   const [trangNap, setTrangNap] = useState(0);
   const [coTrangNap, setCoTrangNap] = useState(20);
-  useEffect(() => { setTrangNap(0); }, [napFilter, q, coTrangNap]);
+  useEffect(() => { setTrangNap(0); }, [napFilter, q, coTrangNap, chiCoGplx]);
   const rowsTrang = rows.slice(trangNap * coTrangNap, (trangNap + 1) * coTrangNap);
   const tongXong = keoVe.filter((r) => r.trang_thai === "xong").length;
   const soLoi = keoVe.filter((r) => r.trang_thai === "loi").length;
@@ -597,7 +620,7 @@ export default function NapHoSo() {
     setXacNhanXoaNhap(false);
     try {
       const d = await nhapDoc(uuid);
-      const co = d.dia_chi_json || d.chi_tiet || d.jp2_b64 || d.anh_preview || d.tick_json || d.noi_cap || d.ngay_cap || d.chon_in_gplx;
+      const co = d.dia_chi_json || d.chi_tiet || d.jp2_b64 || d.anh_preview || d.tick_json || d.noi_cap || d.ngay_cap || d.chon_in_gplx || d.gplx_da_co_json != null;
       if (!co) return; // chưa có nháp bền → để prefill client (NAP-03) lo ô chi tiết
       setNhap((prev) => {
         const cu = prev[uuid];
@@ -615,6 +638,8 @@ export default function NapHoSo() {
           anhPreview: d.anh_preview ?? cu?.anhPreview ?? null,
           tick,
           chonInGplx: laInGplx(d.chon_in_gplx) ? d.chon_in_gplx : cu?.chonInGplx,
+          gplx: d.gplx_da_co_json != null ? docBang(d.gplx_da_co_json) : cu?.gplx,
+          gplxGoc: d.gplx_da_co_json != null ? d.gplx_goc_json : cu?.gplxGoc,
         } };
       });
     } catch { /* chưa có nháp / lỗi mạng → dùng prefill client */ }
@@ -630,6 +655,7 @@ export default function NapHoSo() {
       setNhapCoMap((m) => ({ ...m, [uuid]: {
         uuid, co_dia_chi: n.diaChi != null, co_anh: !!(n.jp2 || n.anhPreview),
         co_tick: n.tick != null ? n.tick.length > 0 : true,
+        ...(() => { const g = goiNhap(n); return { gplx_da_co_json: g.gplx_da_co_json, gplx_goc_json: g.gplx_goc_json }; })(),
       } }));
     } catch { /* giữ RAM, lần lưu sau thử lại */ }
   };
@@ -693,6 +719,7 @@ export default function NapHoSo() {
       giay_to_tick: tick,
       anh_jp2_b64: n.jp2,
       chon_in_gplx: n.chonInGplx ?? inGplxMacDinh(khoa.hang_gplx), // gửi đúng giá trị đang hiện trên ô "Chọn in GPLX"
+      gplx_da_co: gomBang(gplxCua(r)) as unknown as Record<string, unknown>[],
     };
   };
 
@@ -931,6 +958,16 @@ export default function NapHoSo() {
                       </select>
                       <p className="mt-1 text-[11.5px] text-muted-foreground">{ghiChuMacDinh(khoa?.hang_gplx)}</p>
                     </div>
+
+                    <GplxDaCoKhoi
+                      ds={gplxCua(selRow)}
+                      onDoi={(ds) => capNhatNhap(selRow.uuid, { gplx: ds, gplxGoc: layNhap(selRow.uuid).gplx ? layNhap(selRow.uuid).gplxGoc : selRow.gplx_da_co_json ?? null })}
+                      noiCap={noiCapGplx}
+                      hangKhoa={khoa?.hang_gplx}
+                      tuAppWeb={!!selRow.gplx_da_co_json && !layNhap(selRow.uuid).gplx}
+                      coBanMoi={!!layNhap(selRow.uuid).gplx && (layNhap(selRow.uuid).gplxGoc ?? null) !== (selRow.gplx_da_co_json ?? null)}
+                      onDungBanWeb={() => capNhatNhap(selRow.uuid, { gplx: undefined, gplxGoc: undefined })}
+                    />
 
                     {/* Ngày cấp + Nơi cấp căn cước — điền sẵn từ hồ sơ VPS, operator sửa được (CHANGES #43) */}
                     <div className="rounded-lg border border-border bg-card p-4 space-y-3">
@@ -1195,6 +1232,30 @@ export default function NapHoSo() {
                     >
                       Chỉ sẵn sàng
                     </button>
+                    <button
+                      type="button"
+                      aria-pressed={chiCoGplx}
+                      onClick={() => setChiCoGplx((v) => !v)}
+                      className={"btn btn-row " + (chiCoGplx ? "btn-primary" : "btn-secondary")}
+                      data-testid="loc-gplx"
+                    >
+                      Có GPLX đã có <span className="tabular-nums">({soCoGplx})</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Lọc GPLX đã có — dùng được ở cả hai tab */}
+                {napFilter !== "canxuly" && (
+                  <div className="px-3 py-2 border-b border-border bg-muted/30 shrink-0 flex justify-end">
+                    <button
+                      type="button"
+                      aria-pressed={chiCoGplx}
+                      onClick={() => setChiCoGplx((v) => !v)}
+                      className={"btn btn-row " + (chiCoGplx ? "btn-primary" : "btn-secondary")}
+                      data-testid="loc-gplx"
+                    >
+                      Có GPLX đã có <span className="tabular-nums">({soCoGplx})</span>
+                    </button>
                   </div>
                 )}
 
@@ -1270,6 +1331,15 @@ export default function NapHoSo() {
                           </div>
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
+                          {gplxCua(r).length > 0 && (
+                            <span
+                              data-testid={`chip-gplx-${r.uuid}`}
+                              title="Học viên đã có GPLX"
+                              className="inline-flex items-center h-5 px-1.5 rounded text-[10px] font-bold text-primary bg-primary/10 max-w-[110px] truncate"
+                            >
+                              GPLX: {gplxCua(r).map(tenHang).join(", ")}
+                            </span>
+                          )}
                           {r.trang_thai !== "xong" && (
                             <>
                               <span

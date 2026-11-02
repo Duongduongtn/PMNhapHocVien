@@ -10,7 +10,7 @@ from __future__ import annotations
 import base64
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from app import nap, vps
 from app.db import sqlserver_conn, sqlserver_cursor, ConfigChuaDay
@@ -95,6 +95,9 @@ class NapIn(BaseModel):
     # "Chọn in GPLX": 1 Ghép · 2 Có thời hạn · 3 Không thời hạn. None → MẶC ĐỊNH THEO HẠNG khóa (server quyết:
     # mô tô A* → 3, ô tô → 2). Ngoài {1,2,3} → 422.
     chon_in_gplx: int | None = None
+    # GPLX đã có (NAP-07): chỉ kiểm hình dạng ở đây; kiểm nghiệp vụ trong nap.dung_chuoi_gplx_da_co để nạp lô
+    # báo lỗi đúng dòng thay vì 422 cả lô. None → không ghi gì.
+    gplx_da_co: list[dict] | None = None
 
     @field_validator("chon_in_gplx")
     @classmethod
@@ -111,6 +114,7 @@ def _nap_mot(body: NapIn) -> dict:
     trùng CCCD / SP từ chối), ConfigChuaDay, Exception (lỗi DB). Trả dict kết quả đầy đủ.
     SP gộp atomic → lỗi tự rollback, bản ghi KHÔNG nửa vời.
     """
+    nap.dung_chuoi_gplx_da_co(body.gplx_da_co)  # sai → báo ngay, trước khi đụng DB
     try:
         jp2 = base64.b64decode(body.anh_jp2_b64) if body.anh_jp2_b64 else None
     except Exception:
@@ -158,6 +162,7 @@ def _nap_mot(body: NapIn) -> dict:
             "noi_ct_ma_dvhc": body.noi_ct_ma_dvhc or body.noi_tt_ma_dvhc,
             "noi_ct_ma_dvql": body.noi_ct_ma_dvql or body.noi_tt_ma_dvql,
             "chon_in_gplx": body.chon_in_gplx,               # None → build_params_sp_gop chọn theo hạng khóa
+            "gplx_da_co": body.gplx_da_co,
         }
         # nguoi="" → NguoiNhanHSo/NguoiThuNhanAnh trống, khớp app cũ (55/55 HV thật để trống)
         return nap.nap_mot_hv(conn, hv, khoa, jp2, img_path, "", body.uuid, giay_to)
@@ -276,6 +281,8 @@ class NhapChuanBiIn(BaseModel):
     jp2_b64: str | None = None        # ảnh đã đổi nền (.jp2 base64) — PII
     anh_preview: str | None = None    # PNG xem trước (base64)
     chon_in_gplx: int | None = None   # "Chọn in GPLX" (1/2/3) đã chọn; None = theo mặc định của hạng
+    gplx_da_co_json: str | None = Field(None, max_length=8000)  # NULL chưa sửa · '[]' đã xóa hết · JSON bản đã sửa
+    gplx_goc_json: str | None = Field(None, max_length=8000)    # bản keo_ve lúc nhân viên sửa
 
     @field_validator("chon_in_gplx")
     @classmethod
@@ -301,6 +308,7 @@ def nhap_doc_mot(uuid: str, phien: Phien = Depends(require_session)):
     return nap.nhap_doc(uuid) or {
         "uuid": uuid, "dia_chi_json": None, "chi_tiet": None, "noi_cap": None, "ngay_cap": None,
         "tick_json": None, "jp2_b64": None, "anh_preview": None, "updated_at": None, "chon_in_gplx": None,
+        "gplx_da_co_json": None, "gplx_goc_json": None,
     }
 
 
@@ -330,6 +338,7 @@ def nap_lo_endpoint(body: NapLoIn, phien: Phien = Depends(require_session)):
     """
     token = phien.vps_token
     items = [it.model_dump() for it in body.items]
+    gplx_theo_uuid = {str(it["uuid"]): it["gplx_da_co"] for it in items}
 
     def nap_fn(item: dict) -> dict:
         uuid = str(item["uuid"])
@@ -354,7 +363,8 @@ def nap_lo_endpoint(body: NapLoIn, phien: Phien = Depends(require_session)):
     for dong in kq["ket_qua"]:
         if dong["ok"]:
             nap.keo_ve_cap_nhat(dong["uuid"], trang_thai="xong",
-                                ma_dk=dong.get("ma_dk"), so_ho_so=dong.get("so_ho_so"))
+                                ma_dk=dong.get("ma_dk"), so_ho_so=dong.get("so_ho_so"),
+                                gplx_da_co=gplx_theo_uuid.get(str(dong["uuid"])))  # ghi TRƯỚC khi xóa nháp
             nap.nhap_xoa(dong["uuid"])  # nạp xong → dọn nháp bền kèm ảnh PII (CHANGES #32)
         else:
             nap.keo_ve_cap_nhat(dong["uuid"], trang_thai="loi", loi=dong.get("loi"))

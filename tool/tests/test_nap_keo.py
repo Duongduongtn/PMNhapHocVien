@@ -454,9 +454,9 @@ def test_nhap_co_cac_co(staging_tmp):
     nap.nhap_luu("u2", dia_chi_json=None, jp2_b64=None, tick_json="[]")  # rỗng → False hết
     co = nap.nhap_co(["u1", "u2", "u3"])  # u3 chưa có nháp
     assert co == [
-        {"uuid": "u1", "co_dia_chi": True, "co_anh": True, "co_tick": True},
-        {"uuid": "u2", "co_dia_chi": False, "co_anh": False, "co_tick": False},
-        {"uuid": "u3", "co_dia_chi": False, "co_anh": False, "co_tick": False},
+        {"uuid": "u1", "co_dia_chi": True, "co_anh": True, "co_tick": True, "gplx_da_co_json": None, "gplx_goc_json": None},
+        {"uuid": "u2", "co_dia_chi": False, "co_anh": False, "co_tick": False, "gplx_da_co_json": None, "gplx_goc_json": None},
+        {"uuid": "u3", "co_dia_chi": False, "co_anh": False, "co_tick": False, "gplx_da_co_json": None, "gplx_goc_json": None},
     ]
     assert nap.nhap_co([]) == []
 
@@ -536,8 +536,8 @@ def test_nhap_put_get_co_delete_qua_endpoint(staging_tmp, op_headers):
     assert full["jp2_b64"] == "IMG" and full["anh_preview"] == "PNG" and full["chi_tiet"] == "Số 1"
     co = client.get("/local/nap/nhap", headers=op_headers, params={"uuids": "u1,u2"}).json()
     assert co == [
-        {"uuid": "u1", "co_dia_chi": True, "co_anh": True, "co_tick": True},
-        {"uuid": "u2", "co_dia_chi": False, "co_anh": False, "co_tick": False},
+        {"uuid": "u1", "co_dia_chi": True, "co_anh": True, "co_tick": True, "gplx_da_co_json": None, "gplx_goc_json": None},
+        {"uuid": "u2", "co_dia_chi": False, "co_anh": False, "co_tick": False, "gplx_da_co_json": None, "gplx_goc_json": None},
     ]
     # nút "Xóa nháp"
     assert client.delete("/local/nap/nhap/u1", headers=op_headers).status_code == 200

@@ -398,6 +398,9 @@ export interface SoGtvt { ma: string; ten: string } // nơi cấp căn cước: 
 export const getSoGtvt = () =>
   fetch(`${BASE}/local/dvhc/so-gtvt`, { headers: authHeaders() }).then(json<SoGtvt[]>);
 
+export const getNoiCapGplx = () =>
+  fetch(`${BASE}/local/dvhc/noi-cap-gplx`, { headers: authHeaders() }).then(json<SoGtvt[]>);
+
 export const mapDiaChi = (dc: { tinh: string; huyen: string; xa: string }) =>
   fetch(`${BASE}/local/dvhc/map`, {
     method: "POST",
@@ -450,6 +453,8 @@ export interface NapIn {
   anh_jp2_b64?: string | null;
   // "Chọn in GPLX": 1 ghép · 2 có thời hạn · 3 không thời hạn. Bỏ trống → server mặc định theo hạng khóa (mô tô 3 / ô tô 2).
   chon_in_gplx?: 1 | 2 | 3;
+  // GPLX đã có (NAP-07): danh sách bằng, ngày yyyymmdd, `hang` là mã DM_HangGPLX. Bỏ trống = không ghi.
+  gplx_da_co?: Record<string, unknown>[];
 }
 
 export interface NapKetQua {
@@ -505,6 +510,7 @@ export interface KeoVeRow {
   loi: string | null;
   ma_dk: string | null;
   so_ho_so: string | null;
+  gplx_da_co_json?: string | null; // GPLX đã có từ VPS / đã nạp (NAP-07)
 }
 
 // Kéo trọn bản ghi pending từ VPS về staging. Trả số mới thêm + làm tươi + bỏ-đã-xóa + reset-địa-chỉ + tổng.
@@ -532,6 +538,8 @@ export interface NhapCo {
   co_dia_chi: boolean;
   co_anh: boolean;
   co_tick: boolean;
+  gplx_da_co_json?: string | null; // nháp GPLX đã có: null = chưa sửa, '[]' = đã xóa hết
+  gplx_goc_json?: string | null;
 }
 
 export interface NhapChuanBi {
@@ -545,6 +553,8 @@ export interface NhapChuanBi {
   anh_preview: string | null;
   updated_at: string | null;
   chon_in_gplx?: number | null; // "Chọn in GPLX" đã chọn (1/2/3); null = theo mặc định của hạng
+  gplx_da_co_json?: string | null;
+  gplx_goc_json?: string | null;
 }
 
 // Cờ NHẸ (không kèm ảnh) để vẽ 2 chip cả lưới. Danh sách rỗng → không gọi mạng.

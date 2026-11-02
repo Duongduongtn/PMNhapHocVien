@@ -13,6 +13,7 @@ SP gộp tự lo: MaLoaiHs, MaCSDT, MaSoGTVT, MaHTCap, GiayCNSK, tách họ tên
 Tool chỉ UPDATE thẳng 5 cột ẢNH (ngoại lệ ❌ PRD, CHANGES #5) — SP không ghi ảnh.
 """
 from __future__ import annotations
+import json
 import re
 import shutil
 import sqlite3
@@ -99,6 +100,47 @@ def chon_in_gplx_mac_dinh(hang_gplx: str | None) -> int:
     return IN_GPLX_KHONG_THOI_HAN if (hang_gplx or "").strip().upper().startswith("A") else IN_GPLX_CO_THOI_HAN
 
 
+# "GPLX đã có" (NAP-07, TDD §10.6): 6 cột *DaCo có sẵn ở NguoiLX_HoSo, ghi qua tham số SP gộp.
+# Nhiều bằng nối "|" theo cùng thứ tự ở mọi cột (cách phần mềm cũ ghi). `hang` là mã DM_HangGPLX.
+GPLX_HANG_HOP_LE = frozenset({"A01", "A02", "A1", "A1m", "A2", "A3", "B1", "B11", "B2", "C", "C1", "D", "D1",
+                              "E", "FB2", "FC", "FD", "FE"})
+GPLX_TOI_DA = 8
+_GPLX_THAM_SO = (("p_SoGPLXDaCo", "so"), ("p_HangGPLXDaCo", "hang"), ("p_NgayTTGPLXDaCo", "ngay_tt"),
+                 ("p_NgayCapGPLXDaCo", "ngay_cap"), ("p_NgayHHGPLXDaCo", "ngay_hh"), ("p_DVCapGPLXDaCo", "don_vi"))
+_GPLX_TEN_NGAY = {"ngay_tt": "ngày trúng tuyển", "ngay_cap": "ngày cấp", "ngay_hh": "ngày hết hạn"}
+
+
+def dung_chuoi_gplx_da_co(ds: list[dict] | None) -> dict[str, str | None]:
+    """Danh sách bằng → giá trị 6 tham số SP. Không có bằng → NULL như trước. Sai → ValueError (nạp lô
+    thành dòng lỗi của đúng học viên đó, không hỏng cả lô)."""
+    if not ds:
+        return {ts: None for ts, _ in _GPLX_THAM_SO}
+    if len(ds) > GPLX_TOI_DA:
+        raise ValueError(f"GPLX đã có: tối đa {GPLX_TOI_DA} bằng.")
+    dong: list[dict[str, str]] = []
+    for i, b in enumerate(ds, 1):
+        gt = {f: str(b.get(f) or "").strip() for _, f in _GPLX_THAM_SO}
+        if "|" in "".join(gt.values()):
+            raise ValueError(f"GPLX đã có, bằng {i}: không được chứa ký tự |.")
+        if gt["hang"] not in GPLX_HANG_HOP_LE:
+            raise ValueError(f"GPLX đã có, bằng {i}: hạng không hợp lệ.")
+        if not gt["so"] or len(gt["so"]) > 20:
+            raise ValueError(f"GPLX đã có, bằng {i}: thiếu số GPLX hoặc số dài quá 20 ký tự.")
+        if gt["don_vi"] and not re.fullmatch(r"\d{2}", gt["don_vi"]):
+            raise ValueError(f"GPLX đã có, bằng {i}: nơi cấp phải là mã 2 số.")
+        for f, ten in _GPLX_TEN_NGAY.items():
+            if gt[f]:
+                try:
+                    datetime.strptime(gt[f], "%Y%m%d")
+                except ValueError:
+                    raise ValueError(f"GPLX đã có, bằng {i}: {ten} không hợp lệ.") from None
+        dong.append(gt)
+    kq = {ts: "|".join(d[f] for d in dong) for ts, f in _GPLX_THAM_SO}
+    if any(len(v) > 100 for v in kq.values()):
+        raise ValueError("GPLX đã có: quá nhiều bằng, vượt giới hạn 100 ký tự của cột.")
+    return kq
+
+
 def validate_do_dai(ten: dict, so_cmt: str) -> list[str]:
     """Kiểm độ dài cột trước khi gọi SP (SP tự tách nên Ho/Ten có thể vượt); trả danh sách lỗi."""
     loi = []
@@ -146,13 +188,8 @@ def build_params_sp_gop(hv: dict, khoa: dict, so_ho_so: str, ten: dict,
         ("p_SoNamLX", hv.get("so_nam_lx")),                   # None → không vỡ check thâm niên
         ("p_SoKmLX", hv.get("so_km_lx")),
         ("p_GiayTo", giay_to_str),                            # '1,2,3,'
-        ("p_SoGPLXDaCo", None),
-        ("p_HangGPLXDaCo", None),
-        ("p_NgayTTGPLXDaCo", None),
-        ("p_NgayCapGPLXDaCo", None),
-        ("p_NgayHHGPLXDaCo", None),
-        ("p_DVCapGPLXDaCo", None),
-        ("p_NoiCapGPLXDaCo", None),
+        *dung_chuoi_gplx_da_co(hv.get("gplx_da_co")).items(),  # 6 cột GPLX đã có (NAP-07); không có bằng → NULL
+        ("p_NoiCapGPLXDaCo", None),                           # dữ liệu cũ gần như không dùng cột này
         ("p_GhiChu", None),
         ("p_SO_CMND_CU", None),
         ("p_CHON_IN_GPLX", hv.get("chon_in_gplx") or chon_in_gplx_mac_dinh(khoa.get("hang_gplx"))),
@@ -332,11 +369,11 @@ _KEO_DDL = (
     "uuid TEXT PRIMARY KEY, so_cccd TEXT, so_cmnd_cu TEXT, ho_ten TEXT, "
     "ngay_sinh TEXT, gioi_tinh TEXT, noi_tt_raw TEXT, ngay_cap TEXT, "
     "noi_cap_cccd TEXT, co_anh INT DEFAULT 0, created_at TEXT, "
-    "trang_thai TEXT DEFAULT 'cho', loi TEXT, ma_dk TEXT, so_ho_so TEXT)"
+    "trang_thai TEXT DEFAULT 'cho', loi TEXT, ma_dk TEXT, so_ho_so TEXT, gplx_da_co_json TEXT)"
 )
 _KEO_COLS = ("uuid", "so_cccd", "so_cmnd_cu", "ho_ten", "ngay_sinh", "gioi_tinh",
              "noi_tt_raw", "ngay_cap", "noi_cap_cccd", "co_anh", "created_at",
-             "trang_thai", "loi", "ma_dk", "so_ho_so")
+             "trang_thai", "loi", "ma_dk", "so_ho_so", "gplx_da_co_json")
 
 # Tombstone "bỏ qua" (NAP-01, CHANGES #51, TDD §9.3b): uuid operator đã chủ động bỏ khỏi
 # hàng đợi khi dòng còn 'cho'/'loi' (có thể vẫn 'pending' trên VPS). keo_ve_upsert lọc bỏ
@@ -359,6 +396,8 @@ def _keo_conn() -> sqlite3.Connection:
     ORPHAN_DB.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(ORPHAN_DB))
     conn.execute(_KEO_DDL)
+    if "gplx_da_co_json" not in {r[1] for r in conn.execute("PRAGMA table_info(keo_ve)")}:  # NAP-07: máy đã có bảng cũ
+        conn.execute("ALTER TABLE keo_ve ADD COLUMN gplx_da_co_json TEXT")
     conn.execute(_BO_QUA_DDL)  # tombstone bỏ-qua dùng chung connection với keo_ve (#51)
     return conn
 
@@ -405,9 +444,10 @@ def keo_ve_upsert(rows: list[dict]) -> tuple[int, int, int]:
                 r.get("noi_tt_raw"), iso_to_yyyymmdd(r.get("ngay_cap_cccd")),
                 r.get("noi_cap_cccd"), 1 if r.get("co_anh") else 0,
                 str(r.get("created_at") or ""),
+                json.dumps(r["gplx_da_co"], ensure_ascii=False) if r.get("gplx_da_co") else None,
             )
             cot = ("uuid", "so_cccd", "so_cmnd_cu", "ho_ten", "ngay_sinh", "gioi_tinh",
-                   "noi_tt_raw", "ngay_cap", "noi_cap_cccd", "co_anh", "created_at")
+                   "noi_tt_raw", "ngay_cap", "noi_cap_cccd", "co_anh", "created_at", "gplx_da_co_json")
             hien = conn.execute(
                 "SELECT trang_thai, noi_tt_raw FROM keo_ve WHERE uuid=?", (gt[0],)
             ).fetchone()
@@ -445,14 +485,19 @@ def keo_ve_danh_sach() -> list[dict]:
 
 
 def keo_ve_cap_nhat(uuid: str, *, trang_thai: str, loi: str | None = None,
-                    ma_dk: str | None = None, so_ho_so: str | None = None) -> None:
-    """Cập nhật trạng thái cục bộ 1 bản ghi sau khi nạp (xong/lỗi)."""
+                    ma_dk: str | None = None, so_ho_so: str | None = None,
+                    gplx_da_co: list[dict] | None = None) -> None:
+    """Cập nhật trạng thái cục bộ 1 bản ghi sau khi nạp (xong/lỗi). `gplx_da_co` khác None (nạp xong) → ghi
+    danh sách đã nạp để chip + lọc tab Đã nạp vẫn đúng sau khi nháp bị xóa (NAP-07)."""
     conn = _keo_conn()
     try:
         conn.execute(
             "UPDATE keo_ve SET trang_thai=?, loi=?, ma_dk=?, so_ho_so=? WHERE uuid=?",
             (trang_thai, loi, ma_dk, so_ho_so, str(uuid)),
         )
+        if gplx_da_co is not None:
+            conn.execute("UPDATE keo_ve SET gplx_da_co_json=? WHERE uuid=?",
+                         (json.dumps(gplx_da_co, ensure_ascii=False) if gplx_da_co else None, str(uuid)))
         conn.commit()
     finally:
         conn.close()
@@ -542,7 +587,8 @@ def bo_qua_nhieu(uuids: list[str]) -> dict:
 _NHAP_DDL = (
     "CREATE TABLE IF NOT EXISTS nhap_chuan_bi ("
     "uuid TEXT PRIMARY KEY, dia_chi_json TEXT, chi_tiet TEXT, noi_cap TEXT, ngay_cap TEXT, "
-    "tick_json TEXT, jp2_b64 TEXT, anh_preview TEXT, updated_at TEXT, chon_in_gplx INTEGER)"
+    "tick_json TEXT, jp2_b64 TEXT, anh_preview TEXT, updated_at TEXT, chon_in_gplx INTEGER, "
+    "gplx_da_co_json TEXT, gplx_goc_json TEXT)"
 )
 
 
@@ -558,6 +604,11 @@ def _nhap_conn() -> sqlite3.Connection:
         conn.execute("ALTER TABLE nhap_chuan_bi ADD COLUMN ngay_cap TEXT")
     if "chon_in_gplx" not in cols:      # "Chọn in GPLX" (1/2/3) nhân viên đã chọn; NULL = theo mặc định của hạng
         conn.execute("ALTER TABLE nhap_chuan_bi ADD COLUMN chon_in_gplx INTEGER")
+    # GPLX đã có (NAP-07): NULL = chưa sửa (dùng keo_ve), '[]' = đã xóa hết, JSON = bản đã sửa.
+    # gplx_goc_json = bản keo_ve lúc nhân viên sửa, để biết app web đổi sau đó (cờ "App web có bản mới").
+    for cot in ("gplx_da_co_json", "gplx_goc_json"):
+        if cot not in cols:
+            conn.execute(f"ALTER TABLE nhap_chuan_bi ADD COLUMN {cot} TEXT")
     return conn
 
 
@@ -569,24 +620,25 @@ def _co(v: object) -> bool:
 
 def nhap_co(uuids: list[str]) -> list[dict]:
     """Cờ NHẸ cho 2 chip (§10.5) — KHÔNG trả jp2_b64/anh_preview (tránh tải ảnh cả lưới).
-    Mỗi uuid: {uuid, co_dia_chi, co_anh, co_tick}. uuid không có nháp → cả 3 cờ False."""
+    Mỗi uuid: {uuid, co_dia_chi, co_anh, co_tick, gplx_da_co_json, gplx_goc_json}. uuid không có nháp → cờ False, GPLX None."""
     if not uuids:
         return []
     conn = _nhap_conn()
     try:
         cho = ",".join("?" * len(uuids))
         rows = conn.execute(
-            f"SELECT uuid, dia_chi_json, jp2_b64, tick_json FROM nhap_chuan_bi "
+            f"SELECT uuid, dia_chi_json, jp2_b64, tick_json, gplx_da_co_json, gplx_goc_json FROM nhap_chuan_bi "
             f"WHERE uuid IN ({cho})",
             [str(u) for u in uuids],
         ).fetchall()
     finally:
         conn.close()
-    co = {r[0]: (_co(r[1]), _co(r[2]), _co(r[3])) for r in rows}
+    co = {r[0]: (_co(r[1]), _co(r[2]), _co(r[3]), r[4], r[5]) for r in rows}
     out = []
     for u in uuids:
-        dc, anh, tick = co.get(str(u), (False, False, False))
-        out.append({"uuid": str(u), "co_dia_chi": dc, "co_anh": anh, "co_tick": tick})
+        dc, anh, tick, gplx, goc = co.get(str(u), (False, False, False, None, None))
+        out.append({"uuid": str(u), "co_dia_chi": dc, "co_anh": anh, "co_tick": tick,
+                    "gplx_da_co_json": gplx, "gplx_goc_json": goc})
     return out
 
 
@@ -597,21 +649,22 @@ def nhap_doc(uuid: str) -> dict | None:
     try:
         row = conn.execute(
             "SELECT uuid, dia_chi_json, chi_tiet, noi_cap, ngay_cap, tick_json, jp2_b64, "
-            "anh_preview, updated_at, chon_in_gplx FROM nhap_chuan_bi WHERE uuid=?", (str(uuid),)
+            "anh_preview, updated_at, chon_in_gplx, gplx_da_co_json, gplx_goc_json FROM nhap_chuan_bi WHERE uuid=?", (str(uuid),)
         ).fetchone()
     finally:
         conn.close()
     if row is None:
         return None
     cols = ("uuid", "dia_chi_json", "chi_tiet", "noi_cap", "ngay_cap", "tick_json", "jp2_b64",
-            "anh_preview", "updated_at", "chon_in_gplx")
+            "anh_preview", "updated_at", "chon_in_gplx", "gplx_da_co_json", "gplx_goc_json")
     return dict(zip(cols, row))
 
 
 def nhap_luu(uuid: str, *, dia_chi_json: str | None = None, chi_tiet: str | None = None,
              noi_cap: str | None = None, ngay_cap: str | None = None, tick_json: str | None = None,
              jp2_b64: str | None = None, anh_preview: str | None = None,
-             chon_in_gplx: int | None = None) -> None:
+             chon_in_gplx: int | None = None, gplx_da_co_json: str | None = None,
+             gplx_goc_json: str | None = None) -> None:
     """Lưu (upsert) nháp chuẩn bị. Ghi khi đóng drawer / debounce (không mỗi phím).
     ngay_cap (CHANGES #43): ngày cấp CCCD dạng 'yyyymmdd' operator đã sửa; rỗng/None = chưa đặt."""
     conn = _nhap_conn()
@@ -619,9 +672,9 @@ def nhap_luu(uuid: str, *, dia_chi_json: str | None = None, chi_tiet: str | None
         conn.execute(
             "INSERT OR REPLACE INTO nhap_chuan_bi "
             "(uuid, dia_chi_json, chi_tiet, noi_cap, ngay_cap, tick_json, jp2_b64, anh_preview, "
-            "updated_at, chon_in_gplx) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            "updated_at, chon_in_gplx, gplx_da_co_json, gplx_goc_json) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
             (str(uuid), dia_chi_json, chi_tiet, noi_cap, ngay_cap, tick_json, jp2_b64, anh_preview,
-             datetime.now().isoformat(timespec="seconds"), chon_in_gplx),
+             datetime.now().isoformat(timespec="seconds"), chon_in_gplx, gplx_da_co_json, gplx_goc_json),
         )
         conn.commit()
     finally:

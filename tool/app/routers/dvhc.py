@@ -45,6 +45,12 @@ def list_so_gtvt():
     return _guard(dvhc.ds_so_gtvt)
 
 
+@router.get("/noi-cap-gplx")
+def list_noi_cap_gplx():
+    """Danh sách 'Nơi cấp' của GPLX đã có (NAP-07): gồm cả tỉnh trước sáp nhập + các Cục."""
+    return _guard(dvhc.ds_noi_cap_gplx)
+
+
 @router.post("/map")
 def map_dia_chi(dc: DiaChiCu):
     """Tra địa chỉ cũ → xã mới. Không khớp hoặc xã chia → UI cho chọn tay (TDD §8)."""

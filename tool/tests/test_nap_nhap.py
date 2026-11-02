@@ -56,7 +56,8 @@ def test_nhap_co_ba_co_dung(staging_tmp):
 def test_nhap_co_mac_dinh_false(staging_tmp):
     # uuid chưa có nháp → cả 3 cờ False (chip xám mặc định)
     assert nap.nhap_co(["chua-co"]) == [
-        {"uuid": "chua-co", "co_dia_chi": False, "co_anh": False, "co_tick": False}
+        {"uuid": "chua-co", "co_dia_chi": False, "co_anh": False, "co_tick": False,
+         "gplx_da_co_json": None, "gplx_goc_json": None}
     ]
 
 
@@ -122,7 +123,8 @@ def test_api_nhap_co_2_chip(staging_tmp, auth_headers):
     assert r.status_code == 200
     co = {x["uuid"]: x for x in r.json()}
     assert co["u1"]["co_dia_chi"] is True and co["u1"]["co_anh"] is False
-    assert co["u2"] == {"uuid": "u2", "co_dia_chi": False, "co_anh": False, "co_tick": False}
+    assert co["u2"] == {"uuid": "u2", "co_dia_chi": False, "co_anh": False, "co_tick": False,
+                        "gplx_da_co_json": None, "gplx_goc_json": None}
 
 
 def test_api_nhap_xoa(staging_tmp, auth_headers):

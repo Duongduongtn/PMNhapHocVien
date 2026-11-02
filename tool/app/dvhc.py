@@ -129,6 +129,22 @@ def ds_xa(ma_dvql: str, db: str | None = None) -> list[dict]:
     ]
 
 
+def ds_noi_cap_gplx() -> list[dict]:
+    """Danh sách 'Nơi cấp' của GPLX đã có (NAP-07, TDD §10.6): khác ds_so_gtvt ở chỗ GỒM CẢ tỉnh đã sáp nhập,
+    vì bằng cũ cấp từ các tỉnh đó (vd '70' Bình Phước). Nhãn kèm mã để gõ được cả mã lẫn tên; tên trùng khác mã."""
+    with _cur_dvhc(None) as cur:
+        cur.execute("SELECT MaDvhc, TenNganGon, LoaiDvhc, TrangThai FROM DM_DVHC "
+                    "WHERE LEN(MaDvhc)=2 AND LoaiDvhc IN ('C','TW','TI') AND MaDvhc<>'90' "
+                    "ORDER BY CASE WHEN LoaiDvhc='C' THEN 0 ELSE 1 END, MaDvhc")
+        rows = cur.fetchall()
+    out = []
+    for r in rows:
+        cu = r["LoaiDvhc"] != "C" and not r["TrangThai"]
+        out.append({"ma": r["MaDvhc"],
+                    "ten": f'{r["MaDvhc"]} — {(r["TenNganGon"] or "").strip()}{" (trước sáp nhập)" if cu else ""}'})
+    return out
+
+
 def ds_so_gtvt(db: str | None = None) -> list[dict]:
     """Danh sách 'Nơi cấp' căn cước cho combobox — đọc DM_DVHC (mã 2 ký tự = MaDvhc).
 
