@@ -561,7 +561,7 @@
 | 150 | **NAP-07 (2/2) UI tool:** khối GPLX đã có ở ngăn Chuẩn bị (`ComboLoc`, `ODate`), chip, bộ lọc + đếm, thông báo miễn lý thuyết/trùng hạng, cờ "App web có bản mới". | `NAP-07 (2/2)` | M | 149 | 1+3 | [x] |
 | 151 | **THU-07 (1/2) VPS:** cột `gplx_da_co` + tự ALTER · kiểm dữ liệu · `POST/PUT`, `/cua-toi`, `/nap/keo` · dọn PII, xóa mềm · tool nhận khi kéo. | `THU-07 (1/2)` | M | 149 | 1+2 | [x] |
 | 152 | **THU-07 (2/2) app web:** ô tích + khối nhập một cột ở `Quet.tsx` và form sửa. | `THU-07 (2/2)` | M | 151 | 1+3 | [x] |
-| 153 | **Đóng gói exe + deploy VPS bản có GPLX đã có.** Chạy một mình. | — | S | 150, 152 | 1 | [ ] |
+| 153 | **Đóng gói exe + deploy VPS bản có GPLX đã có.** Chạy một mình. | — | S | 150, 152 | 1 | [x] |
 | 154 | **Nghiệm thu máy CSĐT:** nạp thật một bằng + hai bằng; mở phần mềm cũ; miễn lý thuyết; Sync giữ chuỗi; đối chiếu bảng nhãn ↔ mã và Cục QLHC. | `NAP-07` | — | 153 | 1 | [ ] |
 
 ### ✅ Checkpoint 37 — sau task 149-150 (tool)

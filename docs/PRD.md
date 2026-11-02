@@ -380,7 +380,7 @@
 
 #### [THU-07] Nhập GPLX đã có ở app web
 
-**Trạng thái:** ⚠️ Partial — code + test xong 02/11/2026 (CHANGES #81, #82), chưa deploy VPS nên chưa thử trên hệ thống thật.
+**Trạng thái:** ⚠️ Partial — đã deploy 02/11/2026 và thử nối API thật về tool khớp (CHANGES #81-#84); chưa bấm thật trên điện thoại rồi gửi kèm ảnh.
 **Story:** Là nhân viên thu nhận, tôi muốn ghi GPLX học viên đang có lúc gặp trực tiếp, để nhân viên nạp không phải hỏi lại.
 
 **Done khi:**

@@ -74,15 +74,15 @@ jobs:
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d
 
-            # Health check: web trả 200 trong 60s
+            # Health check: cả web và API (qua web) trả 200 trong 60s; web tĩnh sống không có nghĩa API sống
             HEALTHY=0
             for i in $(seq 1 20); do
-              if curl -fsS -o /dev/null http://127.0.0.1:3012/; then HEALTHY=1; break; fi
+              if curl -fsS -o /dev/null http://127.0.0.1:3012/ && curl -fsS -o /dev/null http://127.0.0.1:3012/api/health; then HEALTHY=1; break; fi
               sleep 3
             done
 
             if [ "$HEALTHY" != "1" ]; then
-              echo "::error::Health check FAIL cho web:3012"
+              echo "::error::Health check FAIL cho web hoặc API ở cổng 3012"
               if [ -n "$PREV" ]; then
                 echo "Lùi về bản tốt trước: $PREV"
                 export IMAGE_TAG_API=${{ env.IMG_API }}:$PREV
@@ -99,7 +99,7 @@ jobs:
             # Dọn image cũ của dự án này, giữ 3 bản gần nhất (best-effort, không làm hỏng deploy)
             for IMG in ${{ env.IMG_API }} ${{ env.IMG_WEB }}; do
               docker images "$IMG" --format '{{.CreatedAt}}~{{.ID}}' \
-                | sort -r | cut -d'~' -f2 | awk '!seen[Deploy]++' | tail -n +4 \
+                | sort -r | cut -d'~' -f2 | awk '!seen[$0]++' | tail -n +4 \
                 | xargs -r docker rmi -f 2>/dev/null || true
             done
             docker builder prune -f >/dev/null 2>&1 || true
