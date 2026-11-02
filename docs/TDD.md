@@ -945,7 +945,7 @@ Tool:    keo_ve.gplx_da_co_json ───────────────┘
 | Luật mới | A1 → `A1m` · A → `A2` · A.01 → `A01` · A.02 → `A02` · B → `B1` · B.01 → `B11` · C1 → `C1` · C → `C` · D1 → `D1` · D → `D` |
 | Luật cũ | A1 → `A1` · A2 → `A2` · A3 → `A3` · B1 số tự động → `B11` · B1 → `B1` · B2 → `B2` · C · D · E · FB2 · FC · FD · FE (giữ mã) |
 
-Suy từ `KhoaHoc` thật (`B`→`B1`, `B.01`→`B11`, `C1`→`C1`) + mô tả danh mục; `A`→`A2` mới có 2 khóa, cần đối chiếu ô Hạng phần mềm cũ. `nhom` chỉ để hiển thị lại đúng nhãn, không ghi xuống DB.
+Suy từ `KhoaHoc` thật (`B`→`B1`, `B.01`→`B11`, `C1`→`C1`) + mô tả danh mục; `A`→`A2`: 2 khóa `HangDT=Am` mang `HangGPLX=A2`, và `DM_HangGPLX` mô tả `A2` là "trên 125 cm3" đúng hạng A mới. `nhom` chỉ để hiển thị lại đúng nhãn, không ghi xuống DB.
 
 **Ô nhập (dùng lại component có sẵn):** Hạng và Nơi cấp dùng `components/ComboLoc` (lọc theo `boDau` trên chuỗi hiện, nên đưa mã vào nhãn: `70 — Bình Phước (trước sáp nhập)` là gõ được cả mã lẫn tên). Ngày dùng `components/ODate` (`maskNgay` tự chèn `/`, có nút lịch). App web dùng `ODate` của `webapp` và một ô gõ tìm tương đương.
 
@@ -961,7 +961,7 @@ Suy từ `KhoaHoc` thật (`B`→`B1`, `B.01`→`B11`, `C1`→`C1`) + mô tả d
 - **Chip + lọc:** `nhap_co` trả thêm `gplx_da_co_json`, `_KEO_COLS` thêm cột; dữ liệu nhỏ, không phải ảnh.
 - **Quy tắc khớp form cũ** (chuỗi thông báo trong `FPT.GPLX.CSDT.dll`, đối chiếu 6.973 hồ sơ): bắt buộc hạng, số, ngày cấp, ngày trúng tuyển (0 hồ sơ thiếu); "GPLX hiện có không được chứa hạng cần cấp" (0 hồ sơ trùng) → **chặn**; ngày cấp không trước trúng tuyển (0 vi phạm), không sau hôm nay; hết hạn sau ngày cấp (4 vi phạm cũ); đủ 18 tuổi khi cấp. Trùng hạng và 18 tuổi chỉ kiểm ở tool (VPS chưa biết khóa). Số GPLX 98% dài 12 chữ số; khác thì nhắc, không chặn.
 - **Migrate:** SQLite `keo_ve` + `nhap_chuan_bi` dùng guard `PRAGMA table_info` + `ALTER` như `ngay_cap`. VPS: `init.sql` chỉ chạy cho DB mới, nên API tự chạy `ALTER TABLE ho_so_thu_thap ADD COLUMN IF NOT EXISTS gplx_da_co JSONB` lúc khởi động, trước khi nhận truy vấn; checklist deploy kiểm `\d ho_so_thu_thap`. Model dùng `JSON().with_variant(JSONB, "postgresql")`.
-- **PII:** `gplx_da_co` là dữ liệu cá nhân: `jobs/pii.py` dọn cùng số căn cước; xóa mềm hồ sơ (THU-05) đặt NULL; không ghi vào audit/log; lỗi 422 không log giá trị trường này. Bản ở `keo_ve` máy tool cùng nhóm PII staging như `so_cccd`.
+- **PII:** `gplx_da_co` là dữ liệu cá nhân: `jobs/pii.py` dọn cùng số căn cước; xóa mềm hồ sơ (THU-05) đặt NULL, job 30 ngày dọn luôn dòng `deleted` (trước đó bỏ sót, còn giữ `so_cccd` mãi); không ghi vào audit/log; lỗi 422 không log giá trị trường này. Bản ở `keo_ve` máy tool cùng nhóm PII staging như `so_cccd`.
 
 **Cách lưu nhiều bằng đã có bằng chứng:** form cũ có lưới `dgvsDSGPLXHienCo` + `btnThemGPLXHienCo`; hàm `getTenDVCap` nhận danh sách và giữ dấu ngăn (`70|79` → `Bình Phước|Hồ Chí Minh`); hồ sơ mẫu `A1|A1` (2023) đã qua BC2 `720/23` và có kết quả sát hạch `DA`. **Còn lại:** tờ khai in nguyên dấu `|` như hồ sơ cũ; `A`→`A2` đối chiếu ở nghiệm thu máy CSĐT. Cách làm và lý do: `TDD-decisions` §28.
 

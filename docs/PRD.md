@@ -353,7 +353,7 @@
 
 #### [NAP-07] Nhập GPLX đã có ở màn Nạp (nhiều bằng, luật cũ + luật mới)
 
-**Trạng thái:** ⚠️ Partial — code + test xong 02/11/2026 (CHANGES #81, #82), chưa nghiệm thu ghi thật máy CSĐT (nạp một bằng + hai bằng, mở phần mềm cũ, miễn lý thuyết, Sync giữ chuỗi).
+**Trạng thái:** ⚠️ Partial — code + test xong 02/11/2026 (CHANGES #81, #82), đã thử SP thật + Sync thật hai bằng trong giao dịch hủy; **còn** bấm nút Nạp thật trên màn hình rồi mở hồ sơ trên phần mềm cũ.
 **Story:** Là nhân viên nạp DB, tôi muốn ghi GPLX học viên đang có khi nạp, để học viên mô tô đã có bằng ô tô được ghi nhận miễn thi lý thuyết và hồ sơ khớp phần mềm cũ.
 
 **Steps to Complete:**

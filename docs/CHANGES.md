@@ -4,8 +4,9 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 85 | 02/11/2026 | 🐛 Sửa + ⚙️ | `THU-05` · `NAP-07` | Job dọn 30 ngày xóa cả hồ sơ xóa mềm; cài sao lưu DB đêm trên VPS; workflow gọi cả API, sửa dọn image. | — | ✅ | ✅ mock Nơi cấp | ✅ |
 | 84 | 02/11/2026 | ✏️ Sửa (user chốt) | `NAP-07` · `THU-07` | **Giữ Cục QLHC mã `00`** theo DB đích; thêm script bật ở `DM_DonViGTVT` DB Nạp. | ✅ v4.26 | ✅ v6.30 | — | ✅ |
-| 83 | 02/11/2026 | ✏️ Sửa (khớp form cũ) | `NAP-07` · `THU-07` | **Rà DB + DLL phần mềm cũ:** chặn trùng hạng đăng ký, bắt buộc ngày cấp + trúng tuyển, thứ tự ngày, 18 tuổi; Nơi cấp đổi sang `DM_DonViGTVT` (65 đơn vị). Cách lưu `\|` có bằng chứng. | ✅ v4.25 | ✅ v6.29 | 🟡 mock chưa đổi danh sách Nơi cấp | ✅ chưa commit |
+| 83 | 02/11/2026 | ✏️ Sửa (khớp form cũ) | `NAP-07` · `THU-07` | **Rà DB + DLL phần mềm cũ:** chặn trùng hạng đăng ký, bắt buộc ngày cấp + trúng tuyển, thứ tự ngày, 18 tuổi; Nơi cấp đổi sang `DM_DonViGTVT` (65 đơn vị). Cách lưu `\|` có bằng chứng. | ✅ v4.25 | ✅ v6.29 | ✅ | ✅ |
 | 82 | 02/11/2026 | ✏️ Sửa (sau `/reviewtdd`) | `NAP-07` · `THU-07` | **`/reviewtdd` §10.6 (2 Chặn, 11 Nên sửa, 2 Ghi nhận):** đã sửa TDD; user chốt cờ "App web có bản mới". Hoãn: hồ sơ xóa mềm còn giữ số căn cước. | ✅ v4.24 | ✅ v6.28 | — | ✅ chưa deploy |
 | 81 | 02/11/2026 | ➕ Thêm | `NAP-07` · `THU-07` | **GPLX đã có:** nhập ở app web, tool tự điền và sửa được; nhiều bằng luật cũ + luật mới (nối `\|`); chip + lọc ở màn Nạp; không đổi schema DB Nạp; Sync giữ nguyên. Số story 61→63. | ✅ v4.23 | ✅ v6.27 §10.6 + decisions §28 | ✅ mock `ui-mock/gplxdaco.html` đã duyệt + SCREENS #36 | ✅ chưa deploy |
 | 80 | 16/10/2026 | ✏️ Sửa (sau `/reviewtdd`) | `NAP-05` · `NAP-01` | **`/reviewtdd` "Chọn in GPLX" (0 Chặn, 4 Nên sửa):** làm rõ server dùng đúng giá trị client gửi; bảng nháp §9.3a +cột; "Phục vụ" +NAP-01; **user chốt (A):** đổi sang khóa khác loại mô tô↔ô tô thì **xóa lựa chọn tay**, ô về mặc định khóa mới; chọn lại đúng mặc định = chưa đổi (lưu trống). NAP-05 giữ ⚠️. Số story giữ 61. | — | ✅ v6.26 | — | ✅ `NapHoSo.tsx` + 2 ca e2e |
@@ -93,6 +94,12 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 
 ---
 
+## #85 — Dọn việc treo sau deploy GPLX đã có · 02/11/2026
+
+- **Vì sao:** user yêu cầu làm hết việc treo.
+- **Đã làm:** job PII thêm `deleted` (trước đó hồ sơ xóa mềm giữ `so_cccd` mãi) · sao lưu DB đêm `deploy/backup-db.sh` (biên bản `docs/soatdeploy-02-11-2026.md`) · Sync thật hồ sơ hai bằng trong giao dịch hủy: giữ nguyên chuỗi · `A`→`A2` có căn cứ danh mục · mock Nơi cấp theo `DM_DonViGTVT`.
+- **Còn nợ (cần người):** bấm nút Nạp thật + mở phần mềm cũ · gửi thật trên điện thoại · đổi mật khẩu `admin@123` · quyết script sửa `CHON_IN_GPLX` dữ liệu cũ · KQD task 145.
+
 ## #84 — Giữ Cục QLHC mã 00, script bật ở DB Nạp · 02/11/2026
 
 - **Mã:** `NAP-07`, `THU-07`.
@@ -106,7 +113,7 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 - **Vì sao:** user yêu cầu rà schema/procedure để suy ra và chốt. Rà ra form cũ `FPT.GPLX.CSDT.dll` có quy tắc chặn mà thiết kế #81 chưa có, và tờ khai đọc tên đơn vị từ `DM_DonViGTVT` chứ không phải `DM_DVHC`.
 - **Bằng chứng cách lưu `|`:** lưới `dgvsDSGPLXHienCo`; `getTenDVCap('70|79')` ra `Bình Phước|Hồ Chí Minh`; hồ sơ `A1|A1` đã qua BC2 `720/23`, kết quả sát hạch `DA`.
 - **Đã sửa:** PRD v4.25 · TDD v6.29 · decisions §28 · code tool, VPS, app web + test.
-- **Còn nợ:** mock chưa đổi danh sách Nơi cấp · mở phần mềm cũ đối chiếu `A`→`A2` · chạy Sync một hồ sơ hai bằng.
+- **Còn nợ:** xem #85.
 
 ## #82 — /reviewtdd §10.6 GPLX đã có · 02/11/2026
 
@@ -1009,7 +1016,8 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 > `/capnhat` đọc mục này ở Bước 0b để biết có thay đổi nào chưa ghi sổ không.
 > So bằng **danh sách mã**, không so bằng thời gian sửa file.
 
-- **Cập nhật:** 02/11/2026 (#84 ✏️ giữ Cục QLHC mã 00, số story giữ 63)
+- **Cập nhật:** 02/11/2026 (#85 dọn việc treo, số story giữ 63)
+- **Cập nhật trước:** 02/11/2026 (#84 ✏️ giữ Cục QLHC mã 00, số story giữ 63)
 - **Cập nhật trước:** 02/11/2026 (#83 ✏️ khớp form cũ, số story giữ 63)
 - **Cập nhật trước:** 02/11/2026 (#82 ✏️ sau `/reviewtdd` §10.6, số story giữ 63)
 - **Cập nhật trước:** 02/11/2026 (#81 ➕ `NAP-07`, `THU-07` GPLX đã có; số story 61→63)
