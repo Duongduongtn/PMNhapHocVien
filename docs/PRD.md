@@ -1606,5 +1606,6 @@
 | 02/11/2026 | v4.27 — `THU-01`, `THU-07` báo lỗi form dễ sửa trên điện thoại, chữ ô nhập 16px (CHANGES #86, sau critique giao diện). | BA/PM |
 | 02/11/2026 | v4.28 — `THU-01` thông báo đã gửi nêu tên học viên (CHANGES #87). | BA/PM |
 | 02/11/2026 | v4.29 — `KQD-08` nhận cả mẫu PDF DAT cũ và mới (CHANGES #88). | BA/PM |
+| 03/11/2026 | v4.32 — Popup sửa hồ sơ đã gửi rộng hơn trên máy tính, ô xếp nhiều cột để đỡ cuộn (CHANGES #91, không đổi yêu cầu nghiệp vụ). | BA/PM |
 | 03/11/2026 | v4.31 — `THU-07`: bổ sung sau nạp phải có ít nhất một bằng; dòng chờ chỉ hiện ngay sau khi gửi (CHANGES #90). | BA/PM |
 | 03/11/2026 | v4.30 — **+`QLY-10`, +`TCB-05`** bổ sung GPLX đã có cho học viên đã nạp; `THU-07` thêm bổ sung sau nạp, hạ ⏳; `NAP-07` đổi dòng ngoài phạm vi (CHANGES #89). Số story 63→65. | BA/PM |

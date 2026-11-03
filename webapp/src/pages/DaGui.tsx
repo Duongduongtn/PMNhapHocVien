@@ -633,9 +633,24 @@ function ChiTiet({ row, onDong, onCapNhat, onXoa }: { row: HoSoOut; onDong: () =
 
   const set = <K extends keyof HoSoSua>(k: K, v: HoSoSua[K]) => setF((p) => ({ ...p, [k]: v }));
 
+  const nutAnh = anhDuoc && (
+    <div className="mt-3 grid grid-cols-2 gap-2">
+        <label className="h-10 rounded-lg border border-border bg-secondary text-foreground text-[13px] font-medium flex items-center justify-center gap-1.5 hover:bg-muted transition-colors cursor-pointer">
+          <Icon name="camera" className="w-4 h-4" /> {row.co_anh ? "Chụp lại" : "Chụp ảnh"}
+          <input type="file" accept="image/*" capture="user" className="hidden" disabled={luu}
+            onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) void doiAnh(file); }} />
+        </label>
+        <label className="h-10 rounded-lg border border-border bg-secondary text-foreground text-[13px] font-medium flex items-center justify-center gap-1.5 hover:bg-muted transition-colors cursor-pointer">
+          <Icon name="image" className="w-4 h-4" /> Chọn từ máy
+          <input type="file" accept="image/*" className="hidden" disabled={luu}
+            onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) void doiAnh(file); }} />
+        </label>
+      </div>
+  );
+
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={(e) => { if (e.target === e.currentTarget) onDong(); }}>
-      <div className="bg-card w-full sm:max-w-md rounded-t-2xl sm:rounded-xl shadow-2xl max-h-[92vh] flex flex-col overflow-hidden">
+      <div className={"bg-card w-full rounded-t-2xl sm:rounded-xl shadow-2xl max-h-[92vh] flex flex-col overflow-hidden " + (che === "xem" ? "sm:max-w-md" : "sm:max-w-2xl lg:max-w-4xl")}>
         <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
           <h3 className="font-bold text-sm">{che === "sua" ? "Sửa hồ sơ" : che === "gplx" ? "Bổ sung GPLX" : "Chi tiết hồ sơ đã gửi"}</h3>
           <button onClick={onDong} aria-label="Đóng" className="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center transition-colors">
@@ -659,25 +674,13 @@ function ChiTiet({ row, onDong, onCapNhat, onXoa }: { row: HoSoOut; onDong: () =
               <div className="font-bold text-[15px]">{row.ho_ten || "(chưa có tên)"}</div>
               <div className="mt-1 flex items-center gap-1.5 flex-wrap"><TrangThaiChip tt={row.trang_thai} />{!row.co_anh && <ThieuAnhChip />}</div>
               <div className="text-[12px] text-muted-foreground mt-2">Gửi lúc {guiHienThi(row.created_at)}</div>
+              {che !== "xem" && nutAnh /* đang sửa: để cạnh ảnh cho đỡ tốn một dòng (CHANGES #91) */}
             </div>
           </div>
 
           {/* Chụp/đổi ảnh: 2 lối — chụp trực tiếp / chọn ảnh có sẵn (CHANGES #15).
               Hiện cả khi Đã nạp mà thiếu ảnh để chụp bù (CHANGES #44). */}
-          {anhDuoc && (
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <label className="h-10 rounded-lg border border-border bg-secondary text-foreground text-[13px] font-medium flex items-center justify-center gap-1.5 hover:bg-muted transition-colors cursor-pointer">
-                <Icon name="camera" className="w-4 h-4" /> {row.co_anh ? "Chụp lại" : "Chụp ảnh"}
-                <input type="file" accept="image/*" capture="user" className="hidden" disabled={luu}
-                  onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) void doiAnh(file); }} />
-              </label>
-              <label className="h-10 rounded-lg border border-border bg-secondary text-foreground text-[13px] font-medium flex items-center justify-center gap-1.5 hover:bg-muted transition-colors cursor-pointer">
-                <Icon name="image" className="w-4 h-4" /> Chọn từ máy
-                <input type="file" accept="image/*" className="hidden" disabled={luu}
-                  onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) void doiAnh(file); }} />
-              </label>
-            </div>
-          )}
+          {che === "xem" && nutAnh}
           {/* HV đã nạp thiếu ảnh: nói rõ vì sao vẫn chụp được (CHANGES #44) */}
           {row.trang_thai === "imported" && !row.co_anh && (
             <p className="mt-2 text-[12px] text-muted-foreground">
@@ -694,10 +697,10 @@ function ChiTiet({ row, onDong, onCapNhat, onXoa }: { row: HoSoOut; onDong: () =
           )}
 
           {che === "sua" ? (
-            <div className="mt-4 space-y-3">
+            <div className="mt-4 grid gap-3 items-end sm:grid-cols-2">
               <OSua label="Họ và tên" value={f.ho_ten ?? ""} onChange={(v) => set("ho_ten", v)} />
               <OSua label="Số CCCD" value={f.so_cccd ?? ""} onChange={(v) => set("so_cccd", v)} inputMode="numeric" />
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 items-end">
                 <ODate
                   label="Ngày sinh"
                   value={nsHienThi(f.ngay_sinh ?? null) === "—" ? "" : nsHienThi(f.ngay_sinh ?? null)}
@@ -712,11 +715,13 @@ function ChiTiet({ row, onDong, onCapNhat, onXoa }: { row: HoSoOut; onDong: () =
                 </div>
               </div>
               <OSua label="Nơi thường trú" value={f.noi_tt_raw ?? ""} onChange={(v) => set("noi_tt_raw", v)} />
-              <GplxDaCoKhoi ds={gplx} onDoi={(ds) => { setGplx(ds); setDaSuaGplx(true); }} lanGui={lanLuuGplx} />
+              <div className="sm:col-span-2">
+                <GplxDaCoKhoi ds={gplx} onDoi={(ds) => { setGplx(ds); setDaSuaGplx(true); }} lanGui={lanLuuGplx} rong />
+              </div>
             </div>
           ) : che === "gplx" ? (
             <div className="mt-4 space-y-3">
-              <GplxDaCoKhoi ds={gplx} onDoi={setGplx} lanGui={lanLuuGplx} />
+              <GplxDaCoKhoi ds={gplx} onDoi={setGplx} lanGui={lanLuuGplx} rong />
               <p className="text-[12px] text-muted-foreground">Các thông tin khác của hồ sơ đã nạp vẫn khóa. Người nạp xem lại rồi mới đưa vào hệ thống.</p>
             </div>
           ) : (

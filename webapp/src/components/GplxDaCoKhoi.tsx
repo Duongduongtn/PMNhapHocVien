@@ -64,7 +64,7 @@ function OTim({
 // thì lanGui tăng: đánh dấu mọi ô đang có, nên bằng thêm sau đó vẫn chưa báo đỏ.
 const MOI_O: OGplx[] = ["hang", "so", "ngay_tt", "ngay_cap", "ngay_hh"];
 
-export function GplxDaCoKhoi({ ds, onDoi, lanGui = 0 }: { ds: BangGplx[]; onDoi: (ds: BangGplx[]) => void; lanGui?: number }) {
+export function GplxDaCoKhoi({ ds, onDoi, lanGui = 0, rong = false }: { ds: BangGplx[]; onDoi: (ds: BangGplx[]) => void; lanGui?: number; rong?: boolean }) {
   const [cham, setCham] = useState<Record<string, boolean>>({});
   useEffect(() => {
     if (!lanGui) return;
@@ -94,7 +94,7 @@ export function GplxDaCoKhoi({ ds, onDoi, lanGui = 0 }: { ds: BangGplx[]; onDoi:
             <span className="text-[12.5px] font-semibold">Bằng {i + 1}</span>
             <button type="button" className="text-[12px] text-destructive" onClick={() => xoa(i)}>Xóa</button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className={"grid grid-cols-1 sm:grid-cols-2 gap-2 items-end" + (rong ? " lg:grid-cols-3" : "")}>
             <div data-o={`gplx-${i}-hang`}>
               <OTim
                 nhan="Hạng"

@@ -4,6 +4,7 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 91 | 03/11/2026 | ✏️ Sửa (UX) | `THU-02` · `THU-07` | Popup sửa hồ sơ đã gửi và Bổ sung GPLX rộng hơn trên máy tính, ô xếp nhiều cột để đỡ cuộn; khổ điện thoại giữ một cột. | ✅ v4.32 | — | — | ✅ chưa deploy |
 | 90 | 03/11/2026 | ✏️ Sửa (sau `/reviewtdd`) | `QLY-10` · `THU-07` | **`/reviewtdd` §10.7 (1 Chặn, 8 Nên sửa, 4 Ghi nhận):** nhận diện bổ sung bằng `audit_log` để không báo nhầm (user chốt); `THU-07` phải có ít nhất một bằng. Số story giữ 65. | ✅ v4.31 | ✅ v6.33 | — | 🟡 như #89 |
 | 89 | 03/11/2026 | ➕ Thêm + ✏️ Sửa | `QLY-10` · `TCB-05` · `THU-07` · `NAP-07` | **Bổ sung GPLX đã có cho học viên đã nạp:** app web gửi lên VPS, tool cảnh báo, tự điền, người nạp sửa rồi mới lưu đúng 6 cột; Tra cứu CDB nhập riêng; chặn theo BC1/DKKH. Hạ `THU-07` ⚠️→⏳. Số story 63→65. | ✅ v4.30 | ✅ v6.32 §10.7 + decisions §29 | ✅ mock `ui-mock/gplxbosung.html` đã duyệt + SCREENS #37 | 🟡 đã deploy `12d6b21`, chờ nghiệm thu máy CSĐT |
 | 88 | 02/11/2026 | ✏️ Sửa | `KQD-08` | Nạp giờ/km nhận cả mẫu PDF DAT cũ 7 cột và mới 9 cột, tìm cột theo tiêu đề; mẫu lạ báo rõ. | ✅ | ✅ §11D.10 | — | ✅ |
@@ -1063,7 +1064,8 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 > `/capnhat` đọc mục này ở Bước 0b để biết có thay đổi nào chưa ghi sổ không.
 > So bằng **danh sách mã**, không so bằng thời gian sửa file.
 
-- **Cập nhật:** 03/11/2026 (#90 ✏️ sau `/reviewtdd` §10.7, số story giữ 65)
+- **Cập nhật:** 03/11/2026 (#91 ✏️ popup sửa hồ sơ rộng hơn, số story giữ 65)
+- **Cập nhật trước:** 03/11/2026 (#90 ✏️ sau `/reviewtdd` §10.7, số story giữ 65)
 - **Cập nhật trước:** 03/11/2026 (#89 ➕ `QLY-10`, `TCB-05`; ✏️ `THU-07`, `NAP-07`; số story 63→65)
 - **Cập nhật trước:** 02/11/2026 (#88 ✏️ `KQD-08` nhận cả hai mẫu PDF DAT, số story giữ 63)
 - **Cập nhật trước:** 02/11/2026 (#87 ✏️ thông báo đã gửi nêu tên học viên, số story giữ 63)
