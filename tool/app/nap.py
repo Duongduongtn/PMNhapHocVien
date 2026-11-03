@@ -14,6 +14,7 @@ Tool chỉ UPDATE thẳng 5 cột ẢNH (ngoại lệ ❌ PRD, CHANGES #5) — S
 """
 from __future__ import annotations
 import json
+import logging
 import re
 import shutil
 import sqlite3
@@ -21,6 +22,8 @@ from datetime import datetime
 from pathlib import Path
 
 from app import paths
+
+logger = logging.getLogger(__name__)
 
 # ===== Hằng (TDD §10.2) =====
 MAX_LEN = {"HoVaTen": 50, "HoDemNLX": 30, "TenNLX": 20, "HoVaTenIn": 25, "SoCMT": 20}
@@ -497,6 +500,21 @@ def keo_ve_danh_sach() -> list[dict]:
     finally:
         conn.close()
     return [dict(zip(_KEO_COLS, row)) for row in rows]
+
+
+def keo_ve_gan_gplx(ma_dk: str, gplx_da_co: list[dict]) -> None:
+    """Sau khi bổ sung GPLX ở Tra cứu DB: cập nhật bản ở tab Đã nạp để chip đúng (QLY-10). DB đã ghi xong,
+    lỗi ở đây chỉ làm chip cũ nên không báo lỗi lưu."""
+    try:
+        conn = _keo_conn()
+        try:
+            conn.execute("UPDATE keo_ve SET gplx_da_co_json=? WHERE ma_dk=?",
+                         (json.dumps(gplx_da_co, ensure_ascii=False) if gplx_da_co else None, ma_dk))
+            conn.commit()
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        logger.warning("Không cập nhật được chip GPLX ở máy tool.")
 
 
 def keo_ve_cap_nhat(uuid: str, *, trang_thai: str, loi: str | None = None,

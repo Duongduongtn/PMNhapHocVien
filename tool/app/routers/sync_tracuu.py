@@ -24,7 +24,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, field_validator
 
-from app import sync_helpers
+from app import gplx_da_co, sync_helpers
 from app import dvhc  # danh mục Tỉnh/Xã/Sở — TCB-03 đọc từ DB đích (CHANGES #37)
 from app.db import sqlserver_conn_dich, ConfigChuaDay
 from app.image import jp2_sang_png, thumb_jp2, validate_jp2
@@ -35,6 +35,7 @@ from app.routers.sync import _db_dich, _loi_db  # dùng chung: chọn DB đích 
 # hàm dựng tham số RIÊNG cho CDB (`HoSoSuaCDB`/`dung_tham_so_update_cdb` bên dưới, CHANGES #37):
 # TCB-03 mở rộng thêm địa chỉ 2 cấp + ngày/nơi cấp CCCD, Nạp QLY-01 giữ 5 trường (user chốt).
 from app.routers.hoso import (
+    GplxLuuIn,
     ngay_sinh_hien,
     ngay_sinh_luu,
     gioi_tinh_hien,
@@ -415,6 +416,77 @@ def dvhc_so_gtvt_dich(target_key: str | None = None) -> list[dict]:
         return dvhc.ds_so_gtvt(_db_dich(target_key))
     except Exception as e:  # noqa: BLE001
         raise _loi_db(e)
+
+
+@router.get("/noi-cap-gplx")
+def noi_cap_gplx_dich(target_key: str | None = None) -> list[dict]:
+    """TCB-05 — danh mục Nơi cấp GPLX đọc từ DB đích."""
+    try:
+        return dvhc.ds_noi_cap_gplx(_db_dich(target_key))
+    except Exception as e:  # noqa: BLE001
+        raise _loi_db(e)
+
+
+def _chan_gplx_dich(cur, row: dict, ma_dk: str) -> str | None:
+    """Lý do không được lưu GPLX ở DB đích (TCB-05): khóa đã kết xuất DKKH, hoặc khóa/học viên đã lập BC1."""
+    cur.execute(
+        "SELECT hs.MaBC1, CASE WHEN EXISTS (SELECT 1 FROM dbo.BaoCaoI b WHERE b.MaKH = hs.MaKhoaHoc) THEN 1 ELSE 0 END AS bc1, "
+        + _DKKH_SQL + " FROM dbo.NguoiLX_HoSo hs JOIN dbo.KhoaHoc kh ON kh.MaKH = hs.MaKhoaHoc WHERE hs.MaDK = %s",
+        (ma_dk,),
+    )
+    co = cur.fetchone()
+    if not co:  # không đọc được khóa thì không xác nhận được mốc chặn
+        return "Không đọc được khóa của học viên ở CSDL đích — không lưu được ở đây."
+    if co.get("dkkh"):
+        return "Khóa đã kết xuất DKKH — không lưu được ở đây. Cần sửa thì dùng phần mềm CDB."
+    if co.get("bc1") or (co.get("MaBC1") or "").strip():
+        return "Khóa đã lập Báo cáo 1 — không lưu được ở đây. Cần sửa thì dùng phần mềm CDB."
+    return None
+
+
+@router.get("/gplx")
+def doc_gplx_dich(ma_dk: str = Query(..., min_length=1), target_key: str | None = None) -> dict:
+    """TCB-05 — GPLX đã có của 1 học viên ở DB đích + lý do chặn lưu (nếu có)."""
+    db = _db_dich(target_key)
+    try:
+        with sqlserver_conn_dich(db) as conn:
+            cur = conn.cursor(as_dict=True)
+            row = gplx_da_co.doc_dong(cur, ma_dk)
+            if not row:
+                raise HTTPException(status_code=404, detail="Không tìm thấy hồ sơ học viên ở CSDL đích.")
+            chan = _chan_gplx_dich(cur, row, ma_dk)
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001
+        raise _loi_db(e)
+    return gplx_da_co.ket_qua_doc(ma_dk, row, chan)
+
+
+@router.put("/gplx")
+def luu_gplx_dich(body: GplxLuuIn, ma_dk: str = Query(..., min_length=1), target_key: str | None = None,
+                  phien: Phien = Depends(require_session)) -> dict:
+    """TCB-05 — lưu GPLX đã có vào DB đích (GHI): chỉ 6 cột theo MaDK. Chặn DKKH/BC1, kiểm lại lúc lưu."""
+    db = _db_dich(target_key)
+    try:
+        with sqlserver_conn_dich(db, autocommit=True) as conn:
+            cur = conn.cursor(as_dict=True)
+            row = gplx_da_co.doc_dong(cur, ma_dk)
+            if not row:
+                raise HTTPException(status_code=404, detail="Không tìm thấy hồ sơ học viên ở CSDL đích.")
+            chan = _chan_gplx_dich(cur, row, ma_dk)
+            if chan:
+                raise HTTPException(status_code=409, detail=chan)
+            if not gplx_da_co.ghi(cur, ma_dk, row, body.gplx, body.tho):
+                raise HTTPException(status_code=409, detail="Dữ liệu GPLX vừa đổi — tải lại rồi thử lại.")
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except ConfigChuaDay as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=502, detail="Không lưu được GPLX trên CSDL đích — kiểm kết nối rồi thử lại.")
+    return {"ok": True, "ma_dk": ma_dk}
 
 
 @router.get("/chi-tiet-sua")

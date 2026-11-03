@@ -274,6 +274,7 @@ GET  /api/admin/tool-key        (admin) xem TOOL_API_KEY để cấu hình tool 
 POST /api/ho-so                 Gửi hồ sơ mới (uuid client-gen, idempotent)
 GET  /api/ho-so/cua-toi         DS mình đã gửi
 PUT  /api/ho-so/:uuid           Sửa (khi pending)
+PUT  /api/ho-so/:uuid/gplx      Bổ sung GPLX đã có, CHỈ khi imported; khác→409, rỗng→422; UPDATE nguyên tử, kiểm created_by, ghi audit bo_sung_gplx (THU-07, §10.7, CHANGES #89)
 POST /api/ho-so/:uuid/anh       Upload ảnh thô (multipart) — CHỈ khi 'pending' HOẶC 'imported' (bổ sung ảnh HV đã nạp, CHANGES #44); 'importing'/'deleted'→409; kiểm created_by (THU-02, luật đầy đủ §6.3)
 GET  /api/ho-so/:uuid/anh       Tải lại ảnh thô CỦA MÌNH (hiện thumbnail list/chi tiết — THU-02, CHANGES #12)
 GET  /api/ho-so/kiem-trung?cccd=<>  Kiểm CCCD đã có hồ sơ pending/importing trong hàng đợi CSDT — cảnh báo mềm (THU-04, CHANGES #13)
@@ -289,6 +290,7 @@ POST /api/nap/:uuid/da-nap      Đánh dấu da_nap (kèm ma_dk) + mở khóa
 POST /api/nap/:uuid/unlock      Mở khóa khi nạp lỗi (→ pending)
 POST /api/nap/:uuid/tra-ve-cho-nap  Trả hồ sơ ĐÃ NẠP về chờ nạp (imported→pending, gỡ ma_dk) — tool gọi sau khi gỡ HV khỏi CSDT (QLY-08, CHANGES #24). Bản ghi đã 'deleted' → 409 (không còn để trả về)
 GET  /api/nap/da-xoa?since=<ts>  DS uuid đã chuyển 'deleted' từ mốc <ts> (đọc audit_log) — tool dùng khi "Kéo về" để BỎ dòng staging collector đã xóa ở app web (NAP-01/THU-05, CHANGES #24)
+GET  /api/nap/gplx-bo-sung?limit=&cursor=  Hồ sơ imported có audit bo_sung_gplx, tool so với DB Nạp để cảnh báo; sắp (updated_at, uuid) (QLY-10, §10.7)
 GET  /api/nap/tra-uuid?ma_dk=<>  Tra uuid gốc theo ma_dk (VPS lưu ma_dk khi da-nap) — fallback cho QLY-08 bước 2 khi staging nap_xong local không còn
 ```
 > **CAS (review #24):** `tra-ve-cho-nap` chuyển nguyên tử `UPDATE … SET trang_thai='pending', ma_dk=NULL WHERE uuid=:u AND trang_thai='imported'`; 0 dòng bị sửa → **409**. Gọi lại khi đã `pending` → 0 dòng → coi như **idempotent** (báo "đã về chờ nạp", không lỗi) để nhánh retry QLY-08 bước 4 an toàn.
@@ -608,7 +610,7 @@ APScheduler quét mỗi giờ: `pending`/`imported` quá 30 ngày → xóa dòng
 Một hồ sơ sống ở **2 nơi**: VPS (app web — nơi collector tạo) và CSDT (qua tool — DB thật). Để không mâu thuẫn khi sửa/xóa từ 2 phía, quyền làm chủ **chuyển theo mốc nạp**:
 
 - **Trước nạp** (`pending`): **app web làm chủ.** Collector thêm/sửa/xóa (THU-05); tool chỉ kéo-mirror (NAP-01), chưa đụng DB.
-- **Sau nạp** (`imported`): **tool/CSDT làm chủ.** Operator sửa nhân thân/ảnh/đổi khóa/xóa (QLY-01/02/03/05/08); bản ghi app web **đóng băng** — chỉ xem, không sửa thông tin/xóa (`PUT`/`DELETE /api/ho-so/:uuid` chỉ khi `pending`). **Ngoại lệ (CHANGES #44): collector được bổ sung ẢNH cho HV `imported` thiếu ảnh** (`POST .../anh`, §6.3) — khe hẹp duy nhất, chỉ ghi ảnh thô, vẫn không sửa thông tin/xóa. Bản VPS thành lịch sử, KHÔNG đẩy ngược từ CSDT.
+- **Sau nạp** (`imported`): **tool/CSDT làm chủ.** Operator sửa nhân thân/ảnh/đổi khóa/xóa (QLY-01/02/03/05/08); bản ghi app web **đóng băng** — chỉ xem, không sửa thông tin/xóa (`PUT`/`DELETE /api/ho-so/:uuid` chỉ khi `pending`). **Ngoại lệ (CHANGES #44): collector được bổ sung ẢNH cho HV `imported` thiếu ảnh** (`POST .../anh`, §6.3) — chỉ ghi ảnh thô, vẫn không sửa thông tin/xóa. **Khe thứ hai (CHANGES #89): bổ sung GPLX đã có** (`PUT .../gplx`, §10.7), người nạp duyệt mới vào DB. Chỉ ghi `gplx_da_co` và `updated_at`; mọi trường khác vẫn đóng băng. Bản VPS thành lịch sử, KHÔNG đẩy ngược từ CSDT.
 
 **Edge (khóa chưa BC1):**
 
@@ -616,7 +618,7 @@ Một hồ sơ sống ở **2 nơi**: VPS (app web — nơi collector tạo) và
 |---|---|---|
 | Cửa sổ bàn giao | Collector sửa lúc tool vừa kéo bản cũ | Tool đọc bản mới nhất ở bước `lock` (lock trả record tươi) — không nạp bản staging cũ |
 | Cửa sổ bàn giao | Collector xóa đúng lúc operator bấm nạp | Ai tới trước: tool `lock` trước → app web `DELETE` 409; app web xóa trước → `lock` CAS 0 dòng → tool báo "hồ sơ đã bị người gửi xóa" |
-| Sau nạp | Collector muốn sửa/xóa trên app web | Không cho sửa thông tin/xóa (đóng băng). **Riêng bổ sung ẢNH cho HV thiếu ảnh: cho** (§6.3/#44). Sửa khác làm ở tool (QLY-01/05) |
+| Sau nạp | Collector muốn sửa/xóa trên app web | Không cho sửa thông tin/xóa (đóng băng). **Riêng bổ sung ẢNH cho HV thiếu ảnh (§6.3/#44) và bổ sung GPLX đã có (§10.7/#89): cho.** Sửa khác làm ở tool (QLY-01/05) |
 | Sau nạp | Nạp nhầm khóa | Cùng hạng → QLY-02 (đổi khóa, trong DB); khác hạng / muốn sửa lại từ app → QLY-08 (gỡ về chờ nạp) |
 | Thêm | Collector tạo HV đã có trong DB (đã nạp) | App web không soi được DB → chốt trùng ở tool lúc nạp (NAP-06) |
 
@@ -907,7 +909,7 @@ Thuần client (webui), KHÔNG đổi endpoint nạp (`nap_lo` giữ nguyên). M
 ---
 
 ### 10.6 GPLX đã có (NAP-07, THU-07 — CHANGES #81)
-> **Phục vụ:** `NAP-07`, `THU-07`. *Vì sao không đổi schema DB Nạp: 7 cột và tham số SP đã có sẵn, phần mềm cũ đang ghi đúng các cột này.*
+> **Phục vụ:** `NAP-07`, `THU-07` (sau nạp: §10.7). *Vì sao không đổi schema DB Nạp: 7 cột và tham số SP đã có sẵn, phần mềm cũ đang ghi đúng các cột này.*
 
 ```
 App web: tích "Đã có GPLX" → nhập → gửi → VPS ho_so_thu_thap.gplx_da_co (JSONB)
@@ -964,6 +966,60 @@ Suy từ `KhoaHoc` thật (`B`→`B1`, `B.01`→`B11`, `C1`→`C1`) + mô tả d
 - **PII:** `gplx_da_co` là dữ liệu cá nhân: `jobs/pii.py` dọn cùng số căn cước; xóa mềm hồ sơ (THU-05) đặt NULL, job 30 ngày dọn luôn dòng `deleted` (trước đó bỏ sót, còn giữ `so_cccd` mãi); không ghi vào audit/log; lỗi 422 không log giá trị trường này. Bản ở `keo_ve` máy tool cùng nhóm PII staging như `so_cccd`.
 
 **Cách lưu nhiều bằng đã có bằng chứng:** form cũ có lưới `dgvsDSGPLXHienCo` + `btnThemGPLXHienCo`; hàm `getTenDVCap` nhận danh sách và giữ dấu ngăn (`70|79` → `Bình Phước|Hồ Chí Minh`); hồ sơ mẫu `A1|A1` (2023) đã qua BC2 `720/23` và có kết quả sát hạch `DA`. **Còn lại:** tờ khai in nguyên dấu `|` như hồ sơ cũ; `A`→`A2` đối chiếu ở nghiệm thu máy CSĐT. Cách làm và lý do: `TDD-decisions` §28.
+
+### 10.7 Bổ sung GPLX sau khi đã nạp (QLY-10, TCB-05, THU-07 — CHANGES #89)
+> **Phục vụ:** `QLY-10`, `TCB-05`, `THU-07`. *Vì sao ghi riêng 6 cột thay vì gọi lại SP gộp: nhánh cập nhật của SP xóa rồi tạo lại giấy tờ và ghi đè nhân thân, số hồ sơ; `usp_NguoiLX_HoSo_Update` ghi đè 65 cột.*
+
+```
+ App web (Đã nạp)                 VPS                          Tool (người nạp)
+ Bổ sung GPLX ──PUT .../gplx──► ho_so_thu_thap.gplx_da_co
+                                updated_at = now
+                                trang_thai giữ 'imported'
+                                       │  GET /api/nap/gplx-bo-sung
+                                       └────────────────► so với DB Nạp theo ma_dk
+                                                          và gplx_da_xu_ly (SQLite)
+                                                                │ khác + chưa xử lý
+                                                          cảnh báo, chip, bộ lọc
+                                                                │ mở khối: tự điền, sửa
+                                                          Lưu → UPDATE đúng 6 cột
+                                                          Lưu/Bỏ qua → ghi dấu vân
+```
+
+Vòng đời cảnh báo của một hồ sơ:
+```
+[không cảnh báo] ──app web bổ sung──► [CẢNH BÁO] (khác DB, chưa có dấu vân)
+      ▲                                   │ Lưu / Bỏ qua
+      │ app web gửi bản khác              ▼
+      └───────────────────────────── [ĐÃ XỬ LÝ] (có dấu vân của bản đó)
+
+Mọi trạng thái: gỡ về chờ nạp hoặc job 30 ngày xóa dòng ─► biến mất
+Khóa đã lập Báo cáo 1: vẫn CẢNH BÁO, khối chỉ xem, chỉ Bỏ qua dùng được
+```
+
+**VPS:**
+- `PUT /api/ho-so/:uuid/gplx` (collector): nhận danh sách bằng, kiểm như `POST`, sai → 422; **danh sách rỗng → 422** (muốn xóa GPLX đã có trong DB thì làm ở tool). `pending` dùng `PUT /api/ho-so/:uuid` như cũ.
+- Ghi bằng một `UPDATE … SET gplx_da_co, updated_at WHERE uuid AND created_by AND trang_thai='imported'`. `rowcount=0` thì đọc lại để trả 404 (không phải của mình) hoặc 409 (không còn đã nạp). Không đọc trước rồi ghi. Chỉ ghi 2 trường này; `updated_at` là mốc job 30 ngày, như ảnh §4.3. Không thêm cột.
+- Cùng giao dịch, ghi `audit_log` với `hanh_dong='bo_sung_gplx'` + `uuid_hs`, không ghi giá trị GPLX. *Vì sao: đây là dấu hiệu duy nhất phân biệt bổ sung thật với hồ sơ chỉ có GPLX từ trước khi nạp.*
+- `GET /api/nap/gplx-bo-sung?limit=&cursor=`: hồ sơ `imported` có `gplx_da_co` khác NULL **và có dòng `audit_log` `bo_sung_gplx` sau lần nạp gần nhất** (`created_at >= imported_at`, để gỡ về chờ nạp rồi nạp lại không báo nhầm); trả `uuid`, `ma_dk`, `gplx_da_co`, tên người gửi, `updated_at`, `co_tiep`. Sắp theo `(updated_at, uuid)` tăng dần; `cursor` là cặp giá trị cuối lượt trước; `limit` 1..500, mặc định 200. Tool key + `require_role('operator')` như `/api/nap/keo`. Không trả hồ sơ đã xóa, không ghi `gplx_da_co` vào log.
+
+**Tool:**
+- `nap.tach_chuoi_gplx(cot)`: 6 chuỗi `|` → danh sách, số phần lệch nhau thì giữ theo vị trí, thiếu để trống. Kiểm và ghép dùng lại `dung_chuoi_gplx_da_co` với hạng khóa + ngày sinh đọc từ DB. `nhom` không có trong DB: suy nhãn từ mã, không ảnh hưởng giá trị ghi.
+- So sánh: chuẩn hóa hai bên qua hàm ghép, rồi so 6 chuỗi. `NoiCapGPLXDaCo` không ghi, không so.
+- SQLite `gplx_da_xu_ly(uuid PK, dau_van, luc)`: `dau_van` = SHA-256 của `uuid` + JSON bản app web đã sắp khóa, chỉ để so khớp, không coi là che giấu. Dọn sau 30 ngày kể từ `luc`, cùng nhóm dữ liệu cá nhân ở máy tool. Cảnh báo hiện khi **khác DB và dấu vân chưa có**. Ghi dấu vân khi Lưu, Bỏ qua; không cần ghi lúc nạp. *Vì sao cần: người nạp được sửa trước khi lưu, nên DB có thể vẫn khác bản app web dù đã xử lý.*
+- Thứ tự khi Lưu: ghi DB trước, ghi dấu vân sau. Ghi dấu vân lỗi chỉ log, không báo lỗi lưu; cảnh báo có thể hiện lại, không sai dữ liệu.
+- Endpoint: `GET /local/ho-so/gplx-bo-sung` (danh sách + khóa + tên, hạng; không trả số GPLX) · `GET /local/ho-so/gplx-ban-web?ma_dk=` (bản app web đầy đủ để tự điền) · `GET|PUT /local/ho-so/gplx?ma_dk=` (`PUT` nhận `ban_web` để ghi dấu vân) · `POST /local/ho-so/gplx/bo-qua` (body `uuid`, `dau_van`) · `GET|PUT /local/sync/tra-cuu/gplx?ma_dk=&target_key=` · `GET /local/sync/tra-cuu/noi-cap-gplx`.
+- Ghi: `UPDATE NguoiLX_HoSo SET` 6 cột `WHERE MaDK=%s AND` 6 cột bằng chuỗi thô đã đọc lúc mở (so `ISNULL(cot,'')`). API đọc trả kèm chuỗi thô, giao diện gửi lại nguyên văn khi lưu; không so bằng bản đã tách/ghép. Dữ liệu cũ lệch số phần `|`: hiện cảnh báo vàng, người dùng sửa rồi lưu theo đúng bản đang thấy. 0 dòng → 409 "dữ liệu vừa đổi, tải lại". Không đổi `TT_XuLy`. Danh sách rỗng → 6 cột NULL. Lưu xong cập nhật `keo_ve.gplx_da_co_json` nếu còn dòng, để chip tab Đã nạp đúng.
+- Chặn: DB Nạp theo `BaoCaoI` như `/local/ho-so/sua`; DB đích theo `dkkh_exists_sql` + BC1 như `TCB-03`, `TCB-04`. Kiểm lại ở server lúc lưu, không chỉ khóa nút.
+- Nhắc DB đích: dò học viên bằng cách dò trùng sẵn có của Sync; lỗi dò thì không nhắc, không làm hỏng lần lưu.
+
+**Ca khó:**
+- VPS lỗi hoặc tool chưa đăng nhập VPS: danh sách trả trạng thái "chưa kiểm được", không phải 0 hồ sơ. Nhập tay vẫn chạy.
+- Khóa đã BC1: vẫn hiện trong danh sách, khối chỉ xem. "Bỏ qua" vẫn dùng được để hết cảnh báo.
+- Tải danh sách: gom `ma_dk` một lần, mỗi lô tối đa 500 `MaDK`, đọc 6 cột + `MaDK`. Chạy khi mở màn và khi bấm tải lại, không thêm bộ nhớ đệm, không tạo index mới.
+- `ma_dk` không có trong DB Nạp → hiện "Không tìm thấy trong DB Nạp", không tính vào số cảnh báo, vẫn cho Bỏ qua. Hai uuid cùng `ma_dk` → lấy bản `updated_at` mới nhất.
+- Gỡ về chờ nạp (QLY-08): hồ sơ về `pending` nên tự ra khỏi danh sách.
+- Không lấy được bản app web khi mở khối (vừa hết hạn, VPS lỗi): vẫn mở bản DB để nhập tay. Không đọc được khóa ở DB đích: chặn lưu.
+- PII: ở tool, số GPLX chỉ trả cho giao diện ở endpoint một học viên; job 30 ngày dọn theo `updated_at`. Bổ sung 30 ngày chưa ai duyệt sẽ bị dọn cùng dòng và hết cảnh báo; người nạp vẫn nhập tay được.
 
 ## 11. Quản lý hồ sơ đã có & tạo khóa (tool)
 
@@ -2112,6 +2168,8 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 | --- | --- | --- |
+| 03/11/2026 | 6.33 | Sửa sau review §10.7 (CHANGES #90, biên bản `tdd-review-03-11-2026.md`): nhận diện bổ sung bằng `audit_log`, phân trang, danh sách rỗng 422, UPDATE nguyên tử, chuỗi thô, cỡ lô 500, dọn dấu vân, sơ đồ vòng đời. |
+| 03/11/2026 | 6.32 | **+§10.7 Bổ sung GPLX sau khi đã nạp** (CHANGES #89, `QLY-10`, `TCB-05`, `THU-07`): UPDATE đúng 6 cột theo `MaDK`, 2 endpoint VPS không thêm cột, SQLite `gplx_da_xu_ly`, chặn BC1/DKKH; §4.3, §4.4, §6 ghi chú. |
 | 02/11/2026 | 6.31 | §11D.10 nhận hai mẫu PDF DAT (CHANGES #88). |
 | 02/11/2026 | 6.30 | §10.6 Cục QLHC mã `00` + script bật ở DB Nạp (CHANGES #84). |
 | 02/11/2026 | 6.29 | **§10.6 khớp form cũ** (CHANGES #83): Nơi cấp đổi sang `DM_DonViGTVT`; chặn trùng hạng, bắt buộc ngày, thứ tự ngày, 18 tuổi; ghi bằng chứng cách lưu `\|`. |

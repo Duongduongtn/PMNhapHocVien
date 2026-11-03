@@ -99,7 +99,7 @@
 - ✅ Gửi thành công → bản ghi có UUID, trạng thái `pending` trên VPS.
 - ✅ Xem lại được danh sách bản ghi mình đã gửi.
 - ✅ **Hiện ảnh chân dung thật** (thumbnail) ở danh sách + chi tiết hồ sơ đã gửi (không còn icon xám) — nhân viên tải lại ảnh của **chính mình** qua endpoint mới (TDD §4.3). (CHANGES #12)
-- ✅ **Bấm hồ sơ đã gửi → xem chi tiết**; khi còn **Chờ nạp** cho **Sửa thông tin** + **Chụp/đổi ảnh** (server cho sửa lúc `pending`); khi **Đang nạp/Đã nạp** thì **chỉ xem** — **trừ bổ sung ảnh cho HV thiếu ảnh** (xem Done khi "chụp bù ảnh cho HV đã nạp", CHANGES #44). (CHANGES #12)
+- ✅ **Bấm hồ sơ đã gửi → xem chi tiết**; khi còn **Chờ nạp** cho **Sửa thông tin** + **Chụp/đổi ảnh** (server cho sửa lúc `pending`); khi **Đang nạp/Đã nạp** thì **chỉ xem** — **trừ bổ sung ảnh cho HV thiếu ảnh** (xem Done khi "chụp bù ảnh cho HV đã nạp", CHANGES #44) **và bổ sung GPLX đã có cho hồ sơ Đã nạp** (`THU-07`, CHANGES #89). (CHANGES #12)
 - ✅ **Tìm trong danh sách đã gửi** theo **tên (khớp cả có dấu lẫn không dấu)** hoặc **số CCCD**; ô tìm đặt trên đầu danh sách, màn hẹp thu gọn thành **nút kính lúp** (bấm mới bung ô nhập). (CHANGES #10)
 - ✅ Nơi thường trú lấy từ QR (hoặc nhập tay), cho sửa trước khi gửi. Nơi cư trú (tạm trú) **không nhập ở app** — tool mặc định = nơi thường trú khi nạp (BR-004 / TDD §8.1; xem CHANGES #9).
 - ✅ **Gửi nhanh không ảnh để nhập liên tiếp** (CHANGES #13): ở màn xác nhận bấm "Lưu & nhập hồ sơ tiếp" → gửi hồ sơ **không kèm ảnh** → hiện **toast "Đã gửi ✓"** (không qua màn kết quả) → về màn chọn cách nhập. Mất mạng vẫn giữ nháp, tự gửi lại khi có mạng (như cũ).
@@ -374,14 +374,14 @@
 - ⬜ **Quy tắc khớp form cũ (chặn nạp):** bắt buộc hạng, số GPLX, ngày trúng tuyển, ngày cấp; GPLX đã có không được trùng hạng đăng ký của khóa; ngày cấp không trước ngày trúng tuyển, không sau hôm nay; ngày hết hạn sau ngày cấp; đủ 18 tuổi khi cấp.
 - ⬜ Dữ liệu sai (hạng ngoài danh sách, ngày không hợp lệ, chứa `|`, chuỗi nối quá 100 ký tự) → từ chối và báo rõ: VPS trả 422 ngay lúc gửi; tool nạp lô báo lỗi đúng dòng học viên đó, nạp đơn trả 400.
 - ⬜ **Nghiệm thu máy CSĐT:** nạp thật 1 học viên một bằng + 1 học viên hai bằng; mở phần mềm cũ xem hiển thị; nội dung sát hạch ra miễn lý thuyết; Đồng bộ CDB giữ nguyên chuỗi.
-- ❌ Không làm ở `MoKhoaKhacDialog`, Tra cứu DB, sửa hồ sơ đã nạp, nhập bù hồ sơ cũ.
+- ❌ Không làm ở `MoKhoaKhacDialog`, nhập bù hàng loạt hồ sơ cũ. Bổ sung cho học viên đã nạp: `QLY-10`, `TCB-05` (CHANGES #89).
 - ❌ Không sửa Đồng bộ CDB: đã chép sẵn 7 cột.
 
 > Nguồn: user 02/11/2026 · CHANGES #81. Số liệu DB Nạp: 6.973/39.930 hồ sơ có GPLX đã có, 0 hồ sơ trùng hạng đăng ký.
 
 #### [THU-07] Nhập GPLX đã có ở app web
 
-**Trạng thái:** ⚠️ Partial — đã deploy 02/11/2026 và thử nối API thật về tool khớp (CHANGES #81-#84); CHANGES #86 đã deploy `f8f3fb7`; chưa bấm thật trên điện thoại rồi gửi kèm ảnh.
+**Trạng thái:** ⚠️ Partial — bổ sung sau khi đã nạp đã code + test 03/11/2026 (CHANGES #89, #90), chưa commit, chưa deploy; chưa thử thật trên điện thoại. Phần trước khi nạp giữ nguyên: đã deploy 02/11/2026 và thử nối API thật về tool khớp (CHANGES #81-#84); CHANGES #86 đã deploy `f8f3fb7`; chưa bấm thật trên điện thoại rồi gửi kèm ảnh.
 **Story:** Là nhân viên thu nhận, tôi muốn ghi GPLX học viên đang có lúc gặp trực tiếp, để nhân viên nạp không phải hỏi lại.
 
 **Done khi:**
@@ -389,6 +389,8 @@
 - ⬜ Lưu lên VPS khi gửi hồ sơ, sửa được khi hồ sơ còn sửa được; tool kéo về nhận được.
 - ⬜ Số GPLX nằm trong cơ chế dọn dữ liệu cá nhân 30 ngày như số căn cước.
 - ⬜ Dùng tốt ở khổ điện thoại 375px.
+- ✅ **Bổ sung sau khi đã nạp (CHANGES #89):** hồ sơ Đã nạp có nút "Bổ sung GPLX", mở cùng khối nhập; lưu lên VPS, hồ sơ giữ trạng thái Đã nạp, thời hạn 30 ngày tính lại từ lần bổ sung, **ngay sau khi gửi** hiện "Đang chờ người nạp đưa vào hệ thống" (mở lại hồ sơ không hiện nữa, vì VPS không biết người nạp đã duyệt hay chưa; user chốt 03/11/2026). Chưa có bằng nào thì không lưu được (muốn xóa GPLX đã có trong DB thì làm ở tool). Các thông tin khác vẫn khóa. Chỉ hồ sơ của mình; Đang nạp hoặc đã xóa bị chặn.
+- ✅ Người nạp duyệt mới vào DB (`QLY-10`); app web không ghi trực tiếp vào DB.
 - ✅ **Không báo đỏ khi chưa nhập gì** (CHANGES #86): mở khối hoặc thêm bằng không hiện lỗi; lỗi của một ô chỉ hiện sau khi rời ô đó; bấm gửi thì hiện đủ lỗi và đưa con trỏ tới ô sai đầu tiên. Áp cho cả form sửa hồ sơ đã gửi.
 - ❌ Không quét hay đọc tự động GPLX.
 
@@ -632,6 +634,38 @@
 
 > Nguồn: user 03/10/2026 (sau ca Lê Thị Hồng / BUG-01) · tái dùng §11.7 (tra-ve/da-nap/unlock) · liên quan QLY-08, NAP-01
 
+#### [QLY-10] Bổ sung GPLX đã có cho học viên đã nạp (Tra cứu DB)
+
+**Trạng thái:** ⚠️ Partial — code + test xong 03/11/2026 (CHANGES #89, #90), chưa commit, chưa deploy; còn nghiệm thu ghi thật ở máy CSĐT (task 163).
+**Story:** Là nhân viên nạp DB, tôi muốn biết hồ sơ nào vừa được bổ sung GPLX từ app web, xem trước và sửa được rồi mới lưu, để học viên đã nạp vẫn được ghi nhận GPLX đã có mà không nhập nhầm vào DB.
+
+**Steps to Complete:**
+1. Mở Tra cứu DB → dòng "N hồ sơ có GPLX bổ sung từ app web" → danh sách, hoặc chọn khóa rồi lọc.
+2. Bấm "Xem và duyệt": khối GPLX tự điền bản app web, đặt cạnh bản đang có trong DB; sửa nếu cần.
+3. Bấm "Lưu vào DB Nạp", hoặc "Bỏ qua bản này". Học viên không có bản app web thì bấm "GPLX đã có" để nhập tay.
+
+**Done khi:**
+- ✅ Mở Tra cứu DB có dòng cảnh báo kèm số hồ sơ; danh sách hiện học viên, khóa, hạng trong DB, hạng app web gửi, người gửi, lúc gửi. Danh sách không hiện số GPLX.
+- ✅ Lưới học viên có chip "App web: B2" và bộ lọc "Có GPLX từ app web chưa duyệt".
+- ✅ Mở khối: tự điền bản app web, hiện cạnh bản DB, sửa/thêm/xóa được bằng; cùng ô và cùng quy tắc chặn với `NAP-07`. **Đóng khối thì DB không đổi.**
+- ✅ Lưu chỉ ghi đúng 6 cột GPLX đã có của học viên đó; các cột khác, giấy tờ, số hồ sơ, trạng thái xử lý không đổi. Xóa hết bằng thì 6 cột về trống, có xác nhận.
+- ✅ Lưu hoặc "Bỏ qua bản này" xong, hồ sơ hết cảnh báo, kể cả khi đã sửa khác bản app web. App web gửi bản khác thì cảnh báo hiện lại.
+- ✅ Khóa đã lập Báo cáo 1: xem được, không lưu được, báo lý do và hướng dùng phần mềm cũ.
+- ✅ Lưu xong, học viên đã có ở DB đích thì nhắc "Mở Tra cứu CDB để bổ sung ở DB đích" (không tự ghi sang).
+- ✅ Mất kết nối VPS: báo "Chưa kiểm được GPLX từ app web"; nhập tay vẫn dùng được.
+- ⬜ **Nghiệm thu máy CSĐT:** bổ sung 1 học viên qua app web và 1 nhập tay; các cột khác không đổi; phần mềm cũ hiển thị đúng; Báo cáo 2 ra miễn lý thuyết với khóa mô tô có bằng ô tô.
+- ❌ Không tự ghi DB khi chưa có người duyệt. ❌ Không tự chép sang DB đích. ❌ Không nhập bù hàng loạt. ❌ Không cảnh báo ảnh bổ sung (giữ cách tự lọc "Chưa ảnh", CHANGES #44).
+
+**Edge cases:**
+| Tình huống | Hành vi mong muốn |
+|---|---|
+| Dữ liệu cũ trong DB không qua được quy tắc `NAP-07` (hạng lạ, thiếu ngày) | Hiện nguyên giá trị, báo lỗi đúng ô khi lưu, không tự sửa |
+| Bản DB đổi trong lúc đang mở khối | Không ghi đè, báo tải lại |
+| Hồ sơ lúc nạp đã sửa GPLX khác bản app web | Không báo, vì bản đó đã có người xử lý lúc nạp |
+| Đã qua 30 ngày, VPS đã dọn dữ liệu | Hết cảnh báo; nhập tay vẫn được |
+
+> Nguồn: user 03/11/2026 · CHANGES #89 · phụ thuộc `NAP-07`, `THU-07` · khuôn `QLY-02` (ghi đúng cột), `QLY-05` (kéo từ VPS)
+
 #### [HTG-03] Bộ lọc & xóa PII thủ công trên VPS
 
 **Trạng thái:** ⚠️ Partial — 02/10/2026. Code xong: `GET /api/admin/ho-so` (lọc trạng thái + khoảng ngày giờ VN + phân trang) + `DELETE /api/admin/ho-so/:uuid` (hard-delete bản ghi + ảnh thô + audit `xoa_pii_tay`) + màn `/admin/ho-so` (chỉ admin, vào từ màn Tài khoản). Tách helper `xoa_mot_ho_so` dùng chung với job 30 ngày. Kiểm: server 93 test (11 mới, có biên múi giờ VN) · webapp build + 24 test · Playwright 3vp (0 tràn, 0 lỗi) · review-nghiepvu 7/7. **Chờ deploy VPS + verify thao tác lọc/xóa thật.** (Admin xóa được mọi trạng thái kể cả `importing` — có chủ đích, khác job tự động bỏ qua importing EC-040.)
@@ -847,6 +881,19 @@
 **Edge cases:** đổi khóa mà khóa đích đã DKKH/BC1 → chặn · khóa hiện tại của HV đã DKKH → chặn (nút mờ) · không còn khóa cùng hạng chưa DKKH & chưa BC1 để chuyển → báo.
 
 > Nguồn: user 04/10/2026 (CHANGES #35) + 05/10/2026 (CHANGES #36, nâng ngưỡng chặn lên DKKH) · đọc ở đích · tham chiếu QLY-02 (đổi khóa) + QLY-03 (xóa)
+
+#### [TCB-05] Bổ sung GPLX đã có ở CDB đích
+
+**Trạng thái:** ⚠️ Partial — code + test xong 03/11/2026 (CHANGES #89, #90), chưa commit, chưa deploy; còn nghiệm thu ghi thật ở máy CSĐT (task 163, mở đúng khóa thật ở DB đích).
+**Story:** Là nhân viên nạp DB, tôi muốn bổ sung GPLX đã có cho học viên đã đồng bộ, vì đồng bộ lại sẽ bỏ qua học viên đã có ở đích.
+
+**Done khi:**
+- ✅ Trong Tra cứu CDB, nút "GPLX đã có" mở cùng khối nhập với `QLY-10`, hiện bản đang có ở DB đích, sửa được; đóng khối thì DB không đổi.
+- ✅ Lưu chỉ ghi đúng 6 cột GPLX đã có ở DB đích theo học viên đó; danh mục Nơi cấp đọc từ DB đích.
+- ✅ Khóa đã kết xuất DKKH hoặc đã lập Báo cáo 1: nút bị khóa, ghi rõ lý do và hướng dùng phần mềm CDB.
+- ❌ Không đọc bản app web ở màn này, không tự chép từ DB Nạp. ❌ Không đụng cột kết quả, Báo cáo 1, Báo cáo 2.
+
+> Nguồn: user 03/11/2026 · CHANGES #89 · khuôn `TCB-03` · dùng chung khối với `QLY-10`
 
 ---
 
@@ -1559,3 +1606,5 @@
 | 02/11/2026 | v4.27 — `THU-01`, `THU-07` báo lỗi form dễ sửa trên điện thoại, chữ ô nhập 16px (CHANGES #86, sau critique giao diện). | BA/PM |
 | 02/11/2026 | v4.28 — `THU-01` thông báo đã gửi nêu tên học viên (CHANGES #87). | BA/PM |
 | 02/11/2026 | v4.29 — `KQD-08` nhận cả mẫu PDF DAT cũ và mới (CHANGES #88). | BA/PM |
+| 03/11/2026 | v4.31 — `THU-07`: bổ sung sau nạp phải có ít nhất một bằng; dòng chờ chỉ hiện ngay sau khi gửi (CHANGES #90). | BA/PM |
+| 03/11/2026 | v4.30 — **+`QLY-10`, +`TCB-05`** bổ sung GPLX đã có cho học viên đã nạp; `THU-07` thêm bổ sung sau nạp, hạ ⏳; `NAP-07` đổi dòng ngoài phạm vi (CHANGES #89). Số story 63→65. | BA/PM |

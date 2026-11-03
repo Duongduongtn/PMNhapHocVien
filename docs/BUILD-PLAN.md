@@ -573,6 +573,36 @@
 - [ ] Hồ sơ quá hạn dọn cả GPLX.
 - [ ] Máy CSĐT đạt task 154; PRD `NAP-07`, `THU-07` chuyển ✅.
 
+## Phase 13 — Bổ sung GPLX cho học viên đã nạp (QLY-10, TCB-05, THU-07)
+
+> CHANGES #89, #90 · TDD §10.7. Nhập tay trên tool làm trước vì không phụ thuộc VPS.
+
+| # | Task | Story | Quy mô | Phụ thuộc | Kiểm | Xong |
+|---|---|---|---|---|---|---|
+| 155 | **Backend tool:** tách chuỗi `|`, đọc, lưu đúng 6 cột theo `MaDK`, chặn Báo cáo 1. | `QLY-10 (1/4)` | M | — | 1+2 | [x] |
+| 156 | **Khối GPLX ở Tra cứu DB,** nhập tay. | `QLY-10 (2/4)` | M | 155 | 1+3 | [x] |
+| 157 | **Tra cứu CDB:** đọc, lưu DB đích, chặn DKKH/Báo cáo 1. | `TCB-05` | M | 155, 156 | 1+2 | → PRD |
+| 158 | **VPS:** `PUT .../gplx`, audit `bo_sung_gplx`, `GET /api/nap/gplx-bo-sung`. | `THU-07 (3/4)` | M | — | 1+2 | [x] |
+| 159 | **App web:** nút Bổ sung GPLX, dòng chờ. | `THU-07 (4/4)` | S | 158 | 1 | [x] |
+| 160 | **Tool:** so bản VPS với DB, bảng dấu vân, Bỏ qua. | `QLY-10 (3/4)` | M | 155, 158 | 1+2 | [x] |
+| 161 | **Tool:** dòng cảnh báo, danh sách, chip, lọc, tự điền. | `QLY-10 (4/4)` | M | 156, 160 | 1+3 | [x] |
+| 162 | **Đóng gói exe + deploy VPS,** chỉ khi user duyệt riêng. Chạy một mình. | — | S | 157, 159, 161 | 1 | [ ] |
+| 163 | **Nghiệm thu máy CSĐT.** | — | S | 162 | 1 | [ ] |
+
+### ✅ Checkpoint 39 — sau task 155-157 (nhập tay)
+
+- [x] Nhập tay ở Tra cứu DB và Tra cứu CDB; test xác nhận chỉ ghi 6 cột; chặn đúng mốc. (API giả + SQL biên dịch trên DB thật, chưa ghi thật)
+
+### ✅ Checkpoint 40 — sau task 158-161 (app web → tool)
+
+- [x] App web bổ sung → tool cảnh báo → tự điền, sửa → lưu → hết cảnh báo; đóng khối không ghi; Bỏ qua hoạt động. (mỗi đầu kiểm riêng bằng API giả, chưa nối VPS thật)
+
+### ✅ Checkpoint 41 — sau task 162-163 (máy CSĐT)
+
+- [ ] Các cột khác không đổi; phần mềm cũ hiển thị đúng; Báo cáo 2 ra miễn lý thuyết.
+
+---
+
 ## Nhóm chạy song song được
 
 > Chủ dự án chốt **1 người build tuần tự** → không dùng song song. Mục này để tham chiếu nếu về sau mở phiên thứ hai.
@@ -647,15 +677,16 @@
 
 > `/tieptheo` so mục này với PRD mỗi buổi để biết kế hoạch còn khớp không. Lệch thì báo user chạy lại `/kehoach` chế độ bổ sung. **Không tự sửa kế hoạch.**
 
-- **Số story trong PRD khi cập nhật:** 63 (thêm `NAP-07`, `THU-07` từ CHANGES #81; giữ nguyên ở CHANGES #77 — KQD-04 đổi, không thêm/bớt mã; thêm `KQD-09`, `KQD-10` từ CHANGES #72, #75; trước đó 59 — thêm `KQD-08` từ CHANGES #69; trước đó 58 — thêm `KQD-07` từ CHANGES #65 + `PCG-06` từ CHANGES #66; `TNB-01..07` từ CHANGES #60; `PCG-01..05` từ CHANGES #54; thêm `THU-06` từ CHANGES #49; `KQD-06` #48; `KQD-05` #45; trước đó `KQD-01/02/03/04` #42; `DGT-01/02/03/04` #38/#39; `TCB-01/02/03/04` #35; `HTG-07` #34; `SYNC-01/02/03` #33; chưa tính NICE `QLY-04`, `THU-03`)
-- **Mã story đã đưa vào kế hoạch:** `HTG-01`, `HTG-02`, `HTG-03`, `HTG-07`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `THU-06`, `THU-07`, `NAP-01`…`NAP-07`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `SYNC-01`, `SYNC-02`, `SYNC-03`, `TCB-01`, `TCB-02`, `TCB-03`, `TCB-04`, `DGT-01`, `DGT-02`, `DGT-03`, `DGT-04`, `KQD-01`, `KQD-02`, `KQD-03`, `KQD-04`, `KQD-05`, `KQD-06`, `KQD-07`, `KQD-08`, `KQD-09`, `KQD-10`, `PCG-01`, `PCG-02`, `PCG-03`, `PCG-04`, `PCG-05`, `PCG-06`, `TNB-01`, `TNB-02`, `TNB-03`, `TNB-04`, `TNB-05`, `TNB-06`, `TNB-07`
+- **Số story trong PRD khi cập nhật:** 65 (thêm `QLY-10`, `TCB-05` từ CHANGES #89; trước đó 63, thêm `NAP-07`, `THU-07` từ CHANGES #81; giữ nguyên ở CHANGES #77 — KQD-04 đổi, không thêm/bớt mã; thêm `KQD-09`, `KQD-10` từ CHANGES #72, #75; trước đó 59 — thêm `KQD-08` từ CHANGES #69; trước đó 58 — thêm `KQD-07` từ CHANGES #65 + `PCG-06` từ CHANGES #66; `TNB-01..07` từ CHANGES #60; `PCG-01..05` từ CHANGES #54; thêm `THU-06` từ CHANGES #49; `KQD-06` #48; `KQD-05` #45; trước đó `KQD-01/02/03/04` #42; `DGT-01/02/03/04` #38/#39; `TCB-01/02/03/04` #35; `HTG-07` #34; `SYNC-01/02/03` #33; chưa tính NICE `QLY-04`, `THU-03`)
+- **Mã story đã đưa vào kế hoạch:** `HTG-01`, `HTG-02`, `HTG-03`, `HTG-07`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `THU-06`, `THU-07`, `NAP-01`…`NAP-07`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `QLY-10`, `SYNC-01`, `SYNC-02`, `SYNC-03`, `TCB-01`, `TCB-02`, `TCB-03`, `TCB-04`, `TCB-05`, `DGT-01`, `DGT-02`, `DGT-03`, `DGT-04`, `KQD-01`, `KQD-02`, `KQD-03`, `KQD-04`, `KQD-05`, `KQD-06`, `KQD-07`, `KQD-08`, `KQD-09`, `KQD-10`, `PCG-01`, `PCG-02`, `PCG-03`, `PCG-04`, `PCG-05`, `PCG-06`, `TNB-01`, `TNB-02`, `TNB-03`, `TNB-04`, `TNB-05`, `TNB-06`, `TNB-07`
 - **Mã story chưa đưa vào:** `QLY-04`, `THU-03` (NICE, chưa đủ chi tiết) · **`HTG-04/05/06`** (thêm ở CHANGES #18, đã code thẳng — chưa có task trong plan; cần `/kehoach` bổ sung riêng nếu muốn khớp sổ)
-- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 02/11/2026 (#82)
+- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 03/11/2026 (#90)
 
 ## Changelog
 
 | Ngày | Thay đổi |
 |---|---|
+| 03/11/2026 | Bổ sung (CHANGES #89, #90): **Phase 13** task 155-163, Checkpoint 39-41. |
 | 02/11/2026 | v31 — bổ sung (CHANGES #81-#82; PRD v4.24, TDD v6.28): thêm **Phase 12** `NAP-07`, `THU-07` — task **149-154** + **Checkpoint 37, 38**. Không đánh số lại task cũ; số story 63. |
 | 16/10/2026 | v30 — bổ sung (CHANGES #79; PRD v4.22, TDD v6.25): thêm **Phase 11** `NAP-05`/`NAP-01` ô "Chọn in GPLX" theo hạng khóa — task **146** (đã xong, M) · **147** đóng gói exe · **148** nghiệm thu máy CSĐT + **Checkpoint 36**. Không đánh số lại task cũ; số story giữ 61. |
 | 16/10/2026 | v29 — bổ sung nhẹ (CHANGES #78; PRD v4.21, TDD v6.24): **không thêm task, không đánh số lại** — cập nhật mô tả task **137** (mẫu theo `target_key` + khóa ghi cấu hình + lô kiểm đủ điều kiện/giữ riêng), **139** (+3 lý do KQD-07), **140** (header gọn, tab "Cần xử lý", 2 chip), **141** (cảnh báo vàng đứng lâu, ô ghi đè, Quản lý mẫu, "không rõ kết quả") theo `/reviewtdd` §11D.13 + mock đã chỉnh. Số story giữ 61. |

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Icon } from "../components/Icon";
 import { ODate } from "../components/ODate";
 import { PhanTrang } from "../components/PhanTrang";
-import { ApiError, dsDaGui, guiAnh, suaHoSo, taiAnhCuaToi, xoaHoSo, type HoSoOut, type HoSoSua } from "../lib/api";
+import { ApiError, boSungGplx, dsDaGui, guiAnh, suaHoSo, taiAnhCuaToi, xoaHoSo, type HoSoOut, type HoSoSua } from "../lib/api";
 import { dsNhap } from "../lib/draft";
 import { dangKyGuiLai, guiLaiTatCa } from "../lib/gui";
 import { khopTim } from "../lib/text";
@@ -497,7 +497,8 @@ function ChiTiet({ row, onDong, onCapNhat, onXoa }: { row: HoSoOut; onDong: () =
   // Chụp bù ảnh (CHANGES #44): cho khi pending (bất kỳ) HOẶC imported-mà-thiếu-ảnh — để người nạp
   // kéo về bổ sung ở Tra cứu DB (QLY-05). importing/deleted: không (server cũng chặn 409).
   const anhDuoc = row.trang_thai === "pending" || (row.trang_thai === "imported" && !row.co_anh);
-  const [che, setChe] = useState<"xem" | "sua">("xem");
+  const [che, setChe] = useState<"xem" | "sua" | "gplx">("xem");
+  const [daGuiGplx, setDaGuiGplx] = useState(false); // vừa bổ sung GPLX cho hồ sơ đã nạp (THU-07)
   const [f, setF] = useState<HoSoSua>({});
   // GPLX đã có: chỉ gửi khi người dùng có sửa, để lưu trường khác không làm mất bằng đã nhập (TDD §10.6).
   const [gplx, setGplx] = useState<BangGplx[]>([]);
@@ -567,20 +568,55 @@ function ChiTiet({ row, onDong, onCapNhat, onXoa }: { row: HoSoOut; onDong: () =
     }
   }
 
+  function moBoSungGplx() {
+    setGplx(tuServer(row.gplx_da_co));
+    setDaSuaGplx(false);
+    setLanLuuGplx(0);
+    setLoi(null);
+    setDaGuiGplx(false);
+    setChe("gplx");
+  }
+
+  // Giống chặn ở luuSua: lỗi thì đưa con trỏ tới ô sai đầu tiên. Trả true nếu dữ liệu đạt.
+  function kiemGplx(): boolean {
+    const loiGplx = loiDanhSach(gplx);
+    if (!loiGplx) return true;
+    setLoi(loiGplx);
+    setLanLuuGplx((n) => n + 1);
+    requestAnimationFrame(() => {
+      const el = document.querySelector<HTMLInputElement>(`[data-o="${oSaiDau(gplx)}"] input`);
+      el?.scrollIntoView({ block: "center" });
+      el?.focus({ preventScroll: true });
+    });
+    return false;
+  }
+
+  async function luuBoSungGplx() {
+    if (!gplx.length) { setLoi("Chưa có bằng nào. Thêm ít nhất một bằng rồi lưu."); return; }
+    if (!kiemGplx()) return;
+    setLoi(null);
+    setLuu(true);
+    try {
+      const moi = await boSungGplx(row.uuid, sangServer(gplx));
+      onCapNhat(moi);
+      setDaGuiGplx(true);
+      setChe("xem");
+    } catch (e) {
+      if (e instanceof ApiError) {
+        setLoi(e.message);
+        if (e.status === 409) setChe("xem");
+      } else {
+        setLoi("Không lưu được. Kiểm tra mạng rồi thử lại.");
+      }
+    } finally {
+      setLuu(false);
+    }
+  }
+
   async function luuSua() {
     const ns = nsHienThi(f.ngay_sinh ?? null);
     if (ns !== "—" && !laNgaySinh(ns)) { setLoi("Ngày sinh phải là ngày có thật dd/mm/yyyy (hoặc chỉ năm yyyy)."); return; }
-    const loiGplx = daSuaGplx ? loiDanhSach(gplx) : null;
-    if (loiGplx) {
-      setLoi(loiGplx);
-      setLanLuuGplx((n) => n + 1);
-      requestAnimationFrame(() => {
-        const el = document.querySelector<HTMLInputElement>(`[data-o="${oSaiDau(gplx)}"] input`);
-        el?.scrollIntoView({ block: "center" });
-        el?.focus({ preventScroll: true });
-      });
-      return;
-    }
+    if (daSuaGplx && !kiemGplx()) return;
     setLoi(null);
     setLuu(true);
     try {
@@ -601,7 +637,7 @@ function ChiTiet({ row, onDong, onCapNhat, onXoa }: { row: HoSoOut; onDong: () =
     <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={(e) => { if (e.target === e.currentTarget) onDong(); }}>
       <div className="bg-card w-full sm:max-w-md rounded-t-2xl sm:rounded-xl shadow-2xl max-h-[92vh] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
-          <h3 className="font-bold text-sm">{che === "sua" ? "Sửa hồ sơ" : "Chi tiết hồ sơ đã gửi"}</h3>
+          <h3 className="font-bold text-sm">{che === "sua" ? "Sửa hồ sơ" : che === "gplx" ? "Bổ sung GPLX" : "Chi tiết hồ sơ đã gửi"}</h3>
           <button onClick={onDong} aria-label="Đóng" className="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center transition-colors">
             <Icon name="x" className="w-5 h-5" />
           </button>
@@ -678,6 +714,11 @@ function ChiTiet({ row, onDong, onCapNhat, onXoa }: { row: HoSoOut; onDong: () =
               <OSua label="Nơi thường trú" value={f.noi_tt_raw ?? ""} onChange={(v) => set("noi_tt_raw", v)} />
               <GplxDaCoKhoi ds={gplx} onDoi={(ds) => { setGplx(ds); setDaSuaGplx(true); }} lanGui={lanLuuGplx} />
             </div>
+          ) : che === "gplx" ? (
+            <div className="mt-4 space-y-3">
+              <GplxDaCoKhoi ds={gplx} onDoi={setGplx} lanGui={lanLuuGplx} />
+              <p className="text-[12px] text-muted-foreground">Các thông tin khác của hồ sơ đã nạp vẫn khóa. Người nạp xem lại rồi mới đưa vào hệ thống.</p>
+            </div>
           ) : (
             <div className="mt-4 space-y-2.5">
               {(
@@ -697,6 +738,14 @@ function ChiTiet({ row, onDong, onCapNhat, onXoa }: { row: HoSoOut; onDong: () =
                 </div>
               ))}
               {/* Hồ sơ đã/đang nạp: khóa thao tác + chú thích (THU-05, CHANGES #26) */}
+              {daGuiGplx && (
+                <p className="text-[12px] text-primary bg-primary/5 rounded-lg px-3 py-2">Đang chờ người nạp đưa vào hệ thống. Người nạp xem lại rồi mới lưu.</p>
+              )}
+              {row.trang_thai === "imported" && (
+                <button onClick={moBoSungGplx} className="w-full h-11 rounded-lg border border-border bg-secondary text-foreground text-[13px] font-medium inline-flex items-center justify-center gap-1.5 hover:bg-muted transition-colors">
+                  <Icon name="edit" className="w-4 h-4" /> Bổ sung GPLX
+                </button>
+              )}
               {!suaDuoc && (
                 <p className="text-[12px] text-muted-foreground mt-2 flex items-start gap-1.5">
                   <Icon name="lock" className="w-3.5 h-3.5 shrink-0 mt-0.5" />
@@ -730,6 +779,13 @@ function ChiTiet({ row, onDong, onCapNhat, onXoa }: { row: HoSoOut; onDong: () =
             <>
               <button onClick={() => setChe("xem")} disabled={luu} className="h-10 px-4 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Hủy</button>
               <button onClick={() => void luuSua()} disabled={luu} className="ml-auto h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition shadow-sm flex items-center gap-2 disabled:opacity-60">
+                <Icon name={luu ? "refresh" : "check"} className={"w-4 h-4" + (luu ? " animate-spin" : "")} sw={3} /> {luu ? "Đang lưu…" : "Lưu"}
+              </button>
+            </>
+          ) : che === "gplx" ? (
+            <>
+              <button onClick={() => { setLoi(null); setChe("xem"); }} disabled={luu} className="h-10 px-4 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Hủy</button>
+              <button onClick={() => void luuBoSungGplx()} disabled={luu} className="ml-auto h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition shadow-sm flex items-center gap-2 disabled:opacity-60">
                 <Icon name={luu ? "refresh" : "check"} className={"w-4 h-4" + (luu ? " animate-spin" : "")} sw={3} /> {luu ? "Đang lưu…" : "Lưu"}
               </button>
             </>

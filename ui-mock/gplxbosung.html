@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mock bổ sung GPLX</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script>
+  tailwind.config = {
+    theme: { extend: {
+      fontFamily: { sans: ['"Be Vietnam Pro"', "system-ui", "sans-serif"] },
+      colors: {
+        background: "hsl(210 40% 96%)", foreground: "hsl(222 47% 11%)", card: "hsl(0 0% 100%)",
+        primary: "hsl(222 76% 40%)", muted: "hsl(210 40% 96%)", "muted-foreground": "hsl(215 16% 47%)",
+        accent: "hsl(224 76% 94%)", destructive: "hsl(0 72% 51%)", success: "hsl(142 71% 38%)",
+        warning: "hsl(32 90% 42%)", border: "hsl(214 32% 91%)", input: "hsl(214 32% 88%)",
+      },
+      borderRadius: { lg: "0.625rem", md: "0.5rem", sm: "0.375rem" },
+    } },
+  };
+</script>
+<style>
+  body { font-family: "Be Vietnam Pro", system-ui, sans-serif; background: hsl(210 40% 96%); color: hsl(222 47% 11%); }
+  .field-label { display: block; font-size: 11px; font-weight: 600; color: hsl(215 16% 40%); margin-bottom: 3px; }
+  .field-input { width: 100%; font-size: 13px; padding: 6px 8px; border-radius: 8px; border: 1px solid hsl(214 32% 88%); background: #fff; }
+  .field-input:focus { outline: none; border-color: hsl(222 76% 40%); box-shadow: 0 0 0 3px hsl(222 76% 40% / .15); }
+  .chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; border-radius: 6px; padding: 2px 6px; white-space: nowrap; }
+  .chip-gplx { color: hsl(222 76% 40%); background: hsl(224 76% 94%); }
+  .chip-moi { color: hsl(32 90% 30%); background: hsl(40 90% 93%); }
+  .chip-ok { color: hsl(142 71% 26%); background: hsl(142 60% 94%); }
+  .note { font-size: 12px; border-radius: 8px; padding: 6px 8px; }
+  .note-warn { color: hsl(32 90% 30%); background: hsl(40 90% 93%); }
+  .note-info { color: hsl(222 76% 35%); background: hsl(224 76% 96%); }
+  .note-err { color: hsl(0 72% 40%); background: hsl(0 80% 96%); }
+  .btn { font-size: 13px; font-weight: 600; border-radius: 8px; padding: 7px 12px; }
+  .btn-1 { background: hsl(222 76% 40%); color: #fff; }
+  .btn-2 { background: #fff; border: 1px solid hsl(214 32% 88%); }
+  th { font-size: 11px; font-weight: 600; color: hsl(215 16% 40%); text-align: left; padding: 6px 10px; white-space: nowrap; }
+  td { font-size: 13px; padding: 8px 10px; border-top: 1px solid hsl(214 32% 91%); vertical-align: middle; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body class="min-h-screen">
+<div class="max-w-[1240px] mx-auto px-4 py-5 space-y-7">
+
+  <header>
+    <h1 class="text-lg font-bold">Mock bổ sung GPLX cho học viên đã nạp — chờ duyệt</h1>
+    <p class="text-[13px] text-muted-foreground mt-1">Dữ liệu minh họa. Bấm thử: Bổ sung GPLX ở app web, dòng cảnh báo ở tool, Xem và duyệt, Lưu, Bỏ qua, đóng hộp.</p>
+  </header>
+
+  <section class="space-y-2">
+    <h2 class="text-sm font-bold">1. App web · Hồ sơ đã gửi, hồ sơ đã nạp (khổ điện thoại)</h2>
+    <div class="max-w-[375px] bg-card border border-border rounded-xl overflow-hidden">
+      <div class="px-4 py-3 border-b border-border font-bold text-sm">Chi tiết hồ sơ đã gửi</div>
+      <div class="p-4 space-y-3">
+        <div>
+          <div class="font-bold text-[15px]">NGUYỄN VĂN AN</div>
+          <div class="mt-1 flex flex-wrap gap-1.5"><span class="chip chip-ok">Đã nạp</span></div>
+        </div>
+        <dl class="text-[13px] space-y-2">
+          <div class="flex justify-between border-b border-border pb-2"><dt class="text-muted-foreground">Số CCCD</dt><dd class="font-medium">0123••••••89</dd></div>
+          <div class="flex justify-between border-b border-border pb-2"><dt class="text-muted-foreground">Mã đăng ký</dt><dd class="font-medium">70004-20261101-000031</dd></div>
+          <div class="flex justify-between"><dt class="text-muted-foreground">GPLX đã có</dt><dd class="font-medium" id="webGplx">Chưa có</dd></div>
+        </dl>
+
+        <button id="webMo" class="btn btn-2 w-full h-11">Bổ sung GPLX</button>
+
+        <div id="webForm" class="space-y-2.5 border border-border rounded-lg p-3" hidden>
+          <div class="grid grid-cols-2 gap-2">
+            <div><label class="field-label">Hạng</label><input class="field-input" style="font-size:16px" value="B2 — luật cũ" /></div>
+            <div><label class="field-label">Số GPLX</label><input class="field-input" style="font-size:16px" inputmode="numeric" value="790100000123" /></div>
+            <div><label class="field-label">Ngày trúng tuyển</label><input class="field-input" style="font-size:16px" value="10/03/2018" /></div>
+            <div><label class="field-label">Ngày cấp</label><input class="field-input" style="font-size:16px" value="27/04/2018" /></div>
+            <div><label class="field-label">Ngày hết hạn</label><input class="field-input" style="font-size:16px" value="27/04/2028" /></div>
+            <div><label class="field-label">Nơi cấp</label><input class="field-input" style="font-size:16px" value="70 — Bình Phước" /></div>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <button id="webHuy" class="btn btn-2 h-11">Hủy</button>
+            <button id="webLuu" class="btn btn-1 h-11">Lưu</button>
+          </div>
+        </div>
+
+        <p id="webCho" class="note note-info" hidden>Đang chờ người nạp đưa vào hệ thống. Người nạp xem lại rồi mới lưu.</p>
+        <p class="text-[12px] text-muted-foreground">Các thông tin khác của hồ sơ đã nạp vẫn khóa. Cần sửa thì báo người nạp thao tác trên máy tính.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="space-y-2">
+    <h2 class="text-sm font-bold">2. Tool · Tra cứu DB</h2>
+    <div class="bg-card border border-border rounded-lg overflow-hidden">
+      <button id="canhBao" class="w-full flex flex-wrap items-center gap-2 px-3 py-2.5 text-left border-b border-border" style="background:hsl(40 90% 93%)">
+        <span class="text-[13px] font-semibold" style="color:hsl(32 90% 30%)"><span id="demCB">3</span> hồ sơ có GPLX bổ sung từ app web chưa vào DB Nạp</span>
+        <span class="ml-auto text-[13px] font-semibold text-primary">Xem danh sách</span>
+      </button>
+
+      <div id="dsCB" class="overflow-x-auto border-b border-border">
+        <table class="w-full min-w-[860px]">
+          <thead class="bg-muted"><tr><th>Học viên</th><th>Khóa</th><th>Trong DB Nạp</th><th>App web gửi</th><th>Người gửi, lúc gửi</th><th></th></tr></thead>
+          <tbody id="dsCBBody"></tbody>
+        </table>
+      </div>
+      <p id="trong" class="note note-info m-3" hidden>Không còn hồ sơ nào chờ duyệt.</p>
+
+      <div class="flex flex-wrap items-center gap-2 p-3">
+        <label class="text-[13px] font-semibold" for="khoa">Khóa</label>
+        <select id="khoa" class="field-input !w-auto"><option>C1-K12 — Khóa C1</option></select>
+        <label class="flex items-center gap-1.5 text-[13px]"><input type="checkbox" id="locMoi" /> Có GPLX từ app web chưa duyệt</label>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[760px]">
+          <thead class="bg-muted"><tr><th>Số HS</th><th>Họ và tên</th><th>Số căn cước</th><th>GPLX đã có</th><th></th></tr></thead>
+          <tbody id="luoi"></tbody>
+        </table>
+      </div>
+    </div>
+    <p class="note note-info">Mất kết nối VPS: thay dòng vàng bằng "Chưa kiểm được GPLX từ app web". Nút GPLX đã có vẫn nhập tay được.</p>
+  </section>
+
+  <section class="space-y-2">
+    <h2 class="text-sm font-bold">3. Tool · Tra cứu CDB (DB đích)</h2>
+    <div class="bg-card border border-border rounded-lg p-3 space-y-2 max-w-[760px]">
+      <div class="flex flex-wrap items-center gap-2 text-[13px]">
+        <span class="font-semibold">NGUYỄN VĂN AN</span><span class="chip chip-gplx">GPLX: B2</span>
+        <button class="btn btn-2 ml-auto">GPLX đã có</button>
+      </div>
+      <p class="note note-info">Cùng khối nhập như Tra cứu DB, ghi riêng DB đích. Không có bản app web và không tự chép từ DB Nạp.</p>
+      <p class="note note-err">Khóa đã kết xuất DKKH hoặc đã lập Báo cáo 1: nút bị khóa, ghi rõ lý do và hướng dẫn dùng phần mềm CDB.</p>
+    </div>
+  </section>
+</div>
+
+<div id="hop" class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-3" hidden>
+  <div class="bg-card rounded-xl shadow-2xl w-full max-w-[860px] max-h-[92vh] flex flex-col">
+    <div class="px-4 py-3 border-b border-border flex items-center gap-2">
+      <h3 class="font-bold text-sm">GPLX đã có — <span id="hopTen"></span></h3>
+      <span class="text-[12px] text-muted-foreground" id="hopKhoa"></span>
+      <button id="hopDong" class="ml-auto text-[13px] font-semibold text-muted-foreground">Đóng</button>
+    </div>
+    <div class="p-4 overflow-y-auto space-y-3">
+      <div id="hopChan" class="note note-err" hidden>Khóa đã lập Báo cáo 1, không lưu được ở đây. Cần sửa thì dùng phần mềm cũ.</div>
+      <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+        <div class="border border-border rounded-lg p-3 space-y-1.5">
+          <div class="text-[12px] font-semibold text-muted-foreground">Đang có trong DB Nạp</div>
+          <div id="hopDb" class="text-[13px]"></div>
+        </div>
+        <div class="border border-primary/40 rounded-lg p-3 space-y-2.5">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-[12px] font-semibold text-primary">Sẽ lưu (tự điền từ app web, sửa được)</span>
+          </div>
+          <div id="hopBang" class="space-y-2"></div>
+          <button id="hopThem" class="btn btn-2">+ Thêm GPLX</button>
+        </div>
+      </div>
+      <p class="note note-info">Chưa ghi gì vào DB. Đóng hộp thì không thay đổi. Lưu chỉ ghi các cột GPLX đã có của học viên này.</p>
+    </div>
+    <div class="px-4 py-3 border-t border-border flex flex-wrap justify-end gap-2">
+      <button id="hopBo" class="btn btn-2">Bỏ qua bản này</button>
+      <button id="hopLuu" class="btn btn-1">Lưu vào DB Nạp</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const hv = [
+    { so: "031", ten: "NGUYỄN VĂN AN", cc: "0123••••••89", khoa: "C1-K12", db: [], web: [{ h: "B2", so: "790100000123", tt: "10/03/2018", cap: "27/04/2018", hh: "27/04/2028", dv: "70" }], gui: "Thu nhận 1, 03/11/2026 09:15" },
+    { so: "032", ten: "TRẦN THỊ BÌNH", cc: "0456••••••12", khoa: "C1-K12", db: [{ h: "A1", so: "790100000456", tt: "05/06/2015", cap: "20/06/2015", hh: "", dv: "70" }], web: [{ h: "A1", so: "790100000456", tt: "05/06/2015", cap: "20/06/2015", hh: "", dv: "70" }, { h: "B2", so: "790100000789", tt: "02/02/2020", cap: "15/02/2020", hh: "15/02/2030", dv: "79" }], gui: "Thu nhận 2, 03/11/2026 10:02" },
+    { so: "033", ten: "LÊ VĂN CƯỜNG", cc: "0789••••••34", khoa: "B-K149 (đã lập Báo cáo 1)", chan: true, db: [], web: [{ h: "B1", so: "790100000321", tt: "01/08/2022", cap: "12/08/2022", hh: "12/08/2032", dv: "70" }], gui: "Thu nhận 1, 03/11/2026 10:40" },
+    { so: "034", ten: "PHẠM THỊ DUNG", cc: "0321••••••56", khoa: "C1-K12", db: [] },
+  ];
+  const $ = (id) => document.getElementById(id);
+  const hang = (ds) => ds.length ? ds.map((b) => b.h).join(", ") : "Chưa có";
+  let dang = null;
+
+  function veDs() {
+    const cho = hv.filter((x) => x.web && !x.xong);
+    $("demCB").textContent = cho.length;
+    $("canhBao").hidden = !cho.length;
+    $("dsCB").hidden = !cho.length;
+    $("trong").hidden = !!cho.length;
+    $("dsCBBody").innerHTML = cho.map((x) => `<tr><td class="font-semibold">${x.ten}</td><td>${x.khoa}</td><td>${hang(x.db)}</td><td><span class="chip chip-moi">${hang(x.web)}</span></td><td class="text-muted-foreground">${x.gui}</td><td class="text-right"><button class="btn btn-2" data-mo="${x.so}">Xem và duyệt</button></td></tr>`).join("");
+    const chiMoi = $("locMoi").checked;
+    $("luoi").innerHTML = hv.filter((x) => !chiMoi || (x.web && !x.xong)).map((x) => `<tr><td>${x.so}</td><td class="font-semibold">${x.ten}</td><td>${x.cc}</td><td class="space-x-1">${x.db.length ? `<span class="chip chip-gplx">GPLX: ${hang(x.db)}</span>` : ""}${x.web && !x.xong ? `<span class="chip chip-moi">App web: ${hang(x.web)}</span>` : ""}</td><td class="text-right"><button class="btn btn-2" data-mo="${x.so}">GPLX đã có</button></td></tr>`).join("");
+  }
+
+  function dongBang(b, i) {
+    const o = (nhan, gt) => `<div><label class="field-label">${nhan}</label><input class="field-input" value="${gt}" /></div>`;
+    return `<div class="border border-border rounded-md p-2 grid grid-cols-2 sm:grid-cols-3 gap-2" data-bang="${i}">${o("Hạng", b.h)}${o("Số GPLX", b.so)}${o("Ngày trúng tuyển", b.tt)}${o("Ngày cấp", b.cap)}${o("Ngày hết hạn", b.hh)}${o("Nơi cấp", b.dv)}</div>`;
+  }
+
+  function mo(so) {
+    dang = hv.find((x) => x.so === so);
+    const coWeb = dang.web && !dang.xong;
+    const ds = coWeb ? dang.web : dang.db;
+    $("hopTen").textContent = dang.ten;
+    $("hopKhoa").textContent = dang.khoa;
+    $("hopDb").innerHTML = dang.db.length ? dang.db.map((b) => `<div>${b.h} · ${b.so}<br><span class="text-muted-foreground text-[12px]">Cấp ${b.cap}</span></div>`).join("") : '<span class="text-muted-foreground">Chưa có GPLX</span>';
+    $("hopBang").innerHTML = ds.length ? ds.map(dongBang).join("") : '<p class="text-[13px] text-muted-foreground">Chưa có bằng nào. Bấm + Thêm GPLX để nhập tay.</p>';
+    $("hopChan").hidden = !dang.chan;
+    $("hopLuu").disabled = !!dang.chan;
+    $("hopLuu").style.opacity = dang.chan ? ".5" : "1";
+    $("hopBo").hidden = !coWeb;
+    $("hop").hidden = false;
+  }
+
+  document.addEventListener("click", (e) => {
+    const nut = e.target.closest("[data-mo]");
+    if (nut) mo(nut.dataset.mo);
+  });
+  $("hopDong").onclick = () => { $("hop").hidden = true; };
+  $("hopThem").onclick = () => {
+    const khung = $("hopBang");
+    if (khung.querySelector("p")) khung.innerHTML = "";
+    khung.insertAdjacentHTML("beforeend", dongBang({ h: "", so: "", tt: "", cap: "", hh: "", dv: "" }, khung.children.length));
+  };
+  $("hopLuu").onclick = () => {
+    const web = dang.web && !dang.xong;
+    if (web) { dang.db = dang.web; dang.xong = true; }
+    $("hop").hidden = true;
+    veDs();
+  };
+  $("hopBo").onclick = () => { dang.xong = true; $("hop").hidden = true; veDs(); };
+  $("canhBao").onclick = () => { $("dsCB").hidden = !$("dsCB").hidden; };
+  $("locMoi").onchange = veDs;
+
+  $("webMo").onclick = () => { $("webForm").hidden = false; $("webMo").hidden = true; };
+  $("webHuy").onclick = () => { $("webForm").hidden = true; $("webMo").hidden = false; };
+  $("webLuu").onclick = () => {
+    $("webForm").hidden = true; $("webMo").hidden = false;
+    $("webMo").textContent = "Sửa GPLX bổ sung";
+    $("webGplx").textContent = "B2";
+    $("webCho").hidden = false;
+  };
+  veDs();
+</script>
+</body>
+</html>

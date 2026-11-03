@@ -18,10 +18,10 @@ from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
-from app import nap, vps
-from app.db import sqlserver_cursor, sqlserver_conn, ConfigChuaDay
+from app import config_store, gplx_da_co, nap, sync_helpers, vps
+from app.db import sqlserver_conn_dich, sqlserver_cursor, sqlserver_conn, ConfigChuaDay
 from app.image import jp2_sang_png, thumb_jp2
 from app.nap import tach_ho_ten, validate_do_dai, sinh_so_ho_so, di_chuyen_anh, ghi_anh_update, log_xoa_hv
 from app.session import Phien, require_session
@@ -351,6 +351,131 @@ def sua_ho_so(body: HoSoSua, ma_dk: str = Query(..., min_length=1),
         raise HTTPException(status_code=502, detail="Không sửa được hồ sơ trên SQL Server — kiểm kết nối rồi thử lại.")
 
     return {"ok": True, "ma_dk": ma_dk}
+
+
+class BanWebIn(BaseModel):
+    uuid: str = Field(min_length=1, max_length=64)
+    dau_van: str = Field(min_length=1, max_length=64)
+
+
+class GplxLuuIn(BaseModel):
+    """Lưu GPLX đã có (QLY-10, TCB-05). `tho` = chuỗi thô 6 cột đã đọc lúc mở, nguyên văn."""
+    gplx: list[dict]
+    tho: dict[str, str]
+    ban_web: BanWebIn | None = None  # có khi lưu từ bản app web: để hết cảnh báo kể cả khi đã sửa khác bản đó
+
+    @field_validator("tho")
+    @classmethod
+    def _du_cot(cls, v: dict[str, str]) -> dict[str, str]:
+        if set(v) != set(gplx_da_co.TEN_COT):
+            raise ValueError("Thiếu dữ liệu đối chiếu 6 cột GPLX")
+        return v
+
+
+_CHAN_GPLX_BC1 = "Khóa đã lập Báo cáo 1 — không lưu được ở đây. Cần sửa thì dùng phần mềm cũ."
+_SQL_BC1_THEO_KHOA = "SELECT CASE WHEN EXISTS (SELECT 1 FROM BaoCaoI WHERE MaKH = %s) THEN 1 ELSE 0 END AS bc1"
+
+
+@router.get("/gplx")
+def doc_gplx(ma_dk: str = Query(..., min_length=1)):
+    """QLY-10 — GPLX đã có của 1 học viên trong DB Nạp + lý do chặn lưu (nếu có)."""
+    try:
+        with sqlserver_cursor() as cur:
+            row = gplx_da_co.doc_dong(cur, ma_dk)
+            if not row:
+                raise HTTPException(status_code=404, detail="Không tìm thấy hồ sơ học viên.")
+            cur.execute(_SQL_BC1_THEO_KHOA, (row["MaKhoaHoc"],))
+            chan = _CHAN_GPLX_BC1 if cur.fetchone()["bc1"] else None
+    except HTTPException:
+        raise
+    except ConfigChuaDay as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=502, detail="Không truy vấn được SQL Server — kiểm kết nối.")
+    return gplx_da_co.ket_qua_doc(ma_dk, row, chan)
+
+
+@router.put("/gplx")
+def luu_gplx(body: GplxLuuIn, ma_dk: str = Query(..., min_length=1), phien: Phien = Depends(require_session)):
+    """QLY-10 — lưu GPLX đã có vào DB Nạp (GHI PROD): chỉ 6 cột theo MaDK. Chặn khóa đã BC1 (BR-012)."""
+    try:
+        with sqlserver_conn(autocommit=True) as conn:
+            cur = conn.cursor(as_dict=True)
+            row = gplx_da_co.doc_dong(cur, ma_dk)
+            if not row:
+                raise HTTPException(status_code=404, detail="Không tìm thấy hồ sơ học viên.")
+            cur.execute(_SQL_BC1_THEO_KHOA, (row["MaKhoaHoc"],))
+            if cur.fetchone()["bc1"]:
+                raise HTTPException(status_code=409, detail=_CHAN_GPLX_BC1)
+            if not gplx_da_co.ghi(cur, ma_dk, row, body.gplx, body.tho):
+                raise HTTPException(status_code=409, detail="Dữ liệu GPLX vừa đổi — tải lại rồi thử lại.")
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except ConfigChuaDay as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=502, detail="Không lưu được GPLX trên SQL Server — kiểm kết nối rồi thử lại.")
+    nap.keo_ve_gan_gplx(ma_dk, body.gplx)
+    if body.ban_web:
+        gplx_da_co.danh_dau_sau_luu(body.ban_web.uuid, body.ban_web.dau_van)
+    return {"ok": True, "ma_dk": ma_dk, "co_o_dich": _hv_co_o_dich(row.get("SoCMT"))}
+
+
+def _hv_co_o_dich(so_cmt: str | None) -> bool:
+    """Học viên đã có ở DB đích đang chọn không, dò như Sync (theo số căn cước), chỉ để nhắc. Lỗi → không nhắc."""
+    cc = (so_cmt or "").strip()
+    t = config_store.get_sync_target(None)
+    if not cc or not t or not t.get("database"):
+        return False
+    try:
+        with sqlserver_conn_dich(t["database"]) as cd:
+            return bool(sync_helpers.enrich_from_db_dich(cd, [cc]).get(cc))
+    except Exception:  # noqa: BLE001
+        return False
+
+
+@router.get("/gplx-bo-sung")
+def ds_gplx_bo_sung(phien: Phien = Depends(require_session)):
+    """QLY-10 — hồ sơ có GPLX bổ sung từ app web chưa xử lý. VPS lỗi → kiem_duoc=False, không phải 0 hồ sơ."""
+    try:
+        ban_web = gplx_da_co.lay_ban_web(phien.vps_token)
+    except VpsLoi:
+        return {"kiem_duoc": False, "items": []}
+    if not ban_web:
+        return {"kiem_duoc": True, "items": []}
+    try:
+        with sqlserver_cursor() as cur:
+            dong_db = gplx_da_co.doc_lo_db(cur, [x["ma_dk"] for x in ban_web])
+    except ConfigChuaDay as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=502, detail="Không truy vấn được SQL Server — kiểm kết nối.")
+    return {"kiem_duoc": True, "items": gplx_da_co.loc_canh_bao(ban_web, dong_db, gplx_da_co.da_xu_ly())}
+
+
+@router.get("/gplx-ban-web")
+def gplx_ban_web(ma_dk: str = Query(..., min_length=1), phien: Phien = Depends(require_session)):
+    """QLY-10 — bản app web đầy đủ của 1 học viên để tự điền. Chỉ endpoint này trả số GPLX từ VPS."""
+    try:
+        ban_web = gplx_da_co.lay_ban_web(phien.vps_token)
+    except VpsLoi as e:
+        raise _loi_vps(e)
+    x = next((b for b in ban_web if b.get("ma_dk") == ma_dk), None)
+    if not x:
+        raise HTTPException(status_code=404, detail="Không còn bản bổ sung từ app web của học viên này.")
+    ds = x.get("gplx_da_co") or []
+    uuid = str(x.get("uuid"))
+    return {"uuid": uuid, "dau_van": gplx_da_co.dau_van(uuid, ds), "gplx": ds,
+            "nguoi_gui": x.get("nguoi_gui"), "updated_at": x.get("updated_at")}
+
+
+@router.post("/gplx/bo-qua")
+def bo_qua_gplx(body: BanWebIn, phien: Phien = Depends(require_session)):
+    """QLY-10 — ẩn cảnh báo của đúng bản này; app web gửi bản khác thì hiện lại. Không đụng DB."""
+    gplx_da_co.danh_dau_xu_ly(body.uuid, body.dau_van)
+    return {"ok": True}
 
 
 class DoiKhoaIn(BaseModel):

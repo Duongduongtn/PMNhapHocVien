@@ -11,7 +11,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from sqlalchemy import select, update
+from sqlalchemy import and_, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.auth.deps import require_role, require_tool_key
@@ -130,6 +130,73 @@ def tra_uuid(ma_dk: str, _op: User = Depends(require_role("operator")), db: Sess
         if hs is not None:
             return {"uuid": str(hs.uuid), "ma_dk": ma}
     raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy hồ sơ đã nạp theo mã đăng ký")
+
+
+class GplxBoSungDong(BaseModel):
+    uuid: UUID
+    ma_dk: str | None
+    gplx_da_co: list[dict]
+    nguoi_gui: str | None
+    updated_at: datetime
+
+
+class GplxBoSungOut(BaseModel):
+    items: list[GplxBoSungDong]
+    co_tiep: bool
+    cursor: str | None  # truyền lại ở lượt sau khi co_tiep
+
+
+def _doc_cursor(cursor: str) -> tuple[datetime, UUID]:
+    try:
+        moc, ma = cursor.split("|", 1)
+        return datetime.fromisoformat(moc), UUID(ma)
+    except ValueError:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "cursor không hợp lệ") from None
+
+
+@router.get("/gplx-bo-sung", response_model=GplxBoSungOut)
+def gplx_bo_sung(
+    limit: int = 200,
+    cursor: str | None = None,
+    _op: User = Depends(require_role("operator")),
+    db: Session = Depends(get_db),
+):
+    """Hồ sơ đã nạp được bổ sung GPLX ở app web sau lần nạp gần nhất (QLY-10, TDD §10.7); tool so với DB để cảnh báo.
+    Sắp (updated_at, uuid) vì updated_at đổi mỗi lần bổ sung; cursor = "<updated_at>|<uuid>" dòng cuối lượt trước.
+    Không ghi `gplx_da_co` vào log. Khai báo TRƯỚC các route /{uuid}/... vì đây là đường tĩnh."""
+    limit = max(1, min(limit, 500))
+    co_bo_sung = (
+        select(AuditLog.id)
+        .where(
+            AuditLog.hanh_dong == "bo_sung_gplx",
+            AuditLog.uuid_hs == HoSoThuThap.uuid,
+            or_(HoSoThuThap.imported_at.is_(None), AuditLog.created_at >= HoSoThuThap.imported_at),
+        )
+        .exists()
+    )
+    stmt = (
+        select(HoSoThuThap, User.ho_ten)
+        .outerjoin(User, User.id == HoSoThuThap.created_by)
+        .where(HoSoThuThap.trang_thai == "imported", co_bo_sung)
+        .order_by(HoSoThuThap.updated_at.asc(), HoSoThuThap.uuid.asc())
+        .limit(limit + 1)
+    )
+    if cursor:
+        moc, ma = _doc_cursor(cursor)
+        stmt = stmt.where(or_(HoSoThuThap.updated_at > moc, and_(HoSoThuThap.updated_at == moc, HoSoThuThap.uuid > ma)))
+    dong = db.execute(stmt).all()
+    co_tiep = len(dong) > limit
+    dong = dong[:limit]
+    cuoi = dong[-1][0] if dong else None
+    return GplxBoSungOut(
+        items=[
+            GplxBoSungDong(uuid=hs.uuid, ma_dk=hs.ma_dk, gplx_da_co=hs.gplx_da_co, nguoi_gui=ten, updated_at=hs.updated_at)
+            for hs, ten in dong
+            if hs.gplx_da_co
+        ],
+        co_tiep=co_tiep,
+        cursor=f"{cuoi.updated_at.isoformat()}|{cuoi.uuid}" if cuoi and co_tiep else None,
+    )
 
 
 @router.get("/{uuid}/anh")

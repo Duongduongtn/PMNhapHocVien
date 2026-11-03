@@ -411,3 +411,12 @@
 - Nguồn: CHANGES #81; TDD §10.6.
 - **Đổi 02/11/2026 (CHANGES #83) sau khi rà DB + DLL phần mềm cũ:** *Đã từng chốt:* trùng hạng đăng ký chỉ cảnh báo; ngày không bắt buộc; Nơi cấp lấy `DM_DVHC`, có "Cục QLHC". *Vì sao đổi:* form cũ chặn trùng hạng và bắt buộc ngày; tờ khai đọc tên từ `DM_DonViGTVT`, nên `DM_DVHC` làm in sai tên (mã `80`).
 - **Cục QLHC (user chốt 02/11/2026, CHANGES #84):** giữ lựa chọn này, mã `00` theo DB đích; script đổi tên + bật ở `DM_DonViGTVT` DB Nạp. Tờ khai DB Nạp in "Cục QLHC"; DB đích vẫn ghi `00` là "Cục CSGT".
+
+## 29. Bổ sung GPLX sau khi đã nạp: có người duyệt, có cảnh báo (03/11/2026)
+
+- **Đã chốt:** làm như bổ sung ảnh (§18): app web chỉ gửi lên VPS, người nạp duyệt mới ghi DB. Khác ảnh ở chỗ **có cảnh báo chủ động**, vì đa số học viên không có GPLX đã có nên không tự lọc được như "Chưa ảnh".
+- **Cách ghi:** UPDATE đúng 6 cột theo `MaDK`, có điều kiện giá trị cũ. Không dùng SP gộp, `usp_NguoiLX_HoSo_Update`.
+- **Không thêm cột VPS:** nhận diện bổ sung bằng dòng `audit_log` `bo_sung_gplx` (sau `/reviewtdd`, CHANGES #90); tool so bản VPS với DB, nhớ bản đã xử lý bằng dấu vân ở SQLite máy tool. *Đã từng chốt (cùng ngày):* ghi dấu vân cả lúc nạp; đổi vì hồ sơ nạp trước khi có tính năng và máy mới vẫn báo nhầm. Không dùng mốc thời gian lúc cài, vì sẽ mất cảnh báo bổ sung thật.
+- **Đánh đổi:** dấu vân nằm ở từng máy tool, đổi máy thì hồ sơ đã bỏ qua có thể hiện lại. Chấp nhận vì không làm sai dữ liệu (lưu vẫn cần người bấm) và dữ liệu VPS chỉ giữ 30 ngày.
+- **DB đích nhập riêng:** không tự chép, vì lưu sang DB đích có mốc chặn khác và học viên có thể đã kết xuất.
+- Nguồn: user 03/11/2026; CHANGES #89; TDD §10.7. §18 giữ nguyên cho ảnh.

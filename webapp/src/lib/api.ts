@@ -216,6 +216,14 @@ export const suaHoSo = (uuid: string, body: HoSoSua) =>
     body: JSON.stringify(body),
   }).then(json<HoSoOut>);
 
+// THU-07 (CHANGES #89): bổ sung GPLX cho hồ sơ đã nạp, người nạp duyệt mới vào hệ thống.
+export const boSungGplx = (uuid: string, gplx_da_co: unknown[]) =>
+  fetch(`${BASE}/api/ho-so/${uuid}/gplx`, {
+    method: "PUT",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ gplx_da_co }),
+  }).then(json<HoSoOut>);
+
 // THU-05 (CHANGES #24/#26): xóa hồ sơ đã gửi khi còn chờ nạp (soft-delete VPS, 204). Đã/đang nạp → 409.
 export const xoaHoSo = (uuid: string) =>
   fetch(`${BASE}/api/ho-so/${uuid}`, { method: "DELETE", headers: authHeaders() }).then(ok);

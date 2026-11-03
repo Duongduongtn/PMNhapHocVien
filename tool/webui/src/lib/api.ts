@@ -291,6 +291,64 @@ export const suaHoSo = (maDk: string, body: HoSoSuaIn) =>
     body: JSON.stringify(body),
   }).then(json<{ ok: boolean; ma_dk: string }>);
 
+// QLY-10, TCB-05 — GPLX đã có của học viên đã nạp. `tho` gửi lại nguyên văn khi lưu để đối chiếu dữ liệu cũ.
+export interface GplxHoSo {
+  ma_dk: string;
+  ho_ten: string | null;
+  ma_kh: string;
+  hang_khoa: string;
+  chan: string | null; // lý do không được lưu; null = lưu được
+  gplx: Record<string, string>[];
+  lech: boolean;
+  tho: Record<string, string>;
+}
+
+export interface BanWebRef { uuid: string; dau_van: string }
+
+const luuGplx = (url: string, gplx: unknown[], tho: Record<string, string>, banWeb?: BanWebRef) =>
+  fetch(url, {
+    method: "PUT",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ gplx, tho, ban_web: banWeb ?? null }),
+  }).then(json<{ ok: boolean; ma_dk: string; co_o_dich?: boolean }>);
+
+// QLY-10 — bản app web chờ duyệt. kiem_duoc=false: chưa hỏi được VPS, KHÔNG có nghĩa là 0 hồ sơ.
+export interface GplxCanhBao extends BanWebRef {
+  ma_dk: string;
+  nguoi_gui: string | null;
+  updated_at: string;
+  ho_ten: string | null;
+  ma_kh: string | null;
+  ten_kh: string | null;
+  hang_db: { hang: string; nhom: string }[];
+  hang_web: { hang: string; nhom: string }[];
+  khong_thay: boolean;
+}
+export interface GplxBanWeb extends BanWebRef {
+  gplx: Record<string, string>[];
+  nguoi_gui: string | null;
+  updated_at: string;
+}
+
+export const dsGplxBoSung = () =>
+  fetch(`${BASE}/local/ho-so/gplx-bo-sung`, { headers: authHeaders() }).then(json<{ kiem_duoc: boolean; items: GplxCanhBao[] }>);
+
+export const gplxBanWeb = (maDk: string) =>
+  fetch(`${BASE}/local/ho-so/gplx-ban-web?ma_dk=${encodeURIComponent(maDk)}`, { headers: authHeaders() }).then(json<GplxBanWeb>);
+
+export const boQuaGplx = (ref: BanWebRef) =>
+  fetch(`${BASE}/local/ho-so/gplx/bo-qua`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ uuid: ref.uuid, dau_van: ref.dau_van }),
+  }).then(json<{ ok: boolean }>);
+
+export const gplxHoSo = (maDk: string) =>
+  fetch(`${BASE}/local/ho-so/gplx?ma_dk=${encodeURIComponent(maDk)}`, { headers: authHeaders() }).then(json<GplxHoSo>);
+
+export const luuGplxHoSo = (maDk: string, gplx: unknown[], tho: Record<string, string>, banWeb?: BanWebRef) =>
+  luuGplx(`${BASE}/local/ho-so/gplx?ma_dk=${encodeURIComponent(maDk)}`, gplx, tho, banWeb);
+
 // QLY-02 — đổi khóa (cùng hạng). Danh sách khóa đích + thực hiện đổi.
 export interface KhoaDich {
   ma_kh: string;
@@ -854,6 +912,16 @@ export const suaHoSoCDB = (maDk: string, body: HoSoSuaCDBIn, targetKey?: string)
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(body),
   }).then(json<{ ok: boolean; ma_dk: string; canh_bao: string }>);
+
+// TCB-05 — GPLX đã có ở DB đích.
+export const gplxHoSoCDB = (maDk: string, targetKey?: string) =>
+  fetch(`${BASE}/local/sync/tra-cuu/gplx?${qs({ ma_dk: maDk, target_key: targetKey })}`, { headers: authHeaders() }).then(json<GplxHoSo>);
+
+export const luuGplxHoSoCDB = (maDk: string, gplx: unknown[], tho: Record<string, string>, targetKey?: string) =>
+  luuGplx(`${BASE}/local/sync/tra-cuu/gplx?${qs({ ma_dk: maDk, target_key: targetKey })}`, gplx, tho);
+
+export const noiCapGplxCDB = (targetKey?: string) =>
+  fetch(`${BASE}/local/sync/tra-cuu/noi-cap-gplx?${qs({ target_key: targetKey })}`, { headers: authHeaders() }).then(json<SoGtvt[]>);
 
 // TCB-04 — xóa HV / đổi khóa ở CDB (chặn theo MaBC1; đổi khóa cùng hạng chưa BC1, giữ DuongDanAnh).
 export const khoaCungHangCDB = (maDk: string, targetKey?: string) =>

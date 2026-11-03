@@ -4,6 +4,8 @@ import AnhModal from "../../components/AnhModal";
 import AnhAvatar from "../../components/AnhAvatar";
 import MoKhoaKhacDialog from "../../components/MoKhoaKhacDialog";
 import DoiSoatDialog from "../../components/DoiSoatDialog";
+import { GplxBoSungDialog } from "./GplxBoSungDialog";
+import { tenHang } from "./gplxDaCo";
 import { PhanTrang } from "../../components/PhanTrang";
 import { ComboLoc } from "../../components/ComboLoc";
 import { ODate } from "../../components/ODate";
@@ -13,6 +15,13 @@ import {
   dsHoSoTheoKhoa,
   chiTietHoSo,
   suaHoSo,
+  gplxHoSo,
+  luuGplxHoSo,
+  getNoiCapGplx,
+  dsGplxBoSung,
+  gplxBanWeb,
+  boQuaGplx,
+  type GplxCanhBao,
   khoaCungHang,
   doiKhoa,
   xoaHoSo,
@@ -256,6 +265,17 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce, locAnhBanDau }: {
 
   // Mở hồ sơ khóa khác (QLY-06)
   const [moKhoaKhac, setMoKhoaKhac] = useState(false);
+  const [gplxMo, setGplxMo] = useState<{ ma_dk: string; ho_ten: string | null } | null>(null); // QLY-10
+  const [gplxCb, setGplxCb] = useState<GplxCanhBao[]>([]);
+  const [gplxKiemDuoc, setGplxKiemDuoc] = useState(true);
+  const [gplxDsMo, setGplxDsMo] = useState(false);
+  const [chiGplxWeb, setChiGplxWeb] = useState(false);
+  const taiGplxCb = () => dsGplxBoSung()
+    .then((d) => { setGplxKiemDuoc(d.kiem_duoc); setGplxCb(d.items); })
+    .catch(() => setGplxKiemDuoc(false));
+  useEffect(() => { void taiGplxCb(); }, []);
+  const gplxCbCua = (maDk: string) => gplxCb.find((x) => x.ma_dk === maDk && !x.khong_thay);
+  const soGplxCb = gplxCb.filter((x) => !x.khong_thay).length;
 
   // Đổi nền trắng cả khóa (QLY-07 task 40)
   const [doiNenMo, setDoiNenMo] = useState(false);
@@ -616,6 +636,7 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce, locAnhBanDau }: {
   const rows = (hoSo ?? []).filter((h) => {
     if (locAnh === "chua" && h.co_anh) return false;   // QLY-05: lọc theo tình trạng ảnh
     if (locAnh === "roi" && !h.co_anh) return false;
+    if (chiGplxWeb && !gplxCbCua(h.ma_dk)) return false;
     const t = qHv.trim();
     if (!t) return true;
     return boDau(h.ho_ten ?? "").includes(boDau(t)) || (h.so_cccd ?? "").includes(t);
@@ -628,12 +649,64 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce, locAnhBanDau }: {
   // UI-3: phân trang lưới HV (client). Đổi khóa/ô tìm/lọc ảnh/cỡ trang → về trang 1.
   const [trang, setTrang] = useState(0);
   const [coTrang, setCoTrang] = useState(20);
-  useEffect(() => { setTrang(0); }, [khoa, qHv, locAnh, coTrang]);
+  useEffect(() => { setTrang(0); }, [khoa, qHv, locAnh, coTrang, chiGplxWeb]);
   const rowsTrang = rowsSapXep.slice(trang * coTrang, (trang + 1) * coTrang);
   const canhBaoTen = sua ? nghiSaiChinhTa(form.ho_ten) : "";
 
   return (
     <div className="p-4">
+      {/* QLY-10 — cảnh báo GPLX bổ sung từ app web */}
+      {!gplxKiemDuoc && (
+        <p className="mb-3 rounded-lg bg-muted px-3 py-2 text-[13px] text-muted-foreground">
+          Chưa kiểm được GPLX từ app web. Nút GPLX đã có vẫn nhập tay được.
+          <button type="button" className="ml-2 font-semibold text-primary" onClick={() => void taiGplxCb()}>Thử lại</button>
+        </p>
+      )}
+      {gplxCb.length > 0 && (
+        <div className="mb-3 rounded-lg border border-warning/30 overflow-hidden">
+          <button type="button" className="w-full flex flex-wrap items-center gap-2 bg-warning/10 px-3 py-2.5 text-left" onClick={() => setGplxDsMo((m) => !m)}>
+            <span className="text-[13px] font-semibold text-warning">
+              {soGplxCb} hồ sơ có GPLX bổ sung từ app web chưa vào DB Nạp
+            </span>
+            <span className="ml-auto text-[13px] font-semibold text-primary">{gplxDsMo ? "Thu gọn" : "Xem danh sách"}</span>
+          </button>
+          {gplxDsMo && (
+            <div className="overflow-x-auto bg-card">
+              <table className="w-full min-w-[820px] text-[13px]">
+                <thead>
+                  <tr className="bg-muted/60 text-muted-foreground text-left text-[12px]">
+                    <th className="px-3 py-2 font-semibold">Học viên</th>
+                    <th className="px-3 py-2 font-semibold">Khóa</th>
+                    <th className="px-3 py-2 font-semibold">Trong DB Nạp</th>
+                    <th className="px-3 py-2 font-semibold">App web gửi</th>
+                    <th className="px-3 py-2 font-semibold">Người gửi, lúc gửi</th>
+                    <th className="px-3 py-2" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {gplxCb.map((x) => (
+                    <tr key={x.uuid} className="border-t border-border">
+                      <td className="px-3 py-2 font-semibold">{x.khong_thay ? `Mã ${x.ma_dk}` : x.ho_ten || "(chưa có tên)"}</td>
+                      <td className="px-3 py-2">{x.khong_thay ? "Không tìm thấy trong DB Nạp" : x.ten_kh || x.ma_kh}</td>
+                      <td className="px-3 py-2">{x.hang_db.length ? x.hang_db.map(tenHang).join(", ") : "Chưa có"}</td>
+                      <td className="px-3 py-2">{x.hang_web.map(tenHang).join(", ")}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{x.nguoi_gui || "—"}, {new Date(x.updated_at).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short", hour12: false })}</td>
+                      <td className="px-3 py-2 text-right">
+                        {x.khong_thay ? (
+                          <button type="button" className="btn btn-secondary btn-row" onClick={() => void boQuaGplx(x).then(taiGplxCb).catch((e) => setErr(e instanceof Error ? e.message : "Không bỏ qua được."))}>Bỏ qua</button>
+                        ) : (
+                          <button type="button" className="btn btn-secondary btn-row" onClick={() => setGplxMo(x)}>Xem và duyệt</button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Tìm khóa */}
       <div className="flex items-end gap-2 flex-wrap">
         <div className="flex-1 min-w-[220px]">
@@ -762,6 +835,10 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce, locAnhBanDau }: {
               />
             </div>
             {/* QLY-05: lọc tình trạng ảnh */}
+            <label className="inline-flex items-center gap-1.5 text-[13px] cursor-pointer">
+              <input type="checkbox" className="accent-primary w-4 h-4" checked={chiGplxWeb} onChange={(e) => setChiGplxWeb(e.target.checked)} />
+              Có GPLX từ app web chưa duyệt
+            </label>
             <div className="inline-flex rounded-lg bg-muted p-1">
               {([["all", "Tất cả"], ["chua", "Chưa ảnh"], ["roi", "Đã có ảnh"]] as const).map(([k, label]) => (
                 <button
@@ -799,7 +876,14 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce, locAnhBanDau }: {
                     <tr key={h.ma_dk} onClick={() => setSel(h)} className={"border-t border-border cursor-pointer transition-colors " + (noiBatSet.has(h.ma_dk) ? "bg-success/10 hover:bg-success/15" : "hover:bg-muted/60")}>
                       <td className="px-2 py-1.5"><AnhAvatar coAnh={h.co_anh} ver={anhVer} tai={(v) => taiAnhThumb(h.ma_dk, v)} /></td>
                       <td className="px-3 py-2 tabular-nums">{h.so_ho_so || "—"}</td>
-                      <td className="px-3 py-2 font-semibold">{h.ho_ten || "(chưa có tên)"}</td>
+                      <td className="px-3 py-2 font-semibold">
+                        {h.ho_ten || "(chưa có tên)"}
+                        {gplxCbCua(h.ma_dk) && (
+                          <span className="ml-2 inline-flex rounded-md bg-warning/10 px-1.5 py-0.5 text-[11px] font-semibold text-warning">
+                            App web: {gplxCbCua(h.ma_dk)!.hang_web.map(tenHang).join(", ")}
+                          </span>
+                        )}
+                      </td>
                       <td className="px-3 py-2">{gioiTinhVN(h.gioi_tinh)}</td>
                       <td className="px-3 py-2 tabular-nums">{ymdToVN(h.ngay_sinh)}</td>
                       <td className="px-3 py-2 tabular-nums">{h.so_cccd || "—"}</td>
@@ -1093,6 +1177,11 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce, locAnhBanDau }: {
                     </button>
                   )}
                   {!doiMo && !xoaMo && !goMo && !anhMo && (
+                    <button onClick={() => setGplxMo(sel)} className="btn btn-secondary">
+                      <Icon name="edit" className="w-4 h-4" /> GPLX đã có
+                    </button>
+                  )}
+                  {!doiMo && !xoaMo && !goMo && !anhMo && (
                     <button
                       onClick={() => setMoKhoaKhac(true)}
                       className="btn btn-secondary"
@@ -1292,6 +1381,24 @@ export default function TraCuuDB({ khoaMa, noiBat, moNonce, locAnhBanDau }: {
             setOkMsg("Đã đổi nền trắng cho khóa.");
             setTimeout(() => setOkMsg(""), 3500);
             if (khoa) setHoSo(await dsHoSoTheoKhoa(khoa.ma_kh)); // làm tươi avatar lưới
+          }}
+        />
+      )}
+
+      {gplxMo && (
+        <GplxBoSungDialog
+          tenHv={gplxMo.ho_ten}
+          nhanDb="DB Nạp"
+          tai={() => gplxHoSo(gplxMo.ma_dk)}
+          luu={(ds, tho, banWeb) => luuGplxHoSo(gplxMo.ma_dk, ds, tho, banWeb)}
+          taiNoiCap={getNoiCapGplx}
+          taiBanWeb={gplxCbCua(gplxMo.ma_dk) ? () => gplxBanWeb(gplxMo.ma_dk) : undefined}
+          onBoQua={async (ref) => { await boQuaGplx(ref); setGplxMo(null); await taiGplxCb(); }}
+          onDong={() => setGplxMo(null)}
+          onDaLuu={(kq) => {
+            setGplxMo(null);
+            setOkMsg("Đã lưu GPLX đã có vào DB Nạp." + (kq.co_o_dich ? " Học viên đã có ở DB đích: mở Tra cứu CDB để bổ sung ở DB đích." : ""));
+            void taiGplxCb();
           }}
         />
       )}

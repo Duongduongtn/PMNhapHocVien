@@ -137,6 +137,17 @@ def da_xoa(vps_token: str | None, since: str | None = None) -> dict:
     return r.json()
 
 
+def gplx_bo_sung(vps_token: str | None, cursor: str | None = None, limit: int = 200) -> dict:
+    """Hồ sơ đã nạp được bổ sung GPLX ở app web (QLY-10). Trả {"items", "co_tiep", "cursor"}. Lỗi → VpsLoi."""
+    params: dict = {"limit": limit}
+    if cursor:
+        params["cursor"] = cursor
+    r = _goi("GET", "/api/nap/gplx-bo-sung", vps_token, timeout=_TIMEOUT, params=params)
+    if r.status_code != 200:
+        raise VpsLoi("VPS trả lỗi khi lấy GPLX bổ sung.", r.status_code)
+    return r.json()
+
+
 def tra_uuid(vps_token: str | None, ma_dk: str) -> str | None:
     """Tra uuid gốc theo ma_dk (QLY-08 bước 2 — fallback khi staging nap_xong local không còn).
     Không thấy bản đã nạp (404) → None; lỗi khác → VpsLoi."""

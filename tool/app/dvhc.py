@@ -129,10 +129,11 @@ def ds_xa(ma_dvql: str, db: str | None = None) -> list[dict]:
     ]
 
 
-def ds_noi_cap_gplx() -> list[dict]:
+def ds_noi_cap_gplx(db: str | None = None) -> list[dict]:
     """Danh sách 'Nơi cấp' của GPLX đã có (NAP-07, TDD §10.6): DM_DonViGTVT cấp Sở, nguồn phần mềm cũ dùng in tờ khai
-    (usf_QuangLA_PM4_ThuNhanHS_getTenDVCap). KHÔNG dùng DM_DVHC: cùng mã khác tên, vd '80' là Long An ở đây, Tây Ninh ở kia."""
-    with _cur_dvhc(None) as cur:
+    (usf_QuangLA_PM4_ThuNhanHS_getTenDVCap). KHÔNG dùng DM_DVHC: cùng mã khác tên, vd '80' là Long An ở đây, Tây Ninh ở kia.
+    `db` có giá trị → đọc DB đích (TCB-05)."""
+    with _cur_dvhc(db) as cur:
         cur.execute("SELECT MaDV, TenDV FROM DM_DonViGTVT WHERE LoaiDV='SO' ORDER BY MaDV")
         rows = cur.fetchall()
     return [{"ma": r["MaDV"], "ten": f'{r["MaDV"]} — {(r["TenDV"] or "").strip()}'} for r in rows]

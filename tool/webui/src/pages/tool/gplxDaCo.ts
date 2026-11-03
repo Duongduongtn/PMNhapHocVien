@@ -44,7 +44,7 @@ export function tachKhoaHang(khoa: string): Pick<BangGplx, "nhom" | "hang"> {
   return { nhom: nhom === "moi" ? "moi" : "cu", hang: hang ?? "" };
 }
 
-export function tenHang(b: Pick<BangGplx, "nhom" | "hang">): string {
+export function tenHang(b: { nhom: string; hang: string }): string {
   return (b.nhom === "moi" ? LUAT_MOI : LUAT_CU).find(([ma]) => ma === b.hang)?.[1] ?? b.hang;
 }
 

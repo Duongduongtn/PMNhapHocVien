@@ -4,6 +4,8 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 90 | 03/11/2026 | ✏️ Sửa (sau `/reviewtdd`) | `QLY-10` · `THU-07` | **`/reviewtdd` §10.7 (1 Chặn, 8 Nên sửa, 4 Ghi nhận):** nhận diện bổ sung bằng `audit_log` để không báo nhầm (user chốt); `THU-07` phải có ít nhất một bằng. Số story giữ 65. | ✅ v4.31 | ✅ v6.33 | — | 🟡 như #89 |
+| 89 | 03/11/2026 | ➕ Thêm + ✏️ Sửa | `QLY-10` · `TCB-05` · `THU-07` · `NAP-07` | **Bổ sung GPLX đã có cho học viên đã nạp:** app web gửi lên VPS, tool cảnh báo, tự điền, người nạp sửa rồi mới lưu đúng 6 cột; Tra cứu CDB nhập riêng; chặn theo BC1/DKKH. Hạ `THU-07` ⚠️→⏳. Số story 63→65. | ✅ v4.30 | ✅ v6.32 §10.7 + decisions §29 | ✅ mock `ui-mock/gplxbosung.html` đã duyệt + SCREENS #37 | 🟡 code + test xong, chưa commit/deploy |
 | 88 | 02/11/2026 | ✏️ Sửa | `KQD-08` | Nạp giờ/km nhận cả mẫu PDF DAT cũ 7 cột và mới 9 cột, tìm cột theo tiêu đề; mẫu lạ báo rõ. | ✅ | ✅ §11D.10 | — | ✅ |
 | 87 | 02/11/2026 | ✏️ Sửa (UX) | `THU-01` | Thông báo đã gửi nêu tên học viên, để làm liên tiếp biết vừa gửi hồ sơ nào. | ✅ | — | — | ✅ `210c5e1` |
 | 86 | 02/11/2026 | ✏️ Sửa (UX) | `THU-01` · `THU-07` | Báo lỗi form dễ sửa trên điện thoại: tự tới ô sai đầu tiên, câu lỗi tự mất; GPLX không đỏ khi chưa nhập; chữ ô nhập 16px dưới 1024px. | ✅ | — | — | ✅ `f8f3fb7` |
@@ -96,6 +98,23 @@
 Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên quan
 
 ---
+
+## #90 — Sửa sau `/reviewtdd` §10.7 · 03/11/2026
+
+- **Mã:** `QLY-10`, `THU-07`. Không thêm mã.
+- **Vì sao:** thiết kế cũ báo nhầm hồ sơ không được bổ sung (hồ sơ nạp trước khi có tính năng, máy tool mới).
+- **Chốt (user 03/11/2026):** nhận diện bằng `audit_log` `bo_sung_gplx`, không dùng mốc thời gian lúc cài. Các điểm còn lại theo biên bản `docs/tdd-review-03-11-2026.md`.
+- **Còn nợ:** như #89.
+
+## #89 — Bổ sung GPLX đã có cho học viên đã nạp · 03/11/2026
+
+- **Mã mới:** `QLY-10` (Tra cứu DB), `TCB-05` (Tra cứu CDB). **Sửa:** `THU-07` (hạ ⚠️→⏳), `NAP-07` (chỉ đổi dòng ngoài phạm vi, giữ ⚠️ vì không có việc code mới). Số story 63→65.
+- **Vì sao:** sau khi nạp, app web khóa, hai màn tra cứu chưa có ô GPLX, đồng bộ lại bỏ qua học viên đã có ở đích. Học viên mô tô có bằng ô tô mà thiếu dữ liệu sẽ không được miễn lý thuyết ở Báo cáo 2.
+- **Chốt (user 03/11/2026):** làm giống bổ sung ảnh (#44); tool cảnh báo hồ sơ nào được bổ sung gì; tự điền để xem trước, sửa xong mới ghi DB Nạp. Ảnh giữ cách tự lọc, không thêm cảnh báo.
+- **Đã sửa:** PRD v4.30 · TDD v6.32 §10.7, §4.3, §4.4, §6 · TDD-decisions §29 · SCREENS #37 · mock `ui-mock/gplxbosung.html`.
+- **Đã code 03/11/2026:** task 155-161. Kiểm: tool 1.048 pytest, 167 vitest, 197+1 Playwright; server 176 pytest; app web 43 vitest + kiểm 3 khổ bằng API giả; SQL mới biên dịch được trên DB Nạp và DB đích, không ghi.
+- **Còn nợ:** commit; đóng gói + deploy (task 162, user duyệt riêng); nghiệm thu máy CSĐT (task 163).
+- **User chốt 03/11/2026:** dòng "Đang chờ người nạp" chỉ hiện ngay sau khi gửi, không thêm API báo ngược từ tool lên VPS, vì VPS không biết người nạp đã duyệt hay chưa nên hiện lâu dài sẽ có lúc báo sai.
 
 ## #88 — Nạp giờ/km nhận cả mẫu PDF DAT cũ và mới · 02/11/2026
 
@@ -1043,7 +1062,9 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 > `/capnhat` đọc mục này ở Bước 0b để biết có thay đổi nào chưa ghi sổ không.
 > So bằng **danh sách mã**, không so bằng thời gian sửa file.
 
-- **Cập nhật:** 02/11/2026 (#88 ✏️ `KQD-08` nhận cả hai mẫu PDF DAT, số story giữ 63)
+- **Cập nhật:** 03/11/2026 (#90 ✏️ sau `/reviewtdd` §10.7, số story giữ 65)
+- **Cập nhật trước:** 03/11/2026 (#89 ➕ `QLY-10`, `TCB-05`; ✏️ `THU-07`, `NAP-07`; số story 63→65)
+- **Cập nhật trước:** 02/11/2026 (#88 ✏️ `KQD-08` nhận cả hai mẫu PDF DAT, số story giữ 63)
 - **Cập nhật trước:** 02/11/2026 (#87 ✏️ thông báo đã gửi nêu tên học viên, số story giữ 63)
 - **Cập nhật trước:** 02/11/2026 (#86 ✏️ báo lỗi form dễ sửa trên điện thoại, số story giữ 63)
 - **Cập nhật trước:** 02/11/2026 (#85 dọn việc treo, số story giữ 63)
@@ -1067,6 +1088,6 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 - **Cập nhật trước:** 04/10/2026 (#34 +story `HTG-07` cấu hình kết nối lên header dùng chung; hạ `SYNC-01`+`SYNC-02` ✅→⏳ làm lại UI (nay đã ✅ lại); sửa bullet `HTG-01`)
 - **Trước nữa:** 04/10/2026 (#33 +Feature "Đồng bộ CDB" 3 story `SYNC-01/02/03` SHOULD, port sync_tool v2.0 + tool chuyển sidebar module)
 - **Trước đó:** 04/10/2026 (#32 bổ sung tiêu chí NAP-01 + QLY-05; ⚠️ #31 có dòng bảng nhưng THIẾU mục chi tiết — cần phiên #31 bổ sung) · 03/10/2026 (gộp 2 phiên song song: #28 QLY-09 + #29 NAP-01/03 + #30 THU-01/05; THU-01 hạ ✅→⏳)
-- **Số story trong PRD:** 63 (gồm **`NAP-07`**, **`THU-07`** #81; gồm **`KQD-10`** #75 + **`KQD-09`** #72 + **`KQD-08`** #69 + **`KQD-07`** #65 + **`PCG-06`** #66 + **`TNB-01..07`** #60 + **`PCG-01..05`** #54 + **`THU-06`** #49 + `KQD-01/02/03/04` #42 + `KQD-05` #45 + `KQD-06` #48; cùng `HTG-01..07` · `THU-01/02/04/05` · `NAP-01..06` · `KHO-01` · `QLY-01/02/03/05/06/07/08/09` · `SYNC-01/02/03` · `TCB-01/02/03/04` · `DGT-01/02/03/04`; chưa tính NICE `QLY-04`, `THU-03`)
-- **Mã story hiện có:** `HTG-01`…`HTG-07`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `THU-06`, `THU-07`, `NAP-01`…`NAP-07`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `SYNC-01`, `SYNC-02`, `SYNC-03`, `TCB-01`, `TCB-02`, `TCB-03`, `TCB-04`, `DGT-01`, `DGT-02`, `DGT-03`, `DGT-04`, `KQD-01`, `KQD-02`, `KQD-03`, `KQD-04`, `KQD-05`, `KQD-06`, `KQD-07`, `KQD-08`, `KQD-09`, `KQD-10`, `PCG-01`…`PCG-06` (NICE: `QLY-04`, `THU-03`), `TNB-01`…`TNB-07`
+- **Số story trong PRD:** 65 (gồm **`QLY-10`**, **`TCB-05`** #89; gồm **`NAP-07`**, **`THU-07`** #81; gồm **`KQD-10`** #75 + **`KQD-09`** #72 + **`KQD-08`** #69 + **`KQD-07`** #65 + **`PCG-06`** #66 + **`TNB-01..07`** #60 + **`PCG-01..05`** #54 + **`THU-06`** #49 + `KQD-01/02/03/04` #42 + `KQD-05` #45 + `KQD-06` #48; cùng `HTG-01..07` · `THU-01/02/04/05` · `NAP-01..06` · `KHO-01` · `QLY-01/02/03/05/06/07/08/09` · `SYNC-01/02/03` · `TCB-01/02/03/04` · `DGT-01/02/03/04`; chưa tính NICE `QLY-04`, `THU-03`)
+- **Mã story hiện có:** `HTG-01`…`HTG-07`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `THU-06`, `THU-07`, `NAP-01`…`NAP-07`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `QLY-10`, `SYNC-01`, `SYNC-02`, `SYNC-03`, `TCB-01`, `TCB-02`, `TCB-03`, `TCB-04`, `TCB-05`, `DGT-01`, `DGT-02`, `DGT-03`, `DGT-04`, `KQD-01`, `KQD-02`, `KQD-03`, `KQD-04`, `KQD-05`, `KQD-06`, `KQD-07`, `KQD-08`, `KQD-09`, `KQD-10`, `PCG-01`…`PCG-06` (NICE: `QLY-04`, `THU-03`), `TNB-01`…`TNB-07`
 - **Mã đã nghỉ hưu:** (chưa có)

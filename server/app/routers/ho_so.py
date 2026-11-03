@@ -126,6 +126,14 @@ class HoSoSua(BaseModel):
         return v
 
 
+class GplxBoSungIn(BaseModel):
+    """Bổ sung sau khi đã nạp: phải có ít nhất 1 bằng; muốn xóa GPLX trong DB thì làm ở tool (TDD §10.7)."""
+    model_config = ConfigDict(hide_input_in_errors=True)
+    gplx_da_co: list[GplxBang] = Field(min_length=1)
+
+    _gplx = field_validator("gplx_da_co")(_kiem_gplx)
+
+
 class HoSoOut(BaseModel):
     uuid: UUID
     trang_thai: str
@@ -271,6 +279,25 @@ def sua_ho_so(uuid: UUID, body: HoSoSua, user: User = Depends(require_role("coll
     db.commit()
     db.refresh(hs)
     return HoSoOut.tu_model(hs)
+
+
+@router.put("/{uuid}/gplx", response_model=HoSoOut)
+def bo_sung_gplx(uuid: UUID, body: GplxBoSungIn, user: User = Depends(require_role("collector")), db: Session = Depends(get_db)):
+    """Bổ sung GPLX đã có cho hồ sơ ĐÃ NẠP của mình (THU-07, TDD §10.7): chỉ ghi `gplx_da_co` + `updated_at`, người nạp
+    duyệt mới vào DB. UPDATE nguyên tử để không đua với gỡ về chờ nạp; `pending` dùng PUT /{uuid}. Dòng audit
+    `bo_sung_gplx` là dấu hiệu tool phân biệt bổ sung thật với GPLX có từ trước khi nạp; không ghi giá trị vào audit."""
+    rowcount = db.execute(
+        update(HoSoThuThap)
+        .where(HoSoThuThap.uuid == uuid, HoSoThuThap.created_by == user.id, HoSoThuThap.trang_thai == "imported")
+        .values(gplx_da_co=[b.model_dump() for b in body.gplx_da_co], updated_at=datetime.now(timezone.utc))
+    ).rowcount
+    if rowcount == 0:
+        db.rollback()
+        _cua_minh(uuid, user, db)  # không phải của mình → 404
+        raise HTTPException(status.HTTP_409_CONFLICT, "Chỉ bổ sung được cho hồ sơ đã nạp")
+    db.add(AuditLog(actor_id=user.id, hanh_dong="bo_sung_gplx", uuid_hs=uuid))
+    db.commit()
+    return HoSoOut.tu_model(_cua_minh(uuid, user, db))
 
 
 @router.delete("/{uuid}", status_code=status.HTTP_204_NO_CONTENT)

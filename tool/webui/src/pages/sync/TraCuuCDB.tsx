@@ -4,6 +4,7 @@ import { Icon } from "../../components/Icon";
 import AnhAvatar from "../../components/AnhAvatar";
 import AnhModal from "../../components/AnhModal";
 import { PhanTrang } from "../../components/PhanTrang";
+import { GplxBoSungDialog } from "../tool/GplxBoSungDialog";
 import { ComboLoc } from "../../components/ComboLoc";
 import { ODate } from "../../components/ODate";
 import { useConfigDrawer } from "../../lib/configDrawer";
@@ -18,6 +19,9 @@ import {
   napAnhCDB,
   chiTietSuaCDB,
   suaHoSoCDB,
+  gplxHoSoCDB,
+  luuGplxHoSoCDB,
+  noiCapGplxCDB,
   getTinhCDB,
   getXaCDB,
   getSoGtvtCDB,
@@ -115,6 +119,7 @@ export default function TraCuuCDB() {
   const [suaErr, setSuaErr] = useState("");
 
   // TCB-04 — đổi khóa (cùng hạng, chưa BC1) + xóa (chặn MaBC1).
+  const [gplxMo, setGplxMo] = useState<HoSoRowCDB | null>(null); // TCB-05
   const [doiMo, setDoiMo] = useState(false);
   const [khoaDich, setKhoaDich] = useState<KhoaDich[] | null>(null);
   const [maKhDich, setMaKhDich] = useState("");
@@ -705,6 +710,23 @@ export default function TraCuuCDB() {
                 <Icon name={loadingCt ? "refresh" : "edit"} className={"w-4 h-4" + (loadingCt ? " animate-spin" : "")} /> Sửa nhân thân
               </button>
 
+              {/* TCB-05 — khóa đã DKKH/BC1: nút khóa, ghi rõ lý do; backend kiểm lại lúc lưu. */}
+              <button
+                type="button"
+                onClick={() => setGplxMo(sel)}
+                disabled={!!khoa?.dkkh || !!khoa?.bc1}
+                title={khoa?.dkkh || khoa?.bc1 ? `Khóa đã ${khoa?.dkkh ? "kết xuất DKKH" : "lập Báo cáo 1"} — không lưu được ở đây. Cần sửa thì dùng phần mềm CDB.` : undefined}
+                className="mt-2 w-full h-9 rounded-lg border border-border text-[13px] font-medium inline-flex items-center justify-center gap-1.5 hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Icon name="edit" className="w-4 h-4" /> GPLX đã có
+              </button>
+              {(khoa?.dkkh || khoa?.bc1) && (
+                <p className="mt-1.5 text-[12px] text-warning flex items-start gap-1">
+                  <Icon name="warn" className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  Khóa đã {khoa?.dkkh ? "kết xuất DKKH" : "lập Báo cáo 1"}: GPLX đã có không lưu được ở đây, cần sửa thì dùng phần mềm CDB.
+                </p>
+              )}
+
               {/* TCB-04 — đổi khóa / xóa: khóa đã kết xuất DKKH (gửi Sở) hoặc đã BC1 → KHÔNG cho (backend chặn 409) */}
               <div className="mt-2 flex gap-2">
                 <button
@@ -877,6 +899,17 @@ export default function TraCuuCDB() {
           anhGoc={anhSeed}
           onDong={() => { setAnhModal(false); setAnhSeed(null); }}
           onXong={(b64) => void thayAnh(b64)}
+        />
+      )}
+      {gplxMo && (
+        <GplxBoSungDialog
+          tenHv={gplxMo.ho_ten}
+          nhanDb="DB đích"
+          tai={() => gplxHoSoCDB(gplxMo.ma_dk, targetKey ?? undefined)}
+          luu={(ds, tho) => luuGplxHoSoCDB(gplxMo.ma_dk, ds, tho, targetKey ?? undefined)}
+          taiNoiCap={() => noiCapGplxCDB(targetKey ?? undefined)}
+          onDong={() => setGplxMo(null)}
+          onDaLuu={() => { setGplxMo(null); setOkMsg("Đã lưu GPLX đã có vào DB đích."); }}
         />
       )}
     </div>
