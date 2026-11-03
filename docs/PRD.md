@@ -381,7 +381,7 @@
 
 #### [THU-07] Nhập GPLX đã có ở app web
 
-**Trạng thái:** ⚠️ Partial — bổ sung sau khi đã nạp đã code + test 03/11/2026 (CHANGES #89, #90), chưa commit, chưa deploy; chưa thử thật trên điện thoại. Phần trước khi nạp giữ nguyên: đã deploy 02/11/2026 và thử nối API thật về tool khớp (CHANGES #81-#84); CHANGES #86 đã deploy `f8f3fb7`; chưa bấm thật trên điện thoại rồi gửi kèm ảnh.
+**Trạng thái:** ⚠️ Partial — bổ sung sau khi đã nạp đã code + test 03/11/2026 (CHANGES #89, #90), đã deploy 03/11/2026 commit 12d6b21; chưa thử thật trên điện thoại. Phần trước khi nạp giữ nguyên: đã deploy 02/11/2026 và thử nối API thật về tool khớp (CHANGES #81-#84); CHANGES #86 đã deploy `f8f3fb7`; chưa bấm thật trên điện thoại rồi gửi kèm ảnh.
 **Story:** Là nhân viên thu nhận, tôi muốn ghi GPLX học viên đang có lúc gặp trực tiếp, để nhân viên nạp không phải hỏi lại.
 
 **Done khi:**
@@ -636,7 +636,7 @@
 
 #### [QLY-10] Bổ sung GPLX đã có cho học viên đã nạp (Tra cứu DB)
 
-**Trạng thái:** ⚠️ Partial — code + test xong 03/11/2026 (CHANGES #89, #90), chưa commit, chưa deploy; còn nghiệm thu ghi thật ở máy CSĐT (task 163).
+**Trạng thái:** ⚠️ Partial — code + test xong 03/11/2026 (CHANGES #89, #90), đã deploy 03/11/2026 commit 12d6b21; còn nghiệm thu ghi thật ở máy CSĐT (task 163).
 **Story:** Là nhân viên nạp DB, tôi muốn biết hồ sơ nào vừa được bổ sung GPLX từ app web, xem trước và sửa được rồi mới lưu, để học viên đã nạp vẫn được ghi nhận GPLX đã có mà không nhập nhầm vào DB.
 
 **Steps to Complete:**
@@ -884,7 +884,7 @@
 
 #### [TCB-05] Bổ sung GPLX đã có ở CDB đích
 
-**Trạng thái:** ⚠️ Partial — code + test xong 03/11/2026 (CHANGES #89, #90), chưa commit, chưa deploy; còn nghiệm thu ghi thật ở máy CSĐT (task 163, mở đúng khóa thật ở DB đích).
+**Trạng thái:** ⚠️ Partial — code + test xong 03/11/2026 (CHANGES #89, #90), đã deploy 03/11/2026 commit 12d6b21; còn nghiệm thu ghi thật ở máy CSĐT (task 163, mở đúng khóa thật ở DB đích).
 **Story:** Là nhân viên nạp DB, tôi muốn bổ sung GPLX đã có cho học viên đã đồng bộ, vì đồng bộ lại sẽ bỏ qua học viên đã có ở đích.
 
 **Done khi:**

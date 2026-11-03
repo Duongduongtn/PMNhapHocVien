@@ -5,7 +5,7 @@
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
 | 90 | 03/11/2026 | ✏️ Sửa (sau `/reviewtdd`) | `QLY-10` · `THU-07` | **`/reviewtdd` §10.7 (1 Chặn, 8 Nên sửa, 4 Ghi nhận):** nhận diện bổ sung bằng `audit_log` để không báo nhầm (user chốt); `THU-07` phải có ít nhất một bằng. Số story giữ 65. | ✅ v4.31 | ✅ v6.33 | — | 🟡 như #89 |
-| 89 | 03/11/2026 | ➕ Thêm + ✏️ Sửa | `QLY-10` · `TCB-05` · `THU-07` · `NAP-07` | **Bổ sung GPLX đã có cho học viên đã nạp:** app web gửi lên VPS, tool cảnh báo, tự điền, người nạp sửa rồi mới lưu đúng 6 cột; Tra cứu CDB nhập riêng; chặn theo BC1/DKKH. Hạ `THU-07` ⚠️→⏳. Số story 63→65. | ✅ v4.30 | ✅ v6.32 §10.7 + decisions §29 | ✅ mock `ui-mock/gplxbosung.html` đã duyệt + SCREENS #37 | 🟡 code + test xong, chưa commit/deploy |
+| 89 | 03/11/2026 | ➕ Thêm + ✏️ Sửa | `QLY-10` · `TCB-05` · `THU-07` · `NAP-07` | **Bổ sung GPLX đã có cho học viên đã nạp:** app web gửi lên VPS, tool cảnh báo, tự điền, người nạp sửa rồi mới lưu đúng 6 cột; Tra cứu CDB nhập riêng; chặn theo BC1/DKKH. Hạ `THU-07` ⚠️→⏳. Số story 63→65. | ✅ v4.30 | ✅ v6.32 §10.7 + decisions §29 | ✅ mock `ui-mock/gplxbosung.html` đã duyệt + SCREENS #37 | 🟡 đã deploy `12d6b21`, chờ nghiệm thu máy CSĐT |
 | 88 | 02/11/2026 | ✏️ Sửa | `KQD-08` | Nạp giờ/km nhận cả mẫu PDF DAT cũ 7 cột và mới 9 cột, tìm cột theo tiêu đề; mẫu lạ báo rõ. | ✅ | ✅ §11D.10 | — | ✅ |
 | 87 | 02/11/2026 | ✏️ Sửa (UX) | `THU-01` | Thông báo đã gửi nêu tên học viên, để làm liên tiếp biết vừa gửi hồ sơ nào. | ✅ | — | — | ✅ `210c5e1` |
 | 86 | 02/11/2026 | ✏️ Sửa (UX) | `THU-01` · `THU-07` | Báo lỗi form dễ sửa trên điện thoại: tự tới ô sai đầu tiên, câu lỗi tự mất; GPLX không đỏ khi chưa nhập; chữ ô nhập 16px dưới 1024px. | ✅ | — | — | ✅ `f8f3fb7` |
@@ -113,7 +113,8 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 - **Chốt (user 03/11/2026):** làm giống bổ sung ảnh (#44); tool cảnh báo hồ sơ nào được bổ sung gì; tự điền để xem trước, sửa xong mới ghi DB Nạp. Ảnh giữ cách tự lọc, không thêm cảnh báo.
 - **Đã sửa:** PRD v4.30 · TDD v6.32 §10.7, §4.3, §4.4, §6 · TDD-decisions §29 · SCREENS #37 · mock `ui-mock/gplxbosung.html`.
 - **Đã code 03/11/2026:** task 155-161. Kiểm: tool 1.048 pytest, 167 vitest, 197+1 Playwright; server 176 pytest; app web 43 vitest + kiểm 3 khổ bằng API giả; SQL mới biên dịch được trên DB Nạp và DB đích, không ghi.
-- **Còn nợ:** commit; đóng gói + deploy (task 162, user duyệt riêng); nghiệm thu máy CSĐT (task 163).
+- **Đã deploy 03/11/2026:** commit `12d6b21`, exe đóng gói 09:11 cùng ngày.
+- **Còn nợ:** nghiệm thu máy CSĐT (task 163).
 - **User chốt 03/11/2026:** dòng "Đang chờ người nạp" chỉ hiện ngay sau khi gửi, không thêm API báo ngược từ tool lên VPS, vì VPS không biết người nạp đã duyệt hay chưa nên hiện lâu dài sẽ có lúc báo sai.
 
 ## #88 — Nạp giờ/km nhận cả mẫu PDF DAT cũ và mới · 02/11/2026

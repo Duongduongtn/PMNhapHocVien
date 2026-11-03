@@ -586,7 +586,7 @@
 | 159 | **App web:** nút Bổ sung GPLX, dòng chờ. | `THU-07 (4/4)` | S | 158 | 1 | [x] |
 | 160 | **Tool:** so bản VPS với DB, bảng dấu vân, Bỏ qua. | `QLY-10 (3/4)` | M | 155, 158 | 1+2 | [x] |
 | 161 | **Tool:** dòng cảnh báo, danh sách, chip, lọc, tự điền. | `QLY-10 (4/4)` | M | 156, 160 | 1+3 | [x] |
-| 162 | **Đóng gói exe + deploy VPS,** chỉ khi user duyệt riêng. Chạy một mình. | — | S | 157, 159, 161 | 1 | [ ] |
+| 162 | **Đóng gói exe + deploy VPS,** chỉ khi user duyệt riêng. Chạy một mình. | — | S | 157, 159, 161 | 1 | [x] |
 | 163 | **Nghiệm thu máy CSĐT.** | — | S | 162 | 1 | [ ] |
 
 ### ✅ Checkpoint 39 — sau task 155-157 (nhập tay)
