@@ -1235,34 +1235,36 @@ function Preview({
         </div>
       )}
 
-      {/* Desktop: 2 nút tách hai bên (primary phải, phụ trái) tránh bấm nhầm (CHANGES #14).
-          Mobile: nút chính dính đáy (BUG-15), nút phụ nằm cuối form. Hai lớp `contents` để form là cha của
-          thanh dính, nếu không thanh chỉ dính trong khối nút nhỏ này. `-bottom-4` bù đệm p-4 của vùng cuộn,
-          nếu không chữ form lọt qua khe dưới thanh. */}
+      {/* Hai nút ở thanh dính đáy (mobile) / hai bên (desktop). "Lưu & nhập hồ sơ tiếp" là nút CHÍNH (nổi bật, bên phải ở
+          desktop, trên cùng ở mobile): đa số hồ sơ gửi nhanh không ảnh để nhập liên tiếp (CHANGES #95). "Tiếp tục — chụp ảnh
+          chân dung" là nút phụ nhưng vẫn là nút gửi mặc định của form: phím Enter vẫn đi chụp ảnh, nên Lưu để type="button".
+          Desktop dùng flex-row-reverse để Lưu nằm bên phải mà vẫn đứng trước trong thứ tự Tab (CHANGES #14: chính phải, phụ trái).
+          Thanh dính: hai lớp `contents` để form là cha của thanh, nếu không thanh chỉ dính trong khối nhỏ này; `-bottom-4`
+          bù đệm p-4 của vùng cuộn, nếu không chữ form lọt qua khe dưới thanh. */}
+      <p className="lg:hidden text-[12px] text-muted-foreground text-center mt-3">
+        Gửi ngay không kèm ảnh — bổ sung ảnh sau ở "Hồ sơ đã gửi".
+      </p>
       <div className="contents lg:block lg:pt-1">
-        <div className="contents lg:flex lg:items-center lg:justify-between lg:gap-4">
-          <button
-            type="button"
-            onClick={giuVaTiep}
-            disabled={dangGui}
-            className="mt-3 lg:mt-0 w-full lg:w-auto px-5 h-11 rounded-lg border border-border bg-card text-foreground font-semibold text-sm flex items-center justify-center gap-2 whitespace-nowrap hover:bg-muted transition-colors disabled:opacity-60"
-          >
-            <Icon name="send" className="w-4 h-4" /> Lưu & nhập hồ sơ tiếp
-          </button>
-          <p className="lg:hidden text-[12px] text-muted-foreground text-center mt-2">
-            Gửi ngay không kèm ảnh — bổ sung ảnh sau ở "Hồ sơ đã gửi".
-          </p>
-          <div className="sticky -bottom-4 z-10 -mx-4 -mb-4 mt-2 border-t border-border bg-background px-4 py-2 lg:static lg:z-auto lg:m-0 lg:border-0 lg:bg-transparent lg:p-0">
-            {/* Con trỏ đã nhảy tới ô sai ở xa, nên câu lỗi phải nằm trong thanh luôn nhìn thấy (CHANGES #86). */}
-            {loi && !isDesktop && (
-              <div className="mb-2 flex items-start gap-2 text-[12px] text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2">
-                <Icon name="warn" className="w-4 h-4 shrink-0 mt-0.5" /> {loi}
-              </div>
-            )}
+        <div className="sticky -bottom-4 z-10 -mx-4 -mb-4 mt-2 border-t border-border bg-background px-4 py-2 lg:static lg:z-auto lg:m-0 lg:border-0 lg:bg-transparent lg:p-0">
+          {/* Con trỏ đã nhảy tới ô sai ở xa, nên câu lỗi phải nằm trong thanh luôn nhìn thấy (CHANGES #86). */}
+          {loi && !isDesktop && (
+            <div className="mb-2 flex items-start gap-2 text-[12px] text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2">
+              <Icon name="warn" className="w-4 h-4 shrink-0 mt-0.5" /> {loi}
+            </div>
+          )}
+          <div className="flex flex-col gap-2 lg:flex-row-reverse lg:items-center lg:justify-between lg:gap-4">
+            <button
+              type="button"
+              onClick={giuVaTiep}
+              disabled={dangGui}
+              className="w-full lg:w-auto px-6 h-12 lg:h-11 rounded-xl bg-marca font-bold text-[15px] lg:text-sm flex items-center justify-center gap-2 whitespace-nowrap shadow-pop hover:brightness-110 disabled:opacity-60 disabled:shadow-none"
+            >
+              <Icon name="send" className="w-4 h-4" /> Lưu & nhập hồ sơ tiếp
+            </button>
             <button
               type="submit"
               disabled={dangGui}
-              className="w-full lg:w-auto px-5 h-11 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 whitespace-nowrap hover:brightness-110 transition shadow-sm disabled:opacity-60"
+              className="w-full lg:w-auto px-5 h-10 lg:h-11 rounded-lg border border-border bg-card text-foreground font-semibold text-sm flex items-center justify-center gap-2 whitespace-nowrap hover:bg-muted transition-colors disabled:opacity-60"
             >
               <Icon name="camera" className="w-4 h-4" /> Tiếp tục — chụp ảnh chân dung
             </button>
