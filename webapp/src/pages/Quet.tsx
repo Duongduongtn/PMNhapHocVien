@@ -983,6 +983,15 @@ function Preview({
       giuVaTiep();
       return;
     }
+    // Máy tính: Enter trong ô nhập = "Lưu & nhập hồ sơ tiếp" (CHANGES #97) để gõ xong là sang hồ sơ kế, không với tay tới nút.
+    // Bỏ qua khi ô con đã tự xử Enter (chọn gợi ý địa chỉ, chọn hạng GPLX: họ đã preventDefault) hoặc đang bấm nút/liên kết.
+    // Điện thoại giữ nguyên: Enter của bàn phím ảo vẫn là chụp ảnh (nút "Tiếp tục" là nút gửi mặc định của form).
+    if (e.key === "Enter" && isDesktop && !e.defaultPrevented && !e.shiftKey && !e.altKey
+        && e.target instanceof HTMLInputElement && e.target.type !== "checkbox" && e.target.type !== "radio") {
+      e.preventDefault();
+      giuVaTiep();
+      return;
+    }
     if (e.key !== "ArrowUp" && e.key !== "ArrowDown" && e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
     const el = e.target as HTMLElement;
     const lui = e.key === "ArrowUp" || e.key === "ArrowLeft";
@@ -1244,7 +1253,7 @@ function Preview({
 
       {/* Hai nút ở thanh dính đáy (mobile) / hai bên (desktop). "Lưu & nhập hồ sơ tiếp" là nút CHÍNH (nổi bật, bên phải ở
           desktop, trên cùng ở mobile): đa số hồ sơ gửi nhanh không ảnh để nhập liên tiếp (CHANGES #95). "Tiếp tục — chụp ảnh
-          chân dung" là nút phụ nhưng vẫn là nút gửi mặc định của form: phím Enter vẫn đi chụp ảnh, nên Lưu để type="button".
+          chân dung" là nút phụ nhưng vẫn là nút gửi mặc định của form (Enter của bàn phím ảo trên điện thoại vẫn đi chụp ảnh; trên máy tính Enter đã được bắt riêng ở dieuHuongPhim), nên Lưu để type="button".
           Desktop dùng flex-row-reverse để Lưu nằm bên phải mà vẫn đứng trước trong thứ tự Tab (CHANGES #14: chính phải, phụ trái).
           Thanh dính: hai lớp `contents` để form là cha của thanh, nếu không thanh chỉ dính trong khối nhỏ này; `-bottom-4`
           bù đệm p-4 của vùng cuộn, nếu không chữ form lọt qua khe dưới thanh. */}
@@ -1278,7 +1287,7 @@ function Preview({
           </div>
         </div>
         <p className="hidden lg:block text-[12px] text-muted-foreground mt-2 text-right">
-          Gửi ngay không kèm ảnh — bổ sung ảnh sau ở "Hồ sơ đã gửi". · Enter: chụp ảnh · Ctrl+Enter: lưu &amp; nhập tiếp
+          Gửi ngay không kèm ảnh — bổ sung ảnh sau ở "Hồ sơ đã gửi". · Enter: lưu &amp; nhập tiếp · chụp ảnh: bấm nút bên trái
         </p>
       </div>
     </form>
