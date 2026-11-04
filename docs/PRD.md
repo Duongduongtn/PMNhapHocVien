@@ -777,6 +777,21 @@
 
 > Nguồn: user 04/10/2026 (CHANGES #34) · gộp HTG-01 ③ + SYNC-02 · dựng UI bằng `impeccable` + `ui-ux-pro-max`
 
+#### [HTG-08] Chế độ sáng/tối ở app web
+
+**Trạng thái:** ⚠️ Partial — code + test xong 04/11/2026 (CHANGES #94); **còn** thử trên điện thoại thật (iPhone và Android, bật/tắt chế độ tối của máy) rồi nghiệm thu.
+**Story:** Là nhân viên thu nhận, tôi muốn app web có chế độ tối, để dùng ở nơi thiếu sáng hoặc buổi tối đỡ chói mắt và đỡ tốn pin.
+
+**Done khi:**
+- ⬜ Lần đầu mở app theo cài đặt sáng/tối của điện thoại (user chốt phương án A, 04/11/2026).
+- ⬜ Có nút mặt trời/mặt trăng ở thanh trên (điện thoại), ở chân thanh bên (máy tính) và ở góc màn đăng nhập; bấm đổi ngay sang chế độ còn lại, lựa chọn nhớ trên từng máy và thắng cài đặt của máy cho tới khi xóa dữ liệu trình duyệt.
+- ⬜ Mọi màn app web đọc rõ ở chế độ tối: chữ thường ≥ 4,5:1 so với nền, nhãn trạng thái (Chờ nạp, Đã nạp, Thiếu ảnh), ô nhập, popup, danh sách, thanh dưới.
+- ⬜ Không nháy sáng rồi mới tối khi mở app ở chế độ tối; màu thanh trình duyệt đổi theo.
+- ⬜ Khung camera quét QR và ảnh chụp học viên giữ nguyên màu, không bị đảo.
+- ❌ Không đồng bộ lựa chọn qua tài khoản; không áp cho tool máy tính.
+
+> Nguồn: user 04/11/2026 (CHANGES #94) · TDD §6.9.
+
 ---
 
 ### 🟣 Đồng bộ CDB (workspace riêng — tool máy CSDT)
@@ -1640,6 +1655,7 @@
 | 02/11/2026 | v4.27 — `THU-01`, `THU-07` báo lỗi form dễ sửa trên điện thoại, chữ ô nhập 16px (CHANGES #86, sau critique giao diện). | BA/PM |
 | 02/11/2026 | v4.28 — `THU-01` thông báo đã gửi nêu tên học viên (CHANGES #87). | BA/PM |
 | 02/11/2026 | v4.29 — `KQD-08` nhận cả mẫu PDF DAT cũ và mới (CHANGES #88). | BA/PM |
+| 04/11/2026 | v4.34 — **+`HTG-08`** chế độ sáng/tối ở app web, theo cài đặt máy và có nút ghi đè (CHANGES #94). Số story 66→67. | BA/PM |
 | 04/11/2026 | v4.33 — **+`NAP-08`** báo hồ sơ chưa nạp vừa được app web cập nhật (thông tin, ảnh, GPLX), cảnh báo đậm khi nháp giữ ảnh cũ (CHANGES #92). Số story 65→66. | BA/PM |
 | 03/11/2026 | v4.32 — Popup sửa hồ sơ đã gửi rộng hơn trên máy tính, ô xếp nhiều cột để đỡ cuộn (CHANGES #91, không đổi yêu cầu nghiệp vụ). | BA/PM |
 | 03/11/2026 | v4.31 — `THU-07`: bổ sung sau nạp phải có ít nhất một bằng; dòng chờ chỉ hiện ngay sau khi gửi (CHANGES #90). | BA/PM |

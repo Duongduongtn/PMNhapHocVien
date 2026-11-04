@@ -7,7 +7,62 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color-scheme: light; }
+:root {
+  color-scheme: light;
+  /* Bộ màu (kênh HSL). Tailwind đọc qua tailwind.config.js; thêm chế độ tối = thêm bộ biến khác ở đây. */
+  --page: 210 40% 96%;
+  --background: 210 40% 98%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --primary: 222 76% 40%;
+  --primary-deep: 226 72% 27%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 40% 96%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215 16% 47%;
+  --accent: 224 76% 94%;
+  --destructive: 0 72% 51%;
+  --success: 142 71% 38%;
+  --warning: 32 90% 42%;
+  --border: 214 32% 91%;
+  --input-border: 214 24% 82%;
+  --label: 215 16% 38%;
+  --placeholder: 215 14% 44%;
+  --scroll: 214 20% 80%;
+  --ring: 222 76% 40%;
+  --marca-1: 222 76% 40%;
+  --marca-2: 226 72% 27%;
+}
+
+/* Chế độ tối (HTG-08, TDD §6.9): đổi bộ biến, mọi màn đọc màu qua biến nên đổi theo. Tương phản đã đo ≥ 4,5:1. */
+html.dark {
+  color-scheme: dark;
+  --page: 222 32% 6%;
+  --background: 222 28% 9%;
+  --foreground: 210 40% 96%;
+  --card: 222 26% 13%;
+  --primary: 217 91% 66%;
+  --primary-deep: 222 76% 46%;
+  --primary-foreground: 222 47% 8%;
+  --secondary: 222 22% 17%;
+  --muted: 222 22% 17%;
+  --muted-foreground: 215 18% 70%;
+  --accent: 222 40% 22%;
+  --destructive: 0 84% 66%;
+  --success: 142 62% 52%;
+  --warning: 38 95% 58%;
+  --border: 222 20% 22%;
+  --input-border: 222 18% 30%;
+  --label: 215 20% 78%;
+  --placeholder: 215 14% 62%;
+  --scroll: 222 16% 30%;
+  --ring: 217 91% 66%;
+  --marca-1: 222 76% 46%;
+  --marca-2: 226 72% 30%;
+}
+/* Nút đỏ/xanh đặc có chữ trắng: nền đậm hơn ở chế độ tối để chữ đạt tương phản (màu chữ dùng bản sáng hơn). */
+html.dark .bg-destructive { background-color: hsl(0 72% 46%); }
+html.dark .bg-success { background-color: hsl(142 64% 30%); }
 [hidden] { display: none !important; }
 
 /* A11y bàn phím + trạng thái vô hiệu (Hallmark gate 15/26/39) — gom một chỗ cho mọi màn:
@@ -18,7 +73,7 @@
   button:focus-visible,
   [role="button"]:focus-visible,
   [tabindex]:not([tabindex="-1"]):focus-visible {
-    outline: 2px solid hsl(222 76% 40%);
+    outline: 2px solid hsl(var(--ring));
     outline-offset: 2px;
   }
   button:disabled,
@@ -29,27 +84,54 @@
 
 body {
   margin: 0;
-  background: hsl(210 40% 96%);
-  color: hsl(222 47% 11%);
+  background: hsl(var(--page));
+  color: hsl(var(--foreground));
   font-family: "Be Vietnam Pro", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Phần trình duyệt tự vẽ cũng mang màu của app: bôi chọn, con trỏ gõ, đánh dấu ô tích, thanh cuộn. */
+::selection { background: hsl(var(--primary) / .2); }
+input, textarea { caret-color: hsl(var(--primary)); }
+input[type="checkbox"], input[type="radio"] { accent-color: hsl(var(--primary)); }
+::placeholder { color: hsl(var(--placeholder)); opacity: 1; }
+
+/* Nền thương hiệu: xanh chủ đạo chuyển sang xanh đậm. Viết tay thay vì from-/to- của Tailwind, vì màu lấy từ biến CSS bị nhạt dần về trong suốt. */
+.bg-marca { background-image: linear-gradient(135deg, hsl(var(--marca-1)), hsl(var(--marca-2))); color: #fff; }
+
+/* Chạm vào nút thì nút lún nhẹ: có phản hồi ngay dưới ngón tay. */
+@layer base {
+  button:not(:disabled), label[class*="cursor-pointer"] { transition-property: transform, background-color, border-color, color, box-shadow, filter; }
+  button:not(:disabled):active { transform: scale(.985); }
+}
+
+/* Vào màn: các khối hiện lần lượt, chỉ chạy một lần; tắt hẳn khi máy bật "giảm chuyển động". */
+.rise { animation: rise .45s cubic-bezier(.16,1,.3,1) both; }
+.rise-1 { animation-delay: 60ms; }
+.rise-2 { animation-delay: 120ms; }
+.rise-3 { animation-delay: 180ms; }
+.rise-4 { animation-delay: 240ms; }
+@media (prefers-reduced-motion: reduce) {
+  .rise, .animate-quet-chay, .animate-rise { animation: none !important; }
+  button:not(:disabled):active { transform: none; }
 }
 
 /* Trong @layer components để tiện ích Tailwind (pl-8/pl-9 chừa chỗ icon tìm kiếm)
    thắng được padding của .field-input — nếu để ngoài layer, CSS thường đè pl-* →
    kính lúp chồng lên chữ hint (UI-5, CHANGES #18). */
 @layer components {
-  .field-label { font-size: 12px; font-weight: 600; color: hsl(215 16% 40%); }
+  .field-label { font-size: 12px; font-weight: 600; color: hsl(var(--label)); }
   .field-input {
     width: 100%; font-size: 14px; padding: 7px 10px; border-radius: 8px;
-    border: 1px solid hsl(214 32% 88%); background: #fff; color: hsl(222 47% 11%);
+    border: 1px solid hsl(var(--input-border)); background: hsl(var(--card)); color: hsl(var(--foreground));
     transition: border-color .15s, box-shadow .15s;
   }
   /* iPhone tự phóng to trang khi chạm ô có chữ dưới 16px (THU-01, CHANGES #86). */
   @media (max-width: 1023.98px) { .field-input { font-size: 16px; } }
-  .field-input:focus { outline: none; border-color: hsl(222 76% 40%); box-shadow: 0 0 0 3px hsl(222 76% 40% / .15); }
-  .field-input[readonly] { background: hsl(210 40% 97%); color: hsl(215 16% 35%); }
+  .field-input:hover:not(:focus):not([readonly]) { border-color: hsl(var(--primary) / .5); }
+  .field-input:focus { outline: none; border-color: hsl(var(--primary)); box-shadow: 0 0 0 3px hsl(var(--primary) / .22); }
+  .field-input[readonly] { background: hsl(var(--muted)); color: hsl(var(--muted-foreground)); }
 }
 
 ::-webkit-scrollbar { height: 10px; width: 10px; }
-::-webkit-scrollbar-thumb { background: hsl(214 20% 80%); border-radius: 8px; }
+::-webkit-scrollbar-thumb { background: hsl(var(--scroll)); border-radius: 8px; }

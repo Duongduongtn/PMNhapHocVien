@@ -5,6 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#1f4ea3" />
     <title>Thu nhận hồ sơ học viên</title>
+    <!-- HTG-08: đặt chế độ tối trước khi trang vẽ để không nháy sáng rồi mới tối (lôgic đầy đủ ở src/lib/theme.ts) -->
+    <script>
+      try {
+        var luu = localStorage.getItem("giao_dien");
+        var toi = luu ? luu === "toi" : matchMedia("(prefers-color-scheme: dark)").matches;
+        if (toi) {
+          document.documentElement.classList.add("dark");
+          document.querySelector('meta[name="theme-color"]').setAttribute("content", "#1c51ce");
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

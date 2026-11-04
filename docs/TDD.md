@@ -563,6 +563,16 @@ Mười cải tiến nhập liệu nhanh + rõ trạng thái, áp cho form dùng
 
 ---
 
+### 6.9 Chế độ sáng/tối ở app web (HTG-08 — CHANGES #94)
+> *Vì sao dùng biến CSS thay vì lớp `dark:` của Tailwind: app đã đọc màu qua token (`bg-card`, `text-muted-foreground`…), đổi bộ biến một chỗ là mọi màn đổi theo, không phải thêm `dark:` vào hàng trăm chỗ.*
+
+- Màu khai báo là biến CSS (kênh HSL) ở `webapp/src/index.css`: bộ sáng ở `:root`, bộ tối ở `html.dark`; `tailwind.config.js` đọc `hsl(var(--tên) / <alpha-value>)`. Thêm biến riêng: `--input-border`, `--label`, `--placeholder`, `--scroll`, `--ring`, `--marca-1/2` (nền thương hiệu: xanh luôn đủ đậm để chữ trắng đọc được ở cả hai chế độ).
+- `webapp/src/lib/theme.ts`: chế độ hiện tại = lựa chọn đã lưu (`localStorage` khóa `giao_dien`, `sang`|`toi`) nếu có, không thì theo `prefers-color-scheme`. Chưa có lựa chọn thì nghe thay đổi của máy; bấm nút thì lưu chế độ đối diện. Áp bằng lớp `dark` trên `<html>`, `color-scheme`, và `meta theme-color`. Không đọc được `localStorage` (chế độ riêng tư): vẫn chạy, chỉ không nhớ.
+- Đoạn script nhỏ trong `<head>` của `index.html` đặt lớp `dark` trước khi trang vẽ để không nháy sáng.
+- Nút `NutGiaoDien` (`components/NutGiaoDien.tsx`) ở `AppLayout` (thanh trên, chân thanh bên) và `DangNhap`; có nhãn đọc cho trình đọc màn hình, đạt vùng bấm 44 px.
+- Giữ nguyên ở cả hai chế độ: khung camera quét QR (nền đen sẵn), ảnh học viên, lớp phủ mờ của popup. Nút đỏ/xanh đặc đổi nền đậm hơn ở chế độ tối để chữ trắng đạt tương phản.
+- Không đụng VPS, DB, tool.
+
 ## 7. Hàng đợi thu thập & vòng đời bản ghi (VPS)
 
 > **Phục vụ:** `HTG-02`, `NAP-01`
@@ -2207,6 +2217,7 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 | --- | --- | --- |
+| 04/11/2026 | 6.35 | **+§6.9 Chế độ sáng/tối ở app web** (CHANGES #94, `HTG-08`): biến CSS + lớp `dark`, lưu lựa chọn ở máy, script chống nháy, nút đổi chế độ. |
 | 04/11/2026 | 6.34 | **+§10.8 Báo hồ sơ chưa nạp vừa được app web cập nhật** (CHANGES #92, `NAP-08`): so khi kéo, `keo_ve_thay_doi` + `keo_ve.anh_luc` ở SQLite tool, `KeoOut.anh_luc` ở VPS (không thêm cột), 3 endpoint tool, cảnh báo đậm khi nháp giữ ảnh cũ. |
 | 03/11/2026 | 6.33 | Sửa sau review §10.7 (CHANGES #90, biên bản `tdd-review-03-11-2026.md`): nhận diện bổ sung bằng `audit_log`, phân trang, danh sách rỗng 422, UPDATE nguyên tử, chuỗi thô, cỡ lô 500, dọn dấu vân, sơ đồ vòng đời. |
 | 03/11/2026 | 6.32 | **+§10.7 Bổ sung GPLX sau khi đã nạp** (CHANGES #89, `QLY-10`, `TCB-05`, `THU-07`): UPDATE đúng 6 cột theo `MaDK`, 2 endpoint VPS không thêm cột, SQLite `gplx_da_xu_ly`, chặn BC1/DKKH; §4.3, §4.4, §6 ghi chú. |

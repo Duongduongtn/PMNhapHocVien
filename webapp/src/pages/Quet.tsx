@@ -341,32 +341,51 @@ function ChonCach({
   onOcrFile: (f: File) => void | Promise<void>;
   loi: string | null;
 }) {
+  // Một dòng lựa chọn: ô biểu tượng + tên + gợi ý ngắn + mũi tên. Dòng chính tô màu thương hiệu.
+  const dongCls = "w-full text-left rounded-2xl px-4 flex items-center gap-3.5 cursor-pointer ";
+  const phu = dongCls + "min-h-[64px] py-2.5 border border-border bg-card shadow-card hover:border-primary/40 hover:shadow-pop";
+  const o = (cls: string, ten: string) => <span aria-hidden className={"w-11 h-11 rounded-xl flex items-center justify-center shrink-0 " + cls}><Icon name={ten} className="w-5 h-5" /></span>;
+  const mui = <Icon name="chevronRight" className="w-5 h-5 shrink-0 text-muted-foreground" />;
   return (
     <div className="flex-1 min-h-0 flex flex-col p-4">
-      <div className="text-center mt-3">
+      <div className="text-center mt-2 rise">
         <h2 className="text-lg font-bold">Thu nhận hồ sơ học viên</h2>
         <p className="text-[13px] text-muted-foreground mt-1">Chọn cách nhập hồ sơ căn cước</p>
       </div>
 
       {loi && (
-        <div className="mt-4 flex items-start gap-2 text-[12px] text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2">
+        <div role="alert" className="mt-4 flex items-start gap-2 text-[12px] text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2">
           <Icon name="warn" className="w-4 h-4 shrink-0 mt-0.5" /> {loi}
         </div>
       )}
 
-      <div className="flex-1" />
+      {/* Hình thẻ căn cước đang được quét: lấp khoảng trống giữa màn và nói ngay việc cần làm. Ẩn khi màn thấp. */}
+      <div className="flex-1 min-h-0 flex items-center justify-center py-3 [@media(max-height:660px)]:hidden rise rise-1">
+        <TheQuet />
+      </div>
+      <div className="flex-1 hidden [@media(max-height:660px)]:block" />
 
-      <div className="space-y-2.5 lg:max-w-md lg:mx-auto lg:w-full">
+      <div className="space-y-2.5 lg:max-w-md lg:mx-auto lg:w-full rise rise-2">
         <button
           type="button"
           onClick={onQuet}
-          className="w-full h-14 rounded-xl bg-primary text-primary-foreground font-bold text-[15px] flex items-center justify-center gap-2.5 hover:brightness-110 transition shadow-sm"
+          className={dongCls + "min-h-[76px] py-3 bg-marca text-primary-foreground shadow-pop hover:brightness-110"}
         >
-          <Icon name="scan" className="w-5 h-5" /> Quét QR CCCD
+          {o("bg-white/15", "scan")}
+          <span className="flex-1 min-w-0">
+            <span className="block font-bold text-[15px]">Quét QR CCCD</span>
+            <span className="block text-[12px] text-white/85">Nhanh nhất · hướng camera vào QR</span>
+          </span>
+          <Icon name="chevronRight" className="w-5 h-5 shrink-0 text-white/80" />
         </button>
         {/* THU-06: lối dự phòng khi QR không quét được (iPhone yếu) — chụp mặt trước, OCR tự đọc */}
-        <label className="w-full h-14 rounded-xl border border-border bg-card text-foreground font-semibold text-[15px] flex items-center justify-center gap-2.5 hover:bg-muted transition-colors cursor-pointer">
-          <Icon name="image" className="w-5 h-5" /> Chụp ảnh thẻ (tự đọc)
+        <label className={phu}>
+          {o("bg-accent text-primary", "camera")}
+          <span className="flex-1 min-w-0">
+            <span className="block font-semibold text-[15px]">Chụp ảnh thẻ (tự đọc)</span>
+            <span className="block text-[12px] text-muted-foreground">Khi không quét được QR</span>
+          </span>
+          {mui}
           <input
             type="file"
             accept="image/*"
@@ -379,14 +398,15 @@ function ChonCach({
             }}
           />
         </label>
-        <button
-          type="button"
-          onClick={onNhapTay}
-          className="w-full h-14 rounded-xl border border-border bg-card text-foreground font-semibold text-[15px] flex items-center justify-center gap-2.5 hover:bg-muted transition-colors"
-        >
-          <Icon name="edit" className="w-5 h-5" /> Nhập tay
+        <button type="button" onClick={onNhapTay} className={phu}>
+          {o("bg-secondary text-foreground", "edit")}
+          <span className="flex-1 min-w-0">
+            <span className="block font-semibold text-[15px]">Nhập tay</span>
+            <span className="block text-[12px] text-muted-foreground">Gõ từng ô thông tin</span>
+          </span>
+          {mui}
         </button>
-        <label className="w-full py-2 text-[13px] text-primary font-medium flex items-center justify-center gap-1.5 cursor-pointer hover:underline">
+        <label className="w-full min-h-[44px] text-[13px] text-primary font-medium flex items-center justify-center gap-1.5 cursor-pointer hover:underline">
           <Icon name="image" className="w-4 h-4" /> Tải ảnh CCCD (đọc QR từ ảnh)
           <input
             type="file"
@@ -400,8 +420,43 @@ function ChonCach({
           />
         </label>
       </div>
+    </div>
+  );
+}
 
-      <div className="flex-1" />
+// Hình minh họa thẻ căn cước có vạch quét chạy qua mã QR. Chỉ trang trí (aria-hidden), tắt chuyển động khi máy bật giảm chuyển động.
+function TheQuet() {
+  return (
+    <div aria-hidden className="relative w-[272px] max-w-full text-primary">
+      <div className="relative rounded-2xl bg-card border border-border shadow-pop px-4 py-4 overflow-hidden">
+        <div className="flex gap-3">
+          <div className="w-[68px] h-[88px] rounded-lg bg-accent flex flex-col items-center justify-end overflow-hidden">
+            <span className="w-7 h-7 rounded-full bg-primary/25 mb-1" />
+            <span className="w-12 h-6 rounded-t-full bg-primary/25" />
+          </div>
+          <div className="flex-1 space-y-2 pt-1">
+            <span className="block h-2.5 w-4/5 rounded-full bg-primary/25" />
+            <span className="block h-2 w-3/5 rounded-full bg-muted" />
+            <span className="block h-2 w-2/3 rounded-full bg-muted" />
+            <span className="block h-2 w-1/2 rounded-full bg-muted" />
+          </div>
+        </div>
+        {/* Mã QR vẽ bằng ô vuông: ba góc định vị và vài ô dữ liệu */}
+        <div className="absolute right-4 bottom-4 w-[60px] h-[60px] grid grid-cols-6 grid-rows-6 gap-px">
+          {Array.from({ length: 36 }, (_, i) => {
+            const r = Math.floor(i / 6), c = i % 6;
+            const goc = (r < 2 && c < 2) || (r < 2 && c > 3) || (r > 3 && c < 2);
+            const du = !goc && (i * 7 + 3) % 5 < 3;
+            return <span key={i} className={goc ? "bg-primary" : du ? "bg-primary/70" : "bg-transparent"} />;
+          })}
+        </div>
+        <span className="absolute left-2 right-2 top-3 h-[3px] rounded-full bg-primary/80 shadow-[0_2px_10px_hsl(222_76%_40%/.55)] animate-quet-chay" />
+      </div>
+      {/* Bốn góc khung ngắm */}
+      <span className="absolute -left-2 -top-2 w-6 h-6 border-t-[3px] border-l-[3px] border-primary rounded-tl-xl" />
+      <span className="absolute -right-2 -top-2 w-6 h-6 border-t-[3px] border-r-[3px] border-primary rounded-tr-xl" />
+      <span className="absolute -left-2 -bottom-2 w-6 h-6 border-b-[3px] border-l-[3px] border-primary rounded-bl-xl" />
+      <span className="absolute -right-2 -bottom-2 w-6 h-6 border-b-[3px] border-r-[3px] border-primary rounded-br-xl" />
     </div>
   );
 }
@@ -1508,11 +1563,11 @@ function ChupAnhGui({ uuid, onXong }: { uuid: string; onXong: (mangYeu: boolean)
         <p className="text-[12px] text-muted-foreground mt-0.5">Chụp ảnh người thật. Căn khung và xóa phông do tool nạp làm sau.</p>
       </div>
 
-      <div className="relative bg-slate-100 border border-border rounded-xl aspect-[3/4] max-w-[260px] mx-auto overflow-hidden flex items-center justify-center">
+      <div className="relative bg-muted border border-border rounded-xl aspect-[3/4] max-w-[260px] mx-auto overflow-hidden flex items-center justify-center">
         {anh ? (
           <img src={anh} alt="Ảnh chân dung" className="absolute inset-0 w-full h-full object-cover" />
         ) : (
-          <div className="flex flex-col items-center gap-2 text-slate-400">
+          <div className="flex flex-col items-center gap-2 text-muted-foreground">
             <Icon name="user" className="w-14 h-14" sw={1.5} />
             <span className="text-[12px]">Chưa có ảnh</span>
           </div>

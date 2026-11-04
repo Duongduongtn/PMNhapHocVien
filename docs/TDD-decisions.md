@@ -429,3 +429,10 @@
 - **Cảnh báo đậm** khi ảnh đổi mà nháp Chuẩn bị đang giữ ảnh đã xử lý: nạp nhầm ảnh cũ là hậu quả thật duy nhất của việc không biết, nên chỉ ca này đòi người nạp chọn "Dùng ảnh mới" hoặc "Giữ ảnh cũ".
 - **Đánh đổi:** đổi rồi đổi lại về như cũ giữa hai lần kéo thì không thấy; dữ liệu cảnh báo nằm ở từng máy tool (đổi máy thì mất, không sai dữ liệu). Chấp nhận để không thêm lịch sử ở VPS.
 - Nguồn: user 04/11/2026; CHANGES #92; TDD §10.8; PRD `NAP-08`.
+
+## 31. Chế độ sáng/tối ở app web: theo cài đặt máy, có nút ghi đè (04/11/2026)
+
+- **Đã chốt (04/11/2026, phương án A — user bảo "làm đi" sau khi tôi đề xuất A):** lần đầu mở theo cài đặt sáng/tối của điện thoại; nút ở thanh trên để đổi, lựa chọn nhớ trên từng máy. Chỉ app web, không áp cho tool.
+- **Phương án đã bỏ:** (B) luôn sáng cho tới khi bấm nút — người dùng máy chế độ tối vẫn bị chói; (C) ba nút Sáng/Tối/Theo máy — thêm một bước chọn, nhân viên thu nhận ít khi cần.
+- **Đánh đổi:** lựa chọn nằm ở từng điện thoại, không theo tài khoản; đã bấm nút thì không còn tự theo máy nữa cho tới khi xóa dữ liệu trình duyệt. Chấp nhận để không thêm cột ở VPS.
+- Nguồn: user 04/11/2026; CHANGES #94; TDD §6.9; PRD `HTG-08`.

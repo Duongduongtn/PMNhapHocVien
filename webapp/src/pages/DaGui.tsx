@@ -9,9 +9,10 @@ import { khopTim } from "../lib/text";
 import { GplxDaCoKhoi } from "../components/GplxDaCoKhoi";
 import { loiDanhSach, oSaiDau, sangServer, tenHang, tuServer, type BangGplx } from "../lib/gplxDaCo";
 import { laNgaySinh } from "../lib/qr";
+import { chuCaiDau, tongTheoTen } from "../lib/chuCai";
 
 // Thumbnail ảnh chân dung thật (tải của mình). Chưa có ảnh/không tải được → placeholder.
-function AnhThumb({ uuid, coAnh, size = "sm" }: { uuid: string; coAnh: boolean; size?: "xs" | "sm" | "lg" }) {
+function AnhThumb({ uuid, coAnh, size = "sm", ten }: { uuid: string; coAnh: boolean; size?: "xs" | "sm" | "lg"; ten?: string | null }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     if (!coAnh) {
@@ -38,8 +39,16 @@ function AnhThumb({ uuid, coAnh, size = "sm" }: { uuid: string; coAnh: boolean; 
   const khung = size === "lg" ? "w-20 aspect-[3/4] rounded-lg" : size === "xs" ? "w-8 h-8 rounded-md" : "w-11 h-11 rounded-lg";
   const ico = size === "lg" ? "w-10 h-10" : size === "xs" ? "w-4 h-4" : "w-6 h-6";
   if (url) return <img src={url} alt="Ảnh chân dung" className={`${khung} object-cover shrink-0 border border-border`} />;
+  // Chưa có ảnh: hiện chữ cái đầu của tên theo tông nhạt riêng từng người (ảnh đại diện), không có tên thì hình người.
+  if (ten && ten.trim() && size !== "lg") {
+    return (
+      <span aria-hidden className={`${khung} inline-flex items-center justify-center shrink-0 font-bold ${size === "xs" ? "text-[11px]" : "text-[14px]"} ${tongTheoTen(ten)}`}>
+        {chuCaiDau(ten)}
+      </span>
+    );
+  }
   return (
-    <span className={`${khung} inline-flex items-center justify-center shrink-0 bg-slate-200 text-slate-400`}>
+    <span className={`${khung} inline-flex items-center justify-center shrink-0 bg-muted text-muted-foreground`}>
       <Icon name="user" className={ico} sw={size === "lg" ? 1.5 : 2} />
     </span>
   );
@@ -305,7 +314,7 @@ export default function DaGui() {
         )}
 
         {ds && (
-          <div className="inline-flex rounded-lg bg-muted p-1 mt-3">
+          <div className="flex gap-2 overflow-x-auto -mx-4 px-4 lg:mx-0 lg:px-0 mt-3 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Lọc hồ sơ">
             {(
               [
                 ["all", `Tất cả (${ds.length})`],
@@ -316,10 +325,14 @@ export default function DaGui() {
             ).map(([k, label]) => (
               <button
                 key={k}
+                role="tab"
+                aria-selected={loc === k}
                 onClick={() => setLoc(k)}
                 className={
-                  "px-3.5 py-1.5 text-[13px] rounded-md transition-colors " +
-                  (loc === k ? "bg-card shadow-sm text-primary font-semibold" : "text-muted-foreground font-medium hover:text-foreground")
+                  "shrink-0 h-9 px-3.5 text-[13px] rounded-full border whitespace-nowrap " +
+                  (loc === k
+                    ? "bg-primary border-primary text-primary-foreground font-semibold shadow-card"
+                    : "bg-card border-border text-muted-foreground font-medium hover:text-foreground hover:border-primary/40")
                 }
               >
                 {label}
@@ -363,14 +376,15 @@ export default function DaGui() {
           )}
 
           {/* MOBILE: card list */}
-          <div className="lg:hidden divide-y divide-border border-t border-border">
-            {rowsTrang.map((h) => (
+          <div className="lg:hidden px-4 pt-1 pb-2 space-y-2.5">
+            {rowsTrang.map((h, i) => (
               <button
                 key={h.uuid}
                 onClick={() => setSel(h)}
-                className="w-full text-left flex items-center gap-3 px-4 py-3 hover:bg-muted/60 transition-colors"
+                style={i < 8 ? { animationDelay: `${i * 40}ms` } : undefined}
+                className={"w-full text-left flex items-center gap-3 px-3.5 py-3 rounded-2xl bg-card border border-border shadow-card hover:border-primary/40 " + (i < 8 ? "rise" : "")}
               >
-                <AnhThumb uuid={h.uuid} coAnh={h.co_anh} />
+                <AnhThumb uuid={h.uuid} coAnh={h.co_anh} ten={h.ho_ten} />
                 <div className="min-w-0 flex-1">
                   <div className="font-semibold text-[14px] truncate">{h.ho_ten || "(chưa có tên)"}</div>
                   <div className="text-[12px] text-muted-foreground truncate">
@@ -430,7 +444,7 @@ export default function DaGui() {
                     </td>
                     <td className="px-4 py-2 font-semibold">
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <AnhThumb uuid={h.uuid} coAnh={h.co_anh} size="xs" />
+                        <AnhThumb uuid={h.uuid} coAnh={h.co_anh} size="xs" ten={h.ho_ten} />
                         <span className="truncate" title={h.ho_ten || undefined}>{h.ho_ten || "(chưa có tên)"}</span>
                       </div>
                     </td>
