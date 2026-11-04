@@ -149,8 +149,8 @@ export default function Quet() {
     toastTimer.current = setTimeout(() => setToast(null), 2800);
   }
 
-  // "Lưu & nhập hồ sơ tiếp" (CHANGES #13): gửi KHÔNG ảnh → toast → về màn chọn cách nhập.
-  // Về màn chọn ngay cho mượt; gửi chạy nền, báo kết quả bằng toast (mất mạng vẫn giữ nháp).
+  // "Lưu & nhập hồ sơ tiếp" (CHANGES #13, #96): gửi KHÔNG ảnh → toast → về thẳng form trống, con trỏ ở ô Số CCCD.
+  // Về form ngay cho mượt; gửi chạy nền, báo kết quả bằng toast (mất mạng vẫn giữ nháp).
   async function luuVaTiep(id: string) {
     const hs = dsNhap().find((x) => x.uuid === id);
     quetTiep();
@@ -183,7 +183,8 @@ export default function Quet() {
     setGiaiDoan("preview");
   }
 
-  // Làm hồ sơ kế tiếp: desktop về form trống (không có cổng chọn), mobile về cổng chọn.
+  // Làm hồ sơ kế tiếp: cả desktop lẫn mobile về thẳng form trống (CHANGES #96), con trỏ vào ô Số CCCD do formKey
+  // đổi làm form dựng lại. Muốn quét QR cho hồ sơ kế tiếp thì bấm "Quét lại" ở đầu form.
   function quetTiep() {
     setFields(FIELDS_RONG);
     setCanhBaoOcr(null);
@@ -193,7 +194,13 @@ export default function Quet() {
     setLoiChon(null);
     setQuetPopover(false);
     setFormKey((k) => k + 1);
-    setGiaiDoan(isDesktop ? "preview" : "chon");
+    setGiaiDoan("preview");
+    // Form trước dài thì vùng cuộn còn lệch xuống: đưa về đầu để thấy tiêu đề và ô Số CCCD (con trỏ đã vào ô này).
+    requestAnimationFrame(() => {
+      for (let el = document.querySelector('[data-o="cccd"]')?.parentElement; el; el = el.parentElement) {
+        if (el.scrollTop > 0) el.scrollTop = 0; // mọi vùng cuộn bao quanh form (có hai tầng lồng nhau)
+      }
+    });
   }
 
   // Tải ảnh CCCD từ máy → đọc QR. onErr nhận chỗ hiện lỗi (mobile: banner cổng; desktop: toast).
@@ -296,7 +303,7 @@ export default function Quet() {
 
       {/* Toast gửi nhanh (CHANGES #13) — luồng "Lưu & nhập hồ sơ tiếp" */}
       {toast && (
-        <div className="fixed left-1/2 -translate-x-1/2 bottom-20 lg:bottom-6 z-50 pointer-events-none w-max max-w-[90vw]">
+        <div className="fixed left-1/2 -translate-x-1/2 top-[76px] lg:top-auto lg:bottom-6 z-50 pointer-events-none w-max max-w-[90vw]">
           <div
             className={
               "flex items-center gap-2 px-4 py-2.5 rounded-2xl shadow-lg text-sm font-semibold text-white " +

@@ -4,6 +4,7 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 96 | 04/11/2026 | ✏️ Sửa (đổi luồng nhập liên tiếp) | `THU-01` · `THU-02` | **Sau "Lưu & nhập hồ sơ tiếp" điện thoại cũng về thẳng form trống, con trỏ ở ô Số CCCD** (trước đó về màn chọn cách nhập, mỗi hồ sơ thêm một lần chạm; máy tính đã vậy từ #30). Muốn quét QR thì bấm "Quét lại" đầu form. Thêm: vùng cuộn về đầu, thông báo "Đã gửi" hiện ở đầu màn trên điện thoại để không đè nút. Lý do: tăng tốc nhận hồ sơ liên tiếp, đỡ chờ và đỡ chạm (user 04/11/2026). | ✅ v4.36 | ✅ v6.36 §6.6 | — | ✅ chưa commit/deploy |
 | 95 | 04/11/2026 | ✏️ Sửa (UX, thuần giao diện) | `THU-01` | **Màn xác nhận hồ sơ:** "Lưu & nhập hồ sơ tiếp" thành nút chính nổi bật (xanh đậm, có bóng; bên phải ở máy tính, trên cùng ở điện thoại), "Tiếp tục — chụp ảnh chân dung" thành nút phụ viền nhạt. Cả hai nằm trong thanh dính đáy trên điện thoại. Hành vi không đổi: Enter vẫn chụp ảnh, Ctrl+Enter vẫn lưu & nhập tiếp. Lý do: đa số hồ sơ gửi nhanh không ảnh để nhập liên tiếp (user 04/11/2026). | ✅ v4.35 | — | — | ✅ chưa commit/deploy |
 | 94 | 04/11/2026 | ➕ Thêm | `HTG-08` | **Chế độ sáng/tối ở app web:** theo cài đặt máy lần đầu, nút mặt trời/mặt trăng ở thanh trên, thanh bên và màn đăng nhập, nhớ lựa chọn trên từng máy, không nháy sáng khi mở. Số story 66→67. | ✅ v4.34 | ✅ v6.35 §6.9 + decisions §31 | — (dùng lại bố cục sẵn có, thêm nút) | 🟡 code + test xong, chưa thử điện thoại thật |
 | 93 | 04/11/2026 | ✏️ Sửa (UX, thuần giao diện) | `THU-01` · `THU-02` · `HTG-01` | **Làm đẹp giao diện app web theo Impeccable:** màu chuyển sang biến CSS (chuẩn bị chế độ tối), thanh trên có ảnh đại diện chữ cái, thanh dưới có viên báo tab đang chọn, màn đăng nhập có dải xanh + hiện/ẩn mật khẩu + nhãn gắn ô, màn chọn cách nhập có hình thẻ quét và gợi ý từng cách, danh sách hồ sơ dạng thẻ + ảnh chữ cái + nhãn lọc dạng viên, chi tiết trình duyệt (bôi chọn, con trỏ, placeholder đủ tương phản), chuyển động vào màn tắt khi máy bật giảm chuyển động. Không đổi chức năng, luồng, API; chữ cũ giữ nguyên (thêm 3 dòng gợi ý ở màn chọn cách nhập). | — | — | — | ✅ chưa commit, chưa deploy |
@@ -1076,7 +1077,8 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 > `/capnhat` đọc mục này ở Bước 0b để biết có thay đổi nào chưa ghi sổ không.
 > So bằng **danh sách mã**, không so bằng thời gian sửa file.
 
-- **Cập nhật:** 04/11/2026 (#95 ✏️ nút "Lưu & nhập hồ sơ tiếp" thành nút chính, số story giữ 67)
+- **Cập nhật:** 04/11/2026 (#96 ✏️ sau Lưu & nhập tiếp về thẳng form trống, số story giữ 67)
+- **Cập nhật trước:** 04/11/2026 (#95 ✏️ nút "Lưu & nhập hồ sơ tiếp" thành nút chính, số story giữ 67)
 - **Cập nhật trước:** 04/11/2026 (#94 ➕ `HTG-08` chế độ sáng/tối app web; số story 66→67)
 - **Cập nhật trước:** 04/11/2026 (#92 ➕ `NAP-08` báo hồ sơ chưa nạp được app web cập nhật; số story 65→66)
 - **Cập nhật trước:** 03/11/2026 (#91 ✏️ popup sửa hồ sơ rộng hơn, số story giữ 65)

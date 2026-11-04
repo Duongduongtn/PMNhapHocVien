@@ -461,7 +461,7 @@ Admin đầu tiên tạo bằng script seed (CLI trên VPS), không mở API sel
 QR hỏng → nhập tay / upload ảnh CCCD đọc QR.
 Màn preview 2 lối (THU-01/THU-02, CHANGES #13):
   [Tiếp tục → chụp ảnh → gửi → màn kết quả]
-  HOẶC [Lưu & nhập hồ sơ tiếp → gửi KHÔNG ảnh → toast "Đã gửi ✓" → về màn chọn cách nhập] (nhập liên tiếp).
+  HOẶC [Lưu & nhập hồ sơ tiếp → gửi KHÔNG ảnh → toast "Đã gửi ✓" → về thẳng form trống, con trỏ ở Số CCCD] (nhập liên tiếp, CHANGES #96).
 ```
 
 ### 6.2 Parse chuỗi QR CCCD (chuẩn Bộ Công an 2021)
@@ -488,7 +488,7 @@ Lọc **phía client** trên danh sách `/api/ho-so/cua-toi` đã tải (không 
 
 ### 6.6 Nhập liên tiếp + badge/lọc thiếu ảnh + cảnh báo trùng (THU-01/THU-02/THU-04, CHANGES #13)
 *Vì sao: nhân viên nhập hàng loạt muốn gửi nhanh không bắt chụp ảnh từng hồ sơ, rồi gom các hồ sơ thiếu ảnh để chụp bù; và tránh gửi trùng một người lên hàng đợi.*
-- **Lưu & nhập hồ sơ tiếp** (THU-01/THU-02): nút thứ hai ở màn preview → gửi `POST /api/ho-so` **không kèm ảnh** (cơ chế gửi-không-ảnh + giữ nháp offline đã có) → **toast** thay màn kết quả → `setGiaiDoan("chon")` về màn chọn cách nhập. Không thêm endpoint. Thuần client `Quet.tsx`.
+- **Lưu & nhập hồ sơ tiếp** (THU-01/THU-02): nút thứ hai ở màn preview → gửi `POST /api/ho-so` **không kèm ảnh** (cơ chế gửi-không-ảnh + giữ nháp offline đã có) → **toast** thay màn kết quả → `quetTiep()` về **thẳng form trống** (CHANGES #96; trước đó mobile `setGiaiDoan("chon")` về màn chọn, mỗi hồ sơ thêm một lần chạm): form dựng lại bằng `formKey` nên `autoFocus` đưa con trỏ vào ô Số CCCD, mọi vùng cuộn bao quanh form về đầu, toast hiện ở đầu màn trên điện thoại để không đè thanh nút dính đáy. Không thêm endpoint. Thuần client `Quet.tsx`.
 - **Badge "Thiếu ảnh" + bộ lọc** (THU-02): lọc **phía client** trên `co_anh` của `/api/ho-so/cua-toi` (đã có field). Badge ở list card/table + chi tiết; thêm một lựa chọn lọc "Thiếu ảnh" cạnh tab trạng thái. **Chụp bù ảnh cho HV thiếu ảnh qua nút "Thêm ảnh" — hiện cả khi `pending` lẫn `imported`** (CHANGES #44, lật Phương án A): nút gọi `POST /api/ho-so/:uuid/anh` (server đã nới chặn `pending`, §4.3), chỉ ghi đè ảnh thô VPS, KHÔNG đổi trạng thái/thông tin. Thuần client `DaGui.tsx` + `lib/gui.ts` (bỏ điều kiện chỉ-gửi-ảnh-khi-pending).
 - **Cảnh báo trùng CCCD** (THU-04): thêm `GET /api/ho-so/kiem-trung?cccd=` (collector) → đếm hồ sơ `pending`/`importing` cùng CSDT có `so_cccd` khớp (loại trừ chính `uuid` đang gửi). >0 → trả thông tin (ai gửi, lúc nào) để app hiện **banner cảnh báo mềm** (chuẩn ⑥), **vẫn cho gửi**. Mất mạng/khi gọi lỗi → bỏ qua, không chặn. KHÔNG đối chiếu SQL Server (app web không nối DB) — chốt trùng thật ở NAP-06. Server validate `cccd` (12 số) từ chối sớm; client hủy request cũ bằng `AbortController`.
 - **UX nhập liệu** (THU-01/THU-02, CHANGES #14): **ẩn ô CMND cũ** khỏi form (giá trị từ QR vẫn giữ trong nháp + gửi như cũ — không đổi payload/schema); ô ngày là **component gõ tay dd/mm/yyyy + nút lịch** (native date popover ghi ngược vào ô text; vẫn nhập năm-only → `yyyy0000`); **desktop** tách vị trí 2 nút + phím tắt (autofocus, Enter→nút chính). Thuần client.
@@ -2217,6 +2217,7 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 | --- | --- | --- |
+| 04/11/2026 | 6.36 | §6.6 dòng "Lưu & nhập hồ sơ tiếp": mobile cũng về thẳng form trống (CHANGES #96). |
 | 04/11/2026 | 6.35 | **+§6.9 Chế độ sáng/tối ở app web** (CHANGES #94, `HTG-08`): biến CSS + lớp `dark`, lưu lựa chọn ở máy, script chống nháy, nút đổi chế độ. |
 | 04/11/2026 | 6.34 | **+§10.8 Báo hồ sơ chưa nạp vừa được app web cập nhật** (CHANGES #92, `NAP-08`): so khi kéo, `keo_ve_thay_doi` + `keo_ve.anh_luc` ở SQLite tool, `KeoOut.anh_luc` ở VPS (không thêm cột), 3 endpoint tool, cảnh báo đậm khi nháp giữ ảnh cũ. |
 | 03/11/2026 | 6.33 | Sửa sau review §10.7 (CHANGES #90, biên bản `tdd-review-03-11-2026.md`): nhận diện bổ sung bằng `audit_log`, phân trang, danh sách rỗng 422, UPDATE nguyên tử, chuỗi thô, cỡ lô 500, dọn dấu vân, sơ đồ vòng đời. |
