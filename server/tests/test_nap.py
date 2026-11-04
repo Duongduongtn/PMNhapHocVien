@@ -329,3 +329,37 @@ def test_trang_thai_collector_403(api):
 
 def test_trang_thai_thieu_tool_key_401(api):
     assert api.get("/api/nap/trang-thai", headers=_login(api, "op1"), params={"uuids": "x"}).status_code == 401
+
+
+# ── NAP-08 — mốc ảnh `anh_luc` để tool biết app web chụp lại ──
+def _dong_keo(api, u: str) -> dict:
+    return next(x for x in api.get("/api/nap/keo", headers=_op_headers(api)).json() if x["uuid"] == u)
+
+
+def test_keo_anh_luc_none_khi_chua_co_anh(api):
+    u = _gui_pending(api)
+    assert _dong_keo(api, u)["anh_luc"] is None
+
+
+def test_keo_anh_luc_doi_khi_chup_lai(api, tmp_path):
+    import os
+    u = _gui_pending(api)
+    col = _login(api, "col1")
+    api.post(f"/api/ho-so/{u}/anh", headers=col, files={"file": ("a.jpg", _anh_bytes("JPEG"), "image/jpeg")})
+    lan1 = _dong_keo(api, u)["anh_luc"]
+    assert lan1 is not None
+    # đẩy mốc file về quá khứ rồi chụp lại: mốc phải mới hơn
+    f = next((tmp_path / "anh-tho").glob(f"{u}.*"))
+    os.utime(f, (1_700_000_000, 1_700_000_000))
+    cu = _dong_keo(api, u)["anh_luc"]
+    api.post(f"/api/ho-so/{u}/anh", headers=col, files={"file": ("a.jpg", _anh_bytes("JPEG"), "image/jpeg")})
+    moi = _dong_keo(api, u)["anh_luc"]
+    assert cu < moi
+
+
+def test_keo_anh_luc_none_khi_mat_file(api, tmp_path):
+    u = _gui_pending(api)
+    api.post(f"/api/ho-so/{u}/anh", headers=_login(api, "col1"), files={"file": ("a.jpg", _anh_bytes("JPEG"), "image/jpeg")})
+    next((tmp_path / "anh-tho").glob(f"{u}.*")).unlink()
+    d = _dong_keo(api, u)
+    assert d["co_anh"] is True and d["anh_luc"] is None

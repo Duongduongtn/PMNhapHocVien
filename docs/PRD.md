@@ -213,6 +213,7 @@
 | Kéo lại mà **địa chỉ gốc đã đổi** trên app web, dù đã có nháp bền | Reset riêng **địa chỉ 2 cấp** đã map (cả bản nháp bền) + chip địa chỉ về `✗` + thông báo "địa chỉ của N hồ sơ đã đổi, cần map lại"; **giữ nguyên** ảnh đã đổi nền, tick giấy tờ, nơi cấp (CHANGES #32, mở rộng BUG-04) |
 | Bỏ qua dòng ⚪ chờ / 🔴 lỗi rồi bấm **"Kéo về từ VPS"** lại | Dòng đã bỏ qua **không hiện lại** (tool nhớ uuid "bỏ qua"); nháp đã chuẩn bị của dòng đó (gồm ảnh) cũng bị dọn (CHANGES #51) |
 | Hồ sơ đã bỏ qua được collector **gửi lại** trên app web (hồ sơ mới = uuid mới) | **Hiện lại bình thường** ở hàng chờ — "bỏ qua" chỉ gắn với uuid cũ, không chặn hồ sơ mới (CHANGES #51) |
+| Kéo lại mà app web đã đổi thông tin, ảnh hoặc GPLX của hồ sơ chưa nạp | Tool làm tươi như trên **và báo hồ sơ nào đổi gì** — xem `NAP-08` (CHANGES #92) |
 
 > Nguồn: CAP-004 · BR-015 · EC-062 · EC-071 · CHANGES #6 · CHANGES #11 · CHANGES #32 · CHANGES #51
 
@@ -378,6 +379,39 @@
 - ❌ Không sửa Đồng bộ CDB: đã chép sẵn 7 cột.
 
 > Nguồn: user 02/11/2026 · CHANGES #81. Số liệu DB Nạp: 6.973/39.930 hồ sơ có GPLX đã có, 0 hồ sơ trùng hạng đăng ký.
+
+#### [NAP-08] Báo hồ sơ chưa nạp vừa được app web cập nhật
+
+**Trạng thái:** ⚠️ Partial — code + test xong 04/11/2026 (VPS 3 test mới, tool 19 pytest + 5 vitest + 6 e2e, hồi quy Nạp 70 e2e đạt), giao diện khớp mock đã duyệt; **còn** review độc lập, deploy VPS rồi build exe, và thử thật ở máy CSĐT (app web sửa thông tin/chụp lại ảnh rồi bấm Kéo, xem dải cảnh báo, "Dùng ảnh mới"). Xem CHANGES #92.
+**Story:** Là nhân viên nạp DB, tôi muốn biết hồ sơ chưa nạp nào vừa được người thu nhận sửa thông tin, chụp lại ảnh hoặc đổi GPLX trên app web sau lần kéo trước, để không nạp nhầm bản cũ.
+
+**Steps to Complete:**
+1. Bấm "Kéo về từ VPS" ở màn Nạp.
+2. Thấy dải cảnh báo "N hồ sơ được app web cập nhật sau lần kéo trước"; bấm để mở danh sách (học viên, đổi gì, lúc nào).
+3. Bấm một hồ sơ để mở ngăn Chuẩn bị, xử lý phần đã đổi (ảnh, địa chỉ, GPLX).
+4. Bấm "Đã xem" (từng hồ sơ hoặc tất cả) để hết cảnh báo.
+
+**Done khi:**
+- ⬜ Mỗi lần kéo, hồ sơ **chưa nạp** đã có trong tool mà app web đã đổi so với lần kéo trước thì được ghi nhận kèm loại thay đổi: **thông tin** (nêu tên trường: họ tên, số căn cước, số CMND cũ, ngày sinh, giới tính, nơi thường trú, ngày cấp, nơi cấp), **ảnh** (chụp lại hoặc vừa thêm), **GPLX**. Chỉ nêu tên trường, **không nêu giá trị cá nhân**.
+- ⬜ Hồ sơ vừa kéo lần đầu không báo. Kéo lại mà không có gì đổi thì không báo thêm. Lần kéo đầu sau khi nâng cấp tool chưa có mốc ảnh để so nên không báo ảnh.
+- ⬜ Dải cảnh báo hiện ở màn Nạp, tab Cần xử lý; bấm mở danh sách gồm học viên, đổi gì, lúc phát hiện. Dòng trong lưới có chip "App web đã sửa"; bộ lọc "App web đã sửa" kèm số lượng.
+- ⬜ **Ảnh đã đổi mà nháp Chuẩn bị đang giữ ảnh đã xử lý:** cảnh báo đậm "Ảnh đã đổi ở app web, nháp đang giữ ảnh cũ" ngay trên dòng và trong ngăn Chuẩn bị, hai nút "Dùng ảnh mới" (bỏ ảnh trong nháp, giữ nguyên địa chỉ và giấy tờ, tải ảnh mới từ app web) và "Giữ ảnh cũ" (chỉ tắt cảnh báo).
+- ⬜ Hết báo khi: bấm "Đã xem", nạp xong, bỏ khỏi hàng đợi, hồ sơ bị xóa ở app web. App web sửa tiếp thì báo lại.
+- ⬜ Địa chỉ đổi: giữ nguyên hành vi reset địa chỉ nháp của `NAP-01`, danh sách ghi "Nơi thường trú" kèm "cần map lại".
+- ⬜ VPS chưa trả mốc ảnh (VPS bản cũ): vẫn báo thông tin và GPLX, không báo ảnh, không lỗi.
+- ❌ Không áp cho hồ sơ **đã nạp**: GPLX đã có `QLY-10`; ảnh của hồ sơ đã nạp vẫn tự lọc "Thiếu ảnh" rồi kéo (TDD-decisions §18). Không gửi thông báo ra ngoài tool.
+
+**Edge cases:**
+| Tình huống | Hành vi mong muốn |
+|---|---|
+| App web sửa rồi sửa lại về đúng như cũ giữa hai lần kéo | Không báo, vì tool chỉ so hai lần kéo |
+| Cùng hồ sơ đổi cả thông tin và ảnh | Một dòng, nêu cả hai loại |
+| Chưa bấm "Đã xem" mà app web đổi thêm | Gộp loại thay đổi, cập nhật lúc phát hiện |
+| Nhân viên đã sửa GPLX ở tool rồi app web đổi GPLX | Vẫn có cờ "App web có bản mới" của `NAP-07`; danh sách này chỉ thêm chữ "GPLX" |
+| Nhân viên đang nạp lô gồm hồ sơ vừa đổi | Không chặn nạp; cảnh báo chỉ nhắc xem lại |
+| Hồ sơ bị người nạp khác nạp xong giữa chừng | Cảnh báo tự biến mất |
+
+> Nguồn: user 04/11/2026 · CHANGES #92 · khuôn `NAP-07` (cờ "App web có bản mới"), `NAP-01` (kéo làm tươi, reset địa chỉ). Phụ thuộc `NAP-01`.
 
 #### [THU-07] Nhập GPLX đã có ở app web
 
@@ -1606,6 +1640,7 @@
 | 02/11/2026 | v4.27 — `THU-01`, `THU-07` báo lỗi form dễ sửa trên điện thoại, chữ ô nhập 16px (CHANGES #86, sau critique giao diện). | BA/PM |
 | 02/11/2026 | v4.28 — `THU-01` thông báo đã gửi nêu tên học viên (CHANGES #87). | BA/PM |
 | 02/11/2026 | v4.29 — `KQD-08` nhận cả mẫu PDF DAT cũ và mới (CHANGES #88). | BA/PM |
+| 04/11/2026 | v4.33 — **+`NAP-08`** báo hồ sơ chưa nạp vừa được app web cập nhật (thông tin, ảnh, GPLX), cảnh báo đậm khi nháp giữ ảnh cũ (CHANGES #92). Số story 65→66. | BA/PM |
 | 03/11/2026 | v4.32 — Popup sửa hồ sơ đã gửi rộng hơn trên máy tính, ô xếp nhiều cột để đỡ cuộn (CHANGES #91, không đổi yêu cầu nghiệp vụ). | BA/PM |
 | 03/11/2026 | v4.31 — `THU-07`: bổ sung sau nạp phải có ít nhất một bằng; dòng chờ chỉ hiện ngay sau khi gửi (CHANGES #90). | BA/PM |
 | 03/11/2026 | v4.30 — **+`QLY-10`, +`TCB-05`** bổ sung GPLX đã có cho học viên đã nạp; `THU-07` thêm bổ sung sau nạp, hạ ⏳; `NAP-07` đổi dòng ngoài phạm vi (CHANGES #89). Số story 63→65. | BA/PM |

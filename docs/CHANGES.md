@@ -4,7 +4,9 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
-| 91 | 03/11/2026 | ✏️ Sửa (UX) | `THU-02` · `THU-07` | Popup sửa hồ sơ đã gửi và Bổ sung GPLX rộng hơn trên máy tính, ô xếp nhiều cột để đỡ cuộn; khổ điện thoại giữ một cột. | ✅ v4.32 | — | — | ✅ chưa deploy |
+| 93 | 04/11/2026 | ✏️ Sửa (UX, thuần giao diện) | `THU-01` · `THU-02` · `HTG-01` | **Làm đẹp giao diện app web theo Impeccable:** màu chuyển sang biến CSS (chuẩn bị chế độ tối), thanh trên có ảnh đại diện chữ cái, thanh dưới có viên báo tab đang chọn, màn đăng nhập có dải xanh + hiện/ẩn mật khẩu + nhãn gắn ô, màn chọn cách nhập có hình thẻ quét và gợi ý từng cách, danh sách hồ sơ dạng thẻ + ảnh chữ cái + nhãn lọc dạng viên, chi tiết trình duyệt (bôi chọn, con trỏ, placeholder đủ tương phản), chuyển động vào màn tắt khi máy bật giảm chuyển động. Không đổi chức năng, luồng, API; chữ cũ giữ nguyên (thêm 3 dòng gợi ý ở màn chọn cách nhập). | — | — | — | ✅ chưa commit, chưa deploy |
+| 92 | 04/11/2026 | ➕ Thêm | `NAP-08` · `NAP-01` | **Báo hồ sơ chưa nạp vừa được app web cập nhật:** tool so khi kéo, liệt kê hồ sơ nào đổi thông tin (tên trường), ảnh hay GPLX; dải cảnh báo, chip, lọc; cảnh báo đậm khi nháp giữ ảnh cũ. VPS chỉ thêm `anh_luc` vào `KeoOut`, không thêm cột. Số story 65→66. | ✅ v4.33 | ✅ v6.34 §10.8 + decisions §30 | ✅ mock `ui-mock/napthaydoi.html` đã duyệt 04/11/2026 + SCREENS #38 | 🟡 code + test xong, chưa commit/deploy; chờ review và nghiệm thu máy CSĐT |
+| 91 | 03/11/2026 | ✏️ Sửa (UX) | `THU-02` · `THU-07` | Popup sửa hồ sơ đã gửi và Bổ sung GPLX rộng hơn trên máy tính, ô xếp nhiều cột để đỡ cuộn; khổ điện thoại giữ một cột. | ✅ v4.32 | — | — | ✅ `66d3f04` đã deploy |
 | 90 | 03/11/2026 | ✏️ Sửa (sau `/reviewtdd`) | `QLY-10` · `THU-07` | **`/reviewtdd` §10.7 (1 Chặn, 8 Nên sửa, 4 Ghi nhận):** nhận diện bổ sung bằng `audit_log` để không báo nhầm (user chốt); `THU-07` phải có ít nhất một bằng. Số story giữ 65. | ✅ v4.31 | ✅ v6.33 | — | 🟡 như #89 |
 | 89 | 03/11/2026 | ➕ Thêm + ✏️ Sửa | `QLY-10` · `TCB-05` · `THU-07` · `NAP-07` | **Bổ sung GPLX đã có cho học viên đã nạp:** app web gửi lên VPS, tool cảnh báo, tự điền, người nạp sửa rồi mới lưu đúng 6 cột; Tra cứu CDB nhập riêng; chặn theo BC1/DKKH. Hạ `THU-07` ⚠️→⏳. Số story 63→65. | ✅ v4.30 | ✅ v6.32 §10.7 + decisions §29 | ✅ mock `ui-mock/gplxbosung.html` đã duyệt + SCREENS #37 | 🟡 đã deploy `12d6b21`, chờ nghiệm thu máy CSĐT |
 | 88 | 02/11/2026 | ✏️ Sửa | `KQD-08` | Nạp giờ/km nhận cả mẫu PDF DAT cũ 7 cột và mới 9 cột, tìm cột theo tiêu đề; mẫu lạ báo rõ. | ✅ | ✅ §11D.10 | — | ✅ |
@@ -99,6 +101,14 @@
 Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên quan
 
 ---
+
+## #92 — Báo hồ sơ chưa nạp vừa được app web cập nhật · 04/11/2026
+
+- **Mã:** `NAP-08` (mới). `NAP-01` chỉ thêm một dòng edge case trỏ sang, giữ 🔄.
+- **Vì sao:** Bấm Kéo chỉ trả số lượng làm tươi, không nói hồ sơ nào đổi gì; ảnh đổi thì không báo. Nhân viên đã chuẩn bị ảnh rồi mà người thu nhận chụp lại thì tool vẫn nạp ảnh cũ. User chọn phương án A (04/11/2026).
+- **Chốt:** chỉ hồ sơ chưa nạp. Hồ sơ đã nạp không thêm cảnh báo ảnh (phương án B để dành). Mốc ảnh dùng `anh_luc` (giờ sửa file ảnh), không dùng `updated_at` vì cột này tăng cả khi khóa/mở khóa lúc nạp, sẽ báo nhầm — lệch so với kế hoạch lúc duyệt, đã ghi ở decisions §30.
+- **Đã sửa:** PRD `NAP-08` + 1 dòng edge case `NAP-01` · TDD §10.8 · TDD-decisions §30 · SCREENS #38 · mock `ui-mock/napthaydoi.html`
+- **Còn nợ:** `/reviewtdd` §10.8, `/kehoach` bổ sung, user duyệt mock, rồi code (VPS `KeoOut.anh_luc` → tool → webui), nghiệm thu máy CSĐT. Deploy VPS trước, build exe sau.
 
 ## #90 — Sửa sau `/reviewtdd` §10.7 · 03/11/2026
 
@@ -1064,7 +1074,8 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 > `/capnhat` đọc mục này ở Bước 0b để biết có thay đổi nào chưa ghi sổ không.
 > So bằng **danh sách mã**, không so bằng thời gian sửa file.
 
-- **Cập nhật:** 03/11/2026 (#91 ✏️ popup sửa hồ sơ rộng hơn, số story giữ 65)
+- **Cập nhật:** 04/11/2026 (#92 ➕ `NAP-08` báo hồ sơ chưa nạp được app web cập nhật; số story 65→66)
+- **Cập nhật trước:** 03/11/2026 (#91 ✏️ popup sửa hồ sơ rộng hơn, số story giữ 65)
 - **Cập nhật trước:** 03/11/2026 (#90 ✏️ sau `/reviewtdd` §10.7, số story giữ 65)
 - **Cập nhật trước:** 03/11/2026 (#89 ➕ `QLY-10`, `TCB-05`; ✏️ `THU-07`, `NAP-07`; số story 63→65)
 - **Cập nhật trước:** 02/11/2026 (#88 ✏️ `KQD-08` nhận cả hai mẫu PDF DAT, số story giữ 63)
@@ -1091,6 +1102,6 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 - **Cập nhật trước:** 04/10/2026 (#34 +story `HTG-07` cấu hình kết nối lên header dùng chung; hạ `SYNC-01`+`SYNC-02` ✅→⏳ làm lại UI (nay đã ✅ lại); sửa bullet `HTG-01`)
 - **Trước nữa:** 04/10/2026 (#33 +Feature "Đồng bộ CDB" 3 story `SYNC-01/02/03` SHOULD, port sync_tool v2.0 + tool chuyển sidebar module)
 - **Trước đó:** 04/10/2026 (#32 bổ sung tiêu chí NAP-01 + QLY-05; ⚠️ #31 có dòng bảng nhưng THIẾU mục chi tiết — cần phiên #31 bổ sung) · 03/10/2026 (gộp 2 phiên song song: #28 QLY-09 + #29 NAP-01/03 + #30 THU-01/05; THU-01 hạ ✅→⏳)
-- **Số story trong PRD:** 65 (gồm **`QLY-10`**, **`TCB-05`** #89; gồm **`NAP-07`**, **`THU-07`** #81; gồm **`KQD-10`** #75 + **`KQD-09`** #72 + **`KQD-08`** #69 + **`KQD-07`** #65 + **`PCG-06`** #66 + **`TNB-01..07`** #60 + **`PCG-01..05`** #54 + **`THU-06`** #49 + `KQD-01/02/03/04` #42 + `KQD-05` #45 + `KQD-06` #48; cùng `HTG-01..07` · `THU-01/02/04/05` · `NAP-01..06` · `KHO-01` · `QLY-01/02/03/05/06/07/08/09` · `SYNC-01/02/03` · `TCB-01/02/03/04` · `DGT-01/02/03/04`; chưa tính NICE `QLY-04`, `THU-03`)
-- **Mã story hiện có:** `HTG-01`…`HTG-07`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `THU-06`, `THU-07`, `NAP-01`…`NAP-07`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `QLY-10`, `SYNC-01`, `SYNC-02`, `SYNC-03`, `TCB-01`, `TCB-02`, `TCB-03`, `TCB-04`, `TCB-05`, `DGT-01`, `DGT-02`, `DGT-03`, `DGT-04`, `KQD-01`, `KQD-02`, `KQD-03`, `KQD-04`, `KQD-05`, `KQD-06`, `KQD-07`, `KQD-08`, `KQD-09`, `KQD-10`, `PCG-01`…`PCG-06` (NICE: `QLY-04`, `THU-03`), `TNB-01`…`TNB-07`
+- **Số story trong PRD:** 66 (gồm **`NAP-08`** #92; gồm **`QLY-10`**, **`TCB-05`** #89; gồm **`NAP-07`**, **`THU-07`** #81; gồm **`KQD-10`** #75 + **`KQD-09`** #72 + **`KQD-08`** #69 + **`KQD-07`** #65 + **`PCG-06`** #66 + **`TNB-01..07`** #60 + **`PCG-01..05`** #54 + **`THU-06`** #49 + `KQD-01/02/03/04` #42 + `KQD-05` #45 + `KQD-06` #48; cùng `HTG-01..07` · `THU-01/02/04/05` · `NAP-01..06` · `KHO-01` · `QLY-01/02/03/05/06/07/08/09` · `SYNC-01/02/03` · `TCB-01/02/03/04` · `DGT-01/02/03/04`; chưa tính NICE `QLY-04`, `THU-03`)
+- **Mã story hiện có:** `HTG-01`…`HTG-07`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `THU-06`, `THU-07`, `NAP-01`…`NAP-08`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `QLY-10`, `SYNC-01`, `SYNC-02`, `SYNC-03`, `TCB-01`, `TCB-02`, `TCB-03`, `TCB-04`, `TCB-05`, `DGT-01`, `DGT-02`, `DGT-03`, `DGT-04`, `KQD-01`, `KQD-02`, `KQD-03`, `KQD-04`, `KQD-05`, `KQD-06`, `KQD-07`, `KQD-08`, `KQD-09`, `KQD-10`, `PCG-01`…`PCG-06` (NICE: `QLY-04`, `THU-03`), `TNB-01`…`TNB-07`
 - **Mã đã nghỉ hưu:** (chưa có)

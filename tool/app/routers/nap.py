@@ -233,7 +233,32 @@ def keo_hang_doi(phien: Phien = Depends(require_session), limit: int = Query(200
         pass  # kéo chính đã xong; đồng bộ xóa để lượt kéo sau, không chặn luồng
 
     return {"keo_ve": tong_moi, "lam_tuoi": tong_tuoi, "bo_da_xoa": so_bo,
-            "dia_chi_reset": tong_reset, "tong": len(nap.keo_ve_danh_sach())}
+            "dia_chi_reset": tong_reset, "thay_doi": len(nap.thay_doi_ds()), "tong": len(nap.keo_ve_danh_sach())}
+
+
+# ---- NAP-08 — hồ sơ chưa nạp được app web cập nhật (TDD §10.8) --------------
+@router.get("/nap/thay-doi")
+def thay_doi_ds(phien: Phien = Depends(require_session)):
+    """Danh sách hồ sơ CHƯA NẠP mà app web đổi sau lần kéo trước: học viên, mã trường đổi, lúc phát hiện,
+    cờ nháp-giữ-ảnh-cũ. Chỉ nêu tên trường, không trả giá trị cá nhân."""
+    return nap.thay_doi_ds()
+
+
+class DaXemIn(BaseModel):
+    uuids: list[str] | None = None
+    tat_ca: bool = False
+    loai: str | None = Field(None, max_length=20)  # chỉ gỡ loại này (ví dụ "anh" = Giữ ảnh cũ), không gỡ cả dòng
+
+
+@router.post("/nap/thay-doi/da-xem")
+def thay_doi_da_xem(body: DaXemIn, phien: Phien = Depends(require_session)):
+    """"Đã xem": từng hồ sơ (`uuids`) hoặc tất cả (`tat_ca`). Không đụng VPS/DB."""
+    if not body.tat_ca and not body.uuids:
+        raise HTTPException(status_code=422, detail="Cần uuids hoặc tat_ca.")
+    if body.uuids and len(body.uuids) > 1000:
+        raise HTTPException(status_code=422, detail="Tối đa 1000 hồ sơ một lượt.")
+    nap.thay_doi_da_xem(None if body.tat_ca else body.uuids, loai=body.loai)
+    return {"ok": True}
 
 
 @router.get("/nap/danh-sach")
@@ -317,6 +342,13 @@ def nhap_luu_mot(uuid: str, body: NhapChuanBiIn, phien: Phien = Depends(require_
     """Lưu (upsert) nháp chuẩn bị — gọi khi đóng drawer / debounce (không mỗi phím)."""
     nap.nhap_luu(uuid, **body.model_dump())
     return {"ok": True, "uuid": uuid}
+
+
+@router.post("/nap/nhap/{uuid}/bo-anh")
+def nhap_bo_anh_mot(uuid: str, phien: Phien = Depends(require_session)):
+    """NAP-08 "Dùng ảnh mới": bỏ RIÊNG ảnh trong nháp, giữ địa chỉ/giấy tờ; ảnh mới tải lại từ VPS khi mở xử lý ảnh.
+    Idempotent — không có nháp thì `da_bo=False`."""
+    return {"ok": True, "uuid": uuid, "da_bo": nap.nhap_bo_anh(uuid)}
 
 
 @router.delete("/nap/nhap/{uuid}")

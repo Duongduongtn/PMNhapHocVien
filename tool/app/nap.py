@@ -403,6 +403,17 @@ _BO_QUA_DDL = (
 )
 
 
+# NAP-08 (CHANGES #92, TDD §10.8): hồ sơ CHƯA NẠP mà app web vừa đổi sau lần kéo trước. Chỉ chứa uuid + mã
+# trường + giờ phát hiện (KHÔNG có giá trị cá nhân). `truong` là các mã ngăn bằng dấu phẩy:
+# `tt:<tên cột>` (thông tin) · `gplx` · `anh` · `dc_reset` (địa chỉ nháp đã bị reset, cần map lại).
+_THAY_DOI_DDL = (
+    "CREATE TABLE IF NOT EXISTS keo_ve_thay_doi ("
+    "uuid TEXT PRIMARY KEY, truong TEXT NOT NULL, luc TEXT NOT NULL)"
+)
+_TRUONG_TT = ("so_cccd", "so_cmnd_cu", "ho_ten", "ngay_sinh", "gioi_tinh",
+              "noi_tt_raw", "ngay_cap", "noi_cap_cccd")
+
+
 def iso_to_yyyymmdd(gia_tri: str | None) -> str:
     """Ngày cấp CCCD ISO 'yyyy-mm-dd' (cột VPS DATE) → 'yyyymmdd' (SP cần varchar(8),
     convert style 112). Rỗng/không đủ 8 số → '' (nạp thiếu ngày cấp, không chặn)."""
@@ -416,7 +427,10 @@ def _keo_conn() -> sqlite3.Connection:
     conn.execute(_KEO_DDL)
     if "gplx_da_co_json" not in {r[1] for r in conn.execute("PRAGMA table_info(keo_ve)")}:  # NAP-07: máy đã có bảng cũ
         conn.execute("ALTER TABLE keo_ve ADD COLUMN gplx_da_co_json TEXT")
+    if "anh_luc" not in {r[1] for r in conn.execute("PRAGMA table_info(keo_ve)")}:  # NAP-08: mốc file ảnh trên VPS
+        conn.execute("ALTER TABLE keo_ve ADD COLUMN anh_luc TEXT")
     conn.execute(_BO_QUA_DDL)  # tombstone bỏ-qua dùng chung connection với keo_ve (#51)
+    conn.execute(_THAY_DOI_DDL)
     return conn
 
 
@@ -427,6 +441,35 @@ def _bo_qua_uuids() -> set[str]:
         return {r[0] for r in conn.execute("SELECT uuid FROM keo_ve_bo_qua")}
     finally:
         conn.close()
+
+
+def _chuan(v: object) -> str:
+    return (str(v) if v is not None else "").strip()
+
+
+def _gplx_chuan(v: object) -> object:
+    """Bản so sánh của GPLX đã có: rỗng/'[]' ≡ None; JSON so theo nội dung (không phụ thuộc thứ tự khóa)."""
+    if not v:
+        return None
+    try:
+        d = json.loads(v) if isinstance(v, str) else v
+    except ValueError:
+        return v
+    return d or None
+
+
+def phat_hien_thay_doi(cu: dict, moi: dict) -> list[str]:
+    """NAP-08 — so bản đang có (`cu`) với bản vừa kéo (`moi`) của một hồ sơ chờ nạp, trả danh sách mã trường đổi.
+    Cả hai là dict cùng khóa với cột keo_ve (ngay_cap đã ở dạng yyyymmdd). Thuần, không đụng đĩa.
+    Ảnh đổi khi cờ có/không ảnh đổi, hoặc mốc file ảnh (`anh_luc`) đổi giữa hai bản ĐỀU có mốc; thiếu mốc ở
+    một bên (máy vừa nâng cấp, VPS bản cũ) thì không kết luận."""
+    ra = [f"tt:{t}" for t in _TRUONG_TT if _chuan(cu.get(t)) != _chuan(moi.get(t))]
+    if _gplx_chuan(cu.get("gplx_da_co_json")) != _gplx_chuan(moi.get("gplx_da_co_json")):
+        ra.append("gplx")
+    cu_luc, moi_luc = cu.get("anh_luc"), moi.get("anh_luc")
+    if bool(cu.get("co_anh")) != bool(moi.get("co_anh")) or (cu_luc and moi_luc and cu_luc != moi_luc):
+        ra.append("anh")
+    return ra
 
 
 def keo_ve_upsert(rows: list[dict]) -> tuple[int, int, int]:
@@ -447,6 +490,7 @@ def keo_ve_upsert(rows: list[dict]) -> tuple[int, int, int]:
     """
     conn = _keo_conn()
     reset_uuids: list[str] = []
+    thay_doi: dict[str, list[str]] = {}   # NAP-08: uuid → mã trường app web vừa đổi
     try:
         # #51: lọc bỏ uuid operator đã "bỏ qua" TRƯỚC khi upsert → không thêm mới, không làm tươi.
         # Đặt ở ĐÂY (trong keo_ve_upsert) vì keo_hang_doi gọi hàm này theo TỪNG trang cursor —
@@ -463,11 +507,13 @@ def keo_ve_upsert(rows: list[dict]) -> tuple[int, int, int]:
                 r.get("noi_cap_cccd"), 1 if r.get("co_anh") else 0,
                 str(r.get("created_at") or ""),
                 json.dumps(r["gplx_da_co"], ensure_ascii=False) if r.get("gplx_da_co") else None,
+                str(r.get("anh_luc") or "") or None,  # NAP-08: giờ sửa file ảnh trên VPS (None = VPS bản cũ/chưa có ảnh)
             )
             cot = ("uuid", "so_cccd", "so_cmnd_cu", "ho_ten", "ngay_sinh", "gioi_tinh",
-                   "noi_tt_raw", "ngay_cap", "noi_cap_cccd", "co_anh", "created_at", "gplx_da_co_json")
+                   "noi_tt_raw", "ngay_cap", "noi_cap_cccd", "co_anh", "created_at", "gplx_da_co_json", "anh_luc")
             hien = conn.execute(
-                "SELECT trang_thai, noi_tt_raw FROM keo_ve WHERE uuid=?", (gt[0],)
+                "SELECT trang_thai, noi_tt_raw, so_cccd, so_cmnd_cu, ho_ten, ngay_sinh, gioi_tinh, ngay_cap, "
+                "noi_cap_cccd, co_anh, gplx_da_co_json, anh_luc FROM keo_ve WHERE uuid=?", (gt[0],)
             ).fetchone()
             if hien is None:
                 conn.execute(
@@ -477,6 +523,14 @@ def keo_ve_upsert(rows: list[dict]) -> tuple[int, int, int]:
                 )
                 moi += 1
             elif hien[0] == "cho":
+                cu = dict(zip(("so_cccd", "so_cmnd_cu", "ho_ten", "ngay_sinh", "gioi_tinh", "ngay_cap",
+                               "noi_cap_cccd", "co_anh", "gplx_da_co_json", "anh_luc"), hien[2:]))
+                cu["noi_tt_raw"] = hien[1]
+                if gt[12] is None and hien[11]:  # VPS tạm không trả mốc ảnh: giữ mốc cũ để lần đổi sau vẫn bắt được
+                    gt = (*gt[:12], hien[11])
+                doi = phat_hien_thay_doi(cu, dict(zip(cot, gt)))
+                if doi:
+                    thay_doi[gt[0]] = doi
                 dat = ", ".join(f"{c}=?" for c in cot[1:])  # bỏ uuid (khóa)
                 conn.execute(f"UPDATE keo_ve SET {dat} WHERE uuid=?", (*gt[1:], gt[0]))
                 lam_tuoi += 1
@@ -486,8 +540,114 @@ def keo_ve_upsert(rows: list[dict]) -> tuple[int, int, int]:
         conn.commit()
     finally:
         conn.close()
-    reset = sum(1 for u in reset_uuids if nhap_reset_dia_chi(u))  # chỉ đếm dòng CÓ nháp
-    return moi, lam_tuoi, reset
+    co_reset = [u for u in reset_uuids if nhap_reset_dia_chi(u)]  # chỉ đếm dòng CÓ nháp
+    for u in co_reset:
+        ds = thay_doi.setdefault(u, [])
+        if "tt:noi_tt_raw" not in ds:  # reset so thô, còn so sánh trường có strip: luôn nêu nơi thường trú để banner không rỗng
+            ds.append("tt:noi_tt_raw")
+        ds.append("dc_reset")
+    try:
+        _thay_doi_ghi(thay_doi)
+    except sqlite3.Error:  # cảnh báo chỉ là thông tin phụ, không làm hỏng việc kéo
+        logger.exception("Không ghi được keo_ve_thay_doi")
+    return moi, lam_tuoi, len(co_reset)
+
+
+def _thay_doi_ghi(moi: dict[str, list[str]]) -> None:
+    """Gộp mã trường mới vào dòng cảnh báo sẵn có của uuid (chưa Đã xem) và đặt lại giờ phát hiện."""
+    if not moi:
+        return
+    conn = _keo_conn()
+    try:
+        luc = datetime.now().isoformat(timespec="seconds")
+        for u, ds in moi.items():
+            cu = conn.execute("SELECT truong FROM keo_ve_thay_doi WHERE uuid=?", (u,)).fetchone()
+            gop = sorted(set(ds) | {x for x in (cu[0].split(",") if cu else []) if x})
+            conn.execute("INSERT OR REPLACE INTO keo_ve_thay_doi (uuid, truong, luc) VALUES (?,?,?)",
+                         (u, ",".join(gop), luc))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def thay_doi_ds() -> list[dict]:
+    """NAP-08 — hồ sơ CHƯA NẠP được app web cập nhật: [{uuid, ho_ten, truong:[…], luc, nhap_giu_anh_cu}].
+    Dọn dòng của hồ sơ không còn 'cho' (đã nạp / bỏ qua / đã xóa ở app web) ngay lúc đọc. `nhap_giu_anh_cu` = ảnh
+    đổi mà nháp Chuẩn bị đang giữ ảnh đã xử lý (tính lúc đọc nên tự tắt khi nháp đã bỏ ảnh). Không trả giá trị cá nhân."""
+    if not ORPHAN_DB.exists():
+        return []
+    conn = _keo_conn()
+    try:
+        conn.execute("DELETE FROM keo_ve_thay_doi WHERE uuid NOT IN (SELECT uuid FROM keo_ve WHERE trang_thai='cho')")
+        conn.commit()
+        rows = conn.execute(
+            "SELECT t.uuid, k.ho_ten, t.truong, t.luc FROM keo_ve_thay_doi t JOIN keo_ve k ON k.uuid=t.uuid "
+            "ORDER BY t.luc DESC, k.ho_ten"
+        ).fetchall()
+    finally:
+        conn.close()
+    giu = {d["uuid"]: d["co_anh"] for d in nhap_co([r[0] for r in rows])}
+    out = []
+    for u, ten, truong, luc in rows:
+        ds = [x for x in truong.split(",") if x]
+        out.append({"uuid": u, "ho_ten": ten, "truong": ds, "luc": luc,
+                    "nhap_giu_anh_cu": "anh" in ds and bool(giu.get(u))})
+    return out
+
+
+def _go_loai(conn: sqlite3.Connection, uuid: str, loai: str) -> None:
+    """Gỡ một mã trường khỏi dòng cảnh báo; hết mã thì xóa dòng."""
+    cu = conn.execute("SELECT truong FROM keo_ve_thay_doi WHERE uuid=?", (uuid,)).fetchone()
+    if not cu:
+        return
+    con = [x for x in cu[0].split(",") if x and x != loai]
+    if con:
+        conn.execute("UPDATE keo_ve_thay_doi SET truong=? WHERE uuid=?", (",".join(con), uuid))
+    else:
+        conn.execute("DELETE FROM keo_ve_thay_doi WHERE uuid=?", (uuid,))
+
+
+def thay_doi_da_xem(uuids: list[str] | None, loai: str | None = None) -> None:
+    """Đã xem: `uuids=None` là tất cả; `loai` (ví dụ 'anh') chỉ gỡ loại đó, không gỡ cả dòng."""
+    if not ORPHAN_DB.exists():
+        return
+    conn = _keo_conn()
+    try:
+        if uuids is None:
+            conn.execute("DELETE FROM keo_ve_thay_doi")
+        else:
+            for u in uuids:
+                if loai is None:
+                    conn.execute("DELETE FROM keo_ve_thay_doi WHERE uuid=?", (str(u),))
+                else:
+                    _go_loai(conn, str(u), loai)
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def nhap_bo_anh(uuid: str) -> bool:
+    """NAP-08 "Dùng ảnh mới": bỏ RIÊNG ảnh trong nháp (jp2 + xem trước), giữ địa chỉ, tick, nơi cấp, GPLX; gỡ loại 'anh'
+    khỏi cảnh báo. Trả True nếu uuid CÓ nháp."""
+    if not ORPHAN_DB.exists():
+        return False
+    conn = _nhap_conn()
+    try:
+        cur = conn.execute(
+            "UPDATE nhap_chuan_bi SET jp2_b64=NULL, anh_preview=NULL, updated_at=? WHERE uuid=?",
+            (datetime.now().isoformat(timespec="seconds"), str(uuid)),
+        )
+        conn.commit()
+        co_nhap = cur.rowcount > 0
+    finally:
+        conn.close()
+    conn = _keo_conn()
+    try:
+        _go_loai(conn, str(uuid), "anh")
+        conn.commit()
+    finally:
+        conn.close()
+    return co_nhap
 
 
 def keo_ve_danh_sach() -> list[dict]:

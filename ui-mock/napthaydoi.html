@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mock hồ sơ chưa nạp được app web cập nhật</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script>
+  tailwind.config = {
+    theme: { extend: {
+      fontFamily: { sans: ['"Be Vietnam Pro"', "system-ui", "sans-serif"] },
+      colors: {
+        background: "hsl(210 40% 96%)", foreground: "hsl(222 47% 11%)", card: "hsl(0 0% 100%)",
+        primary: "hsl(222 76% 40%)", muted: "hsl(210 40% 96%)", "muted-foreground": "hsl(215 16% 47%)",
+        accent: "hsl(224 76% 94%)", destructive: "hsl(0 72% 51%)", success: "hsl(142 71% 38%)",
+        warning: "hsl(32 90% 42%)", border: "hsl(214 32% 91%)", input: "hsl(214 32% 88%)",
+      },
+      borderRadius: { lg: "0.625rem", md: "0.5rem", sm: "0.375rem" },
+    } },
+  };
+</script>
+<style>
+  body { font-family: "Be Vietnam Pro", system-ui, sans-serif; background: hsl(210 40% 96%); color: hsl(222 47% 11%); }
+  .chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; border-radius: 6px; padding: 2px 6px; white-space: nowrap; }
+  .chip-moi { color: hsl(32 90% 30%); background: hsl(40 90% 93%); }
+  .chip-ok { color: hsl(142 71% 26%); background: hsl(142 60% 94%); }
+  .chip-xam { color: hsl(215 16% 40%); background: hsl(210 40% 94%); }
+  .chip-do { color: hsl(0 72% 40%); background: hsl(0 80% 96%); }
+  .btn { font-size: 13px; font-weight: 600; border-radius: 8px; padding: 7px 12px; }
+  .btn-1 { background: hsl(222 76% 40%); color: #fff; }
+  .btn-2 { background: #fff; border: 1px solid hsl(214 32% 88%); }
+  th { font-size: 11px; font-weight: 600; color: hsl(215 16% 40%); text-align: left; padding: 6px 10px; white-space: nowrap; }
+  td { font-size: 13px; padding: 8px 10px; border-top: 1px solid hsl(214 32% 91%); vertical-align: middle; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body class="min-h-screen">
+<div class="max-w-[1240px] mx-auto px-4 py-5 space-y-7">
+
+  <header>
+    <h1 class="text-lg font-bold">Mock hồ sơ chưa nạp được app web cập nhật (NAP-08) — chờ duyệt</h1>
+    <p class="text-[13px] text-muted-foreground mt-1">Dữ liệu minh họa, tên không có thật. Bấm thử: dải cảnh báo, bộ lọc, "Đã xem", mở ngăn Chuẩn bị, "Dùng ảnh mới" / "Giữ ảnh cũ".</p>
+  </header>
+
+  <!-- 1. Màn Nạp -->
+  <section class="space-y-2">
+    <h2 class="text-sm font-bold">1. Tool · Màn Nạp, tab Cần xử lý, sau khi bấm "Kéo về từ VPS"</h2>
+    <div class="bg-card border border-border rounded-xl overflow-hidden">
+      <div class="px-4 py-3 border-b border-border flex flex-wrap items-center gap-2">
+        <span class="font-bold text-sm">Hàng chờ nạp</span>
+        <span class="chip chip-xam">5 hồ sơ</span>
+        <button class="btn btn-2 ml-auto">Kéo về từ VPS</button>
+      </div>
+
+      <!-- Dải cảnh báo -->
+      <div id="dai" class="mx-4 mt-3 rounded-lg border border-warning/40 bg-[hsl(40_90%_95%)] px-3 py-2 flex flex-wrap items-center gap-2 text-[13px]">
+        <span class="font-semibold text-[hsl(32_90%_28%)]">⚠ <span id="soDai">3</span> hồ sơ được app web cập nhật sau lần kéo trước</span>
+        <button id="moDS" class="btn btn-2 ml-auto" style="padding:4px 10px">Xem danh sách</button>
+        <button id="xemHet" class="btn btn-2" style="padding:4px 10px">Đã xem tất cả</button>
+      </div>
+
+      <div class="px-4 py-3 flex flex-wrap items-center gap-2 text-[13px]">
+        <span class="text-muted-foreground">Lọc:</span>
+        <button class="loc chip chip-xam" data-loc="tat" style="font-size:12px">Tất cả 5</button>
+        <button class="loc chip chip-moi" data-loc="moi" style="font-size:12px">App web đã sửa <b id="soLoc">3</b></button>
+      </div>
+
+      <table class="w-full">
+        <thead><tr><th>Học viên</th><th>Chuẩn bị</th><th>Cập nhật từ app web</th><th></th></tr></thead>
+        <tbody id="luoi">
+          <tr data-id="a" data-moi="1"><td><b>TRẦN THỊ BÌNH</b><div class="text-[12px] text-muted-foreground">CCCD ••••••••4521</div></td>
+            <td><span class="chip chip-ok">✓ Địa chỉ</span> <span class="chip chip-ok">✓ Có hình</span></td>
+            <td><span class="chip chip-moi">App web đã sửa</span> <span class="text-[12px] text-muted-foreground">ảnh</span> <span class="chip chip-do">Nháp giữ ảnh cũ</span></td>
+            <td class="text-right"><button class="btn btn-1 xuly" data-id="a">Xử lý</button></td></tr>
+          <tr data-id="b" data-moi="1"><td><b>LÊ MINH CƯỜNG</b><div class="text-[12px] text-muted-foreground">CCCD ••••••••0937</div></td>
+            <td><span class="chip chip-xam">✗ Chưa map địa chỉ</span> <span class="chip chip-xam">✗ Chưa có hình</span></td>
+            <td><span class="chip chip-moi">App web đã sửa</span> <span class="text-[12px] text-muted-foreground">nơi thường trú · cần map lại</span></td>
+            <td class="text-right"><button class="btn btn-1 xuly" data-id="b">Xử lý</button></td></tr>
+          <tr data-id="c" data-moi="1"><td><b>PHẠM QUỐC DŨNG</b><div class="text-[12px] text-muted-foreground">CCCD ••••••••7788</div></td>
+            <td><span class="chip chip-ok">✓ Địa chỉ</span> <span class="chip chip-xam">✗ Chưa có hình</span></td>
+            <td><span class="chip chip-moi">App web đã sửa</span> <span class="text-[12px] text-muted-foreground">GPLX · họ tên</span></td>
+            <td class="text-right"><button class="btn btn-1 xuly" data-id="c">Xử lý</button></td></tr>
+          <tr data-id="d"><td><b>NGUYỄN THỊ EM</b><div class="text-[12px] text-muted-foreground">CCCD ••••••••1203</div></td>
+            <td><span class="chip chip-ok">✓ Địa chỉ</span> <span class="chip chip-ok">✓ Có hình</span></td><td></td>
+            <td class="text-right"><button class="btn btn-1">Xử lý</button></td></tr>
+          <tr data-id="e"><td><b>HOÀNG VĂN GIANG</b><div class="text-[12px] text-muted-foreground">CCCD ••••••••6650</div></td>
+            <td><span class="chip chip-xam">✗ Chưa map địa chỉ</span> <span class="chip chip-xam">✗ Chưa có hình</span></td><td></td>
+            <td class="text-right"><button class="btn btn-1">Xử lý</button></td></tr>
+        </tbody>
+      </table>
+      <p class="px-4 py-2 text-[12px] text-muted-foreground border-t border-border">Chip "Nháp giữ ảnh cũ" chỉ hiện khi ảnh đổi mà nháp đang giữ ảnh đã xử lý. Hồ sơ nạp xong, bỏ khỏi hàng đợi hoặc bị xóa ở app web thì tự hết cảnh báo.</p>
+    </div>
+  </section>
+
+  <!-- 2. Danh sách -->
+  <section class="space-y-2">
+    <h2 class="text-sm font-bold">2. Tool · Danh sách khi bấm "Xem danh sách"</h2>
+    <div id="ds" class="bg-card border border-border rounded-xl overflow-hidden max-w-[860px]" hidden>
+      <div class="px-4 py-3 border-b border-border flex items-center gap-2">
+        <span class="font-bold text-sm">Hồ sơ được app web cập nhật</span>
+        <span class="text-[12px] text-muted-foreground">sau lần kéo 04/11/2026 09:12</span>
+        <button id="dongDS" class="btn btn-2 ml-auto" style="padding:4px 10px">Đóng</button>
+      </div>
+      <table class="w-full">
+        <thead><tr><th>Học viên</th><th>Đổi gì</th><th>Lúc phát hiện</th><th></th></tr></thead>
+        <tbody>
+          <tr><td><b>TRẦN THỊ BÌNH</b></td><td><span class="chip chip-moi">Ảnh</span></td><td>04/11/2026 09:12</td><td class="text-right"><button class="btn btn-2 xemMot" style="padding:4px 10px">Đã xem</button></td></tr>
+          <tr><td><b>LÊ MINH CƯỜNG</b></td><td><span class="chip chip-moi">Nơi thường trú</span> <span class="text-[12px] text-muted-foreground">địa chỉ đã reset, cần map lại</span></td><td>04/11/2026 09:12</td><td class="text-right"><button class="btn btn-2 xemMot" style="padding:4px 10px">Đã xem</button></td></tr>
+          <tr><td><b>PHẠM QUỐC DŨNG</b></td><td><span class="chip chip-moi">GPLX</span> <span class="chip chip-moi">Họ tên</span></td><td>04/11/2026 09:12</td><td class="text-right"><button class="btn btn-2 xemMot" style="padding:4px 10px">Đã xem</button></td></tr>
+        </tbody>
+      </table>
+      <p class="px-4 py-2 text-[12px] text-muted-foreground border-t border-border">Chỉ nêu tên trường, không hiện giá trị cá nhân. Giá trị mới xem trong ngăn Chuẩn bị của từng hồ sơ.</p>
+    </div>
+    <p id="dsGoi" class="text-[12px] text-muted-foreground">Bấm "Xem danh sách" ở mục 1 để mở.</p>
+  </section>
+
+  <!-- 3. Ngăn Chuẩn bị -->
+  <section class="space-y-2">
+    <h2 class="text-sm font-bold">3. Tool · Ngăn Chuẩn bị của TRẦN THỊ BÌNH (ảnh đổi, nháp giữ ảnh cũ)</h2>
+    <div class="max-w-[520px] bg-card border border-border rounded-xl overflow-hidden">
+      <div class="px-4 py-3 border-b border-border font-bold text-sm">Chuẩn bị hồ sơ · TRẦN THỊ BÌNH</div>
+      <div class="p-4 space-y-3">
+        <div id="banner" class="rounded-lg border-l-4 border-destructive bg-[hsl(0_80%_96%)] px-3 py-3 space-y-2">
+          <div class="text-[13px] font-bold text-[hsl(0_72%_36%)]">Ảnh đã đổi ở app web, nháp đang giữ ảnh cũ</div>
+          <p class="text-[12.5px] text-[hsl(0_40%_25%)]">Người thu nhận chụp lại ảnh lúc 04/11/2026 09:12. Nếu không chọn, hồ sơ sẽ được nạp với ảnh cũ trong nháp.</p>
+          <div class="flex flex-wrap gap-2">
+            <button id="dungMoi" class="btn btn-1">Dùng ảnh mới</button>
+            <button id="giuCu" class="btn btn-2">Giữ ảnh cũ</button>
+          </div>
+          <p class="text-[12px] text-muted-foreground">"Dùng ảnh mới" chỉ bỏ ảnh trong nháp; địa chỉ và giấy tờ đã chuẩn bị được giữ nguyên.</p>
+        </div>
+        <div id="ketQuaBanner" class="text-[13px] rounded-lg bg-[hsl(142_60%_94%)] text-[hsl(142_71%_26%)] px-3 py-2" hidden></div>
+        <div class="grid grid-cols-2 gap-2 text-[12px] text-muted-foreground">
+          <div class="border border-border rounded-lg p-2 text-center">Ảnh trong nháp (cũ)<div class="h-24 mt-1 bg-muted rounded flex items-center justify-center">ảnh cũ</div></div>
+          <div class="border border-border rounded-lg p-2 text-center">Ảnh từ app web (mới)<div class="h-24 mt-1 bg-accent rounded flex items-center justify-center">ảnh mới</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  let con = 3;
+  function capNhat() {
+    $("#soDai").textContent = con; $("#soLoc").textContent = con;
+    $("#dai").hidden = con === 0;
+  }
+  $("#moDS").onclick = () => { $("#ds").hidden = false; $("#dsGoi").hidden = true; };
+  $("#dongDS").onclick = () => { $("#ds").hidden = true; $("#dsGoi").hidden = false; };
+  $("#xemHet").onclick = () => { con = 0; capNhat(); $$("#luoi tr[data-moi]").forEach(r => r.dataset.moi = ""); };
+  $$(".xemMot").forEach(b => b.onclick = () => { b.closest("tr").remove(); con = Math.max(0, con - 1); capNhat(); });
+  $$(".loc").forEach(b => b.onclick = () => {
+    const chiMoi = b.dataset.loc === "moi";
+    $$("#luoi tr").forEach(r => r.hidden = chiMoi && !r.dataset.moi);
+  });
+  $("#dungMoi").onclick = () => { $("#banner").hidden = true; const k = $("#ketQuaBanner"); k.hidden = false; k.textContent = "Đã bỏ ảnh cũ trong nháp. Ảnh mới từ app web sẽ được tải khi bạn mở bước xử lý ảnh."; };
+  $("#giuCu").onclick = () => { $("#banner").hidden = true; const k = $("#ketQuaBanner"); k.hidden = false; k.textContent = "Đã tắt cảnh báo. Hồ sơ sẽ được nạp với ảnh cũ trong nháp."; };
+</script>
+</body>
+</html>

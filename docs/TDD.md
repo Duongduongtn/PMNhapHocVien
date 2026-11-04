@@ -1021,6 +1021,45 @@ Khóa đã lập Báo cáo 1: vẫn CẢNH BÁO, khối chỉ xem, chỉ Bỏ qu
 - Không lấy được bản app web khi mở khối (vừa hết hạn, VPS lỗi): vẫn mở bản DB để nhập tay. Không đọc được khóa ở DB đích: chặn lưu.
 - PII: ở tool, số GPLX chỉ trả cho giao diện ở endpoint một học viên; job 30 ngày dọn theo `updated_at`. Bổ sung 30 ngày chưa ai duyệt sẽ bị dọn cùng dòng và hết cảnh báo; người nạp vẫn nhập tay được.
 
+### 10.8 Báo hồ sơ chưa nạp vừa được app web cập nhật (NAP-08 — CHANGES #92)
+> **Phục vụ:** `NAP-08` (mở rộng `NAP-01`). *Vì sao so ngay lúc kéo mà không hỏi VPS "cái gì đổi": `/api/nap/keo` đã trả mọi hồ sơ `pending` kèm toàn bộ trường mỗi lần kéo, nên tool chỉ cần giữ bản lần trước và so; VPS không phải thêm bảng lịch sử.*
+
+```
+ App web (hồ sơ pending)         VPS /api/nap/keo                 Tool: keo_ve_upsert
+ sửa thông tin / chụp lại ảnh ─► trả trường + co_anh              so với dòng keo_ve 'cho' đang có
+ đổi GPLX                        + anh_luc (mốc file ảnh)                │ khác
+                                                                          ▼
+                                                              keo_ve_thay_doi (uuid, truong, luc)
+                                                                          │
+                                       GET /local/nap/thay-doi ◄──────────┘
+                                       dải cảnh báo · danh sách · chip · lọc
+                                       nháp giữ ảnh cũ ─► cảnh báo đậm ─► "Dùng ảnh mới" / "Giữ ảnh cũ"
+```
+
+**VPS:** `KeoOut` thêm `anh_luc: datetime | None` = giờ sửa file ảnh thô (`os.stat(anh_tho_path).st_mtime`, UTC), `None` khi chưa có ảnh hoặc không đọc được file. Không thêm cột, không đổi `ho_so_thu_thap`. *Vì sao không dùng `updated_at`: cột này cũng tăng khi khóa/mở khóa hồ sơ lúc nạp (`importing` ↔ `pending`), nên dùng nó để suy "ảnh đổi" sẽ báo nhầm sau mỗi lần nạp lỗi.* Dùng `stat` tối đa 500 lần mỗi lượt kéo, không đọc nội dung file.
+
+**Tool:**
+- SQLite `staging.sqlite`: cột mới `keo_ve.anh_luc TEXT` (ALTER có kiểm `PRAGMA table_info`, như `gplx_da_co_json`) và bảng mới `keo_ve_thay_doi(uuid TEXT PRIMARY KEY, truong TEXT NOT NULL, luc TEXT NOT NULL)`; `truong` là các mã ngăn bằng dấu phẩy, ví dụ `tt:ho_ten,tt:noi_tt,anh,gplx`. Dựng cùng chỗ tạo `keo_ve` bằng `CREATE TABLE IF NOT EXISTS`.
+- Trong `keo_ve_upsert`, nhánh dòng đã có và còn `cho`: đọc các cột cũ trước khi `UPDATE`, so từng trường (`so_cccd`, `so_cmnd_cu`, `ho_ten`, `ngay_sinh`, `gioi_tinh`, `noi_tt_raw`, `ngay_cap`, `noi_cap_cccd`) → `tt:<tên>`; `gplx_da_co_json` khác → `gplx`; `co_anh` đổi hoặc `anh_luc` mới hơn lúc cũ → `anh`. Dòng mới thêm, dòng `xong`/`loi` không so. `anh_luc` cũ là NULL (máy vừa nâng cấp) hoặc VPS không trả `anh_luc`: không kết luận "ảnh", chỉ ghi `anh_luc` mới làm mốc.
+- Có thay đổi: `INSERT … ON CONFLICT(uuid) DO UPDATE` gộp `truong` (hợp hai tập) và đặt `luc` = lúc kéo. Cùng giao dịch với `UPDATE keo_ve`.
+- Dọn: cuối mỗi lượt kéo xóa dòng `keo_ve_thay_doi` mà `uuid` không còn dòng `keo_ve` trạng thái `cho` (đã nạp, đã bỏ qua, đã xóa ở app web). Không cần móc vào từng chỗ đổi trạng thái.
+- Endpoint: `GET /local/nap/thay-doi` → `[{uuid, ho_ten, truong:[…], luc, nhap_giu_anh_cu}]` (tên trường dạng nhãn tiếng Việt do giao diện dịch, không trả giá trị); `nhap_giu_anh_cu` = có `anh` trong `truong` **và** nháp bền của uuid đang giữ ảnh đã xử lý (`jp2` hoặc `anh_preview`), tính lúc đọc nên tự tắt khi nháp đã bỏ ảnh · `POST /local/nap/thay-doi/da-xem` body `{uuids:[…]}` hoặc `{tat_ca:true}` · `POST /local/nap/nhap/{uuid}/bo-anh` (xóa riêng ảnh trong nháp, giữ địa chỉ, tick, nơi cấp; idempotent; cũng xóa dòng `anh` khỏi `truong`). Kết quả `POST /local/nap/keo` thêm `thay_doi` (số hồ sơ có dòng cảnh báo).
+- Giao diện (`NapHoSo.tsx`): dải cảnh báo ở tab Cần xử lý (ẩn khi 0), bấm mở danh sách; chip "App web đã sửa" trên dòng; bộ lọc cùng số lượng; trong ngăn Chuẩn bị, banner đậm khi `nhap_giu_anh_cu`. "Dùng ảnh mới" gọi `bo-anh` rồi tải lại ảnh VPS qua `GET /local/nap/keo/{uuid}/anh`.
+
+**Ca khó:**
+- Đổi rồi đổi lại về như cũ giữa hai lần kéo: không thấy, chấp nhận. *Đánh đổi: không giữ lịch sử ở VPS để đổi lại không thêm cột và không thêm bảng.*
+- Máy tool nâng cấp xong, lần kéo đầu: không báo ảnh; báo thông tin/GPLX chỉ khi so được với bản đã lưu.
+- Tool mới với VPS cũ (không có `anh_luc`) hoặc VPS mới với tool cũ: không lỗi, chỉ không có cảnh báo ảnh. Thứ tự deploy: VPS trước, tool sau.
+- Địa chỉ đổi: dòng `tt:noi_tt` ghi kèm "cần map lại" khi `nhap_reset_dia_chi` trả có reset.
+- `Đã xem` rồi app web đổi tiếp: tạo lại dòng, báo lại.
+- Lỗi khi ghi `keo_ve_thay_doi`: ghi log, không làm hỏng việc kéo (cảnh báo chỉ là thông tin phụ).
+- VPS tạm không trả `anh_luc` (file ảnh thiếu, VPS bản cũ): giữ mốc đã có, không ghi đè bằng rỗng, để lần ảnh đổi sau vẫn bắt được.
+- Nơi thường trú đổi mà nháp địa chỉ bị reset: luôn ghi cả `tt:noi_tt_raw` lẫn `dc_reset` (reset so chuỗi thô, so sánh trường có bỏ khoảng trắng đầu cuối), để dòng cảnh báo không bao giờ rỗng.
+- Khôi phục hoặc sao chép thư mục ảnh thô trên VPS làm giờ sửa file đổi hàng loạt: tool báo "Ảnh" một lần cho mọi hồ sơ chờ nạp. Chấp nhận, bấm "Đã xem tất cả"; ghi vào tài liệu vận hành VPS.
+- Chỉ so và báo hồ sơ `cho`. Hồ sơ `loi` không có cảnh báo (nhân viên đang xem lỗi của nó); nạp lại thành công thì cảnh báo chưa xem của nó mất theo.
+- Giao diện chỉ nhận phản hồi mới nhất của danh sách cảnh báo (bộ đếm yêu cầu); "Đã xem" lỗi thì báo lỗi và cảnh báo vẫn còn. Số `thay_doi` trong kết quả kéo là tổng cảnh báo chưa xem, không phải số hồ sơ đổi riêng lượt này.
+- PII: bảng chỉ chứa uuid, mã trường, giờ; không có giá trị cá nhân. Tên học viên lấy từ `keo_ve` lúc đọc.
+
 ## 11. Quản lý hồ sơ đã có & tạo khóa (tool)
 
 > **Phục vụ:** `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-07`, `KHO-01`
@@ -2168,6 +2207,7 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 | --- | --- | --- |
+| 04/11/2026 | 6.34 | **+§10.8 Báo hồ sơ chưa nạp vừa được app web cập nhật** (CHANGES #92, `NAP-08`): so khi kéo, `keo_ve_thay_doi` + `keo_ve.anh_luc` ở SQLite tool, `KeoOut.anh_luc` ở VPS (không thêm cột), 3 endpoint tool, cảnh báo đậm khi nháp giữ ảnh cũ. |
 | 03/11/2026 | 6.33 | Sửa sau review §10.7 (CHANGES #90, biên bản `tdd-review-03-11-2026.md`): nhận diện bổ sung bằng `audit_log`, phân trang, danh sách rỗng 422, UPDATE nguyên tử, chuỗi thô, cỡ lô 500, dọn dấu vân, sơ đồ vòng đời. |
 | 03/11/2026 | 6.32 | **+§10.7 Bổ sung GPLX sau khi đã nạp** (CHANGES #89, `QLY-10`, `TCB-05`, `THU-07`): UPDATE đúng 6 cột theo `MaDK`, 2 endpoint VPS không thêm cột, SQLite `gplx_da_xu_ly`, chặn BC1/DKKH; §4.3, §4.4, §6 ghi chú. |
 | 02/11/2026 | 6.31 | §11D.10 nhận hai mẫu PDF DAT (CHANGES #88). |

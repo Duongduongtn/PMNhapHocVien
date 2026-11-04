@@ -9,6 +9,7 @@ import { ComboLoc } from "../../components/ComboLoc";
 import { boDau, nghiSaiChinhTa, ymdToVN } from "../../lib/format";
 import { tachDiaChiGoc, lamTuoiNhapDiaChi } from "../../lib/diachi";
 import { GplxDaCoKhoi } from "./GplxDaCoKhoi";
+import { gioThayDoi, tomTatThayDoi } from "./napThayDoi";
 import { docBang, gomBang, tenHang, type BangGplx } from "./gplxDaCo";
 import { IN_GPLX_NHAN, IN_GPLX_THU_TU, ghiChuMacDinh, inGplxMacDinh, laInGplx, laMoTo, type InGplx } from "./inGplx";
 import {
@@ -25,6 +26,10 @@ import {
   nhapDoc,
   nhapLuu,
   nhapXoa,
+  getThayDoi,
+  thayDoiDaXem,
+  nhapBoAnh,
+  type ThayDoiHoSo,
   type KhoaHoc,
   type LoaiXe,
   type GiayTo,
@@ -351,6 +356,18 @@ export default function NapHoSo() {
   const [napFilter, setNapFilter] = useState<"canxuly" | "danap">("canxuly");
   const [q, setQ] = useState("");
   const [qOpen, setQOpen] = useState(false);
+  // NAP-08 — hồ sơ chưa nạp được app web cập nhật sau lần kéo trước (dải cảnh báo, danh sách, chip, bộ lọc)
+  const [thayDoi, setThayDoi] = useState<ThayDoiHoSo[]>([]);
+  const [moDsThayDoi, setMoDsThayDoi] = useState(false);
+  const [chiThayDoi, setChiThayDoi] = useState(false);
+  // Chỉ nhận phản hồi của lần gọi MỚI NHẤT: bấm "Đã xem" liên tiếp hay vừa kéo xong bấm ngay thì phản hồi cũ đến sau không ghi đè.
+  const thayDoiSeq = useRef(0);
+  const taiThayDoi = () => {
+    const seq = ++thayDoiSeq.current;
+    getThayDoi().then((d) => { if (seq === thayDoiSeq.current) setThayDoi(d); }).catch(() => {});
+  };
+  const thayDoiTheoUuid = useMemo(() => new Map(thayDoi.map((d) => [d.uuid, d])), [thayDoi]);
+  useEffect(() => { if (thayDoi.length === 0) { setChiThayDoi(false); setMoDsThayDoi(false); } }, [thayDoi]);
 
   // Chọn để nạp lô + nháp chuẩn bị theo uuid
   const [chon, setChon] = useState<Set<string>>(new Set());
@@ -427,6 +444,7 @@ export default function NapHoSo() {
   // chạy lại mỗi lần quay về → HV vừa gỡ hiện NGAY (PRD QLY-08). Chỉ đọc SQLite cục bộ, KHÔNG gọi VPS.
   useEffect(() => {
     getDanhSachKeoVe().then((ds) => { setKeoVe(ds); taiCoNhap(ds); }).catch(() => setKeoVe([]));
+    taiThayDoi();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -490,16 +508,39 @@ export default function NapHoSo() {
       setNhap((prev) => lamTuoiNhapDiaChi(prev, rawCu, moi));
       setKeoVe(moi);
       taiCoNhap(moi); // backend đã reset địa chỉ nháp (BUG-04) → tải lại cờ cho chip đúng
+      taiThayDoi(); // NAP-08: hồ sơ nào app web vừa đổi
       const phan = [`${kq.keo_ve} hồ sơ mới`];
       if (kq.lam_tuoi > 0) phan.push(`làm tươi ${kq.lam_tuoi} hồ sơ chờ nạp`);
       if (kq.bo_da_xoa > 0) phan.push(`bỏ ${kq.bo_da_xoa} hồ sơ đã xóa ở app`);
       if (kq.dia_chi_reset > 0) phan.push(`⚠ ${kq.dia_chi_reset} hồ sơ đổi địa chỉ — cần map lại`);
+      if (kq.thay_doi > 0) phan.push(`⚠ ${kq.thay_doi} hồ sơ app web đã cập nhật, chưa xem`);
       setKeoMsg(`Đã kéo: ${phan.join(" · ")}. Tổng ${kq.tong} trong danh sách.`);
     } catch (e) {
       setKeoErr(e instanceof Error ? e.message : "Không kéo được hàng đợi từ VPS.");
     } finally {
       setKeoBusy(false);
     }
+  };
+
+  // NAP-08: "Đã xem" (từng hồ sơ hoặc tất cả; `loai` chỉ gỡ một loại, ví dụ "anh" = Giữ ảnh cũ). Lỗi thì báo, cảnh báo còn đó.
+  const daXemThayDoi = async (uuids: string[] | null, loai?: string) => {
+    try {
+      await thayDoiDaXem(uuids ? { uuids, loai } : { tat_ca: true });
+    } catch (e) {
+      setKeoErr(e instanceof Error ? e.message : "Không ghi được \"Đã xem\" — cảnh báo vẫn còn, thử lại.");
+    }
+    taiThayDoi();
+  };
+  // NAP-08 "Dùng ảnh mới": bỏ riêng ảnh trong nháp (backend), rồi bỏ cả bản trong RAM để ngăn Chuẩn bị tải ảnh mới từ app web.
+  const dungAnhMoi = async (uuid: string) => {
+    try {
+      await nhapBoAnh(uuid);
+      setNhap((p) => (p[uuid] ? { ...p, [uuid]: { ...p[uuid], jp2: null, anhPreview: null } } : p));
+      taiCoNhap(keoVe);
+    } catch (e) {
+      setKeoErr(e instanceof Error ? e.message : "Không bỏ được ảnh cũ trong nháp.");
+    }
+    taiThayDoi();
   };
 
   // GPLX đã có đang hiện (ghép MỘT chỗ cho chip, lọc, số đếm, nạp): bản đã sửa, nếu không có thì bản VPS.
@@ -524,18 +565,19 @@ export default function NapHoSo() {
       .filter((r) => r.trang_thai !== "xong")
       .filter(khopTim)
       .filter(khopGplx)
+      .filter((r) => !chiThayDoi || thayDoiTheoUuid.has(r.uuid))
       .sort((a, b) => (b.trang_thai === "loi" ? 1 : 0) - (a.trang_thai === "loi" ? 1 : 0));
     const daNap = keoVe.filter((r) => r.trang_thai === "xong").filter(khopTim).filter(khopGplx);
     return { canXuly, daNap };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [keoVe, q, chiCoGplx, nhap, nhapCoMap]);
+  }, [keoVe, q, chiCoGplx, chiThayDoi, thayDoiTheoUuid, nhap, nhapCoMap]);
 
   const rows = napFilter === "canxuly" ? daLoc.canXuly : daLoc.daNap;
   const soCoGplx = keoVe.filter((r) => (r.trang_thai === "xong") === (napFilter !== "canxuly") && gplxCua(r).length > 0).length;
   // UI-3/4: phân trang cột list (client). Đổi nhóm/ô tìm/cỡ → về trang 1.
   const [trangNap, setTrangNap] = useState(0);
   const [coTrangNap, setCoTrangNap] = useState(20);
-  useEffect(() => { setTrangNap(0); }, [napFilter, q, coTrangNap, chiCoGplx]);
+  useEffect(() => { setTrangNap(0); }, [napFilter, q, coTrangNap, chiCoGplx, chiThayDoi]);
   const rowsTrang = rows.slice(trangNap * coTrangNap, (trangNap + 1) * coTrangNap);
   const tongXong = keoVe.filter((r) => r.trang_thai === "xong").length;
   const soLoi = keoVe.filter((r) => r.trang_thai === "loi").length;
@@ -847,6 +889,7 @@ export default function NapHoSo() {
   };
 
   // Ngăn Chuẩn bị (dùng cả khi ghim bên phải lẫn khi phủ ở màn hẹp).
+  const thayDoiSel = selRow ? thayDoiTheoUuid.get(selRow.uuid) : undefined; // NAP-08
   const nganChuanBi = selRow ? (
     <div className="h-full flex flex-col min-h-0">
                 <div className="px-4 py-3 border-b border-border flex items-center justify-between shrink-0">
@@ -862,6 +905,32 @@ export default function NapHoSo() {
                 </div>
                 <>
                   <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
+                    {/* NAP-08 — app web vừa cập nhật hồ sơ này; đậm khi nháp đang giữ ảnh cũ (nạp nhầm ảnh cũ là hậu quả thật) */}
+                    {thayDoiSel && (thayDoiSel.nhap_giu_anh_cu ? (
+                      <div role="alert" className="rounded-lg border-2 border-destructive/50 bg-destructive/10 p-3 space-y-2" data-testid="banner-anh-cu">
+                        <div className="text-[13px] font-bold text-destructive flex items-center gap-1.5">
+                          <Icon name="warn" className="w-4 h-4 shrink-0" /> Ảnh đã đổi ở app web, nháp đang giữ ảnh cũ
+                        </div>
+                        <p className="text-[12.5px]">
+                          Người thu nhận đã chụp lại ảnh lúc {gioThayDoi(thayDoiSel.luc)}. Nếu không chọn, hồ sơ sẽ được nạp với ảnh cũ trong nháp.
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          <button type="button" className="btn btn-primary btn-row" onClick={() => void dungAnhMoi(selRow.uuid)} data-testid="dung-anh-moi">
+                            Dùng ảnh mới
+                          </button>
+                          <button type="button" className="btn btn-secondary btn-row" onClick={() => void daXemThayDoi([selRow.uuid], "anh")} data-testid="giu-anh-cu">
+                            Giữ ảnh cũ
+                          </button>
+                        </div>
+                        <p className="text-[11.5px] text-muted-foreground">"Dùng ảnh mới" chỉ bỏ ảnh trong nháp; địa chỉ và giấy tờ đã chuẩn bị được giữ nguyên.</p>
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 flex items-center gap-2 text-[12.5px]" data-testid="banner-thay-doi">
+                        <Icon name="warn" className="w-4 h-4 shrink-0 text-warning" />
+                        <span className="flex-1">App web vừa cập nhật: <b>{tomTatThayDoi(thayDoiSel.truong)}</b></span>
+                        <button type="button" className="btn btn-secondary btn-row shrink-0" onClick={() => void daXemThayDoi([selRow.uuid])}>Đã xem</button>
+                      </div>
+                    ))}
                     <div className="grid grid-cols-[148px_minmax(0,1fr)] gap-3 items-start">
                     {/* Ảnh chân dung — LÊN ĐẦU, thu gọn, căn giữa (task 46 polish); NAP-04 + ảnh gốc (task 45) */}
                     <div className="rounded-lg border border-border bg-card p-3">
@@ -1157,6 +1226,47 @@ export default function NapHoSo() {
             </div>
           )}
 
+          {/* NAP-08 — hồ sơ CHƯA NẠP được app web cập nhật sau lần kéo trước */}
+          {thayDoi.length > 0 && (
+            <div className="mx-4 mt-3 rounded-lg border border-warning/40 bg-warning/10" data-testid="dai-thay-doi">
+              <div className="px-3 py-2 flex flex-wrap items-center gap-2 text-[13px]">
+                <Icon name="warn" className="w-4 h-4 shrink-0 text-warning" />
+                <span className="font-semibold">{thayDoi.length} hồ sơ được app web cập nhật sau lần kéo trước</span>
+                <span className="ml-auto flex items-center gap-2">
+                  <button type="button" className="btn btn-secondary btn-row" aria-expanded={moDsThayDoi} onClick={() => setMoDsThayDoi((v) => !v)} data-testid="mo-ds-thay-doi">
+                    {moDsThayDoi ? "Ẩn danh sách" : "Xem danh sách"}
+                  </button>
+                  <button type="button" className="btn btn-secondary btn-row" onClick={() => void daXemThayDoi(null)} data-testid="da-xem-tat-ca">
+                    Đã xem tất cả
+                  </button>
+                </span>
+              </div>
+              {moDsThayDoi && (
+                <ul className="border-t border-warning/30 divide-y divide-border bg-card rounded-b-lg max-h-56 overflow-y-auto">
+                  {thayDoi.map((d) => (
+                    <li key={d.uuid} className="px-3 py-2 flex items-center gap-2 text-[13px]" data-testid={`ds-thay-doi-${d.uuid}`}>
+                      <button
+                        type="button"
+                        onClick={() => { setNapFilter("canxuly"); void chonHv(d.uuid); }}
+                        className="min-w-0 flex-1 text-left"
+                        title="Mở ngăn Chuẩn bị của hồ sơ này"
+                      >
+                        <span className="block font-semibold truncate">{(d.ho_ten || "").toUpperCase() || "(chưa có tên)"}</span>
+                        <span className="block text-[12px] text-muted-foreground truncate">{tomTatThayDoi(d.truong)} · {gioThayDoi(d.luc)}</span>
+                      </button>
+                      {d.nhap_giu_anh_cu && (
+                        <span className="shrink-0 inline-flex items-center h-5 px-1.5 rounded text-[10px] font-bold text-destructive bg-destructive/10">Nháp giữ ảnh cũ</span>
+                      )}
+                      <button type="button" className="btn btn-secondary btn-row shrink-0" onClick={() => void daXemThayDoi([d.uuid])}>
+                        Đã xem
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
           {/* Chia đôi: DANH SÁCH gọn (≈40%) | NGĂN CHUẨN BỊ luôn mở (≈60%). Màn hẹp: chỉ danh sách + ngăn phủ. */}
           <div className="p-4 flex flex-col gap-3 h-[calc(100svh-9.5rem)] min-h-0">
             <div className={"flex-1 min-h-0 grid gap-4 grid-rows-[minmax(0,1fr)] " + (rong ? "grid-cols-[1fr_1fr]" : "grid-cols-1")}>
@@ -1232,6 +1342,17 @@ export default function NapHoSo() {
                     >
                       Chỉ sẵn sàng
                     </button>
+                    {thayDoi.length > 0 && (
+                      <button
+                        type="button"
+                        aria-pressed={chiThayDoi}
+                        onClick={() => setChiThayDoi((v) => !v)}
+                        className={"btn btn-row " + (chiThayDoi ? "btn-primary" : "btn-secondary")}
+                        data-testid="loc-thay-doi"
+                      >
+                        App web đã sửa <span className="tabular-nums">({thayDoi.length})</span>
+                      </button>
+                    )}
                     <button
                       type="button"
                       aria-pressed={chiCoGplx}
@@ -1331,6 +1452,15 @@ export default function NapHoSo() {
                           </div>
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
+                          {r.trang_thai !== "xong" && thayDoiTheoUuid.has(r.uuid) && (
+                            <span
+                              data-testid={`chip-thay-doi-${r.uuid}`}
+                              title={`App web đã sửa: ${tomTatThayDoi(thayDoiTheoUuid.get(r.uuid)!.truong)}`}
+                              className={"inline-flex items-center h-5 px-1.5 rounded text-[10px] font-bold " + (thayDoiTheoUuid.get(r.uuid)!.nhap_giu_anh_cu ? "text-destructive bg-destructive/10" : "text-warning bg-warning/10")}
+                            >
+                              {thayDoiTheoUuid.get(r.uuid)!.nhap_giu_anh_cu ? "Ảnh đã đổi" : "App web đã sửa"}
+                            </span>
+                          )}
                           {gplxCua(r).length > 0 && (
                             <span
                               data-testid={`chip-gplx-${r.uuid}`}

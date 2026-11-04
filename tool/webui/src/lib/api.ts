@@ -574,7 +574,28 @@ export interface KeoVeRow {
 // Kéo trọn bản ghi pending từ VPS về staging. Trả số mới thêm + làm tươi + bỏ-đã-xóa + reset-địa-chỉ + tổng.
 export const keoHangDoi = () =>
   fetch(`${BASE}/local/nap/keo`, { method: "POST", headers: authHeaders() }).then(
-    json<{ keo_ve: number; lam_tuoi: number; bo_da_xoa: number; dia_chi_reset: number; tong: number }>,
+    json<{ keo_ve: number; lam_tuoi: number; bo_da_xoa: number; dia_chi_reset: number; thay_doi: number; tong: number }>,
+  );
+
+// NAP-08 — hồ sơ CHƯA NẠP mà app web vừa đổi sau lần kéo trước (chỉ mã trường, không có giá trị cá nhân).
+export interface ThayDoiHoSo {
+  uuid: string;
+  ho_ten: string | null;
+  truong: string[]; // "tt:<cột>" · "gplx" · "anh" · "dc_reset"
+  luc: string; // ISO, giờ máy tool
+  nhap_giu_anh_cu: boolean; // ảnh đổi mà nháp Chuẩn bị đang giữ ảnh đã xử lý
+}
+export const getThayDoi = () => fetch(`${BASE}/local/nap/thay-doi`, { headers: authHeaders() }).then(json<ThayDoiHoSo[]>);
+export const thayDoiDaXem = (b: { uuids?: string[]; tat_ca?: boolean; loai?: string }) =>
+  fetch(`${BASE}/local/nap/thay-doi/da-xem`, {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(b),
+  }).then(json<{ ok: boolean }>);
+// "Dùng ảnh mới": bỏ riêng ảnh trong nháp, giữ địa chỉ và giấy tờ.
+export const nhapBoAnh = (uuid: string) =>
+  fetch(`${BASE}/local/nap/nhap/${encodeURIComponent(uuid)}/bo-anh`, { method: "POST", headers: authHeaders() }).then(
+    json<{ ok: boolean; uuid: string; da_bo: boolean }>,
   );
 
 export const getDanhSachKeoVe = () =>

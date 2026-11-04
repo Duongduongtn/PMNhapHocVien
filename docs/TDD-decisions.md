@@ -420,3 +420,12 @@
 - **Đánh đổi:** dấu vân nằm ở từng máy tool, đổi máy thì hồ sơ đã bỏ qua có thể hiện lại. Chấp nhận vì không làm sai dữ liệu (lưu vẫn cần người bấm) và dữ liệu VPS chỉ giữ 30 ngày.
 - **DB đích nhập riêng:** không tự chép, vì lưu sang DB đích có mốc chặn khác và học viên có thể đã kết xuất.
 - Nguồn: user 03/11/2026; CHANGES #89; TDD §10.7. §18 giữ nguyên cho ảnh.
+
+## 30. Báo hồ sơ chưa nạp vừa được app web cập nhật (04/11/2026)
+
+- **Đã chốt (04/11/2026, phương án A):** tool liệt kê hồ sơ **chưa nạp** mà app web đổi sau lần kéo trước, ghi rõ đổi thông tin, ảnh hay GPLX; chip, bộ lọc và dải cảnh báo ở màn Nạp. Hồ sơ đã nạp **không** thêm cảnh báo ảnh (phương án B để dành; §18 giữ nguyên "không cờ ảnh mới" cho hồ sơ đã nạp).
+- **Cách làm:** so ngay lúc kéo (VPS đã trả đủ trường mỗi lần), lưu bản đổi ở SQLite máy tool. **Không thêm cột, không thêm bảng ở VPS.**
+- **Mốc ảnh = giờ sửa file ảnh (`anh_luc`), không dùng `updated_at`.** *Đã từng đề xuất cùng ngày:* dùng `updated_at` và suy "ảnh đổi" khi thông tin không đổi. Đổi vì `updated_at` cũng tăng khi khóa/mở khóa hồ sơ lúc nạp, nên sau mỗi lần nạp lỗi sẽ báo nhầm "ảnh đổi".
+- **Cảnh báo đậm** khi ảnh đổi mà nháp Chuẩn bị đang giữ ảnh đã xử lý: nạp nhầm ảnh cũ là hậu quả thật duy nhất của việc không biết, nên chỉ ca này đòi người nạp chọn "Dùng ảnh mới" hoặc "Giữ ảnh cũ".
+- **Đánh đổi:** đổi rồi đổi lại về như cũ giữa hai lần kéo thì không thấy; dữ liệu cảnh báo nằm ở từng máy tool (đổi máy thì mất, không sai dữ liệu). Chấp nhận để không thêm lịch sử ở VPS.
+- Nguồn: user 04/11/2026; CHANGES #92; TDD §10.8; PRD `NAP-08`.

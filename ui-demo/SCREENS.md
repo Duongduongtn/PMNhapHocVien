@@ -63,6 +63,7 @@ Prototype là tham chiếu **style/layout**, không phải scaffold thật.
 | 35 | **Kết quả đào tạo · Nạp giờ/km từ PDF DAT** (hộp thoại trong màn Cập nhật KQĐT sau khi chọn khóa: chọn PDF → báo lỗi nếu mã khóa khác · bảng xác nhận STT/Họ tên/Mã HV/Giờ đường cũ→mới/Km đường cũ→mới/Tình trạng ✔⚠✖🔒 · dòng chưa chạy DAT bỏ tick · liệt kê HV vắng trong file · nút "Lưu N học viên") | KQD-08 | `/ket-qua/cap-nhat` (hộp thoại trong màn) | ⬜ Chưa dựng (chưa có mock; cần mock `ui-mock/ketqua.html` bổ sung rồi code ở `tool/webui`) | — |
 | 36 | **GPLX đã có** (`NAP-07` màn Nạp: khối nhập, chip, lọc · `THU-07` app web) — mock `ui-mock/gplxdaco.html` | — | — | — | ✅ mock đã duyệt 02/11/2026 |
 | 37 | **Bổ sung GPLX sau khi đã nạp** (`THU-07` app web · `QLY-10` Tra cứu DB: cảnh báo, chip, lọc, khối xem trước · `TCB-05` Tra cứu CDB) — mock `ui-mock/gplxbosung.html` | — | — | — | ✅ mock đã duyệt 03/11/2026 |
+| 38 | **Hồ sơ chưa nạp được app web cập nhật** (`NAP-08` màn Nạp: dải cảnh báo, danh sách đổi gì, chip, lọc, cảnh báo đậm "nháp đang giữ ảnh cũ" kèm Dùng ảnh mới / Giữ ảnh cũ) — mock `ui-mock/napthaydoi.html` | — | — | — | ✅ mock đã duyệt 04/11/2026; đã dựng thật ở `tool/webui/src/pages/tool/NapHoSo.tsx` (E2E `tool/webui/e2e/nap-thay-doi.e2e.ts`) |
 | — | Hàng đợi VPS + xóa PII 30 ngày | HTG-02 | (backend, không có UI) | ⬜ Không dựng | — |
 | — | Kết xuất Excel (NICE) | QLY-04 | (mới có nút, chưa luồng) | ⬜ NICE — sau | — |
 | — | Offline app web (NICE) | THU-03 | — | ⬜ NICE — sau | — |

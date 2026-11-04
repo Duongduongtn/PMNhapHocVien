@@ -38,7 +38,18 @@ class KeoOut(BaseModel):
     noi_cap_cccd: str | None
     gplx_da_co: list[dict] | None = None
     co_anh: bool
+    anh_luc: datetime | None = None  # NAP-08: giờ sửa file ảnh thô; tool so để biết app web chụp lại
     created_at: datetime
+
+
+def _anh_luc(duong_dan: str | None) -> datetime | None:
+    """Giờ sửa file ảnh thô (UTC). Chưa có ảnh hoặc không đọc được file → None. Không đọc nội dung file."""
+    if not duong_dan:
+        return None
+    try:
+        return datetime.fromtimestamp(Path(duong_dan).stat().st_mtime, tz=timezone.utc)
+    except OSError:
+        return None
 
 
 class DaNapIn(BaseModel):
@@ -83,6 +94,7 @@ def keo(
             noi_cap_cccd=hs.noi_cap_cccd,
             gplx_da_co=hs.gplx_da_co,
             co_anh=hs.anh_tho_path is not None,
+            anh_luc=_anh_luc(hs.anh_tho_path),
             created_at=hs.created_at,
         )
         for hs in rows

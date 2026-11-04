@@ -125,7 +125,7 @@ def test_keo_ghi_staging(staging_tmp, op_headers, monkeypatch):
     monkeypatch.setattr(vps_mod, "da_xoa", lambda token, since=None: {"uuids": [], "moc": None})
     r = client.post("/local/nap/keo", headers=op_headers)
     assert r.status_code == 200
-    assert r.json() == {"keo_ve": 2, "lam_tuoi": 0, "bo_da_xoa": 0, "dia_chi_reset": 0, "tong": 2}
+    assert r.json() == {"keo_ve": 2, "lam_tuoi": 0, "bo_da_xoa": 0, "dia_chi_reset": 0, "thay_doi": 0, "tong": 2}
     assert len(nap.keo_ve_danh_sach()) == 2
 
 
