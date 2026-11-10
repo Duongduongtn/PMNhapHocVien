@@ -7,6 +7,8 @@ import { kiemDoDaiTen, laNgayCoThat, laNgaySinh, parseCccdQr, suyTuCccd, tinhVun
 import { goiYDiaChi } from "../lib/dvhc";
 import { capNhatNhap, dsNhap, luuNhap, taoUuid, tuCccd } from "../lib/draft";
 import { GplxDaCoNut } from "../components/GplxDaCoNut";
+import { ThanhTienDo } from "../components/ThanhTienDo";
+import { vachTienDo } from "../lib/tienDo";
 import { loiDanhSach, oSaiDau, type BangGplx } from "../lib/gplxDaCo";
 import { dangKyGuiLai, guiMot } from "../lib/gui";
 
@@ -911,14 +913,19 @@ function Preview({
   const ngayCapOk = laNgayCoThat(ngayCapVal); // ô không bắt buộc: chỉ xét khi có nhập
   const trangThai = (ok: boolean, daCham: boolean): "none" | "ok" | "error" =>
     ok ? "ok" : daCham ? "error" : "none";
-  const thieu = [
-    !cccdOk && "Số CCCD",
-    !tenOk && "Họ tên",
-    !nsOk && "Ngày sinh",
-    !nttOk && "Nơi thường trú",
-    ngayCapVal && !ngayCapOk && "Ngày cấp",
-    loiDanhSach(gplx) && "GPLX đã có", // đã tích thì bắt buộc đủ, nút gửi cũng chặn theo (BUG-16)
-  ].filter(Boolean) as string[];
+  // Thanh tiến độ ở thanh nút đáy (CHANGES #100): cùng cờ hợp lệ với ✓/đỏ từng ô; GPLX có bằng mà lỗi cũng tính (BUG-16).
+  const vach = vachTienDo({
+    soCccd: f.soCccd, hoTen: f.hoTen, ngaySinh: f.ngaySinh, noiThuongTru: f.noiThuongTru, ngayCap: ngayCapVal,
+    cccdOk, tenOk, nsOk, nttOk, ngayCapOk, gplxLoi: !!loiDanhSach(gplx),
+  });
+
+  // Bấm "Còn …" ở thanh tiến độ → tới ô thiếu đầu tiên; GPLX thì mở popup GPLX (đúng đường bấm gửi bị chặn).
+  function nhayToi(o: string) {
+    if (o === "gplx") { setLanGuiGplx((n) => n + 1); return; }
+    const el = document.querySelector<HTMLInputElement>(`[data-o="${o}"] input`);
+    el?.scrollIntoView({ block: "center", behavior: "smooth" });
+    el?.focus({ preventScroll: true });
+  }
 
   // THU-04 (CHANGES #13): CCCD đủ 12 số → soi hàng đợi, trùng thì cảnh báo mềm (không chặn).
   useEffect(() => {
@@ -1240,17 +1247,6 @@ function Preview({
         </div>
       )}
 
-      {/* Tóm tắt trạng thái: thiếu gì thì liệt kê, đủ thì báo sẵn sàng — khỏi bấm thử mới biết. */}
-      {thieu.length > 0 ? (
-        <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
-          <Icon name="warn" className="w-4 h-4 shrink-0 text-warning" /> Còn thiếu: <strong>{thieu.join(", ")}</strong>
-        </div>
-      ) : (
-        <div className="flex items-center gap-2 text-[12px] text-success font-medium">
-          <Icon name="check" className="w-4 h-4 shrink-0" sw={3} /> Đã đủ thông tin bắt buộc, sẵn sàng lưu
-        </div>
-      )}
-
       {/* Hai nút ở thanh dính đáy (mobile) / hai bên (desktop). "Lưu & nhập hồ sơ tiếp" là nút CHÍNH (nổi bật, bên phải ở
           desktop, trên cùng ở mobile): đa số hồ sơ gửi nhanh không ảnh để nhập liên tiếp (CHANGES #95). "Tiếp tục — chụp ảnh
           chân dung" là nút phụ nhưng vẫn là nút gửi mặc định của form (Enter của bàn phím ảo trên điện thoại vẫn đi chụp ảnh; trên máy tính Enter đã được bắt riêng ở dieuHuongPhim), nên Lưu để type="button".
@@ -1268,6 +1264,8 @@ function Preview({
               <Icon name="warn" className="w-4 h-4 shrink-0 mt-0.5" /> {loi}
             </div>
           )}
+          {/* Tiến độ nhập (CHANGES #100): ở trong thanh luôn nhìn thấy, thay dòng "Còn thiếu" cuối form; không đè ô nào. */}
+          <ThanhTienDo ds={vach} onNhay={nhayToi} />
           <div className="flex flex-col gap-2 lg:flex-row-reverse lg:items-center lg:justify-between lg:gap-4">
             <button
               type="button"

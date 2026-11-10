@@ -556,7 +556,7 @@ Mười cải tiến nhập liệu nhanh + rõ trạng thái, áp cho form dùng
 6. **Nơi thường trú gợi ý Tỉnh/Xã** (phương án A — nhập tự do + gợi ý, **không ép chọn**): khớp **không dấu** theo đoạn sau dấu phẩy cuối (dùng `boDau` như §6.4), danh sách hiện dưới ô, chọn thì thay đoạn cuối bằng `Phường X, Tỉnh Y`; chuẩn hóa khoảng trắng khi rời ô. **Nguồn dữ liệu: file tĩnh nhúng `webapp/src/data/dvhc-2025.json`** (34 tỉnh + 3.321 xã/phường, đơn vị hành chính 2 cấp 2025, nguồn `thanglequoc/vietnamese-provinces-database` lấy từ GSO) — **nạp lười bằng dynamic import** (chunk riêng ~59KB/gzip 16KB, không vào bundle chính). *Khác hẳn §3.3 — đó là SQLite `DM_DVHC` CỤC BỘ của tool để sinh mã nạp; đây chỉ là gợi ý gõ ở app web, không sinh mã.*
 7. **Phím mũi tên nhảy giữa các ô**: Lên/Trái = ô trước, Xuống/Phải = ô sau (Trái/Phải chỉ nhảy khi con trỏ ở đầu/cuối chữ, còn lại di con trỏ như thường); ở ô Giới tính Trái/Phải đổi Nam/Nữ; ở ô địa chỉ khi danh sách gợi ý mở thì mũi tên chọn trong danh sách (chặn `stopPropagation`, không nhảy ô). Xử lý tập trung ở `onKeyDown` cấp form, các ô gắn `data-nav`.
 8. **Icon nhỏ ở nhãn** từng ô (idCard/user/cake/users/mapPin/calendar) cho dễ nhận.
-9. **Trạng thái ✓/đỏ từng ô** sau khi rời ô (đang gõ không báo đỏ) + dòng tóm tắt **"Còn thiếu…/Đã đủ, sẵn sàng lưu"** trên nút lưu. Ô không bắt buộc (Ngày cấp) im lặng khi trống.
+9. **Trạng thái ✓/đỏ từng ô** sau khi rời ô (đang gõ không báo đỏ) + **thanh tiến độ** gắn ở mép trên thanh nút dính đáy (CHANGES #100): mỗi ô bắt buộc một vạch (đủ/sai/chưa nhập), chữ "Còn N: <ô>" bấm vào thì focus ô thiếu đầu tiên (GPLX thì mở popup), đủ hết "Đủ 4/4 — sẵn sàng lưu"; tính từ cùng cờ hợp lệ đang dùng cho ✓/đỏ (`cccdOk`, `tenOk`, `nsOk`, `nttOk`, `ngayCapOk`, `loiDanhSach(gplx)`), không thêm luật mới. *Vì sao: thanh nút đáy là chỗ duy nhất luôn nhìn thấy mà không che ô nhập; dòng tóm tắt cuối form trên điện thoại phải cuộn mới thấy.* Ô không bắt buộc (Ngày cấp) im lặng khi trống.
 10. **Tự suy Giới tính + Năm sinh từ số CCCD** (`suyTuCccd` trong `lib/qr.ts`): chữ số thứ 4 mã hóa thế kỷ+giới tính, 2 số kế là năm sinh. Chỉ **gợi ý mặc định** khi gõ CCCD tay (giới tính đặt theo CCCD; năm sinh chỉ điền khi ô còn trống — không đè ngày đầy đủ từ QR), **sửa đè được**.
 
 *Vì sao thuần client: đây là lớp trình bày/nhập liệu, không đổi dữ liệu gửi lên — mọi ràng buộc lưu trữ (12 số, độ dài cột) vẫn kiểm ở `kiemFields` như cũ; validate từng ô chỉ là tín hiệu thị giác thêm.*
@@ -2220,6 +2220,7 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 | --- | --- | --- |
+| 10/11/2026 | 6.39 | §6.6 mục 9: dòng "Còn thiếu" thay bằng thanh tiến độ ở thanh nút đáy, bấm nhảy ô thiếu (CHANGES #100). |
 | 10/11/2026 | 6.38 | §10.2 tra danh mục giấy tờ dò `HangDT` → bỏ dấu chấm → `HangGPLX`, rỗng thì chặn nạp (BUG-20); §10.6/§10.7 GPLX đã có ghi chuỗi rỗng, không NULL, `NoiCapGPLXDaCo` rỗng theo số bằng; Nơi cấp điền sẵn theo 2 số đầu số GPLX (CHANGES #98). |
 | 04/11/2026 | 6.37 | §6.6 "Lưu & nhập hồ sơ tiếp": thêm phím tắt Enter trên desktop (CHANGES #97). |
 | 04/11/2026 | 6.36 | §6.6 dòng "Lưu & nhập hồ sơ tiếp": mobile cũng về thẳng form trống (CHANGES #96). |
