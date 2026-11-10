@@ -4,7 +4,7 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
-| 100 | 10/11/2026 | ✏️ Sửa (giao diện) | `THU-01` | **Thanh tiến độ nhập hồ sơ** ở thanh nút đáy: vạch từng ô bắt buộc + "Còn N: <ô>" bấm nhảy tới ô thiếu; bỏ dòng "Còn thiếu" cuối form. | ✅ | ✅ | ✅ | 🟡 code + test xong, chưa commit/deploy |
+| 100 | 10/11/2026 | ✏️ Sửa (giao diện) | `THU-01` | **Thanh tiến độ nhập hồ sơ** ở thanh nút đáy: vạch từng ô bắt buộc + "Còn N: <ô>" bấm nhảy tới ô thiếu; bỏ dòng "Còn thiếu" cuối form. | ✅ | ✅ | ✅ | 🟡 deploy `cf34060`; chưa thử điện thoại thật |
 | 99 | 10/11/2026 | ✏️ Sửa (giao diện) | `NAP-07` · `THU-07` | **GPLX đã có nhập trong popup** ở app web (màn nhập, popup sửa hồ sơ) và tool (ngăn Chuẩn bị); form chỉ còn dòng tóm tắt. Tool có **badge "GPLX B2·A1"** rõ ở dòng danh sách và đầu ngăn. | ✅ | — | ✅ | 🟡 deploy `a3068d0` + exe 10/11/2026; chưa thử điện thoại thật |
 | 98 | 10/11/2026 | ✏️ Sửa | `NAP-07` · `THU-07` · `QLY-10` · `TCB-05` | **Nơi cấp GPLX đã có điền sẵn theo 2 số đầu số GPLX, sửa được; 7 cột GPLX đã có ghi chuỗi rỗng như phần mềm cũ, không NULL** (nơi cấp do tool nạp không hiện ở phần mềm cũ). | ✅ | ✅ | — | 🟡 deploy `a3068d0` + exe 10/11/2026; chưa nghiệm thu máy CSĐT |
 | 97 | 04/11/2026 | ✏️ Sửa (phím tắt) | `THU-01` | **Máy tính: phím Enter trong ô nhập = "Lưu & nhập hồ sơ tiếp"** (trước là chụp ảnh); Ctrl+Enter vẫn cùng việc; chụp ảnh bấm nút. Thiếu thông tin thì Enter chỉ báo lỗi, không gửi. Điện thoại giữ nguyên (Enter bàn phím ảo = chụp ảnh). Lý do: gõ xong ô cuối nhấn Enter là sang hồ sơ kế (user chọn A, 04/11/2026). | ✅ v4.37 | ✅ v6.37 | — | ✅ deploy `a5ce0d1` |
@@ -920,7 +920,7 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 - **Mã:** `THU-01`, `THU-02`. Sửa giao diện/luồng nhập, không thêm story.
 - **Vì sao:** test thật, chủ dự án thấy màn nhập liệu desktop chưa thân thiện cho nhập tay: ô CMND cũ ít dùng gây rối, ô ngày khó nhập, 2 nút xếp dọc dễ bấm nhầm, thiếu phím tắt.
 - **Chốt (hỏi bộ chọn):**
-  1. **Ẩn ô "Số CMND cũ"** — vẫn tự lưu CMND cũ từ QR nếu có (không mất dữ liệu, tool nạp vẫn dùng). Không bỏ cột DB/field gửi.
+  1. **Ẩn ô "Số CMND cũ"** — vẫn tự lưu CMND cũ từ QR nếu có (không mất dữ liệu, tool nạp vẫn dùng). *Ghi chú 10/11/2026: user chốt tool **không** nạp CMND cũ vào `SO_CMND_CU` (luôn NULL); CMND cũ chỉ dùng thay số giấy tờ khi hồ sơ không có CCCD.* Không bỏ cột DB/field gửi.
   2. **Ô ngày** (ngày sinh, ngày cấp) — **gõ tay dd/mm/yyyy + nút lịch** bấm chọn; vẫn nhập được **năm-only** (CCCD có HV chỉ có năm sinh → yyyy0000).
   3. **Desktop:** tách vị trí 2 nút ("Tiếp tục — chụp ảnh" vs "Lưu & nhập hồ sơ tiếp") tránh bấm nhầm + bố cục form thân thiện nhập tay + **phím tắt** (Enter/Ctrl+Enter, autofocus, tab order).
   4. **Content/anti-slop:** rà chữ hiển thị tự nhiên, không lộ mã story (đã bỏ "(HTG-01)" ở màn đăng nhập).

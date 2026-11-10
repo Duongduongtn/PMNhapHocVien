@@ -17,7 +17,7 @@ const hv = (uuid: string, ten: string, ex: Record<string, unknown> = {}) => ({
 });
 const DIA_CHI = JSON.stringify({ ma_dvhc: "01001", ma_dvql: "01", ten_xa: "Phường Ba Đình", ten_tinh: "Hà Nội" });
 
-async function vao(page: Page, mo: Mo, opts: { hang?: string; hv01?: Record<string, unknown>; w?: number; giayTo?: unknown[] } = {}) {
+async function vao(page: Page, mo: Mo, opts: { hang?: string; hv01?: Record<string, unknown>; w?: number; giayTo?: unknown[]; canhBao?: string } = {}) {
   const hang = opts.hang ?? "A1m";
   await page.addInitScript(() => localStorage.setItem("tool_session_token", "tok-test"));
   await page.route("**/local/auth/me", (r) => r.fulfill({ json: { username: "thu1", ho_ten: "Nhân viên thử", vai_tro: "operator" } }));
@@ -42,7 +42,7 @@ async function vao(page: Page, mo: Mo, opts: { hang?: string; hv01?: Record<stri
   await page.route("**/local/nap/nap-lo", async (r) => {
     const b = r.request().postDataJSON() as { items: { uuid: string }[] };
     mo.napLo.push(b);
-    await r.fulfill({ json: { tong: 1, thanh_cong: 1, that_bai: 0, ket_qua: [{ uuid: b.items[0].uuid, ok: true, ma_dk: "M", so_ho_so: "0001" }] } });
+    await r.fulfill({ json: { tong: 1, thanh_cong: 1, that_bai: 0, ket_qua: [{ uuid: b.items[0].uuid, ok: true, ma_dk: "M", so_ho_so: "0001", ...(opts.canhBao ? { canh_bao: opts.canhBao } : {}) }] } });
   });
   await page.setViewportSize({ width: opts.w ?? 1280, height: 900 });
   await page.goto("/tool/nap");
@@ -406,5 +406,19 @@ test.describe("NAP-07 — GPLX đã có ở màn Nạp", () => {
     await page.getByRole("button", { name: /Nạp 2 học viên vào/ }).click();
     await expect(page.getByText(/Chưa có danh sách giấy tờ kèm theo của khóa này/)).toBeVisible();
     expect(mo.napLo).toHaveLength(0);
+  });
+
+  test("A5: nạp xong mà ghi ảnh lỗi → dòng vàng 'Thiếu ảnh', nút Bổ sung ảnh đếm cả hồ sơ đó", async ({ page }) => {
+    await vao(page, moi(), { canhBao: "Thiếu ảnh — đã nạp nhưng ghi file ảnh lỗi. Bổ sung ảnh ở Tra cứu DB." });
+    await napHaiHocVien(page);
+    await expect(ngan(page).getByText(/Thiếu ảnh — đã nạp nhưng ghi file ảnh lỗi/).first()).toBeVisible();
+    await expect(ngan(page).getByRole("button", { name: /Bổ sung ảnh \(2\)/ })).toBeVisible();
+  });
+
+  test("A6: hồ sơ thiếu giới tính (chỉ có CMND cũ) → chip 'Thiếu TT' + ngăn báo chưa sẵn sàng; có CCCD thì tự suy, không báo", async ({ page }) => {
+    await vao(page, moi(), { hv01: { gioi_tinh: null, so_cccd: null, so_cmnd_cu: "123456789" } });
+    await expect(page.getByTestId("chip-thieu-tt-u01")).toBeVisible();
+    await expect(page.getByTestId("ngan-thieu-tt")).toContainText("thiếu giới tính");
+    await expect(page.getByTestId("chip-thieu-tt-u02")).toHaveCount(0);
   });
 });

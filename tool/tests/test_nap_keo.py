@@ -206,21 +206,57 @@ def test_nap_lo_mot_loi_khong_hong_lo(staging_tmp, op_headers, monkeypatch):
     assert mo_khoa == ["u1"]  # HV lỗi được mở khóa lại trên VPS
 
 
-def test_nap_lo_trung_uuid_khong_goi_da_nap(staging_tmp, op_headers, monkeypatch):
-    """Phòng tuyến 2 (QLY-09, chặn phantom BUG-01): `_nap_mot` trả VÉ CŨ (`trung_uuid`, không INSERT)
-    → `nap_fn` KHÔNG gọi `vps.da_nap` (không đánh dấu imported cho bản không thực vào CSDT)."""
-    nap.keo_ve_upsert([_keo_row("u1")])
-    da_nap_goi = []
+def _ve_cu(monkeypatch, con_trong_db):
+    """Giả `_nap_mot` trả VÉ CŨ (`trung_uuid`, không INSERT); DB Nạp còn/không còn học viên đó."""
+    goi = {"da_nap": [], "unlock": []}
     monkeypatch.setattr(vps_mod, "lock", lambda t, u: None)
-    monkeypatch.setattr(vps_mod, "da_nap", lambda t, u, ma_dk: da_nap_goi.append(u))
-    monkeypatch.setattr(vps_mod, "unlock", lambda t, u: None)
+    monkeypatch.setattr(vps_mod, "da_nap", lambda t, u, ma_dk: goi["da_nap"].append(u))
+    monkeypatch.setattr(vps_mod, "unlock", lambda t, u: goi["unlock"].append(u))
     monkeypatch.setattr(
         nap_router, "_nap_mot",
         lambda body: {"ma_dk": "MDK-u1", "so_ho_so": "056", "so_giay_to": 3, "trung_uuid": True},
     )
+    monkeypatch.setattr(nap_router, "_con_trong_db_nap", lambda ma_dk: con_trong_db)
+    return goi
+
+
+def test_nap_lo_ve_cu_con_trong_db_bao_bu_da_nap(staging_tmp, op_headers, monkeypatch):
+    """A1 (10/11/2026): lần trước đã vào DB nhưng báo VPS lỗi (mất mạng) → nạp lại trả vé cũ; học viên
+    còn trong DB Nạp → báo bù `da_nap` để VPS thành imported, không để hồ sơ quay về chờ nạp mãi."""
+    nap.keo_ve_upsert([_keo_row("u1")])
+    goi = _ve_cu(monkeypatch, con_trong_db=True)
     r = client.post("/local/nap/nap-lo", headers=op_headers, json={"items": [_nap_item("u1")]})
     assert r.status_code == 200 and r.json()["thanh_cong"] == 1
-    assert da_nap_goi == []  # vé cũ → KHÔNG da_nap
+    assert goi["da_nap"] == ["u1"]
+
+
+def test_nap_lo_ve_cu_khong_con_trong_db_khong_bao_vps(staging_tmp, op_headers, monkeypatch):
+    """Phòng tuyến 2 (QLY-09, chặn phantom BUG-01): vé cũ mà học viên KHÔNG còn trong DB Nạp → KHÔNG
+    gọi `da_nap` (không gắn imported cho bản ghi không có trong CSDT), dòng lỗi rõ, mở khóa VPS."""
+    nap.keo_ve_upsert([_keo_row("u1")])
+    goi = _ve_cu(monkeypatch, con_trong_db=False)
+    r = client.post("/local/nap/nap-lo", headers=op_headers, json={"items": [_nap_item("u1")]})
+    assert r.json()["that_bai"] == 1
+    assert goi["da_nap"] == [] and goi["unlock"] == ["u1"]
+    assert "không còn trong DB Nạp" in {x["uuid"]: x for x in nap.keo_ve_danh_sach()}["u1"]["loi"]
+
+
+def test_nap_lo_da_nap_loi_bao_ro_va_nap_lai_bao_bu(staging_tmp, op_headers, monkeypatch):
+    """A1: nạp mới vào DB xong nhưng `da_nap` lỗi mạng → dòng ghi rõ đã vào DB, chưa báo VPS, mở khóa;
+    bấm nạp lại (vé cũ, còn trong DB) → báo bù thành công."""
+    nap.keo_ve_upsert([_keo_row("u1")])
+    goi = {"unlock": []}
+    monkeypatch.setattr(vps_mod, "lock", lambda t, u: None)
+    monkeypatch.setattr(vps_mod, "da_nap", lambda t, u, ma_dk: (_ for _ in ()).throw(VpsLoi("mất mạng", 502)))
+    monkeypatch.setattr(vps_mod, "unlock", lambda t, u: goi["unlock"].append(u))
+    monkeypatch.setattr(nap_router, "_nap_mot",
+                        lambda body: {"ma_dk": "MDK-u1", "so_ho_so": "056", "so_giay_to": 3})
+    r = client.post("/local/nap/nap-lo", headers=op_headers, json={"items": [_nap_item("u1")]})
+    assert r.json()["that_bai"] == 1 and goi["unlock"] == ["u1"]
+    assert "chưa báo được VPS" in {x["uuid"]: x for x in nap.keo_ve_danh_sach()}["u1"]["loi"]
+    goi2 = _ve_cu(monkeypatch, con_trong_db=True)
+    r = client.post("/local/nap/nap-lo", headers=op_headers, json={"items": [_nap_item("u1")]})
+    assert r.json()["thanh_cong"] == 1 and goi2["da_nap"] == ["u1"]
 
 
 def test_nap_lo_nap_moi_van_goi_da_nap(staging_tmp, op_headers, monkeypatch):
@@ -547,3 +583,34 @@ def test_nhap_put_get_co_delete_qua_endpoint(staging_tmp, op_headers):
 def test_nhap_get_chua_co_tra_rong_khong_404(staging_tmp, op_headers):
     full = client.get("/local/nap/nhap/moi-toanh", headers=op_headers).json()
     assert full["uuid"] == "moi-toanh" and full["dia_chi_json"] is None and full["jp2_b64"] is None
+
+
+def test_nap_lo_ghi_anh_loi_van_xong_kem_canh_bao(staging_tmp, op_headers, monkeypatch):
+    """A5 (10/11/2026): HV đã vào DB nhưng ghi file ảnh lỗi → dòng vẫn xong (không nạp lại kẻo trùng),
+    kèm cảnh báo thiếu ảnh trong kết quả lô và trên dòng staging."""
+    nap.keo_ve_upsert([_keo_row("u1")])
+    monkeypatch.setattr(vps_mod, "lock", lambda t, u: None)
+    monkeypatch.setattr(vps_mod, "da_nap", lambda t, u, ma_dk: None)
+    monkeypatch.setattr(vps_mod, "unlock", lambda t, u: None)
+    monkeypatch.setattr(nap_router, "_nap_mot",
+                        lambda body: {"ma_dk": "MDK-u1", "so_ho_so": "056", "so_giay_to": 3, "anh_loi": "Ổ đầy"})
+    r = client.post("/local/nap/nap-lo", headers=op_headers, json={"items": [_nap_item("u1")]})
+    d = r.json()["ket_qua"][0]
+    assert d["ok"] is True and "Thiếu ảnh" in d["canh_bao"]
+    dong = {x["uuid"]: x for x in nap.keo_ve_danh_sach()}["u1"]
+    assert dong["trang_thai"] == "xong" and "Thiếu ảnh" in dong["loi"]
+
+
+def test_ve_nap_xong_nho_anh_loi_va_nang_cap_bang_cu(tmp_path, monkeypatch):
+    """BUG-23: vé nap_xong lưu anh_loi để nạp lại (vé cũ) vẫn trả cảnh báo; bảng cũ thiếu cột thì tự thêm."""
+    import sqlite3
+    db = tmp_path / "orphan.sqlite"
+    c = sqlite3.connect(str(db))
+    c.execute("CREATE TABLE nap_xong (uuid TEXT PRIMARY KEY, ma_dk TEXT, so_ho_so TEXT, so_giay_to INT, duong_dan_anh TEXT)")
+    c.execute("INSERT INTO nap_xong VALUES ('cu','M0','001',3,NULL)")
+    c.commit(); c.close()
+    monkeypatch.setattr(nap, "ORPHAN_DB", db)
+    assert "anh_loi" not in nap._done_get("cu")                    # bảng cũ: tự thêm cột, vé cũ vẫn đọc được
+    nap._done_set("u1", {"ma_dk": "M1", "so_ho_so": "002", "so_giay_to": 3, "anh_loi": "Ổ đầy"})
+    assert nap._done_get("u1")["anh_loi"] == "Ổ đầy"
+

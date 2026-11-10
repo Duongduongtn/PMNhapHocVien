@@ -9,6 +9,7 @@ import { ComboLoc } from "../../components/ComboLoc";
 import { boDau, nghiSaiChinhTa, ymdToVN } from "../../lib/format";
 import { tachDiaChiGoc, lamTuoiNhapDiaChi } from "../../lib/diachi";
 import { BadgeGplx, GplxDaCoNut } from "./GplxDaCoNut";
+import { gioiTinhNap, thieuThongTin } from "./napSanSang";
 import { gioThayDoi, tomTatThayDoi } from "./napThayDoi";
 import { dienNoiCapTheoSo, docBang, gomBang, type BangGplx } from "./gplxDaCo";
 import { IN_GPLX_NHAN, IN_GPLX_THU_TU, ghiChuMacDinh, inGplxMacDinh, laInGplx, laMoTo, type InGplx } from "./inGplx";
@@ -47,6 +48,7 @@ interface NapDong {
   ma_dk?: string;
   so_ho_so?: string;
   loi?: string;
+  canh_bao?: string;
 }
 
 // Bản nháp chuẩn bị 1 HV trước khi nạp (địa chỉ + giấy tờ + ảnh do operator bổ sung).
@@ -172,7 +174,7 @@ function NapLoDialog({ khoa, items, boQua, docked, onPha, onDong, onXong, onXemD
       try {
         const r = await napLo([it]);
         const d = r.ket_qua[0];
-        ketQua.push({ uuid: it.uuid, ho_ten: it.ho_ten, ok: !!d?.ok, ma_dk: d?.ma_dk, so_ho_so: d?.so_ho_so, loi: d?.loi });
+        ketQua.push({ uuid: it.uuid, ho_ten: it.ho_ten, ok: !!d?.ok, ma_dk: d?.ma_dk, so_ho_so: d?.so_ho_so, loi: d?.loi, canh_bao: d?.canh_bao });
       } catch (e) {
         ketQua.push({ uuid: it.uuid, ho_ten: it.ho_ten, ok: false, loi: e instanceof Error ? e.message : "Nạp lỗi." });
       }
@@ -191,7 +193,8 @@ function NapLoDialog({ khoa, items, boQua, docked, onPha, onDong, onXong, onXemD
   // CHANGES #32 — thiếu ảnh: ảnh KHÔNG bắt buộc (BR-011) → vẫn nạp, chỉ cảnh báo + lối tắt bổ sung.
   const khongAnh = new Set(items.filter((i) => !i.anh_jp2_b64).map((i) => i.uuid));
   const soThieuAnh = khongAnh.size;                                    // cảnh báo trước lô
-  const okThieuAnh = okList.filter((x) => khongAnh.has(x.uuid)).length; // sau lô: HV đã nạp mà thiếu ảnh
+  // sau lô: HV đã nạp mà thiếu ảnh — gồm cả HV gửi kèm ảnh nhưng ghi file ảnh lỗi (canh_bao, A5)
+  const okThieuAnh = okList.filter((x) => khongAnh.has(x.uuid) || !!x.canh_bao).length;
 
   // Nạp lại CHỈ các dòng lỗi (chọn lại đúng uuid lỗi từ items gốc).
   const napLaiLoi = () => {
@@ -203,7 +206,9 @@ function NapLoDialog({ khoa, items, boQua, docked, onPha, onDong, onXong, onXemD
   const trangThaiDong = (it: NapIn) => {
     const r = kq.find((x) => x.uuid === it.uuid);
     if (r) return r.ok
-      ? { k: "ok" as const, t: `Số HS ${r.so_ho_so ?? ""}`.trim() }
+      ? r.canh_bao
+        ? { k: "canh" as const, t: `Số HS ${r.so_ho_so ?? ""} · ${r.canh_bao}` }
+        : { k: "ok" as const, t: `Số HS ${r.so_ho_so ?? ""}`.trim() }
       : { k: "loi" as const, t: r.loi || "Nạp lỗi." };
     if (pha === "chay" && dangUuid === it.uuid) return { k: "dang" as const, t: "Đang nạp…" };
     return { k: "cho" as const, t: "Chờ" };
@@ -228,7 +233,7 @@ function NapLoDialog({ khoa, items, boQua, docked, onPha, onDong, onXong, onXemD
           </p>
           {pha === "xacnhan" && boQua > 0 && (
             <p className="text-[12.5px] text-warning flex items-start gap-1.5">
-              <Icon name="warn" className="w-4 h-4 shrink-0 mt-px" /> {boQua} hồ sơ chưa sẵn sàng (thiếu địa chỉ/giấy tờ) sẽ bỏ qua — chuẩn bị xong nạp sau.
+              <Icon name="warn" className="w-4 h-4 shrink-0 mt-px" /> {boQua} hồ sơ chưa sẵn sàng (thiếu thông tin/địa chỉ/giấy tờ) sẽ bỏ qua — chuẩn bị xong nạp sau.
             </p>
           )}
           {pha === "xacnhan" && soThieuAnh > 0 && (
@@ -262,6 +267,7 @@ function NapLoDialog({ khoa, items, boQua, docked, onPha, onDong, onXong, onXemD
                     <td className="px-2 py-1.5 font-mono text-[12px] text-muted-foreground">{it.so_cmt}</td>
                     <td className="px-2 py-1.5">
                       {t.k === "ok" && <span className="inline-flex items-center gap-1 text-success font-medium"><Icon name="check" className="w-3.5 h-3.5" sw={3} /> {t.t}</span>}
+                      {t.k === "canh" && <span className="inline-flex items-start gap-1 text-warning font-medium"><Icon name="imageOff" className="w-3.5 h-3.5 mt-0.5 shrink-0" /> {t.t}</span>}
                       {t.k === "loi" && <span className="inline-flex items-start gap-1 text-destructive font-medium"><Icon name="warn" className="w-3.5 h-3.5 mt-0.5 shrink-0" /> {t.t}</span>}
                       {t.k === "dang" && <span className="inline-flex items-center gap-1 text-primary font-medium"><Icon name="refresh" className="w-3.5 h-3.5 animate-spin" /> {t.t}</span>}
                       {t.k === "cho" && <span className="text-muted-foreground">{t.t}</span>}
@@ -634,13 +640,15 @@ export default function NapHoSo() {
   // Task 46 — trạng thái sẵn sàng mỗi dòng. Sẵn sàng = đủ ĐỊA CHỈ + GIẤY TỜ (ảnh KHÔNG bắt buộc,
   // BR-011 — thiếu ảnh chỉ cảnh báo phụ, chủ dự án chốt 03/10). tick===null = mặc định tick hết =
   // đủ; tick===[] = bỏ hết = thiếu. thieuAnh = chưa có ảnh đã xử lý (nháp) lẫn ảnh thô VPS.
+  // A6: thiếu họ tên/ngày sinh/giới tính (không suy được từ CCCD) cũng là chưa sẵn sàng — sửa trên app web.
   const tinhSanSang = (r: KeoVeRow) => {
     const n = nhap[r.uuid];
-    const thieu: string[] = [];
+    const thieuTT = thieuThongTin(r);
+    const thieu: string[] = [...thieuTT];
     if (!n?.diaChi) thieu.push("địa chỉ");
     if (n?.tick != null && n.tick.length === 0) thieu.push("giấy tờ");
     const thieuAnh = !n?.jp2 && !n?.anhPreview && !r.co_anh;
-    return { ok: thieu.length === 0, thieu, thieuAnh };
+    return { ok: thieu.length === 0, thieu, thieuAnh, thieuTT };
   };
 
   // 'cho' và 'loi' đều nạp được (lỗi đã unlock về pending trên VPS → sửa rồi nạp lại); 'xong' thì thôi.
@@ -746,14 +754,15 @@ export default function NapHoSo() {
   // Dựng NapIn từ 1 hàng kéo về + nháp.
   const dungNapIn = (r: KeoVeRow): NapIn | null => {
     const n = layNhap(r.uuid);
-    if (!khoa || !n.diaChi || !r.ho_ten || !r.ngay_sinh) return null;
+    const gioi = gioiTinhNap(r.gioi_tinh, r.so_cccd);
+    if (!khoa || !n.diaChi || !r.ho_ten?.trim() || !r.ngay_sinh || !gioi) return null;
     const tick = n.tick ?? giayTo.map((g) => g.ma_gt);
     return {
       uuid: r.uuid,
       ma_khoa_hoc: khoa.ma_kh,
       ho_ten: r.ho_ten.trim(),
       ngay_sinh: r.ngay_sinh,
-      gioi_tinh: r.gioi_tinh || "M",
+      gioi_tinh: gioi, // A6: không còn mặc định "M" — trống thì suy từ CCCD, không suy được thì đã chặn ở trên
       so_cmt: (r.so_cccd || r.so_cmnd_cu || "").trim(),
       // Ngày cấp (#43): ưu tiên bản operator sửa (dd/mm/yyyy→yyyymmdd); ô rỗng → quay về gốc keo_ve.ngay_cap.
       ngay_cap_cmt: vnToYmd(n.ngayCap ?? "") || r.ngay_cap || undefined,
@@ -990,9 +999,14 @@ export default function NapHoSo() {
                         <BadgeGplx ds={gplxCua(selRow)} testId="badge-gplx-ngan" />
                       </div>
                       <div className="text-muted-foreground mt-0.5">
-                        {selRow.gioi_tinh === "F" ? "Nữ" : "Nam"} · CCCD {selRow.so_cccd || selRow.so_cmnd_cu || "—"}
+                        {{ M: "Nam", F: "Nữ" }[gioiTinhNap(selRow.gioi_tinh, selRow.so_cccd) ?? ""] ?? "Chưa rõ giới tính"} · CCCD {selRow.so_cccd || selRow.so_cmnd_cu || "—"}
                         {selRow.ngay_sinh && <> · NS {ymdToVN(selRow.ngay_sinh)}</>}
                       </div>
+                      {thieuThongTin(selRow).length > 0 && (
+                        <div data-testid="ngan-thieu-tt" className="mt-1 text-destructive font-medium">
+                          Chưa sẵn sàng — thiếu {thieuThongTin(selRow).join(", ")}. Sửa trên app web rồi Kéo về lại.
+                        </div>
+                      )}
                       <div className="text-muted-foreground">Địa chỉ gốc: {selRow.noi_tt_raw || "—"}</div>
                       {nghiSaiChinhTa(selRow.ho_ten || "") && (
                         <div className="mt-1 text-warning font-medium flex items-center gap-1">
@@ -1441,6 +1455,7 @@ export default function NapHoSo() {
                     const tenIn = (r.ho_ten || "").toUpperCase(); // IN HOA giữ dấu
                     const c = coChip(r.uuid);
                     const thieuGiayTo = tinhSanSang(r).thieu.includes("giấy tờ");
+                    const thieuTT = tinhSanSang(r).thieuTT;
                     const mk = napKhoa[r.uuid] ?? khoa?.ma_kh;
                     return (
                       <div
@@ -1472,7 +1487,10 @@ export default function NapHoSo() {
                             {r.trang_thai === "loi" && r.loi ? (
                               <span className="text-destructive font-medium" title={r.loi}>{r.loi}</span>
                             ) : r.trang_thai === "xong" && r.so_ho_so ? (
-                              <span className="text-success font-medium">HS {r.so_ho_so} · {r.ma_dk}</span>
+                              <>
+                                <span className="text-success font-medium">HS {r.so_ho_so} · {r.ma_dk}</span>
+                                {r.loi?.startsWith("Thiếu ảnh") && <span className="ml-1 text-warning font-medium" title={r.loi}>· Thiếu ảnh</span>}
+                              </>
                             ) : (
                               <>{r.so_cccd || r.so_cmnd_cu || "—"} · {r.noi_tt_raw || "—"}</>
                             )}
@@ -1503,6 +1521,15 @@ export default function NapHoSo() {
                               >
                                 <Icon name={c.anh ? "image" : "imageOff"} className="w-3 h-3" />
                               </span>
+                              {thieuTT.length > 0 && (
+                                <span
+                                  data-testid={`chip-thieu-tt-${r.uuid}`}
+                                  title={`Chưa sẵn sàng — thiếu ${thieuTT.join(", ")}. Sửa trên app web rồi Kéo về lại.`}
+                                  className="inline-grid place-items-center h-5 px-1 rounded text-[10px] font-bold text-destructive bg-destructive/10"
+                                >
+                                  Thiếu TT
+                                </span>
+                              )}
                               {thieuGiayTo && (
                                 <span title="Chưa chọn giấy tờ" className="inline-grid place-items-center w-5 h-5 rounded text-warning bg-warning/10">
                                   <Icon name="warn" className="w-3 h-3" />

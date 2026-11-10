@@ -805,14 +805,14 @@ CREATE TABLE IF NOT EXISTS keo_ve_bo_qua (
 Chọn loại (mô tô/ô tô) → khóa chưa BC1 → nhập/chọn HV → map địa chỉ (ra mã DVHC) → xử lý ảnh
   → kiểm trùng CCCD trong khóa (BR-005) → khóa bản ghi VPS (lock: pending→importing)
   → sp_getapplock(@Resource = MaKhoaHoc, @LockMode='Exclusive')   ◀── chặn tranh SoHoSo cả 2 máy [PH-3.1]
-     → SoHoSo = RIGHT('000' + (MAX(SoHoSo theo khóa)+1), 3)        (đọc MAX trong applock)
+     → SoHoSo = số nhỏ nhất còn trống trong khóa, 3 chữ số (lấp khe — BUG-9; không khe = MAX+1)   (đọc trong applock)
      → EXEC usp_QuangLA_PM4_ThuNhanHS_ThemMoiCapNhat  @p_MaDK=NULL OUTPUT, @p_SoHoSo=<SoHoSo>, …
          ◀── 1 SP gộp app cũ, atomic (SP tự transaction). @p_MaDK=NULL → SP TỰ SINH MaDK
          (dạng 70004-<yyyyMMddHHmmssfff>, hàm CreateNewMaDK) trả về qua OUTPUT.
          32 tham số @p_* khớp 1:1 form "Thu nhận HS": MaKH, MaHangGPLX, HangDaoTao, SoHoSo,
          HoVaTen (IN HOA — SP TỰ TÁCH Ho/Ten), HoVaTenIn, NgaySinh, GioiTinh, MaQuocTich(=VNM),
          SoCMT, NgayCap, NoiCap, MaDVHC_TT + ChiTiet_TT, MaDVHC_CT + ChiTiet_CT, SoNamLX, SoKmLX,
-         GiayTo (danh sách MaGT), GPLX đã có…, GhiChu, SO_CMND_CU, CHON_IN_GPLX(1/2/3; mặc định theo hạng khóa: A*→3, còn lại→2)
+         GiayTo (danh sách MaGT), GPLX đã có…, GhiChu, SO_CMND_CU (luôn NULL — user chốt 10/11/2026 không nạp CMND cũ; CMND cũ chỉ thay `SoCMT` khi không có CCCD), CHON_IN_GPLX(1/2/3; mặc định theo hạng khóa: A*→3, còn lại→2)
          → SP ghi NguoiLX + NguoiLX_HoSo (TT_XuLy='01', CHƯA ảnh) + giấy tờ trong MỘT lần
          → @p_out: 0=OK · -1 trùng SoHoSo · -2 trùng CMT · -3 thiếu thâm niên · -4 thiếu km
            (SP KHÔNG raiserror → tool PHẢI đọc @p_out; ≠0 → SP không insert → báo lỗi, giữ pending)
@@ -851,7 +851,7 @@ Collector(App web)  VPS(FastAPI/PG)   Operator(Tool)   SQL Server GPLX_CSDT   �
 6    │                   │       kiểm trùng CCCD ──────────────▶│ (theo khóa BR-005)
      │                   │                 │◀───── ok ─────────│                  │
 7    │                   │       sp_getapplock(MaKhoaHoc) ─────▶│   ◀── [PH-3.1]  │
-     │                   │       SoHoSo = MAX+1 (trong applock) ▶│                 │
+     │                   │       SoHoSo = lấp khe (trong applock)▶│                 │
      │                   │       EXEC …ThemMoiCapNhat (@p_MaDK=NULL OUT) ▶│ →MaDK, @p_out │
      │                   │         (NguoiLX + HoSo[TT_XuLy='01'] + giấy tờ, atomic)│             │
      │                   │       @p_out≠0 → lỗi nghiệp vụ, KHÔNG ghi ảnh, giữ pending           │
@@ -893,7 +893,7 @@ Collector(App web)  VPS(FastAPI/PG)   Operator(Tool)   SQL Server GPLX_CSDT   �
 - **Chống tạo trùng khi bấm lại (mạng timeout):** server lưu `uuid → MaDK` đã nạp xong vào `staging.sqlite` (bảng `nap_xong`); request lại cùng `uuid` → trả kết quả cũ, không gọi SP lần 2 (idempotent, verify AS-003). Giữ cờ `madk_dang_nap` theo uuid để dọn mồ côi nếu tool chết giữa khe.
 - Mất kết nối DB giữa chừng → SP rollback, giữ `pending`, cho thử lại (EC-061).
 - Nạp lô, 1 HV lỗi → các HV khác vẫn nạp, HV lỗi giữ pending + báo dòng (EC-071); nạp tuần tự trong lô, hiện tiến độ.
-- Tranh SoHoSo khi nạp đồng thời → **`sp_getapplock(MaKhoaHoc)`** bọc {đọc MAX+1 → gọi SP gộp} (§10.1) — bảo đảm SoHoSo không trùng cả khi 2 máy nạp cùng khóa (EC-011); khóa `importing` (CAS) chặn 2 tool nạp cùng một bản ghi (EC-010).
+- Tranh SoHoSo khi nạp đồng thời → **`sp_getapplock(MaKhoaHoc)`** bọc {đọc số trống nhỏ nhất (lấp khe, BUG-9) → gọi SP gộp} (§10.1) — bảo đảm SoHoSo không trùng cả khi 2 máy nạp cùng khóa (EC-011); khóa `importing` (CAS) chặn 2 tool nạp cùng một bản ghi (EC-010).
 
 ### 10.4 Ca biên khác (đã có ở PRD/BR — nêu lại để không sót khi code)
 - **Dropdown khóa rỗng** (không khóa nào chưa BC1) → hiện thông báo "không có khóa nhận HV", chặn nạp cho tới khi tạo/mở khóa.
@@ -1264,6 +1264,8 @@ Bối cảnh: mốc "Nạp" chuyển quyền sở hữu (§7.5) đi qua **2 kho 
 - *Không tự động hàng loạt:* mỗi dòng operator tự bấm (tránh sửa nhầm diện rộng).
 
 **Phòng tuyến 2 — chặn tái phát phantom (gốc BUG-01).** Trong `nap_lo` router (`nap_fn`), thứ tự hiện tại: `vps.lock` → `_nap_mot` → `vps.da_nap`. Khi `_nap_mot`→`nap_mot_hv` **trả kết quả cũ từ vé `nap_xong`** (`_done_get` trúng, KHÔNG INSERT mới) thì **BỎ gọi `vps.da_nap`** — nếu không, bản ghi không thực sự vào CSDT vẫn bị đánh dấu VPS `imported` (đúng kịch bản phantom). Cách làm: `nap_mot_hv`/`_nap_mot` trả cờ phân biệt "nạp mới" vs "trả vé cũ" (vd field `trung_uuid` đã có ở `_done_get`), `nap_fn` chỉ `da_nap` khi là nạp mới. *Vì sao vẫn giữ vé idempotency:* chống bấm nạp 2 lần tạo HV trùng (§10.3) — chỉ bỏ cái `da_nap` dư trên nhánh vé-cũ.
+
+**Báo bù trên nhánh vé cũ (BUG-21, 10/11/2026).** `vps.lock` thành công ⇒ VPS chưa `imported`; vé cũ ⇒ lần trước đã INSERT nhưng `da_nap` không tới VPS (mất mạng). Bỏ hẳn `da_nap` như trên làm VPS không bao giờ `imported`, hồ sơ quay về `pending` sau 15'. Nay: vé cũ → `SELECT 1 FROM NguoiLX_HoSo WHERE MaDK=?` (`_con_trong_db_nap`); còn → gọi `da_nap` bù; không còn (đã xóa) → không báo, mở khóa, dòng lỗi "không còn trong DB Nạp — xem Đối soát"; lỗi kết nối DB → mở khóa, dòng lỗi. `da_nap` lỗi (`VpsLoi`) ở mọi nhánh → mở khóa, dòng lỗi "Đã nạp vào DB Nạp (MaDK …) nhưng chưa báo được VPS — bấm Nạp lại để báo bù"; nạp lại đi đúng nhánh vé cũ ở trên. *Vì sao: giữ chốt chặn phantom (chỉ báo khi bản ghi thật sự có trong CSDT) mà vẫn hội tụ khi mạng chập chờn.*
 
 > Tool (webui 2 panel + tool backend đọc CSDT/gọi VPS: `doisoat.py` — `/local/doi-soat/khoa`·`/lac`·`da-nap`·`tra-ve`·`mo-khoa`). Tái dùng `tra_ve_cho_nap`/`da_nap`/`unlock` + `nap_xong` local. KHÔNG bảng VPS mới, KHÔNG SP CSDT mới, KHÔNG endpoint **nạp** mới. **Có 2 thay đổi SERVER (read, CHANGES #32 task 48, hướng A — cần deploy VPS):** thêm `GET /api/nap/trang-thai?uuids=` (ca ②) + admin `/ho-so` trả thêm `ma_dk`/`locked_at` (ca ①③). *Vì sao phải đổi server: bản ghi VPS không phơi trạng-thái-theo-uuid cho operator, và admin list thiếu `ma_dk`/`locked_at` — không có 2 field này thì ca ①③ không phát hiện được.*
 
@@ -2220,6 +2222,12 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 | --- | --- | --- |
+| 10/11/2026 | 6.45 | Màn Nạp: hồ sơ thiếu họ tên/ngày sinh/giới tính là "chưa sẵn sàng" (chip Thiếu TT + dòng báo ở ngăn), không lặng lẽ loại khỏi lô; giới tính trống suy từ chữ số thứ 4 CCCD (chẵn Nam, lẻ Nữ), bỏ mặc định "M" (BUG-24). |
+| 10/11/2026 | 6.44 | Nạp lô: HV vào DB mà ghi file ảnh lỗi (`anh_loi`) → dòng vẫn `xong` + `canh_bao` "Thiếu ảnh" (lưu ở `keo_ve.loi`), hộp nạp hiện vàng, nút Bổ sung ảnh đếm cả ca này (BUG-23). |
+| 10/11/2026 | 6.43 | §10.1/§10.3: SoHoSo ghi đúng cách code chạy — lấp khe (BUG-9), không phải MAX+1; user xác nhận giữ (A4). |
+| 10/11/2026 | 6.42 | §10.1 ghi rõ `SO_CMND_CU` luôn NULL (user chốt không nạp CMND cũ, A3 soát module Nạp). |
+| 10/11/2026 | 6.41 | `_nap_mot` kiểm lại khóa đã lập BC1 (`BaoCaoI`) ngay lúc ghi → 409, dòng lỗi (BUG-22, BR-012). |
+| 10/11/2026 | 6.40 | Phòng tuyến 2 thêm báo bù `da_nap` khi vé cũ còn trong DB Nạp; `da_nap` lỗi thì dòng báo rõ + mở khóa (BUG-21). |
 | 10/11/2026 | 6.39 | §6.6 mục 9: dòng "Còn thiếu" thay bằng thanh tiến độ ở thanh nút đáy, bấm nhảy ô thiếu (CHANGES #100). |
 | 10/11/2026 | 6.38 | §10.2 tra danh mục giấy tờ dò `HangDT` → bỏ dấu chấm → `HangGPLX`, rỗng thì chặn nạp (BUG-20); §10.6/§10.7 GPLX đã có ghi chuỗi rỗng, không NULL, `NoiCapGPLXDaCo` rỗng theo số bằng; Nơi cấp điền sẵn theo 2 số đầu số GPLX (CHANGES #98). |
 | 04/11/2026 | 6.37 | §6.6 "Lưu & nhập hồ sơ tiếp": thêm phím tắt Enter trên desktop (CHANGES #97). |

@@ -4,6 +4,10 @@
 
 | # | Ngày | Mức | Story | Bug | Trạng thái | Deploy |
 |---|---|---|---|---|---|---|
+| 24 | 10/11/2026 | 🟡 Vừa | `NAP-01` · `NAP-05` | **Hồ sơ thiếu họ tên/ngày sinh vẫn "Sẵn sàng" rồi bị loại im lặng khỏi lô; thiếu giới tính bị ghi "Nam".** Sửa: chip đỏ "Thiếu TT" + dòng báo ở ngăn, không chọn nạp được; giới tính trống suy từ CCCD, không suy được thì chưa sẵn sàng. | ✅ Đã sửa | ⬜ |
+| 23 | 10/11/2026 | 🟡 Vừa | `NAP-04` · `NAP-05` | **Nạp xong mà ghi file ảnh lỗi vẫn báo xanh im lặng** — học viên vào DB thiếu ảnh, người nạp không biết. Sửa: vẫn tính đã nạp, kèm cảnh báo vàng "Thiếu ảnh" ở hộp nạp + dòng Đã nạp, nút Bổ sung ảnh đếm cả ca này. | ✅ Đã sửa | ⬜ |
+| 22 | 10/11/2026 | 🟡 Vừa | `NAP-02` · `NAP-05` | **Khóa vừa lập Báo cáo 1 sau lúc mở màn Nạp vẫn nạp thêm học viên được** (BR-012): danh sách khóa ẩn khóa BC1 nhưng lúc ghi không kiểm lại. Sửa: `_nap_mot` kiểm `BaoCaoI` → 409, dòng lỗi rõ. | ✅ Đã sửa | ⬜ |
+| 21 | 10/11/2026 | 🟠 Nặng | `NAP-01` · `QLY-09` | **Nạp vào DB xong mà báo VPS "đã nạp" lỗi mạng thì VPS không bao giờ được báo:** dòng hiện đỏ, nạp lại trả vé cũ nên bỏ qua `da_nap`; hồ sơ quay về "chờ nạp" trên app web. Sửa: vé cũ mà học viên còn trong DB Nạp thì báo bù; `da_nap` lỗi thì báo rõ + mở khóa. | ✅ Đã sửa (chưa nghiệm thu máy CSĐT) | ⬜ |
 | 20 | 10/11/2026 | 🔴 Chặn | `NAP-05` | **Hồ sơ tool nạp vào khóa hạng mới không có giấy tờ kèm theo** (phần mềm cũ hiện danh sách trống). Tool tra danh mục giấy tờ bằng `HangDT` (`Am`, `B.01`, `A.03`) mà danh mục ghi `A2`, `B01`, `A03` → rỗng → nạp 0 giấy tờ. Sửa: dò `HangDT` → bỏ dấu chấm → `HangGPLX`; rỗng thì chặn nạp; script SQL bổ sung danh mục + giấy tờ hồ sơ cũ. | ✅ Đã sửa (chờ nghiệm thu máy CSĐT) | ⬜ |
 | 19 | 02/11/2026 | 🔴 Chặn | `NAP-07` · `NAP-03` · `SYNC-01` | **Tool: Enter ở ô gõ để lọc chọn sai không báo**, cùng gốc BUG-17. Sửa ở `ComboLoc` dùng chung: Enter chỉ chọn khi còn đúng một khả năng. Đã đóng gói exe, commit `0146041`. | ✅ Đã sửa | ⬜ |
 | 18 | 02/11/2026 | 🔴 Chặn | `THU-01` · `THU-07` | **Ngày không có thật vẫn hiện ✓ và gửi được** (`45/13/1990`, `31/02/2021`, năm `9999`). Chỉ kiểm dạng số. Sửa: kiểm ngày có thật ở form nhập và form sửa. | ✅ Đã sửa | ✅ |
@@ -28,6 +32,43 @@
 Chú thích trạng thái: ✅ Đã sửa · 🔄 Đang sửa · ⏳ Đã xếp task · ⬜ Chưa xử
 
 ---
+
+## BUG-24 — Thiếu thông tin vẫn "Sẵn sàng", thiếu giới tính ghi "Nam" · 10/11/2026
+
+- **Mức:** 🟡 Vừa · **Story:** `NAP-01` · `NAP-05` · **File:** `tool/webui/src/pages/tool/napSanSang.ts` (mới: `gioiTinhNap`, `thieuThongTin`), `tool/webui/src/pages/tool/NapHoSo.tsx` (`tinhSanSang`, `dungNapIn`, chip, ngăn, hộp nạp).
+- **Ai báo:** subagent soát nghiệp vụ module Nạp 10/11/2026 (A6); user chốt "báo chưa sẵn sàng".
+- **Nguyên nhân gốc:** `tinhSanSang` chỉ xét địa chỉ + giấy tờ, còn `dungNapIn` thì trả null khi thiếu họ tên/ngày sinh → bị loại khỏi lô mà UI vẫn báo sẵn sàng; `gioi_tinh: r.gioi_tinh || "M"` ghi mặc định Nam.
+- **Đã sửa:** `tinhSanSang` gộp `thieuThongTin`; `dungNapIn` dùng `gioiTinhNap` (giá trị gửi về, trống thì suy từ chữ số thứ 4 CCCD 12 số, không suy được → không nạp); chip "Thiếu TT" ở dòng, dòng đỏ ở ngăn Chuẩn bị, hộp nạp ghi "thiếu thông tin/địa chỉ/giấy tờ".
+- **Test hồi quy:** `tool/webui/src/pages/tool/napSanSang.test.ts` · `tool/webui/e2e/gplx-da-co.e2e.ts` "A6: …".
+- **Deploy:** tool chạy ở máy CSĐT, chưa đóng gói exe.
+
+## BUG-23 — Ghi ảnh lỗi vẫn báo xanh · 10/11/2026
+
+- **Mức:** 🟡 Vừa · **Story:** `NAP-04` · `NAP-05` · **File:** `tool/app/routers/nap.py` (`nap_fn`, `THIEU_ANH`), `tool/webui/src/lib/api.ts` (`canh_bao`), `tool/webui/src/pages/tool/NapHoSo.tsx` (hộp nạp + dòng Đã nạp).
+- **Ai báo:** subagent soát nghiệp vụ module Nạp 10/11/2026 (A5); user chốt "xanh kèm cảnh báo".
+- **Nguyên nhân gốc:** `nap_mot_hv` trả `anh_loi` khi ghi `.jp2` lỗi nhưng `nap_fn` chỉ chuyển `ma_dk`/`so_ho_so`/`so_giay_to`, nên UI không biết.
+- **Đã sửa:** `nap_fn` thêm `canh_bao` khi có `anh_loi`; staging ghi vào `keo_ve.loi` (trạng thái vẫn `xong`); hộp nạp hiện dòng vàng, nút "Bổ sung ảnh" đếm cả; dòng tab Đã nạp có "· Thiếu ảnh".
+- **Test hồi quy:** `tool/tests/test_nap_keo.py::test_nap_lo_ghi_anh_loi_van_xong_kem_canh_bao` · `tool/webui/e2e/gplx-da-co.e2e.ts` "A5: …".
+- **Deploy:** tool chạy ở máy CSĐT, chưa đóng gói exe.
+
+## BUG-22 — Khóa vừa lập BC1 vẫn nạp thêm được · 10/11/2026
+
+- **Mức:** 🟡 Vừa · **Story:** `NAP-02` · `NAP-05` · **File:** `tool/app/routers/nap.py` (`_nap_mot`, `KHOA_DA_BC1`).
+- **Ai báo:** subagent soát nghiệp vụ module Nạp 10/11/2026 (A2); user chốt "chặn lúc ghi".
+- **Nguyên nhân gốc:** chốt chặn BC1 chỉ nằm ở danh sách khóa (`khoahoc.py`), `_nap_mot` chỉ kiểm `TrangThai=1`; các thao tác sửa/xóa/đổi khóa thì đã chặn ở lúc ghi.
+- **Đã sửa:** câu SELECT khóa trong `_nap_mot` lấy thêm cờ `bc1` (EXISTS `BaoCaoI`), có thì 409 → nạp lô ghi dòng lỗi + mở khóa VPS.
+- **Test hồi quy:** `tool/tests/test_nap_giay_to.py::test_nap_chan_khoa_vua_lap_bc1`; câu SQL chạy thật trên DB Nạp (khóa có/không BC1).
+- **Deploy:** tool chạy ở máy CSĐT, chưa đóng gói exe.
+
+## BUG-21 — Báo VPS "đã nạp" lỗi mạng thì không bao giờ báo lại · 10/11/2026
+
+- **Mức:** 🟠 Nặng · **Story:** `NAP-01` · `QLY-09` · **File:** `tool/app/routers/nap.py` (`nap_fn` trong `nap_lo_endpoint`, `_con_trong_db_nap`).
+- **Ai báo:** subagent soát nghiệp vụ module Nạp 10/11/2026; user chốt cách sửa "kiểm DB rồi báo bù".
+- **Tái hiện (test):** nạp mới thành công, `vps.da_nap` ném `VpsLoi` → dòng 🔴; nạp lại → `nap_mot_hv` trả vé cũ (`trung_uuid`) → code cũ bỏ `da_nap` → VPS không bao giờ `imported`.
+- **Nguyên nhân gốc:** phòng tuyến 2 (QLY-09) bỏ `da_nap` trên mọi nhánh vé cũ để chống phantom, giả định vé cũ ⇒ VPS đã `imported`. Giả định sai khi chính lần `da_nap` đầu bị lỗi: `vps.lock` vừa thành công chứng tỏ VPS chưa `imported`.
+- **Đã sửa:** vé cũ → kiểm `MaDK` còn trong DB Nạp → còn thì `da_nap` bù, không còn thì không báo + mở khóa + dòng lỗi; `da_nap` lỗi → mở khóa + dòng lỗi "Đã nạp vào DB Nạp (MaDK …) nhưng chưa báo được VPS — bấm Nạp lại để báo bù".
+- **Test hồi quy:** `tool/tests/test_nap_keo.py` — `test_nap_lo_ve_cu_con_trong_db_bao_bu_da_nap`, `test_nap_lo_ve_cu_khong_con_trong_db_khong_bao_vps`, `test_nap_lo_da_nap_loi_bao_ro_va_nap_lai_bao_bu`. Hàm kiểm DB chạy thật trên DB Nạp máy dev (có/không có MaDK).
+- **Deploy:** tool chạy ở máy CSĐT, chưa đóng gói exe.
 
 ## BUG-20 — Hồ sơ nạp vào khóa hạng mới không có giấy tờ kèm theo · 10/11/2026
 

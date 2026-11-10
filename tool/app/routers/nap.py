@@ -56,6 +56,10 @@ def doc_giay_to(cur, ma_loai_hs: int, hang_dt: str | None, hang_gplx: str | None
     return []
 
 
+THIEU_ANH = "Thiếu ảnh — đã nạp nhưng ghi file ảnh lỗi. Bổ sung ảnh ở Tra cứu DB."
+
+KHOA_DA_BC1 = "Khóa đã lập Báo cáo 1 — không nạp thêm học viên được. Chọn khóa khác rồi nạp lại."
+
 KHONG_CO_GIAY_TO = ("Khóa này chưa có danh mục giấy tờ kèm theo trong DB Nạp — không nạp để tránh hồ sơ thiếu "
                     "giấy tờ. Báo quản trị bổ sung danh mục (scripts/bo_sung_giay_to_hang_moi.sql).")
 
@@ -151,12 +155,20 @@ def _nap_mot(body: NapIn) -> dict:
 
         # Khóa đích (nguồn chuẩn cho hạng/loại — không tin client)
         cur.execute(
-            "SELECT MaKH, HangGPLX, HangDT, MaSoGTVT FROM KhoaHoc WHERE MaKH=%s AND TrangThai=1",
+            "SELECT MaKH, HangGPLX, HangDT, MaSoGTVT, "
+            "CASE WHEN EXISTS (SELECT 1 FROM BaoCaoI b WHERE b.MaKH = KhoaHoc.MaKH) THEN 1 ELSE 0 END AS bc1 "
+            "FROM KhoaHoc WHERE MaKH=%s AND TrangThai=1",
             (body.ma_khoa_hoc,),
         )
         k = cur.fetchone()
         if not k:
             raise HTTPException(status_code=404, detail="Không tìm thấy khóa học (hoặc khóa đã khóa).")
+        # BR-012: khóa đã lập BC1 không thêm HV. Danh sách khóa đã ẩn khóa BC1, nhưng khóa có thể vừa lập BC1
+        # sau lúc màn Nạp mở → kiểm lại ngay lúc ghi (cùng chốt chặn với sửa/xóa/đổi khóa).
+        # Hồ sơ đã có vé nạp xong (đã vào DB, nạp lại chỉ để báo bù VPS — BUG-21) thì không ghi gì thêm,
+        # nên không chặn; nếu không, khóa lập BC1 sau lần nạp đầu sẽ chặn báo bù mãi mãi.
+        if k.get("bc1") and not nap._done_get(body.uuid):
+            raise HTTPException(status_code=409, detail=KHOA_DA_BC1)
         khoa = {
             "ma_kh": k["MaKH"], "hang_gplx": k["HangGPLX"],
             "hang_dt": k["HangDT"], "ma_so_gtvt": k["MaSoGTVT"],
@@ -409,24 +421,50 @@ def nap_lo_endpoint(body: NapLoIn, phien: Phien = Depends(require_session)):
         except Exception:
             _mo_khoa_im_lang(token, uuid)
             raise
-        # Phòng tuyến 2 (QLY-09, chặn tái phát phantom BUG-01): CHỈ da_nap khi THỰC SỰ nạp mới.
-        # `_nap_mot`→`nap_mot_hv` trả vé cũ (`trung_uuid`, không INSERT) → KHÔNG đánh dấu VPS imported
-        # (nếu không, bản ghi không vào CSDT vẫn bị gắn imported = phantom). Vé cũ → VPS đã imported
-        # từ lần nạp đầu rồi, bỏ da_nap là đúng.
-        if not r.get("trung_uuid"):
-            vps.da_nap(token, uuid, r["ma_dk"])  # lỗi ở đây → VpsLoi; HV đã nạp, retry hội tụ nhờ idempotent UUID
-        return {"ma_dk": r["ma_dk"], "so_ho_so": r["so_ho_so"], "so_giay_to": r["so_giay_to"]}
+        # Phòng tuyến 2 (QLY-09, chặn phantom BUG-01) + báo bù (A1, 10/11/2026): vé cũ (`trung_uuid`, không
+        # INSERT) nghĩa là lần trước đã vào DB nhưng VPS chưa biết (lock vừa thành công ⇒ VPS chưa imported,
+        # thường do mất mạng lúc báo da_nap). Chỉ báo bù khi học viên CÒN trong DB Nạp; không còn (đã bị xóa)
+        # thì không báo — giữ đúng chốt chặn: không gắn imported cho bản ghi không có trong CSDT.
+        if r.get("trung_uuid"):
+            try:
+                con = _con_trong_db_nap(r["ma_dk"])
+            except Exception:
+                _mo_khoa_im_lang(token, uuid)
+                raise RuntimeError("Không kiểm được DB Nạp để báo bù cho VPS — kiểm kết nối rồi Nạp lại.")
+            if not con:
+                _mo_khoa_im_lang(token, uuid)
+                raise RuntimeError(f"Đã từng nạp (MaDK {r['ma_dk']}) nhưng không còn trong DB Nạp — "
+                                   "không báo VPS; xem panel Đối soát.")
+        try:
+            vps.da_nap(token, uuid, r["ma_dk"])
+        except VpsLoi:
+            _mo_khoa_im_lang(token, uuid)
+            raise RuntimeError(f"Đã nạp vào DB Nạp (MaDK {r['ma_dk']}) nhưng chưa báo được VPS — "
+                               "bấm Nạp lại để báo bù (không tạo trùng).")
+        kq = {"ma_dk": r["ma_dk"], "so_ho_so": r["so_ho_so"], "so_giay_to": r["so_giay_to"]}
+        # A5 (10/11/2026): HV đã vào DB nhưng ghi file ảnh lỗi → vẫn tính đã nạp (không nạp lại kẻo trùng)
+        # nhưng kèm cảnh báo để người nạp bổ sung ảnh, không báo xanh im lặng.
+        if r.get("anh_loi"):
+            kq["canh_bao"] = THIEU_ANH
+        return kq
 
     kq = nap.nap_lo(items, nap_fn)
     for dong in kq["ket_qua"]:
         if dong["ok"]:
-            nap.keo_ve_cap_nhat(dong["uuid"], trang_thai="xong",
+            nap.keo_ve_cap_nhat(dong["uuid"], trang_thai="xong", loi=dong.get("canh_bao"),
                                 ma_dk=dong.get("ma_dk"), so_ho_so=dong.get("so_ho_so"),
                                 gplx_da_co=gplx_theo_uuid.get(str(dong["uuid"])))  # ghi TRƯỚC khi xóa nháp
             nap.nhap_xoa(dong["uuid"])  # nạp xong → dọn nháp bền kèm ảnh PII (CHANGES #32)
         else:
             nap.keo_ve_cap_nhat(dong["uuid"], trang_thai="loi", loi=dong.get("loi"))
     return kq
+
+
+def _con_trong_db_nap(ma_dk: str) -> bool:
+    """Học viên MaDK còn trong DB Nạp không (dùng trước khi báo bù da_nap cho vé cũ). Lỗi kết nối → ném ra."""
+    with sqlserver_cursor() as cur:
+        cur.execute("SELECT 1 AS co FROM NguoiLX_HoSo WHERE MaDK=%s", (ma_dk,))
+        return cur.fetchone() is not None
 
 
 def _mo_khoa_im_lang(token: str | None, uuid: str) -> None:

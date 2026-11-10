@@ -724,6 +724,7 @@ export interface NapLoDong {
   so_ho_so?: string;
   so_giay_to?: number;
   loi?: string;
+  canh_bao?: string; // đã nạp nhưng có việc cần làm thêm (vd ghi ảnh lỗi → thiếu ảnh)
 }
 
 export interface NapLoKetQua {

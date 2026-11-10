@@ -337,7 +337,14 @@ def _orphan_clear(uuid: str) -> None:
 
 
 _DONE_DDL = ("CREATE TABLE IF NOT EXISTS nap_xong "
-             "(uuid TEXT PRIMARY KEY, ma_dk TEXT, so_ho_so TEXT, so_giay_to INT, duong_dan_anh TEXT)")
+             "(uuid TEXT PRIMARY KEY, ma_dk TEXT, so_ho_so TEXT, so_giay_to INT, duong_dan_anh TEXT, anh_loi TEXT)")
+
+
+def _done_bang(conn: sqlite3.Connection) -> None:
+    """Tạo bảng vé + thêm cột anh_loi cho bảng tạo trước 10/11/2026 (BUG-23: nạp lại vẫn giữ cảnh báo thiếu ảnh)."""
+    conn.execute(_DONE_DDL)
+    if "anh_loi" not in {c[1] for c in conn.execute("PRAGMA table_info(nap_xong)")}:
+        conn.execute("ALTER TABLE nap_xong ADD COLUMN anh_loi TEXT")
 
 
 def _done_get(uuid: str) -> dict | None:
@@ -346,28 +353,31 @@ def _done_get(uuid: str) -> dict | None:
         return None
     conn = sqlite3.connect(str(ORPHAN_DB))
     try:
-        conn.execute(_DONE_DDL)
+        _done_bang(conn)
         row = conn.execute(
-            "SELECT ma_dk, so_ho_so, so_giay_to, duong_dan_anh FROM nap_xong WHERE uuid=?",
+            "SELECT ma_dk, so_ho_so, so_giay_to, duong_dan_anh, anh_loi FROM nap_xong WHERE uuid=?",
             (uuid,),
         ).fetchone()
     finally:
         conn.close()
     if not row:
         return None
-    return {"ma_dk": row[0], "so_ho_so": row[1], "so_giay_to": row[2],
-            "duong_dan_anh": row[3], "trung_uuid": True}
+    kq = {"ma_dk": row[0], "so_ho_so": row[1], "so_giay_to": row[2],
+          "duong_dan_anh": row[3], "trung_uuid": True}
+    if row[4]:
+        kq["anh_loi"] = row[4]
+    return kq
 
 
 def _done_set(uuid: str, r: dict) -> None:
     ORPHAN_DB.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(ORPHAN_DB))
     try:
-        conn.execute(_DONE_DDL)
+        _done_bang(conn)
         conn.execute(
-            "INSERT OR IGNORE INTO nap_xong (uuid, ma_dk, so_ho_so, so_giay_to, duong_dan_anh) "
-            "VALUES (?,?,?,?,?)",
-            (uuid, r["ma_dk"], r["so_ho_so"], r.get("so_giay_to", 0), r.get("duong_dan_anh")),
+            "INSERT OR IGNORE INTO nap_xong (uuid, ma_dk, so_ho_so, so_giay_to, duong_dan_anh, anh_loi) "
+            "VALUES (?,?,?,?,?,?)",
+            (uuid, r["ma_dk"], r["so_ho_so"], r.get("so_giay_to", 0), r.get("duong_dan_anh"), r.get("anh_loi")),
         )
         conn.commit()
     finally:

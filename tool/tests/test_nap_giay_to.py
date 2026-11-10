@@ -98,3 +98,74 @@ def test_nap_chan_khi_khoa_khong_co_danh_muc(monkeypatch):
         r._nap_mot(body)
     assert goi == []
     assert "scripts/bo_sung_giay_to_hang_moi.sql" in KHONG_CO_GIAY_TO
+
+
+def test_nap_chan_khoa_vua_lap_bc1(monkeypatch):
+    """A2 (10/11/2026, BR-012): khóa vừa lập Báo cáo 1 sau lúc mở màn Nạp → chặn ngay lúc ghi, không gọi SP."""
+    from contextlib import contextmanager
+    from fastapi import HTTPException
+    from app.routers import nap as r
+
+    class Cur(_Cur):
+        def execute(self, sql, params=None):
+            if "FROM KhoaHoc" in sql:
+                assert "BaoCaoI" in sql
+                self._kq = [{"MaKH": "K1", "HangGPLX": "B1", "HangDT": "B", "MaSoGTVT": "70", "bc1": 1}]
+            else:
+                super().execute(sql, params)
+
+        def fetchone(self):
+            return self._kq[0] if self._kq else None
+
+    class Conn:
+        def cursor(self, as_dict=True):
+            return Cur()
+
+    @contextmanager
+    def conn():
+        yield Conn()
+
+    goi = []
+    monkeypatch.setattr(r, "sqlserver_conn", conn)
+    monkeypatch.setattr(r.nap, "nap_mot_hv", lambda *a, **k: goi.append(a))
+    body = r.NapIn(uuid="u1", ma_khoa_hoc="K1", ho_ten="A B", ngay_sinh="19900101", gioi_tinh="M", so_cmt="1",
+                   noi_tt_ma_dvhc="1", noi_tt_ma_dvql="1", giay_to_tick=[1, 2, 3])
+    with pytest.raises(HTTPException) as e:
+        r._nap_mot(body)
+    assert e.value.status_code == 409 and "Báo cáo 1" in e.value.detail
+    assert goi == []
+
+
+def test_bc1_khong_chan_ho_so_da_co_ve(monkeypatch):
+    """Hồ sơ đã vào DB (có vé nạp xong), báo VPS lỗi, rồi khóa lập BC1: nạp lại vẫn đi tiếp để báo bù."""
+    from contextlib import contextmanager
+    from app.routers import nap as r
+
+    class Cur(_Cur):
+        def execute(self, sql, params=None):
+            if "FROM KhoaHoc" in sql:
+                self._kq = [{"MaKH": "K1", "HangGPLX": "B1", "HangDT": "B", "MaSoGTVT": "70", "bc1": 1}]
+            elif "QTHT_ThamSoHT" in sql:
+                self._kq = [{"GiaTriTS": r"D:\A"}]
+            else:
+                super().execute(sql, params)
+
+        def fetchone(self):
+            return self._kq[0] if self._kq else None
+
+    class Conn:
+        def cursor(self, as_dict=True):
+            return Cur()
+
+    @contextmanager
+    def conn():
+        yield Conn()
+
+    ve = {"ma_dk": "M1", "so_ho_so": "001", "so_giay_to": 3, "trung_uuid": True}
+    monkeypatch.setattr(r, "sqlserver_conn", conn)
+    monkeypatch.setattr(r.nap, "_done_get", lambda u: ve)
+    monkeypatch.setattr(r.nap, "nap_mot_hv", lambda *a, **k: ve)
+    body = r.NapIn(uuid="u1", ma_khoa_hoc="K1", ho_ten="A B", ngay_sinh="19900101", gioi_tinh="M", so_cmt="1",
+                   noi_tt_ma_dvhc="1", noi_tt_ma_dvql="1", giay_to_tick=[1, 2, 3])
+    assert r._nap_mot(body)["trung_uuid"] is True
+

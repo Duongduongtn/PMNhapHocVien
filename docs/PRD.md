@@ -228,6 +228,7 @@
 - ✅ Dropdown chỉ hiện khóa `TrangThai=1` và chưa có dòng trong `BaoCaoI`.
 - ✅ Chọn khóa → suy ra `MaLoaiHs` (A*→1, còn lại→2), `HangGPLX`, `HangDaoTao`, `MaSoGTVT` theo khóa.
 - ❌ Khóa đã lập BC1 không xuất hiện.
+- ⬜ **Chặn lúc ghi (BUG-22, 10/11/2026):** khóa vừa lập BC1 sau lúc mở màn Nạp → bấm nạp không ghi, dòng báo "Khóa đã lập Báo cáo 1 — không nạp thêm học viên được. Chọn khóa khác rồi nạp lại.", hồ sơ mở khóa về chờ nạp.
 
 > Nguồn: CAP-005 · BR-007, BR-012 · verify DB 30/09/2026 (moto MaLoaiHs=1)
 
@@ -296,7 +297,7 @@
 **Story:** Là nhân viên nạp DB, tôi muốn nạp học viên vào khóa qua stored procedure có sẵn, để hồ sơ hiện đúng trên app cũ.
 
 **Steps to Complete:**
-1. Sinh `SoHoSo` = MAX+1 (3 chữ số) trong khóa (nếu SP không tự sinh).
+1. Sinh `SoHoSo` (3 chữ số) trong khóa = **số nhỏ nhất còn trống** (lấp khe: có 001, 002, 004 → 003; không khe thì bằng MAX+1). Đổi từ MAX+1 theo BUG-9, user xác nhận giữ 10/11/2026.
 2. Gọi **1 SP gộp `usp_QuangLA_PM4_ThuNhanHS_ThemMoiCapNhat`** — chính SP màn "Thu nhận Hồ sơ cấp mới" của app cũ dùng (32 tham số khớp 1:1 form) — ghi NguoiLX + NguoiLX_HoSo + giấy tờ + `CHON_IN_GPLX` (giá trị nhân viên chọn ở ngăn Chuẩn bị, mặc định theo hạng khóa) trong một lần, atomic (SP tự lo transaction).
 3. Ghi file ảnh; đánh dấu bản ghi VPS = `da_nap` (kèm MaDK).
 
@@ -658,7 +659,7 @@
 - ⬜ Mỗi dòng lệch **nêu rõ loại + hậu quả** bằng chữ nghiệp vụ (không để operator đoán).
 - ⬜ Sửa xong **làm tươi lại** danh sách đối soát; dòng đã khớp biến mất.
 - ⬜ **Không tạo endpoint/SP nạp mới** — chỉ tái dùng `tra_ve_cho_nap` · `da_nap` · `unlock` (VPS) + truy vấn đọc CSDT.
-- ⬜ **Phòng tuyến 2 (chặn tái phát phantom):** trong luồng nạp lô, nếu `_nap_mot` trả **kết quả cũ từ vé idempotency** (không INSERT mới) thì **KHÔNG gọi `da_nap`** — tránh đánh dấu VPS `imported` cho bản ghi không thực sự vào CSDT (gốc BUG-01).
+- ⬜ **Phòng tuyến 2 (chặn tái phát phantom):** trong luồng nạp lô, nếu `_nap_mot` trả **kết quả cũ từ vé idempotency** (không INSERT mới) thì **KHÔNG gọi `da_nap`** — tránh đánh dấu VPS `imported` cho bản ghi không thực sự vào CSDT (gốc BUG-01). **Báo bù (BUG-21, 10/11/2026):** vé cũ mà học viên **còn trong DB Nạp** (kiểm `MaDK`) thì gọi `da_nap` bù — ca lần trước đã vào DB nhưng báo VPS lỗi mạng; không còn thì không báo, dòng lỗi rõ. `da_nap` lỗi thì dòng ghi "Đã nạp vào DB Nạp (MaDK …) nhưng chưa báo được VPS — bấm Nạp lại để báo bù" và mở khóa VPS.
 - ❌ KHÔNG so khớp **2 chiều toàn tập** mỗi lần (ca ② theo khóa; ca ①③ quét một chiều theo trạng thái VPS — nhẹ).
 - ❌ KHÔNG tự động sửa hàng loạt không hỏi — mỗi dòng operator tự bấm (tránh sửa nhầm diện rộng).
 
