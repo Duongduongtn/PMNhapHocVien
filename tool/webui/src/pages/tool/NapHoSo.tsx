@@ -999,7 +999,7 @@ export default function NapHoSo() {
                         <BadgeGplx ds={gplxCua(selRow)} testId="badge-gplx-ngan" />
                       </div>
                       <div className="text-muted-foreground mt-0.5">
-                        {{ M: "Nam", F: "Nữ" }[gioiTinhNap(selRow.gioi_tinh, selRow.so_cccd) ?? ""] ?? "Chưa rõ giới tính"} · CCCD {selRow.so_cccd || selRow.so_cmnd_cu || "—"}
+                        {({ M: "Nam", F: "Nữ", "": "Chưa rõ giới tính" } as const)[gioiTinhNap(selRow.gioi_tinh, selRow.so_cccd) ?? ""]} · CCCD {selRow.so_cccd || selRow.so_cmnd_cu || "—"}
                         {selRow.ngay_sinh && <> · NS {ymdToVN(selRow.ngay_sinh)}</>}
                       </div>
                       {thieuThongTin(selRow).length > 0 && (
