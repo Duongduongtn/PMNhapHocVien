@@ -489,8 +489,9 @@ export interface GiayTo {
   ten_gt: string;
 }
 
-export const getGiayTo = (maLoaiHs: number, hangDt: string) =>
-  fetch(`${BASE}/local/giay-to?ma_loai_hs=${maLoaiHs}&hang_dt=${encodeURIComponent(hangDt)}`, {
+// hangGplx: backend dò thêm theo hạng GPLX khi danh mục không có mã HangDT (vd khóa A2 HangDT 'Am').
+export const getGiayTo = (maLoaiHs: number, hangDt: string, hangGplx?: string | null) =>
+  fetch(`${BASE}/local/giay-to?ma_loai_hs=${maLoaiHs}&hang_dt=${encodeURIComponent(hangDt)}${hangGplx ? `&hang_gplx=${encodeURIComponent(hangGplx)}` : ""}`, {
     headers: authHeaders(),
   }).then(json<GiayTo[]>);
 

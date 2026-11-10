@@ -86,6 +86,22 @@ export function tenHang(b: Pick<BangGplx, "nhom" | "hang">): string {
 
 export const laBangMoTo = (hang: string) => /^A/.test(hang);
 
+/** Nơi cấp suy từ số GPLX: số đủ 12 chữ số thì 2 số đầu là mã Sở cấp (đúng ở 94% hồ sơ DB Nạp, 10/11/2026).
+ *  Mã không có trong danh mục → "" (không đoán). Chỉ để điền sẵn, người nhập vẫn sửa được. */
+export function suyNoiCapGplx(so: string, ds: { ma: string }[]): string {
+  const t = (so || "").trim();
+  if (!/^\d{12}$/.test(t)) return "";
+  const ma = t.slice(0, 2);
+  return ds.some((o) => o.ma === ma) ? ma : "";
+}
+
+/** Nơi cấp sau khi sửa số GPLX: ô đang trống, hoặc đang đúng giá trị đã tự điền theo số cũ → theo số mới.
+ *  Nơi cấp người nhập chọn khác đi thì giữ nguyên. */
+export function noiCapKhiDoiSo(soCu: string, soMoi: string, donVi: string, ds: { ma: string }[]): string {
+  const tuDien = !donVi.trim() || donVi === suyNoiCapGplx(soCu, ds);
+  return tuDien ? suyNoiCapGplx(soMoi, ds) : donVi;
+}
+
 const NGAY = ["ngay_tt", "ngay_cap", "ngay_hh"] as const;
 
 function vnToYmd(v: string): string {
@@ -155,4 +171,15 @@ export function loiDanhSach(ds: BangGplx[]): string | null {
     if (l.length) return `GPLX đã có, bằng ${i + 1}: ${l.join(", ")}.`;
   }
   return null;
+}
+
+/** Bằng chưa nhập ô nào (mở popup rồi bấm Xong luôn) → coi như không có, không báo lỗi bắt buộc. */
+export const bangTrong = (b: BangGplx) => !b.hang && !b.so.trim() && !b.ngay_tt && !b.ngay_cap && !b.ngay_hh && !b.don_vi;
+
+/** Một dòng tóm tắt cho mỗi bằng ở form (khối nhập nằm trong popup): "B2 · 790000000123 · Hồ Chí Minh". */
+export function tomTatGplx(ds: BangGplx[], noiCap: { ma: string; ten: string }[]): string[] {
+  return ds.filter((b) => !bangTrong(b)).map((b) => {
+    const tinh = noiCap.find((o) => o.ma === b.don_vi)?.ten.split(" — ")[1] ?? b.don_vi;
+    return [b.hang ? tenHang(b) : "Chưa chọn hạng", b.so.trim(), tinh].filter(Boolean).join(" · ");
+  });
 }

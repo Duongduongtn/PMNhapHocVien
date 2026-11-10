@@ -870,6 +870,7 @@ Collector(App web)  VPS(FastAPI/PG)   Operator(Tool)   SQL Server GPLX_CSDT   �
 - **`TT_XuLy` (SP luôn set `'01'` lúc tạo — xác nhận thân SP + `KIEM_TRA_ANH='fpt@'`; tool nâng `'03'` ở bước UPDATE ảnh, hướng A):** có ảnh → `TT_XuLy='03'` + `ChatLuongAnh=1` (+ `NgayThuNhanAnh`,`NguoiThuNhanAnh`); **chưa có ảnh → `TT_XuLy='01'`, `ChatLuongAnh=NULL`, không ghi `DuongDanAnh`** (BR-011 cho nạp thiếu ảnh). Bằng chứng: khóa `70004K26B010` 55/55 HV đều `03`+ảnh; toàn bảng `01` chỉ xuất hiện khi không ảnh (93 bản), `03` chỉ khi có ảnh (2.256 bản). Khi bổ sung ảnh sau (đổi khóa/sửa) → nâng `01`→`03`.
 - **`TrangThai=1` khi tạo — KHÔNG đổi theo ảnh** (=0 chỉ khi vô hiệu hóa về sau).
 - Giấy tờ: theo **trạng thái tick cuối** của user (mặc định đủ 3, bỏ tick được — BR-009/5.1); truyền danh sách `MaGT` đã tick qua `@p_GiayTo`; `TenGT` đầy đủ từ `DM_GiayTo` (SP tự lo hoặc tra khi dựng @p_GiayTo).
+- **Tra danh mục giấy tờ (BUG-20, 10/11/2026):** `DM_LoaiHSo_GiayTo.MaHangGPLX` ghi mã không dấu chấm và thiếu nhiều mã hạng mới (khóa B11 có `HangDT='B.01'` nhưng danh mục ghi `B01`; khóa A2 `HangDT='Am'` mà danh mục chỉ có `A2`). Tool dò lần lượt `HangDT` → `HangDT` bỏ dấu chấm → `HangGPLX`, lấy danh sách đầu tiên không rỗng (`routers/nap.py` `doc_giay_to`); vẫn rỗng → **chặn nạp**, báo bổ sung danh mục. Phần mềm cũ hiện danh sách theo `DM_HangGPLX.MaHangMoi` bỏ dấu chấm (`usp_QuangLA_PM4_ThuNhanHS_DSGiayTo`), nên DB thiếu dòng `Am`/`Cm` thì cũng hiện trống → `scripts/bo_sung_giay_to_hang_moi.sql` thêm danh mục + giấy tờ cho hồ sơ đang trống. `MaLoaiHs` tool suy cùng luật SP (có ca nâng hạng = 3).
 - **Tách họ tên (EC-030):** app web lưu `ho_ten` một chuỗi; **SP TỰ TÁCH** khi nạp (tool chỉ truyền `@p_HoVaTen` đầy đủ + `@p_HoVaTenIn`; tool tách chỉ để KIỂM ĐỘ DÀI từng cột, KHÔNG truyền `HoDem`/`Ten` riêng — SP không có tham số đó). SP tách: `TenNLX` = **từ cuối**, `HoDemNLX` = **phần còn lại**, `HoVaTen` = tên đầy đủ. **TẤT CẢ IN HOA GIỮ DẤU** ("NGUYỄN VĂN AN") — verify AS-003: 55/55 HV khóa B-K149 `HoVaTen` in hoa. **`HoVaTenIn` = `HoVaTen` cắt ≤25, cũng IN HOA giữ dấu** (39.752/39.778 = 99,93% `HoVaTenIn` ≡ `HoVaTen`) — **KHÔNG bỏ dấu**. Trước nạp kiểm độ dài từng cột (≤50/30/20/25); vượt → cảnh báo cho cắt tay.
 - **Field map khớp app cũ (verify AS-003 01/10/2026, khóa B-K149):**
   - `MaQuocTich = 'VNM'` (chuẩn ISO alpha-3 = `DM_QuocTich.Ma`; **"VN" vỡ `FK_NguoiLX_DM_QuocTich`**).
@@ -947,7 +948,7 @@ Tool:    keo_ve.gplx_da_co_json ───────────────┘
 ```
 
 **Ghi xuống SP (`nap.py`, hàm thuần):**
-- Một bằng: ghi thẳng. Nhiều bằng: nối `|` theo cùng thứ tự ở cả 6 cột, ô trống giữ vị trí (`20180427|` ; hết hạn `|`). Không có bằng: giữ NULL như hiện tại. `@p_NoiCapGPLXDaCo` luôn NULL (dữ liệu cũ gần như không dùng).
+- Một bằng: ghi thẳng. Nhiều bằng: nối `|` theo cùng thứ tự ở cả 6 cột, ô trống giữ vị trí (`20180427|` ; hết hạn `|`). Không có bằng: chuỗi rỗng `''` ở cả 6 cột. `@p_NoiCapGPLXDaCo` (quốc gia cấp) = chuỗi rỗng theo số bằng (`''` một bằng, `'|'` hai bằng). **Không bao giờ NULL** (sửa 10/11/2026, CHANGES #98): phần mềm cũ luôn ghi chuỗi rỗng (DB Nạp 6.973 + DB đích 454 hồ sơ có GPLX, 0 dòng NULL); tool từng ghi NULL nên phần mềm cũ không hiện nơi cấp. *Vì sao: phần mềm cũ tách 7 cột theo `|` rồi ghép từng bằng, cột NULL làm lệch số phần.*
 - Kiểm trong `dung_chuoi_gplx_da_co()`: `hang` thuộc tập mã, ngày `yyyymmdd` hợp lệ, không chứa `|`, tối đa 8 bằng, `so` ≤ 20 ký tự, `don_vi` mã 2 số, mỗi chuỗi nối ≤ 100 ký tự (`varchar(100)`, đã kiểm DB). Nạp lô: lỗi thành dòng `loi` của đúng học viên đó, không làm hỏng cả lô (`NapIn` chỉ kiểm hình dạng). Nạp đơn: 400. VPS dùng cùng quy tắc, sai → 422 ngay lúc gửi.
 
 **Bảng hạng (phản chiếu ở `tool/webui` và `webapp`):**
@@ -960,6 +961,8 @@ Tool:    keo_ve.gplx_da_co_json ───────────────┘
 Suy từ `KhoaHoc` thật (`B`→`B1`, `B.01`→`B11`, `C1`→`C1`) + mô tả danh mục; `A`→`A2`: 2 khóa `HangDT=Am` mang `HangGPLX=A2`, và `DM_HangGPLX` mô tả `A2` là "trên 125 cm3" đúng hạng A mới. `nhom` chỉ để hiển thị lại đúng nhãn, không ghi xuống DB.
 
 **Ô nhập (dùng lại component có sẵn):** Hạng và Nơi cấp dùng `components/ComboLoc` (lọc theo `boDau` trên chuỗi hiện, nên đưa mã vào nhãn: `70 — Bình Phước (trước sáp nhập)` là gõ được cả mã lẫn tên). Ngày dùng `components/ODate` (`maskNgay` tự chèn `/`, có nút lịch). App web dùng `ODate` của `webapp` và một ô gõ tìm tương đương.
+
+**Nơi cấp điền sẵn (CHANGES #98):** số GPLX đủ 12 chữ số và 2 số đầu có trong danh sách Nơi cấp → điền sẵn mã đó khi ô đang trống (hoặc đang do máy điền theo số cũ); nơi cấp người nhập chọn khác thì giữ. Đúng ở 94% hồ sơ DB Nạp (6.423/6.831), phần còn lại là bằng đổi tỉnh nên vẫn cho sửa. Hàm `suyNoiCapGplx` / `noiCapKhiDoiSo` có ở cả tool và app web; tool điền cả lúc mở hồ sơ và lúc nạp lô cho bằng app web gửi về thiếu nơi cấp.
 
 **Danh sách Nơi cấp:** `DM_DonViGTVT` với `LoaiDV='SO'` (65 đơn vị). Đây là nguồn `usf_QuangLA_PM4_ThuNhanHS_getTenDVCap` dùng in tờ khai, và mọi mã trong dữ liệu cũ đều có. **Không dùng `DM_DVHC`:** cùng mã khác tên (`80` là Long An ở đây, Tây Ninh ở kia; `15`, `24`, `44`, `52`, `82`, `91` cũng khác). `@p_NoiCapGPLXDaCo` là mã nước ngoài cấp (`DM_QuocTich`), form cũ chỉ cho nhập một trong hai.
 
@@ -1014,7 +1017,7 @@ Khóa đã lập Báo cáo 1: vẫn CẢNH BÁO, khối chỉ xem, chỉ Bỏ qu
 
 **Tool:**
 - `nap.tach_chuoi_gplx(cot)`: 6 chuỗi `|` → danh sách, số phần lệch nhau thì giữ theo vị trí, thiếu để trống. Kiểm và ghép dùng lại `dung_chuoi_gplx_da_co` với hạng khóa + ngày sinh đọc từ DB. `nhom` không có trong DB: suy nhãn từ mã, không ảnh hưởng giá trị ghi.
-- So sánh: chuẩn hóa hai bên qua hàm ghép, rồi so 6 chuỗi. `NoiCapGPLXDaCo` không ghi, không so.
+- So sánh: chuẩn hóa hai bên qua hàm ghép, rồi so 6 chuỗi. `NoiCapGPLXDaCo` không so; khi lưu ghi lại chuỗi rỗng theo số bằng như lúc nạp (CHANGES #98).
 - SQLite `gplx_da_xu_ly(uuid PK, dau_van, luc)`: `dau_van` = SHA-256 của `uuid` + JSON bản app web đã sắp khóa, chỉ để so khớp, không coi là che giấu. Dọn sau 30 ngày kể từ `luc`, cùng nhóm dữ liệu cá nhân ở máy tool. Cảnh báo hiện khi **khác DB và dấu vân chưa có**. Ghi dấu vân khi Lưu, Bỏ qua; không cần ghi lúc nạp. *Vì sao cần: người nạp được sửa trước khi lưu, nên DB có thể vẫn khác bản app web dù đã xử lý.*
 - Thứ tự khi Lưu: ghi DB trước, ghi dấu vân sau. Ghi dấu vân lỗi chỉ log, không báo lỗi lưu; cảnh báo có thể hiện lại, không sai dữ liệu.
 - Endpoint: `GET /local/ho-so/gplx-bo-sung` (danh sách + khóa + tên, hạng; không trả số GPLX) · `GET /local/ho-so/gplx-ban-web?ma_dk=` (bản app web đầy đủ để tự điền) · `GET|PUT /local/ho-so/gplx?ma_dk=` (`PUT` nhận `ban_web` để ghi dấu vân) · `POST /local/ho-so/gplx/bo-qua` (body `uuid`, `dau_van`) · `GET|PUT /local/sync/tra-cuu/gplx?ma_dk=&target_key=` · `GET /local/sync/tra-cuu/noi-cap-gplx`.
@@ -2217,6 +2220,7 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 | --- | --- | --- |
+| 10/11/2026 | 6.38 | §10.2 tra danh mục giấy tờ dò `HangDT` → bỏ dấu chấm → `HangGPLX`, rỗng thì chặn nạp (BUG-20); §10.6/§10.7 GPLX đã có ghi chuỗi rỗng, không NULL, `NoiCapGPLXDaCo` rỗng theo số bằng; Nơi cấp điền sẵn theo 2 số đầu số GPLX (CHANGES #98). |
 | 04/11/2026 | 6.37 | §6.6 "Lưu & nhập hồ sơ tiếp": thêm phím tắt Enter trên desktop (CHANGES #97). |
 | 04/11/2026 | 6.36 | §6.6 dòng "Lưu & nhập hồ sơ tiếp": mobile cũng về thẳng form trống (CHANGES #96). |
 | 04/11/2026 | 6.35 | **+§6.9 Chế độ sáng/tối ở app web** (CHANGES #94, `HTG-08`): biến CSS + lớp `dark`, lưu lựa chọn ở máy, script chống nháy, nút đổi chế độ. |

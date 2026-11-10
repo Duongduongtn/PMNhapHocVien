@@ -26,11 +26,12 @@ def _params(ds):
 
 
 @pytest.mark.parametrize("ds", [None, []])
-def test_khong_co_bang_giu_null_nhu_truoc(ds):
+def test_khong_co_bang_ghi_chuoi_rong_nhu_phan_mem_cu(ds):
+    """Phần mềm cũ không bao giờ để NULL 7 cột này (DB Nạp + DB đích 0 dòng NULL, tra 10/11/2026)."""
     p = _params(ds)
     for k in ("p_SoGPLXDaCo", "p_HangGPLXDaCo", "p_NgayTTGPLXDaCo", "p_NgayCapGPLXDaCo", "p_NgayHHGPLXDaCo",
               "p_DVCapGPLXDaCo", "p_NoiCapGPLXDaCo"):
-        assert p[k] is None
+        assert p[k] == ""
 
 
 def test_mot_bang_ghi_thang():
@@ -39,7 +40,13 @@ def test_mot_bang_ghi_thang():
     assert p["p_HangGPLXDaCo"] == "B2"
     assert p["p_NgayCapGPLXDaCo"] == "20180427"
     assert p["p_DVCapGPLXDaCo"] == "70"
-    assert p["p_NoiCapGPLXDaCo"] is None
+    assert p["p_NoiCapGPLXDaCo"] == ""  # quốc gia cấp: rỗng, không NULL — NULL làm phần mềm cũ không hiện nơi cấp
+
+
+def test_quoc_gia_cap_rong_theo_so_bang():
+    assert nap.noi_cap_gplx_rong(None) == "" and nap.noi_cap_gplx_rong([]) == ""
+    assert nap.noi_cap_gplx_rong([B2]) == ""
+    assert _params([B2, A1])["p_NoiCapGPLXDaCo"] == "|"   # cùng số phần với các cột khác, như "70|70"
 
 
 def test_hai_bang_noi_doc_theo_cung_thu_tu_o_trong_giu_vi_tri():

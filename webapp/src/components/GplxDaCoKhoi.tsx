@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ODate } from "./ODate";
 import {
-  DS_HANG_GPLX, DS_NOI_CAP_GPLX, bangMoi, chonKhiEnter, khoaHang, locLuaChon, laBangMoTo, loiTungO, soGplxLa, tachKhoaHang, type BangGplx, type LuaChon, type OGplx,
+  DS_HANG_GPLX, DS_NOI_CAP_GPLX, bangMoi, chonKhiEnter, khoaHang, locLuaChon, laBangMoTo, loiTungO, noiCapKhiDoiSo, suyNoiCapGplx, soGplxLa, tachKhoaHang, type BangGplx, type LuaChon, type OGplx,
 } from "../lib/gplxDaCo";
 
 // Ô gõ để tìm: gõ tới đâu lọc tới đó, không phân biệt dấu. Enter chỉ chọn khi chỉ còn đúng một khả năng (BUG-17).
@@ -32,7 +32,7 @@ function OTim({
         onBlur={() => { window.setTimeout(() => setMo(false), 120); onRoi?.(); }}
         onKeyDown={(e) => {
           if (e.key === "Enter") { e.preventDefault(); const ma = chonKhiEnter(options, q); if (ma) chon(ma); }
-          else if (e.key === "Escape") setMo(false);
+          else if (e.key === "Escape" && mo) { e.preventDefault(); setMo(false); } // chỉ đóng danh sách, popup GPLX không đóng theo
           else if (e.key.startsWith("Arrow")) e.stopPropagation(); // không để form nhảy ô khi đang gõ tìm
         }}
       />
@@ -64,7 +64,8 @@ function OTim({
 // thì lanGui tăng: đánh dấu mọi ô đang có, nên bằng thêm sau đó vẫn chưa báo đỏ.
 const MOI_O: OGplx[] = ["hang", "so", "ngay_tt", "ngay_cap", "ngay_hh"];
 
-export function GplxDaCoKhoi({ ds, onDoi, lanGui = 0, rong = false }: { ds: BangGplx[]; onDoi: (ds: BangGplx[]) => void; lanGui?: number; rong?: boolean }) {
+// trongPopup: dùng trong popup GplxDaCoNut — bỏ ô tích bật/tắt (popup đã là chỗ bật), nút "+ Thêm GPLX" luôn hiện.
+export function GplxDaCoKhoi({ ds, onDoi, lanGui = 0, rong = false, trongPopup = false }: { ds: BangGplx[]; onDoi: (ds: BangGplx[]) => void; lanGui?: number; rong?: boolean; trongPopup?: boolean }) {
   const [cham, setCham] = useState<Record<string, boolean>>({});
   useEffect(() => {
     if (!lanGui) return;
@@ -75,7 +76,8 @@ export function GplxDaCoKhoi({ ds, onDoi, lanGui = 0, rong = false }: { ds: Bang
   // Xóa một bằng làm lệch số thứ tự các bằng sau, nên quên hết ô đã rời thay vì gán nhầm.
   const xoa = (i: number) => { setCham({}); onDoi(ds.filter((_, j) => j !== i)); };
   return (
-    <div className="rounded-lg border border-border bg-card p-3">
+    <div className={trongPopup ? "" : "rounded-lg border border-border bg-card p-3"}>
+      {!trongPopup && (<>
       {/* Giữ focus khi bấm: ô phía trên mất focus sẽ hiện dòng báo lỗi, form xô xuống làm cú bấm trượt khỏi ô tích */}
       <label className="flex items-center gap-2 text-[13px] font-semibold cursor-pointer" onMouseDown={(e) => e.preventDefault()}>
         <input
@@ -86,15 +88,17 @@ export function GplxDaCoKhoi({ ds, onDoi, lanGui = 0, rong = false }: { ds: Bang
         />
         Đã có GPLX
       </label>
+      </>)}
+      {trongPopup && ds.length === 0 && <p className="text-[13px] text-muted-foreground">Chưa có bằng nào. Bấm "+ Thêm GPLX" nếu học viên có bằng.</p>}
       {ds.map((b, i) => {
         const loi = loiTungO(b).filter((x) => cham[`${i}-${x.o}`]).map((x) => x.loi);
         return (
-        <div key={i} className="mt-3 border-t border-border pt-3 space-y-2">
+        <div key={i} className={(trongPopup && i === 0 ? "" : "mt-3 border-t border-border pt-3 ") + "space-y-2"}>
           <div className="flex items-center justify-between">
             <span className="text-[12.5px] font-semibold">Bằng {i + 1}</span>
             <button type="button" className="text-[12px] text-destructive" onClick={() => xoa(i)}>Xóa</button>
           </div>
-          <div className={"grid grid-cols-1 sm:grid-cols-2 gap-2 items-end" + (rong ? " lg:grid-cols-3" : "")}>
+          <div className={"grid grid-cols-1 sm:grid-cols-2 gap-2 " + (trongPopup ? "items-start" : "items-end") + (rong ? " lg:grid-cols-3" : "")}>
             <div data-o={`gplx-${i}-hang`}>
               <OTim
                 nhan="Hạng"
@@ -114,7 +118,10 @@ export function GplxDaCoKhoi({ ds, onDoi, lanGui = 0, rong = false }: { ds: Bang
                 maxLength={20}
                 value={b.so}
                 placeholder="12 chữ số"
-                onChange={(e) => sua(i, { so: e.target.value.replace(/\|/g, "") })}
+                onChange={(e) => {
+                  const so = e.target.value.replace(/\|/g, "");
+                  sua(i, { so, don_vi: noiCapKhiDoiSo(b.so, so, b.don_vi, DS_NOI_CAP_GPLX) }); // điền sẵn nơi cấp theo 2 số đầu
+                }}
                 onBlur={roi(i, "so")}
               />
             </div>
@@ -129,20 +136,25 @@ export function GplxDaCoKhoi({ ds, onDoi, lanGui = 0, rong = false }: { ds: Bang
                 <ODate label="Ngày hết hạn" value={b.ngay_hh} onChange={(v) => sua(i, { ngay_hh: v })} onBlur={roi(i, "ngay_hh")} />
               </div>
             )}
-            <OTim
-              nhan="Nơi cấp"
-              value={b.don_vi}
-              options={DS_NOI_CAP_GPLX}
-              onChon={(ma) => sua(i, { don_vi: ma })}
-              placeholder="Gõ mã hoặc tên tỉnh"
-            />
+            <div>
+              <OTim
+                nhan="Nơi cấp"
+                value={b.don_vi}
+                options={DS_NOI_CAP_GPLX}
+                onChon={(ma) => sua(i, { don_vi: ma })}
+                placeholder="Gõ mã hoặc tên tỉnh"
+              />
+              {b.don_vi && b.don_vi === suyNoiCapGplx(b.so, DS_NOI_CAP_GPLX) && (
+                <p className="mt-1 text-[11.5px] text-muted-foreground">Theo 2 số đầu số GPLX — kiểm lại, sửa được.</p>
+              )}
+            </div>
           </div>
           {soGplxLa(b.so) && <p className="text-[12px] text-warning">Số GPLX thường có 12 chữ số — kiểm lại, vẫn gửi được.</p>}
           {loi.length > 0 && <p className="text-[12px] text-destructive">{loi.join(" · ")}</p>}
         </div>
         );
       })}
-      {ds.length > 0 && (
+      {(ds.length > 0 || trongPopup) && (
         <button
           type="button"
           className="mt-3 h-9 px-3 rounded-lg border border-border bg-card text-[13px] font-medium hover:bg-muted"

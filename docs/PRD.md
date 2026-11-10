@@ -291,7 +291,7 @@
 
 #### [NAP-05] Sinh Số hồ sơ + nạp DB qua 1 SP gộp app cũ + giấy tờ
 
-**Trạng thái:** ⚠️ Partial — yêu cầu đổi 16/10/2026 (CHANGES #79): "Chọn in GPLX" thành ô chọn, mặc định theo hạng khóa; **code + test xong, chưa nghiệm thu ghi thật ở máy CSĐT** (nạp thử 1 HV mô tô + 1 HV ô tô, mở app cũ đối chiếu ô "Chọn in GPLX"). Trước đó ✅ Done — 01/10/2026, nạp qua 1 SP gộp app cũ hướng A (CHANGES #4/#5); AS-003 nạp thật 17/17 khớp app cũ (user đã mở app cũ đối chiếu). **EC-010 hoãn Phase 2:** khóa bản ghi VPS khi 2 máy cùng nạp cần `pending→importing` trên VPS (HTG-02/NAP-01, chưa dựng); chống trùng cùng máy đã có (idempotent UUID).
+**Trạng thái:** ⚠️ Partial — **BUG-20 (10/11/2026): khóa hạng mới nạp vào không có giấy tờ kèm theo; đã sửa code + test, chưa chạy `scripts/bo_sung_giay_to_hang_moi.sql` và nghiệm thu ở máy CSĐT.** Yêu cầu đổi 16/10/2026 (CHANGES #79): "Chọn in GPLX" thành ô chọn, mặc định theo hạng khóa; **code + test xong, chưa nghiệm thu ghi thật ở máy CSĐT** (nạp thử 1 HV mô tô + 1 HV ô tô, mở app cũ đối chiếu ô "Chọn in GPLX"). Trước đó ✅ Done — 01/10/2026, nạp qua 1 SP gộp app cũ hướng A (CHANGES #4/#5); AS-003 nạp thật 17/17 khớp app cũ (user đã mở app cũ đối chiếu). **EC-010 hoãn Phase 2:** khóa bản ghi VPS khi 2 máy cùng nạp cần `pending→importing` trên VPS (HTG-02/NAP-01, chưa dựng); chống trùng cùng máy đã có (idempotent UUID).
 **Story:** Là nhân viên nạp DB, tôi muốn nạp học viên vào khóa qua stored procedure có sẵn, để hồ sơ hiện đúng trên app cũ.
 
 **Steps to Complete:**
@@ -364,12 +364,13 @@
 3. Nạp: hệ thống ghi vào DB Nạp qua SP gộp đang dùng.
 
 **Done khi:**
-- ⬜ Khối "GPLX đã có" thu gọn mặc định; hiện đủ 6 ô cho từng bằng; thêm/xóa được nhiều bằng (ví dụ B2 luật cũ + A1 luật mới); lưu cùng nháp bền.
+- ⬜ **GPLX đã có nhập trong popup** (CHANGES #99): ngăn Chuẩn bị chỉ có một dòng "GPLX đã có" (Không có / tóm tắt từng bằng "B2 · số · tỉnh") + nút "Nhập GPLX"/"Sửa"; popup hiện đủ 6 ô cho từng bằng, thêm/xóa được nhiều bằng (ví dụ B2 luật cũ + A1 luật mới); Hủy bỏ thay đổi, Xong còn lỗi thì không đóng; lưu cùng nháp bền.
 - ⬜ Ô Hạng là **ô gõ để tìm** (gõ tới đâu lọc tới đó, không phân biệt dấu), mỗi dòng ghi rõ **luật mới / luật cũ**, lưu đúng mã `DM_HangGPLX`: A1 mới → `A1m`, A → `A2`, B → `B1`, B.01 → `B11`, C1 → `C1`; hạng luật cũ giữ nguyên mã.
 - ⬜ Ô Nơi cấp là **ô gõ để tìm theo mã hoặc tên tỉnh** (gõ `70` hoặc `binh phuoc`), lấy từ `DM_DonViGTVT` cấp Sở (65 đơn vị, cùng nguồn phần mềm cũ in tờ khai), có **Cục QLHC mã `00`** sau khi chạy `scripts/them_cuc_qlhc_dm_donvigtvt.sql` ở DB Nạp; lưu mã 2 số vào `DonViCapGPLXDaCo`.
+- ⬜ **Nơi cấp điền sẵn theo số GPLX** (CHANGES #98): số đủ 12 chữ số → ô Nơi cấp đang trống tự điền tỉnh theo 2 số đầu, kèm dòng "Theo 2 số đầu số GPLX — kiểm lại, sửa được"; nơi cấp đã chọn khác thì giữ; bằng app web gửi về thiếu nơi cấp cũng được điền khi mở và khi nạp lô.
 - ⬜ Ô ngày tự chèn dấu `/` khi gõ (`dd/mm/yyyy`), có nút lịch.
-- ⬜ Ghi qua 6 tham số `@p_*DaCo` của SP gộp: một bằng ghi thẳng; nhiều bằng nối `|` theo cùng thứ tự ở mọi cột (hạng `A1|B2`); ngày nhập `dd/mm/yyyy`, lưu `yyyymmdd`; ô trống giữ vị trí. `NoiCapGPLXDaCo` để trống. Không có bằng → giữ NULL như hiện tại. **Không thêm bớt cột nào ở DB Nạp.**
-- ⬜ Dòng học viên có chip "GPLX: B2, A1"; bộ lọc "Có GPLX đã có" kèm số lượng, dùng ở cả tab Cần xử lý và Đã nạp.
+- ⬜ Ghi qua 6 tham số `@p_*DaCo` của SP gộp: một bằng ghi thẳng; nhiều bằng nối `|` theo cùng thứ tự ở mọi cột (hạng `A1|B2`); ngày nhập `dd/mm/yyyy`, lưu `yyyymmdd`; ô trống giữ vị trí. `NoiCapGPLXDaCo` = chuỗi rỗng theo số bằng (`''` hoặc `|`). Không có bằng → chuỗi rỗng `''` cả 7 cột, không bao giờ NULL như phần mềm cũ (CHANGES #98). **Không thêm bớt cột nào ở DB Nạp.**
+- ⬜ Dòng học viên có **badge nền xanh "GPLX B2·A1"** (tối đa 2 hạng rồi "+n", CHANGES #99), cùng badge ở đầu ngăn Chuẩn bị cạnh tên học viên — hồ sơ app web gửi có GPLX đã có là thấy ngay; bộ lọc "Có GPLX đã có" kèm số lượng, dùng ở cả tab Cần xử lý và Đã nạp.
 - ⬜ Hồ sơ kéo từ VPS có GPLX đã có (`THU-07`) → tự điền, ghi chú "Từ app web", sửa được; bản nhân viên sửa được ưu tiên và không bị lần kéo sau đè; nếu app web đổi sau đó thì hiện cờ "App web có bản mới" kèm nút "Dùng bản app web".
 - ⬜ Khóa `A1`/`Am`/`A1m` + có bằng ô tô → dòng báo "miễn thi lý thuyết". Số GPLX khác 12 chữ số → nhắc, không chặn. Bằng mô tô ẩn ô Ngày hết hạn.
 - ⬜ **Quy tắc khớp form cũ (chặn nạp):** bắt buộc hạng, số GPLX, ngày trúng tuyển, ngày cấp; GPLX đã có không được trùng hạng đăng ký của khóa; ngày cấp không trước ngày trúng tuyển, không sau hôm nay; ngày hết hạn sau ngày cấp; đủ 18 tuổi khi cấp.
@@ -420,8 +421,10 @@
 
 **Done khi:**
 - ⬜ Form thu nhận có ô tích "Đã có GPLX" sau "Thông tin từ căn cước"; tích vào mở khối nhập một cột, cùng trường và cùng bảng hạng với `NAP-07`; ô tích không bắt buộc, đã tích thì kiểm như `NAP-07` (trừ trùng hạng và 18 tuổi, kiểm ở tool khi nạp).
+- ⬜ **Nhập trong popup** (CHANGES #99): form chỉ có một dòng "GPLX đã có" (Không có / tóm tắt từng bằng) + nút "Nhập GPLX"/"Sửa", form không dài ra; popup trượt từ đáy trên điện thoại, nút Hủy/Xong dính đáy popup; Xong còn lỗi thì không đóng; bấm gửi/lưu bị chặn vì GPLX lỗi thì tự mở popup, con trỏ vào ô sai. Áp ở màn nhập hồ sơ và popup sửa hồ sơ; màn "Bổ sung GPLX" hồ sơ đã nạp giữ khối mở sẵn.
 - ⬜ Lưu lên VPS khi gửi hồ sơ, sửa được khi hồ sơ còn sửa được; tool kéo về nhận được.
 - ⬜ Số GPLX nằm trong cơ chế dọn dữ liệu cá nhân 30 ngày như số căn cước.
+- ⬜ **Nơi cấp điền sẵn theo số GPLX** (CHANGES #98): nhập đủ 12 chữ số thì ô Nơi cấp đang trống tự điền tỉnh theo 2 số đầu, sửa được; cùng quy tắc `NAP-07`.
 - ⬜ Dùng tốt ở khổ điện thoại 375px.
 - ✅ **Bổ sung sau khi đã nạp (CHANGES #89):** hồ sơ Đã nạp có nút "Bổ sung GPLX", mở cùng khối nhập; lưu lên VPS, hồ sơ giữ trạng thái Đã nạp, thời hạn 30 ngày tính lại từ lần bổ sung, **ngay sau khi gửi** hiện "Đang chờ người nạp đưa vào hệ thống" (mở lại hồ sơ không hiện nữa, vì VPS không biết người nạp đã duyệt hay chưa; user chốt 03/11/2026). Chưa có bằng nào thì không lưu được (muốn xóa GPLX đã có trong DB thì làm ở tool). Các thông tin khác vẫn khóa. Chỉ hồ sơ của mình; Đang nạp hoặc đã xóa bị chặn.
 - ✅ Người nạp duyệt mới vào DB (`QLY-10`); app web không ghi trực tiếp vào DB.
@@ -1655,6 +1658,8 @@
 | 02/11/2026 | v4.27 — `THU-01`, `THU-07` báo lỗi form dễ sửa trên điện thoại, chữ ô nhập 16px (CHANGES #86, sau critique giao diện). | BA/PM |
 | 02/11/2026 | v4.28 — `THU-01` thông báo đã gửi nêu tên học viên (CHANGES #87). | BA/PM |
 | 02/11/2026 | v4.29 — `KQD-08` nhận cả mẫu PDF DAT cũ và mới (CHANGES #88). | BA/PM |
+| 10/11/2026 | v4.39 — `NAP-07`, `THU-07`: GPLX đã có nhập trong popup, form chỉ còn dòng tóm tắt; tool có badge "GPLX B2·A1" ở dòng danh sách và đầu ngăn Chuẩn bị (CHANGES #99). |
+| 10/11/2026 | v4.38 — `NAP-07`, `THU-07`: Nơi cấp GPLX đã có điền sẵn theo 2 số đầu số GPLX, sửa được; 7 cột GPLX đã có ghi chuỗi rỗng như phần mềm cũ, không NULL (CHANGES #98). `NAP-05`: BUG-20 giấy tờ trống ở khóa hạng mới. |
 | 04/11/2026 | v4.37 — `THU-01`: trên máy tính phím Enter = "Lưu & nhập hồ sơ tiếp" (trước là chụp ảnh), để nhập liên tiếp nhanh; điện thoại giữ nguyên (CHANGES #97). | BA/PM |
 | 04/11/2026 | v4.36 — `THU-01`, `THU-02`: sau "Lưu & nhập hồ sơ tiếp" điện thoại cũng về thẳng form trống, con trỏ ở ô Số CCCD, để nhập liên tiếp nhanh (CHANGES #96). | BA/PM |
 | 04/11/2026 | v4.35 — `THU-01`: nút "Lưu & nhập hồ sơ tiếp" thành nút chính nổi bật, "Tiếp tục — chụp ảnh chân dung" thành nút phụ; hành vi không đổi (CHANGES #95). | BA/PM |

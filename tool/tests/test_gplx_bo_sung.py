@@ -50,8 +50,8 @@ def test_tach_roi_ghep_lai_y_nguyen():
     assert g.gia_tri_ghi(ds, "C1", "19900501") == goc
 
 
-def test_gia_tri_ghi_rong_thanh_null_va_kiem_nhu_nap():
-    assert set(g.gia_tri_ghi([], "C1", None).values()) == {None}
+def test_gia_tri_ghi_rong_thanh_chuoi_rong_va_kiem_nhu_nap():
+    assert set(g.gia_tri_ghi([], "C1", None).values()) == {""}
     with pytest.raises(ValueError, match="trùng hạng"):
         g.gia_tri_ghi([B2], "B2", None)
     with pytest.raises(ValueError, match="18 tuổi"):
@@ -143,20 +143,20 @@ def test_luu_chi_ghi_dung_6_cot_theo_ma_dk(auth_headers, nap):
     assert r.status_code == 200, r.text
     (sql, ts), = cur.updates()
     cot_ghi = re.findall(r"(\w+) = %s", sql.split(" WHERE ")[0].split(" SET ")[1])
-    assert cot_ghi == list(g.TEN_COT)
-    assert "NoiCapGPLXDaCo" not in sql and "TT_XuLy" not in sql
+    assert cot_ghi == [*g.TEN_COT, "NoiCapGPLXDaCo"]   # + quốc gia cấp rỗng theo số bằng, như phần mềm cũ
+    assert "TT_XuLy" not in sql and "ISNULL(NoiCapGPLXDaCo" not in sql
     assert " dbo.NguoiLX_HoSo " in sql and sql.count("UPDATE") == 1
-    assert ts[0] == "790000000123|790000000456" and ts[1] == "B2|A1" and ts[6] == "M1"
-    assert ts[7:] == ("",) * 6
+    assert ts[0] == "790000000123|790000000456" and ts[1] == "B2|A1" and ts[6] == "|" and ts[7] == "M1"
+    assert ts[8:] == ("",) * 6
 
 
-def test_xoa_het_ghi_null_kem_dieu_kien_gia_tri_cu(auth_headers, nap):
+def test_xoa_het_ghi_chuoi_rong_kem_dieu_kien_gia_tri_cu(auth_headers, nap):
     goc = dict(SoGPLXDaCo="1", HangGPLXDaCo="B2")
     cur = nap(row=dong(**goc))
     tho = {**THO_TRONG, **goc}
     assert client.put("/local/ho-so/gplx?ma_dk=M1", headers=auth_headers, json={"gplx": [], "tho": tho}).status_code == 200
     _, ts = cur.updates()[0]
-    assert ts[:6] == (None,) * 6 and ts[7:9] == ("1", "B2")
+    assert ts[:7] == ("",) * 7 and ts[8:10] == ("1", "B2")
 
 
 def test_du_lieu_vua_doi_409(auth_headers, nap):
@@ -211,12 +211,12 @@ def test_dich_khong_doc_duoc_khoa_thi_chan(auth_headers, dich):
     assert r.status_code == 409 and not cur.updates()
 
 
-def test_dich_luu_chi_6_cot(auth_headers, dich):
+def test_dich_luu_6_cot_va_quoc_gia_cap_rong(auth_headers, dich):
     cur = dich()
     assert client.put("/local/sync/tra-cuu/gplx?ma_dk=M1", headers=auth_headers, json={"gplx": [B2], "tho": THO_TRONG}).status_code == 200
     (sql, ts), = cur.updates()
-    assert re.findall(r"(\w+) = %s", sql.split(" WHERE ")[0].split(" SET ")[1]) == list(g.TEN_COT)
-    assert ts[6] == "M1"
+    assert re.findall(r"(\w+) = %s", sql.split(" WHERE ")[0].split(" SET ")[1]) == [*g.TEN_COT, "NoiCapGPLXDaCo"]
+    assert ts[6] == "" and ts[7] == "M1"   # DB đích cũng 0 dòng NULL ở cột này (tra 10/11/2026)
 
 
 def test_keo_ve_gan_gplx_loi_khong_lam_hong(monkeypatch):

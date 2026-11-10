@@ -1,11 +1,13 @@
+import { useEffect } from "react";
 import { ComboLoc } from "../../components/ComboLoc";
 import { ODate } from "../../components/ODate";
 import {
-  DS_HANG_GPLX, bangMoi, duocMienLyThuyet, khoaHang, laBangMoTo, loiBang, soGplxLa, tachKhoaHang, trungHangDangKy,
+  DS_HANG_GPLX, bangMoi, dienNoiCapTheoSo, duocMienLyThuyet, khoaHang, laBangMoTo, loiBang, noiCapKhiDoiSo, soGplxLa, suyNoiCapGplx, tachKhoaHang, trungHangDangKy,
   type BangGplx,
 } from "./gplxDaCo";
 
-// Khối "GPLX đã có" ở ngăn Chuẩn bị (NAP-07): thu gọn mặc định, mỗi bằng 6 ô, thêm/xóa được nhiều bằng.
+// Khối nhập "GPLX đã có" (NAP-07): mỗi bằng 6 ô, thêm/xóa được nhiều bằng. Ở màn Nạp nằm trong popup GplxDaCoNut
+// (trongPopup: bỏ ô tích bật/tắt, nút "+ Thêm GPLX" luôn hiện); hộp bổ sung GPLX ở Tra cứu vẫn dùng ô tích.
 export function GplxDaCoKhoi({
   ds,
   onDoi,
@@ -15,6 +17,7 @@ export function GplxDaCoKhoi({
   coBanMoi,
   onDungBanWeb,
   chuLuu = "nạp",
+  trongPopup = false,
 }: {
   ds: BangGplx[];
   onDoi: (ds: BangGplx[]) => void;
@@ -24,12 +27,20 @@ export function GplxDaCoKhoi({
   coBanMoi: boolean;
   onDungBanWeb: () => void;
   chuLuu?: string; // động từ trong câu chặn trùng hạng: "nạp" ở màn Nạp, "lưu" ở hộp bổ sung
+  trongPopup?: boolean;
 }) {
   const sua = (i: number, p: Partial<BangGplx>) => onDoi(ds.map((b, j) => (j === i ? { ...b, ...p } : b)));
+  // Nơi cấp trống mà số GPLX đủ 12 số → điền sẵn theo 2 số đầu (cả bằng app web gửi về). Đã có nơi cấp thì giữ.
+  useEffect(() => {
+    if (trongPopup || noiCap.length === 0) return;
+    const moi = dienNoiCapTheoSo(ds, noiCap);
+    if (moi !== ds) onDoi(moi);
+  }, [ds, noiCap, onDoi, trongPopup]);
 
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <label className="flex items-center gap-2 text-[13px] font-semibold cursor-pointer">
+    <div className={trongPopup ? "" : "rounded-lg border border-border bg-card p-4"}>
+      {trongPopup && ds.length === 0 && <p className="text-[13px] text-muted-foreground">Chưa có bằng nào. Bấm "+ Thêm GPLX" nếu học viên có bằng.</p>}
+      {!trongPopup && <label className="flex items-center gap-2 text-[13px] font-semibold cursor-pointer">
         <input
           type="checkbox"
           className="accent-primary w-4 h-4"
@@ -37,7 +48,7 @@ export function GplxDaCoKhoi({
           onChange={(e) => onDoi(e.target.checked ? [bangMoi()] : [])}
         />
         Học viên đã có GPLX
-      </label>
+      </label>}
 
       {coBanMoi && (
         <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md bg-warning/10 px-2 py-1.5 text-[12px] text-warning">
@@ -46,13 +57,13 @@ export function GplxDaCoKhoi({
         </div>
       )}
 
-      {ds.length > 0 && (
+      {(ds.length > 0 || trongPopup) && (
         <>
           {tuAppWeb && !coBanMoi && (
             <p className="mt-2 rounded-md bg-primary/5 px-2 py-1.5 text-[12px] text-primary">Từ app web — kiểm lại với bằng thật, sửa nếu cần.</p>
           )}
           {ds.map((b, i) => (
-            <div key={i} className="mt-3 border-t border-border pt-3 space-y-2">
+            <div key={i} className={(trongPopup && i === 0 ? "" : "mt-3 border-t border-border pt-3 ") + "space-y-2"}>
               <div className="flex items-center justify-between">
                 <span className="text-[12.5px] font-semibold">Bằng {i + 1}</span>
                 <button type="button" className="text-[12px] text-destructive" onClick={() => onDoi(ds.filter((_, j) => j !== i))}>Xóa</button>
@@ -77,7 +88,10 @@ export function GplxDaCoKhoi({
                     maxLength={20}
                     value={b.so}
                     placeholder="12 chữ số"
-                    onChange={(e) => sua(i, { so: e.target.value.replace(/\|/g, "") })}
+                    onChange={(e) => {
+                      const so = e.target.value.replace(/\|/g, "");
+                      sua(i, { so, don_vi: noiCapKhiDoiSo(b.so, so, b.don_vi, noiCap) }); // điền sẵn nơi cấp theo 2 số đầu
+                    }}
                   />
                 </div>
                 <ODate label="Ngày trúng tuyển" value={b.ngay_tt} onChange={(v) => sua(i, { ngay_tt: v })} />
@@ -92,6 +106,9 @@ export function GplxDaCoKhoi({
                     onChon={(ma) => sua(i, { don_vi: ma })}
                     placeholder="Gõ mã hoặc tên tỉnh"
                   />
+                  {b.don_vi && b.don_vi === suyNoiCapGplx(b.so, noiCap) && (
+                    <p className="mt-1 text-[11.5px] text-muted-foreground">Theo 2 số đầu số GPLX — kiểm lại, sửa được.</p>
+                  )}
                 </div>
               </div>
               {soGplxLa(b.so) && <p className="text-[12px] text-warning">Số GPLX thường có 12 chữ số — kiểm lại, vẫn lưu được.</p>}

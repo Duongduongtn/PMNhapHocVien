@@ -6,7 +6,7 @@ import { ApiError, kiemTrungCccd, type KiemTrungKq } from "../lib/api";
 import { kiemDoDaiTen, laNgayCoThat, laNgaySinh, parseCccdQr, suyTuCccd, tinhVungQuet, type CccdFields, type GioiTinh } from "../lib/qr";
 import { goiYDiaChi } from "../lib/dvhc";
 import { capNhatNhap, dsNhap, luuNhap, taoUuid, tuCccd } from "../lib/draft";
-import { GplxDaCoKhoi } from "../components/GplxDaCoKhoi";
+import { GplxDaCoNut } from "../components/GplxDaCoNut";
 import { loiDanhSach, oSaiDau, type BangGplx } from "../lib/gplxDaCo";
 import { dangKyGuiLai, guiMot } from "../lib/gui";
 
@@ -1211,7 +1211,7 @@ function Preview({
         </div>
       </div>
 
-      <GplxDaCoKhoi ds={gplx} onDoi={setGplx} lanGui={lanGuiGplx} />
+      <GplxDaCoNut ds={gplx} onDoi={setGplx} lanGui={lanGuiGplx} />
 
       {canhBaoTen.length > 0 && (
         <div className="flex items-start gap-2 text-[12px] text-warning bg-warning/10 border border-warning/30 rounded-lg px-3 py-2">

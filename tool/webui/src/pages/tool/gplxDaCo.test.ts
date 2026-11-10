@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  DS_HANG_GPLX, bangMoi, docBang, duocMienLyThuyet, gomBang, khoaHang, loiBang, soGplxLa, tachKhoaHang, tenHang, trungHangDangKy,
+  DS_HANG_GPLX, bangMoi, bangTrong, nhanHangGon, tomTatGplx, type BangGplx, dienNoiCapTheoSo, docBang, noiCapKhiDoiSo, suyNoiCapGplx, duocMienLyThuyet, gomBang, khoaHang, loiBang, soGplxLa, tachKhoaHang, tenHang, trungHangDangKy,
 } from "./gplxDaCo";
 
 const b = (over = {}) => ({ ...bangMoi(), hang: "B2", so: "790000000123", ngay_tt: "15/08/2012", ngay_cap: "27/04/2018", ...over });
@@ -76,5 +76,42 @@ describe("thông báo nghiệp vụ", () => {
     expect(loiBang(b({ ngay_cap: "27/04" }))).toEqual(["Ngày cấp chưa đúng dd/mm/yyyy"]);
     expect(loiBang(b({ hang: "A1", ngay_hh: "27" }))).toEqual([]);
     expect(loiBang(b())).toEqual([]);
+  });
+});
+
+describe("Nơi cấp suy từ số GPLX (user chốt 10/11/2026)", () => {
+  const NC = [{ ma: "70" }, { ma: "79" }];
+  it("12 chữ số, 2 số đầu có trong danh mục → mã đó; còn lại không đoán", () => {
+    expect(suyNoiCapGplx("700239000070", NC)).toBe("70");
+    expect(suyNoiCapGplx(" 790000000123 ", NC)).toBe("79");
+    expect(suyNoiCapGplx("7002390000", NC)).toBe("");      // chưa đủ 12 số
+    expect(suyNoiCapGplx("510171010240", NC)).toBe("");    // mã không có trong danh mục
+    expect(suyNoiCapGplx("70023900007a", NC)).toBe("");
+  });
+  it("chỉ điền ô đang trống, không ghi đè nơi cấp đã có; không đổi gì thì giữ nguyên mảng", () => {
+    const ds = [{ so: "700239000070", don_vi: "" }, { so: "790000000123", don_vi: "75" }];
+    expect(dienNoiCapTheoSo(ds, NC)).toEqual([{ so: "700239000070", don_vi: "70" }, { so: "790000000123", don_vi: "75" }]);
+    const daDu = [{ so: "700239000070", don_vi: "75" }];
+    expect(dienNoiCapTheoSo(daDu, NC)).toBe(daDu);
+  });
+  it("sửa số: nơi cấp tự điền đi theo số mới, nơi cấp người nhập chọn khác thì giữ", () => {
+    expect(noiCapKhiDoiSo("70023900007", "700239000070", "", NC)).toBe("70");
+    expect(noiCapKhiDoiSo("700239000070", "790239000070", "70", NC)).toBe("79");
+    expect(noiCapKhiDoiSo("700239000070", "79023900007", "70", NC)).toBe("");
+    expect(noiCapKhiDoiSo("700239000070", "790239000070", "75", NC)).toBe("75");
+  });
+});
+
+describe("Tóm tắt + badge GPLX (popup, CHANGES #99)", () => {
+  const b = (x: Partial<BangGplx>): BangGplx => ({ ...bangMoi(), ...x });
+  const NC = [{ ma: "79", ten: "79 — Hồ Chí Minh" }];
+  it("tóm tắt mỗi bằng một dòng, bỏ bằng trống", () => {
+    expect(tomTatGplx([b({ hang: "B2", so: "790000000123", don_vi: "79" }), b({})], NC)).toEqual(["B2 · 790000000123 · Hồ Chí Minh"]);
+    expect(tomTatGplx([b({ so: "1" })], NC)).toEqual(["Chưa chọn hạng · 1"]);
+  });
+  it("badge tối đa 2 hạng rồi +n", () => {
+    expect(nhanHangGon([b({ hang: "B2" })])).toBe("B2");
+    expect(nhanHangGon([b({ hang: "B2" }), b({ nhom: "moi", hang: "A1m" }), b({ hang: "C" }), b({ hang: "D" })])).toBe("B2·A1 +2");
+    expect(bangTrong(bangMoi())).toBe(true);
   });
 });

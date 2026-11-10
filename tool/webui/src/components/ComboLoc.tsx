@@ -40,7 +40,7 @@ export function ComboLoc({
         onBlur={() => window.setTimeout(() => setMo(false), 120)}
         onKeyDown={(e) => {
           if (e.key === "Enter") { e.preventDefault(); const o = chonKhiEnter(options, q); if (o) chon(o); }
-          else if (e.key === "Escape") setMo(false);
+          else if (e.key === "Escape" && mo) { e.preventDefault(); setMo(false); } // chỉ đóng danh sách, popup chứa ô này không đóng theo
         }}
       />
       {mo && !disabled && (

@@ -66,7 +66,7 @@ export default function MoKhoaKhacDialog({
   useEffect(() => {
     if (!khoa) { setGiayTo([]); setTick(new Set()); return; }
     let huy = false;
-    getGiayTo(khoa.ma_loai_hs, khoa.hang_dt || khoa.hang_gplx)
+    getGiayTo(khoa.ma_loai_hs, khoa.hang_dt || khoa.hang_gplx, khoa.hang_gplx)
       .then((gs) => { if (!huy) { setGiayTo(gs); setTick(new Set(gs.map((g) => g.ma_gt))); } })
       .catch(() => { if (!huy) { setGiayTo([]); setTick(new Set()); } });
     return () => { huy = true; };

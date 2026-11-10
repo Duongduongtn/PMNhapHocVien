@@ -83,9 +83,11 @@ def tach_ho_ten(ho_ten: str) -> dict:
     }
 
 
-def suy_ma_loai_hs(hang_gplx: str | None) -> int:
-    """Cho việc chọn giấy tờ mặc định theo loại HS (route). A* → 1 (mô tô), còn lại → 2 (ô tô).
-    SP gộp TỰ tính MaLoaiHs khi ghi — tool không truyền."""
+def suy_ma_loai_hs(hang_gplx: str | None, hang_dt: str | None = None) -> int:
+    """Cho việc chọn giấy tờ mặc định theo loại HS (route). Cùng quy tắc SP gộp: HangDT có '-' → 3 (nâng hạng),
+    A* → 1 (mô tô), còn lại → 2 (ô tô). SP gộp TỰ tính MaLoaiHs khi ghi — tool không truyền."""
+    if "-" in (hang_dt or ""):
+        return 3
     return 1 if (hang_gplx or "").strip().upper().startswith("A") else 2
 
 
@@ -114,13 +116,14 @@ _GPLX_TEN_NGAY = {"ngay_tt": "ngày trúng tuyển", "ngay_cap": "ngày cấp", 
 
 
 def dung_chuoi_gplx_da_co(ds: list[dict] | None, hang_dang_ky: str | None = None,
-                          ngay_sinh: str | None = None) -> dict[str, str | None]:
-    """Danh sách bằng → giá trị 6 tham số SP. Không có bằng → NULL như trước. Sai → ValueError (nạp lô
+                          ngay_sinh: str | None = None) -> dict[str, str]:
+    """Danh sách bằng → giá trị 6 tham số SP. Không có bằng → '' cả 6 cột: phần mềm cũ không bao giờ để NULL
+    (DB Nạp và DB đích đều 0 dòng NULL, đã tra 10/11/2026); NULL làm phần mềm cũ không hiện nơi cấp. Sai → ValueError (nạp lô
     thành dòng lỗi của đúng học viên đó, không hỏng cả lô). Quy tắc khớp form cũ FPT.GPLX.CSDT: bắt buộc hạng,
     số, ngày cấp, ngày trúng tuyển; không trùng hạng cần cấp; cấp không trước trúng tuyển, không sau hôm nay;
     hết hạn sau ngày cấp; đủ 18 tuổi khi cấp."""
     if not ds:
-        return {ts: None for ts, _ in _GPLX_THAM_SO}
+        return {ts: "" for ts, _ in _GPLX_THAM_SO}
     if len(ds) > GPLX_TOI_DA:
         raise ValueError(f"GPLX đã có: tối đa {GPLX_TOI_DA} bằng.")
     dong: list[dict[str, str]] = []
@@ -157,6 +160,13 @@ def dung_chuoi_gplx_da_co(ds: list[dict] | None, hang_dang_ky: str | None = None
     if any(len(v) > 100 for v in kq.values()):
         raise ValueError("GPLX đã có: quá nhiều bằng, vượt giới hạn 100 ký tự của cột.")
     return kq
+
+
+def noi_cap_gplx_rong(ds: list[dict] | None) -> str:
+    """Giá trị cột NoiCapGPLXDaCo (mã quốc gia cấp, chỉ bằng nước ngoài mới có) đúng cách phần mềm cũ ghi:
+    chuỗi rỗng theo số bằng — '' cho 0 hoặc 1 bằng, '|' cho 2 bằng... Không để NULL (phần mềm cũ tách cột
+    theo '|' rồi ghép từng bằng; NULL làm ô nơi cấp không hiện)."""
+    return "|" * (len(ds) - 1) if ds else ""
 
 
 def validate_do_dai(ten: dict, so_cmt: str) -> list[str]:
@@ -207,7 +217,7 @@ def build_params_sp_gop(hv: dict, khoa: dict, so_ho_so: str, ten: dict,
         ("p_SoKmLX", hv.get("so_km_lx")),
         ("p_GiayTo", giay_to_str),                            # '1,2,3,'
         *dung_chuoi_gplx_da_co(hv.get("gplx_da_co"), khoa.get("hang_gplx"), hv.get("ngay_sinh")).items(),  # 6 cột GPLX đã có (NAP-07); không có bằng → NULL
-        ("p_NoiCapGPLXDaCo", None),                           # dữ liệu cũ gần như không dùng cột này
+        ("p_NoiCapGPLXDaCo", noi_cap_gplx_rong(hv.get("gplx_da_co"))),  # quốc gia cấp: '' theo số bằng như phần mềm cũ
         ("p_GhiChu", None),
         ("p_SO_CMND_CU", None),
         ("p_CHON_IN_GPLX", hv.get("chon_in_gplx") or chon_in_gplx_mac_dinh(khoa.get("hang_gplx"))),

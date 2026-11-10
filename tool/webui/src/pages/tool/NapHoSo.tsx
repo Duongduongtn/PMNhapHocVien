@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "../../components/Icon";
 import { PhanTrang } from "../../components/PhanTrang";
@@ -8,9 +8,9 @@ import { ODate } from "../../components/ODate";
 import { ComboLoc } from "../../components/ComboLoc";
 import { boDau, nghiSaiChinhTa, ymdToVN } from "../../lib/format";
 import { tachDiaChiGoc, lamTuoiNhapDiaChi } from "../../lib/diachi";
-import { GplxDaCoKhoi } from "./GplxDaCoKhoi";
+import { BadgeGplx, GplxDaCoNut } from "./GplxDaCoNut";
 import { gioThayDoi, tomTatThayDoi } from "./napThayDoi";
-import { docBang, gomBang, tenHang, type BangGplx } from "./gplxDaCo";
+import { dienNoiCapTheoSo, docBang, gomBang, type BangGplx } from "./gplxDaCo";
 import { IN_GPLX_NHAN, IN_GPLX_THU_TU, ghiChuMacDinh, inGplxMacDinh, laInGplx, laMoTo, type InGplx } from "./inGplx";
 import {
   getKhoaHoc,
@@ -384,7 +384,12 @@ export default function NapHoSo() {
   const [soGtvt, setSoGtvt] = useState<SoGtvt[]>([]);
   useEffect(() => { getSoGtvt().then(setSoGtvt).catch(() => {}); }, []);
   const [noiCapGplx, setNoiCapGplx] = useState<SoGtvt[]>([]);
-  useEffect(() => { getNoiCapGplx().then(setNoiCapGplx).catch(() => {}); }, []);
+  const [noiCapLoi, setNoiCapLoi] = useState(false);
+  const taiNoiCapGplx = useCallback(() => {
+    setNoiCapLoi(false);
+    getNoiCapGplx().then(setNoiCapGplx).catch(() => setNoiCapLoi(true));
+  }, []);
+  useEffect(() => { taiNoiCapGplx(); }, [taiNoiCapGplx]);
   const [chiCoGplx, setChiCoGplx] = useState(false);
 
   // Giấy tờ mặc định theo khóa + ảnh + modal
@@ -430,7 +435,7 @@ export default function NapHoSo() {
       return;
     }
     let huy = false;
-    getGiayTo(khoa.ma_loai_hs, khoa.hang_dt || khoa.hang_gplx)
+    getGiayTo(khoa.ma_loai_hs, khoa.hang_dt || khoa.hang_gplx, khoa.hang_gplx)
       .then((gs) => !huy && setGiayTo(gs))
       .catch(() => !huy && setGiayTo([]));
     return () => {
@@ -761,12 +766,18 @@ export default function NapHoSo() {
       giay_to_tick: tick,
       anh_jp2_b64: n.jp2,
       chon_in_gplx: n.chonInGplx ?? inGplxMacDinh(khoa.hang_gplx), // gửi đúng giá trị đang hiện trên ô "Chọn in GPLX"
-      gplx_da_co: gomBang(gplxCua(r)) as unknown as Record<string, unknown>[],
+      // Bằng chưa mở ra xem vẫn được điền sẵn nơi cấp theo số GPLX (cùng quy tắc ô Nơi cấp).
+      gplx_da_co: gomBang(dienNoiCapTheoSo(gplxCua(r), noiCapGplx)) as unknown as Record<string, unknown>[],
     };
   };
 
   const chayNapLo = async (dsRow: KeoVeRow[]) => {
     setNapErr("");
+    // Giấy tờ chưa tải xong hoặc khóa thiếu danh mục → không nạp, kẻo hồ sơ vào DB không có giấy tờ nào (ảnh 1, 10/11/2026).
+    if (giayTo.length === 0) {
+      setNapErr("Chưa có danh sách giấy tờ kèm theo của khóa này — chờ tải xong hoặc báo quản trị bổ sung danh mục, rồi nạp lại.");
+      return;
+    }
     const items: NapIn[] = [];
     for (const r of dsRow) {
       const it = dungNapIn(r);
@@ -800,6 +811,11 @@ export default function NapHoSo() {
   // Task 47 — mở dialog nạp 3 pha cho danh sách dòng sẵn sàng.
   const moNapDialog = (dsRow: KeoVeRow[]) => {
     setNapErr("");
+    // Giấy tờ chưa tải xong hoặc khóa thiếu danh mục → không nạp, kẻo hồ sơ vào DB không có giấy tờ nào (ảnh 1, 10/11/2026).
+    if (giayTo.length === 0) {
+      setNapErr("Chưa có danh sách giấy tờ kèm theo của khóa này — chờ tải xong hoặc báo quản trị bổ sung danh mục, rồi nạp lại.");
+      return;
+    }
     const items: NapIn[] = [];
     for (const r of dsRow) {
       const it = dungNapIn(r);
@@ -969,7 +985,10 @@ export default function NapHoSo() {
 
                     {/* Tóm tắt học viên */}
                     <div className="rounded-md bg-secondary/70 border border-border px-2.5 py-2 text-[12px] leading-relaxed">
-                      <div className="font-bold text-[14px]">{(selRow.ho_ten || "").toUpperCase() || "(chưa có tên)"}</div>
+                      <div className="flex items-center gap-2">
+                        <div className="font-bold text-[14px] min-w-0 truncate">{(selRow.ho_ten || "").toUpperCase() || "(chưa có tên)"}</div>
+                        <BadgeGplx ds={gplxCua(selRow)} testId="badge-gplx-ngan" />
+                      </div>
                       <div className="text-muted-foreground mt-0.5">
                         {selRow.gioi_tinh === "F" ? "Nữ" : "Nam"} · CCCD {selRow.so_cccd || selRow.so_cmnd_cu || "—"}
                         {selRow.ngay_sinh && <> · NS {ymdToVN(selRow.ngay_sinh)}</>}
@@ -1028,7 +1047,13 @@ export default function NapHoSo() {
                       <p className="mt-1 text-[11.5px] text-muted-foreground">{ghiChuMacDinh(khoa?.hang_gplx)}</p>
                     </div>
 
-                    <GplxDaCoKhoi
+                    {noiCapLoi && (
+                      <p className="text-[12px] text-destructive" data-testid="noi-cap-loi">
+                        Không tải được danh sách Nơi cấp GPLX.{" "}
+                        <button type="button" className="underline" onClick={taiNoiCapGplx}>Tải lại</button>
+                      </p>
+                    )}
+                    <GplxDaCoNut
                       ds={gplxCua(selRow)}
                       onDoi={(ds) => capNhatNhap(selRow.uuid, { gplx: ds, gplxGoc: layNhap(selRow.uuid).gplx ? layNhap(selRow.uuid).gplxGoc : selRow.gplx_da_co_json ?? null })}
                       noiCap={noiCapGplx}
@@ -1081,7 +1106,9 @@ export default function NapHoSo() {
                         Giấy tờ kèm theo <span className="font-normal text-muted-foreground text-[11px]">(tick sẵn — bỏ tick được)</span>
                       </h4>
                       {giayTo.length === 0 ? (
-                        <p className="text-[12px] text-muted-foreground">Chọn khóa đích để hiện giấy tờ.</p>
+                        <p className={"text-[12px] " + (khoa ? "text-destructive" : "text-muted-foreground")} data-testid="giay-to-rong">
+                          {khoa ? "Khóa này chưa có danh sách giấy tờ kèm theo — chưa nạp được." : "Chọn khóa đích để hiện giấy tờ."}
+                        </p>
                       ) : (
                         <div className="space-y-1.5 text-[13px]">
                           {giayTo.map((g) => {
@@ -1461,15 +1488,7 @@ export default function NapHoSo() {
                               {thayDoiTheoUuid.get(r.uuid)!.nhap_giu_anh_cu ? "Ảnh đã đổi" : "App web đã sửa"}
                             </span>
                           )}
-                          {gplxCua(r).length > 0 && (
-                            <span
-                              data-testid={`chip-gplx-${r.uuid}`}
-                              title="Học viên đã có GPLX"
-                              className="inline-flex items-center h-5 px-1.5 rounded text-[10px] font-bold text-primary bg-primary/10 max-w-[110px] truncate"
-                            >
-                              GPLX: {gplxCua(r).map(tenHang).join(", ")}
-                            </span>
-                          )}
+                          <BadgeGplx ds={gplxCua(r)} testId={`chip-gplx-${r.uuid}`} />
                           {r.trang_thai !== "xong" && (
                             <>
                               <span

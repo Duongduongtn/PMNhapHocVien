@@ -50,6 +50,35 @@ export function tenHang(b: { nhom: string; hang: string }): string {
 
 export const laBangMoTo = (hang: string) => /^A/.test(hang);
 
+/** Nơi cấp suy từ số GPLX: số đủ 12 chữ số thì 2 số đầu là mã Sở cấp (đúng ở 94% hồ sơ DB Nạp, 10/11/2026).
+ *  Mã không có trong danh mục → "" (không đoán). Chỉ dùng để điền sẵn khi ô Nơi cấp đang trống, người nhập vẫn sửa được. */
+export function suyNoiCapGplx(so: string, ds: { ma: string }[]): string {
+  const t = (so || "").trim();
+  if (!/^\d{12}$/.test(t)) return "";
+  const ma = t.slice(0, 2);
+  return ds.some((o) => o.ma === ma) ? ma : "";
+}
+
+/** Nơi cấp sau khi sửa số GPLX: ô đang trống, hoặc đang đúng giá trị đã tự điền theo số cũ → theo số mới.
+ *  Nơi cấp người nhập chọn khác đi thì giữ nguyên. */
+export function noiCapKhiDoiSo(soCu: string, soMoi: string, donVi: string, ds: { ma: string }[]): string {
+  const tuDien = !donVi.trim() || donVi === suyNoiCapGplx(soCu, ds);
+  return tuDien ? suyNoiCapGplx(soMoi, ds) : donVi;
+}
+
+/** Điền sẵn nơi cấp cho mọi bằng đang trống nơi cấp mà suy được từ số. Không đổi gì → trả đúng mảng cũ. */
+export function dienNoiCapTheoSo<T extends { so: string; don_vi: string }>(ds: T[], noiCap: { ma: string }[]): T[] {
+  let doi = false;
+  const kq = ds.map((b) => {
+    if (b.don_vi.trim()) return b;
+    const ma = suyNoiCapGplx(b.so, noiCap);
+    if (!ma) return b;
+    doi = true;
+    return { ...b, don_vi: ma };
+  });
+  return doi ? kq : ds;
+}
+
 const NGAY_FIELDS = ["ngay_tt", "ngay_cap", "ngay_hh"] as const;
 
 /** Chuỗi JSON (nháp / keo_ve, ngày yyyymmdd) → state UI. Rỗng hoặc hỏng → []. */
@@ -107,4 +136,21 @@ export function loiBang(b: BangGplx): string[] {
   if (tt && cap && cap < tt) loi.push("Ngày cấp phải sau ngày trúng tuyển");
   if (cap && hh && hh <= cap) loi.push("Ngày hết hạn phải sau ngày cấp");
   return loi;
+}
+
+/** Bằng chưa nhập ô nào (mở popup rồi bấm Xong luôn) → coi như không có. */
+export const bangTrong = (b: BangGplx) => !b.hang && !b.so.trim() && !b.ngay_tt && !b.ngay_cap && !b.ngay_hh && !b.don_vi.trim();
+
+/** Một dòng tóm tắt cho mỗi bằng ở ngăn Chuẩn bị (khối nhập nằm trong popup): "B2 · 790000000123 · Hồ Chí Minh". */
+export function tomTatGplx(ds: BangGplx[], noiCap: { ma: string; ten: string }[]): string[] {
+  return ds.filter((b) => !bangTrong(b)).map((b) => {
+    const tinh = noiCap.find((o) => o.ma === b.don_vi)?.ten.split(" — ")[1] ?? b.don_vi;
+    return [b.hang ? tenHang(b) : "Chưa chọn hạng", b.so.trim(), tinh].filter(Boolean).join(" · ");
+  });
+}
+
+/** Chữ trên badge dòng danh sách: tối đa 2 hạng, còn lại "+n" — "B2·A1 +1". */
+export function nhanHangGon(ds: BangGplx[]): string {
+  const h = ds.filter((b) => !bangTrong(b)).map((b) => tenHang(b) || "?");
+  return h.slice(0, 2).join("·") + (h.length > 2 ? ` +${h.length - 2}` : "");
 }

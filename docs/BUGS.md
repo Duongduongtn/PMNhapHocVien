@@ -4,6 +4,7 @@
 
 | # | Ngày | Mức | Story | Bug | Trạng thái | Deploy |
 |---|---|---|---|---|---|---|
+| 20 | 10/11/2026 | 🔴 Chặn | `NAP-05` | **Hồ sơ tool nạp vào khóa hạng mới không có giấy tờ kèm theo** (phần mềm cũ hiện danh sách trống). Tool tra danh mục giấy tờ bằng `HangDT` (`Am`, `B.01`, `A.03`) mà danh mục ghi `A2`, `B01`, `A03` → rỗng → nạp 0 giấy tờ. Sửa: dò `HangDT` → bỏ dấu chấm → `HangGPLX`; rỗng thì chặn nạp; script SQL bổ sung danh mục + giấy tờ hồ sơ cũ. | ✅ Đã sửa (chờ nghiệm thu máy CSĐT) | ⬜ |
 | 19 | 02/11/2026 | 🔴 Chặn | `NAP-07` · `NAP-03` · `SYNC-01` | **Tool: Enter ở ô gõ để lọc chọn sai không báo**, cùng gốc BUG-17. Sửa ở `ComboLoc` dùng chung: Enter chỉ chọn khi còn đúng một khả năng. Đã đóng gói exe, commit `0146041`. | ✅ Đã sửa | ⬜ |
 | 18 | 02/11/2026 | 🔴 Chặn | `THU-01` · `THU-07` | **Ngày không có thật vẫn hiện ✓ và gửi được** (`45/13/1990`, `31/02/2021`, năm `9999`). Chỉ kiểm dạng số. Sửa: kiểm ngày có thật ở form nhập và form sửa. | ✅ Đã sửa | ✅ |
 | 17 | 02/11/2026 | 🔴 Chặn | `THU-07` | **Enter ở ô Hạng, Nơi cấp chọn sai không báo.** Gõ `B1` ra "B1 số tự động", `A` ra A1, `C` ra C1, `Ha` ra Hà Nội. Sửa: Enter chỉ chọn khi còn đúng một khả năng. Tool cùng lỗi, xem BUG-19. | ✅ Đã sửa app web | ✅ |
@@ -27,6 +28,17 @@
 Chú thích trạng thái: ✅ Đã sửa · 🔄 Đang sửa · ⏳ Đã xếp task · ⬜ Chưa xử
 
 ---
+
+## BUG-20 — Hồ sơ nạp vào khóa hạng mới không có giấy tờ kèm theo · 10/11/2026
+
+- **Mức:** 🔴 Chặn · **Story:** `NAP-05` · **File:** `tool/app/routers/nap.py` (`ma_hang_giay_to`, `doc_giay_to`, `KHONG_CO_GIAY_TO`), `tool/app/nap.py` + `routers/khoahoc.py` (`suy_ma_loai_hs` thêm ca nâng hạng), `tool/webui/src/pages/tool/NapHoSo.tsx` (chặn nạp khi chưa có danh sách giấy tờ), `lib/api.ts`, `components/MoKhoaKhacDialog.tsx`, `scripts/bo_sung_giay_to_hang_moi.sql`.
+- **Ai báo:** user 10/11/2026, ảnh phần mềm cũ: khóa 70 học viên chỉ còn dòng tiêu đề trống ở "Giấy tờ kèm theo"; hồ sơ nạp đúng có đủ 3 giấy tờ tích.
+- **Tái hiện (DB Nạp máy dev, chỉ đọc):** khóa `A2`/`Am` 70/70 hồ sơ không có giấy tờ; tool tra ra rỗng cho `A2/Am`, `B11/B.01`, `A1/A.03`.
+- **Nguyên nhân gốc:** tool lọc `DM_LoaiHSo_GiayTo.MaHangGPLX = KhoaHoc.HangDT`. Danh mục ghi mã không dấu chấm và không có mọi mã hạng mới, nên khóa hạng mới ra danh sách rỗng; màn Nạp không có giấy tờ để tích, gửi `@p_GiayTo` rỗng, SP không thêm dòng giấy tờ nào. Lúc làm chỉ thử khóa hạng B (`HangDT` trùng mã danh mục). Thêm nữa, phần mềm cũ hiện danh sách theo `MaHangMoi` bỏ dấu chấm, DB thiếu dòng `Am`/`Cm` nên chính phần mềm cũ cũng hiện trống cho khóa A2, C.
+- **Đã sửa:** dò `HangDT` → bỏ dấu chấm → `HangGPLX` (chạy thật mọi cặp hạng khóa trên DB Nạp: đủ 1,2,3); danh mục vẫn rỗng → chặn nạp, báo rõ; màn Nạp chặn nạp khi danh sách giấy tờ chưa có (cả lúc đang tải). Dữ liệu cũ: `scripts/bo_sung_giay_to_hang_moi.sql` (chạy thử hoàn tác trên DB dev: +7 dòng danh mục `Am`/`Cm`/`DE`, +576 giấy tờ cho 192 hồ sơ, bật `GiayCNSK` 73 hồ sơ, sửa 4 hồ sơ GPLX NULL).
+- **Test hồi quy:** `tool/tests/test_nap_giay_to.py` (mọi cặp hạng ra đủ, danh mục rỗng chặn nạp, loại nâng hạng) · `tool/webui/e2e/gplx-da-co.e2e.ts` — "khóa chưa có danh sách giấy tờ: báo đỏ và không nạp".
+- **Còn:** chạy script ở máy CSĐT (sao lưu trước), mở phần mềm cũ thấy đủ 3 giấy tờ; khóa B2 cũ không sửa được bằng dữ liệu (phần mềm cũ gộp B1/B2 cùng mã mới `B`).
+- **Deploy:** tool chạy ở máy CSĐT, chưa đóng gói exe.
 
 ## BUG-19 — Tool: Enter ở ô gõ để lọc chọn sai không báo · 02/11/2026
 

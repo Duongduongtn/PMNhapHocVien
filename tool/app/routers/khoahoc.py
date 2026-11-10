@@ -20,8 +20,10 @@ router = APIRouter(prefix="/local/khoa-hoc", tags=["khoa-hoc"])
 _CHU_DAU = {"moto": ("A",), "oto": ("B", "C", "D", "E", "F")}
 
 
-def suy_ma_loai_hs(hang_gplx: str | None) -> int:
-    """Hạng bắt đầu 'A' → 1 (mô tô cấp mới); còn lại → 2 (ô tô cấp mới). TDD §10.2."""
+def suy_ma_loai_hs(hang_gplx: str | None, hang_dt: str | None = None) -> int:
+    """HangDT có '-' → 3 (nâng hạng); hạng bắt đầu 'A' → 1 (mô tô cấp mới); còn lại → 2 (ô tô cấp mới). TDD §10.2."""
+    if "-" in (hang_dt or ""):
+        return 3
     return 1 if (hang_gplx or "").strip().upper().startswith("A") else 2
 
 
@@ -54,7 +56,7 @@ def list_khoa_hoc(loai: str = Query(..., pattern="^(moto|oto)$")):
             "hang_gplx": r["HangGPLX"],
             "hang_dt": r["HangDT"],
             "ma_so_gtvt": r["MaSoGTVT"],
-            "ma_loai_hs": suy_ma_loai_hs(r["HangGPLX"]),
+            "ma_loai_hs": suy_ma_loai_hs(r["HangGPLX"], r["HangDT"]),
         }
         for r in rows
     ]

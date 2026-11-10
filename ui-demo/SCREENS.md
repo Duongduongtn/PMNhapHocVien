@@ -72,6 +72,8 @@ Chú thích: ✅ Xong · 🟡 Placeholder · ⬜ Chưa có route
 
 ## Quyết định UX đã chốt
 
+- **GPLX đã có = dòng tóm tắt + popup** (10/11/2026, CHANGES #99): app web (màn nhập, popup sửa) và tool (ngăn Chuẩn bị) không mở khối 6 ô ngay trong form; một dòng "GPLX đã có: Không có / B2 · số · tỉnh" + nút "Nhập GPLX"/"Sửa" mở popup (điện thoại trượt từ đáy, Hủy/Xong dính đáy). Tool có badge nền xanh "GPLX B2·A1" ở dòng danh sách và đầu ngăn.
+
 | Màn | Vấn đề | Đã chốt | Lượt |
 |---|---|---|---|
 | /tool/nap | Bố trí 2 app | 2 app riêng (tool + app web), gom 1 project router: `/tool/*` và `/app/*` + trang chọn app | 1 |

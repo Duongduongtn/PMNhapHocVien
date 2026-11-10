@@ -22,8 +22,8 @@ router = APIRouter(prefix="/local", tags=["nap"])
 # Tên tham số đường dẫn ảnh trong QTHT_ThamSoHT (đọc động, không hard-code — memory §6).
 _TEN_TS_IMG = "IMG_PATH_CSDT"
 
-# Giấy tờ mặc định theo loại HS + hạng đào tạo. Lọc MaHangGPLX = HangDT ('B', không phải 'B1');
-# TenGT lấy tên ĐẦY ĐỦ từ DM_GiayTo, không lấy tên ngắn ở DM_LoaiHSo_GiayTo (memory §3).
+# Giấy tờ mặc định theo loại HS + mã hạng trong danh mục. TenGT lấy tên ĐẦY ĐỦ từ DM_GiayTo, không lấy tên
+# ngắn ở DM_LoaiHSo_GiayTo (memory §3). Mã hạng dò lần lượt qua `ma_hang_giay_to` (BUG giấy tờ trống 10/11/2026).
 _SQL_GIAY_TO = """
     SELECT g.MaGT AS MaGT, dg.TenGT AS TenGT
     FROM DM_LoaiHSo_GiayTo g
@@ -33,23 +33,49 @@ _SQL_GIAY_TO = """
 """
 
 
+def ma_hang_giay_to(hang_dt: str | None, hang_gplx: str | None) -> list[str]:
+    """Các mã hạng để tra DM_LoaiHSo_GiayTo, theo thứ tự ưu tiên, không trùng.
+
+    Danh mục ghi mã không dấu chấm và không có mọi mã hạng mới: khóa B11 có HangDT 'B.01' nhưng danh mục ghi
+    'B01'; khóa A2 có HangDT 'Am' mà danh mục chỉ có 'A2'. Tra đúng HangDT thì ra rỗng và hồ sơ nạp vào không có
+    giấy tờ nào. Dò HangDT → HangDT bỏ dấu chấm → HangGPLX (đã kiểm mọi hạng A*/B*/C/C1 trên DB Nạp 10/11/2026)."""
+    kq: list[str] = []
+    for m in ((hang_dt or "").strip(), (hang_dt or "").strip().replace(".", ""), (hang_gplx or "").strip()):
+        if m and m not in kq:
+            kq.append(m)
+    return kq
+
+
+def doc_giay_to(cur, ma_loai_hs: int, hang_dt: str | None, hang_gplx: str | None) -> list[dict]:
+    """Danh sách giấy tờ mặc định đầu tiên không rỗng theo `ma_hang_giay_to`. Rỗng = danh mục thiếu hẳn."""
+    for ma in ma_hang_giay_to(hang_dt, hang_gplx):
+        cur.execute(_SQL_GIAY_TO, (ma_loai_hs, ma))
+        rows = cur.fetchall()
+        if rows:
+            return [{"ma_gt": r["MaGT"], "ten_gt": r["TenGT"]} for r in rows]
+    return []
+
+
+KHONG_CO_GIAY_TO = ("Khóa này chưa có danh mục giấy tờ kèm theo trong DB Nạp — không nạp để tránh hồ sơ thiếu "
+                    "giấy tờ. Báo quản trị bổ sung danh mục (scripts/bo_sung_giay_to_hang_moi.sql).")
+
+
 class GiayTo(BaseModel):
     ma_gt: int
     ten_gt: str
 
 
 @router.get("/giay-to", response_model=list[GiayTo])
-def list_giay_to(ma_loai_hs: int = Query(...), hang_dt: str = Query(...)):
+def list_giay_to(ma_loai_hs: int = Query(...), hang_dt: str = Query(...), hang_gplx: str | None = None):
     """Giấy tờ bắt buộc mặc định cho (loại HS, hạng ĐT) — UI tick sẵn, cho bỏ tick."""
     try:
         with sqlserver_cursor() as cur:
-            cur.execute(_SQL_GIAY_TO, (ma_loai_hs, hang_dt))
-            rows = cur.fetchall()
+            ds = doc_giay_to(cur, ma_loai_hs, hang_dt, hang_gplx)
     except ConfigChuaDay as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception:
         raise HTTPException(status_code=502, detail="Không đọc được danh mục giấy tờ — kiểm kết nối.")
-    return [{"ma_gt": r["MaGT"], "ten_gt": r["TenGT"]} for r in rows]
+    return ds
 
 
 @router.get("/kiem-trung-cccd")
@@ -135,8 +161,7 @@ def _nap_mot(body: NapIn) -> dict:
             "ma_kh": k["MaKH"], "hang_gplx": k["HangGPLX"],
             "hang_dt": k["HangDT"], "ma_so_gtvt": k["MaSoGTVT"],
         }
-        ma_loai_hs = nap.suy_ma_loai_hs(k["HangGPLX"])
-        hang_dt = k["HangDT"] or k["HangGPLX"]
+        ma_loai_hs = nap.suy_ma_loai_hs(k["HangGPLX"], k["HangDT"])
 
         # Đường dẫn ảnh gốc (đọc động từ tham số hệ thống)
         cur.execute("SELECT GiaTriTS FROM QTHT_ThamSoHT WHERE TenTS=%s", (_TEN_TS_IMG,))
@@ -146,8 +171,9 @@ def _nap_mot(body: NapIn) -> dict:
         img_path = row["GiaTriTS"] if row else ""
 
         # Giấy tờ: lấy danh sách mặc định theo khóa rồi lọc đúng dòng đã tick (tên từ DB)
-        cur.execute(_SQL_GIAY_TO, (ma_loai_hs, hang_dt))
-        ten_theo_ma = {r["MaGT"]: r["TenGT"] for r in cur.fetchall()}
+        ten_theo_ma = {g["ma_gt"]: g["ten_gt"] for g in doc_giay_to(cur, ma_loai_hs, k["HangDT"], k["HangGPLX"])}
+        if not ten_theo_ma:
+            raise ValueError(KHONG_CO_GIAY_TO)
         giay_to = [{"ma_gt": g, "ten_gt": ten_theo_ma[g]}
                    for g in body.giay_to_tick if g in ten_theo_ma]
 

@@ -7,6 +7,7 @@ import { dsNhap } from "../lib/draft";
 import { dangKyGuiLai, guiLaiTatCa } from "../lib/gui";
 import { khopTim } from "../lib/text";
 import { GplxDaCoKhoi } from "../components/GplxDaCoKhoi";
+import { GplxDaCoNut } from "../components/GplxDaCoNut";
 import { loiDanhSach, oSaiDau, sangServer, tenHang, tuServer, type BangGplx } from "../lib/gplxDaCo";
 import { laNgaySinh } from "../lib/qr";
 import { chuCaiDau, tongTheoTen } from "../lib/chuCai";
@@ -730,7 +731,7 @@ function ChiTiet({ row, onDong, onCapNhat, onXoa }: { row: HoSoOut; onDong: () =
               </div>
               <OSua label="Nơi thường trú" value={f.noi_tt_raw ?? ""} onChange={(v) => set("noi_tt_raw", v)} />
               <div className="sm:col-span-2">
-                <GplxDaCoKhoi ds={gplx} onDoi={(ds) => { setGplx(ds); setDaSuaGplx(true); }} lanGui={lanLuuGplx} rong />
+                <GplxDaCoNut ds={gplx} onDoi={(ds) => { setGplx(ds); setDaSuaGplx(true); }} lanGui={lanLuuGplx} />
               </div>
             </div>
           ) : che === "gplx" ? (

@@ -15,7 +15,8 @@ from app.nap import _GPLX_THAM_SO, dung_chuoi_gplx_da_co
 
 logger = logging.getLogger(__name__)
 
-# Cột DB ↔ trường JSON, cùng thứ tự _GPLX_THAM_SO. NoiCapGPLXDaCo cố ý không đọc, không ghi (TDD §10.6).
+# Cột DB ↔ trường JSON, cùng thứ tự _GPLX_THAM_SO. NoiCapGPLXDaCo (quốc gia cấp) không đọc, không so; chỉ ghi lại
+# chuỗi rỗng theo số bằng khi lưu, đúng cách phần mềm cũ ghi (NULL/lệch số phần làm phần mềm cũ không hiện nơi cấp).
 GPLX_COT = (("SoGPLXDaCo", "so"), ("HangGPLXDaCo", "hang"), ("NgayTTGPLXDaCo", "ngay_tt"),
             ("NgayCapGPLXDaCo", "ngay_cap"), ("NgayHHGPLXDaCo", "ngay_hh"), ("DonViCapGPLXDaCo", "don_vi"))
 TEN_COT = tuple(c for c, _ in GPLX_COT)
@@ -29,7 +30,7 @@ _SQL_DOC = (
     + " FROM dbo.NguoiLX_HoSo hs JOIN dbo.NguoiLX nl ON nl.MaDK = hs.MaDK WHERE hs.MaDK = %s"
 )
 _SQL_GHI = (
-    "UPDATE dbo.NguoiLX_HoSo SET " + ", ".join(f"{c} = %s" for c in TEN_COT)
+    "UPDATE dbo.NguoiLX_HoSo SET " + ", ".join(f"{c} = %s" for c in TEN_COT) + ", NoiCapGPLXDaCo = %s"
     + " WHERE MaDK = %s AND " + " AND ".join(f"ISNULL({c}, '') = %s" for c in TEN_COT)
 )
 
@@ -56,8 +57,8 @@ def tach_chuoi_gplx(row: dict) -> tuple[list[dict], bool]:
     return ds, lech
 
 
-def gia_tri_ghi(ds: list[dict], hang_dang_ky: str | None, ngay_sinh: str | None) -> dict[str, str | None]:
-    """Danh sách bằng → giá trị 6 cột, cùng quy tắc nạp mới (NAP-07). Sai → ValueError. Rỗng → NULL."""
+def gia_tri_ghi(ds: list[dict], hang_dang_ky: str | None, ngay_sinh: str | None) -> dict[str, str]:
+    """Danh sách bằng → giá trị 6 cột, cùng quy tắc nạp mới (NAP-07). Sai → ValueError. Rỗng → '' (không NULL)."""
     kq = dung_chuoi_gplx_da_co(ds, hang_dang_ky, ngay_sinh)
     return {c: kq[ts] for (c, _), (ts, _) in zip(GPLX_COT, _GPLX_THAM_SO)}
 
@@ -83,10 +84,10 @@ def ket_qua_doc(ma_dk: str, row: dict, chan: str | None) -> dict:
 
 
 def ghi(cur, ma_dk: str, row: dict, ds: list[dict], tho: dict[str, str]) -> bool:
-    """UPDATE đúng 6 cột nếu DB còn đúng chuỗi thô đã đọc lúc mở. Trả False khi dữ liệu đã đổi.
+    """UPDATE 6 cột (+ NoiCapGPLXDaCo rỗng theo số bằng) nếu DB còn đúng chuỗi thô đã đọc lúc mở. Trả False khi dữ liệu đã đổi.
     Sai dữ liệu → ValueError. Không đổi TT_XuLy hay cột nào khác."""
     moi = gia_tri_ghi(ds, row.get("HangGPLX"), row.get("NgaySinh"))
-    cur.execute(_SQL_GHI, (*[moi[c] for c in TEN_COT], ma_dk, *[tho[c] for c in TEN_COT]))
+    cur.execute(_SQL_GHI, (*[moi[c] for c in TEN_COT], nap.noi_cap_gplx_rong(ds), ma_dk, *[tho[c] for c in TEN_COT]))
     return cur.rowcount > 0
 
 

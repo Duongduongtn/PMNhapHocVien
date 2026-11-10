@@ -4,6 +4,8 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 99 | 10/11/2026 | ✏️ Sửa (giao diện) | `NAP-07` · `THU-07` | **GPLX đã có nhập trong popup** ở app web (màn nhập, popup sửa hồ sơ) và tool (ngăn Chuẩn bị); form chỉ còn dòng tóm tắt. Tool có **badge "GPLX B2·A1"** rõ ở dòng danh sách và đầu ngăn. | ✅ | — | ✅ | 🟡 code + test xong, chưa deploy/đóng gói |
+| 98 | 10/11/2026 | ✏️ Sửa | `NAP-07` · `THU-07` · `QLY-10` · `TCB-05` | **Nơi cấp GPLX đã có điền sẵn theo 2 số đầu số GPLX, sửa được; 7 cột GPLX đã có ghi chuỗi rỗng như phần mềm cũ, không NULL** (nơi cấp do tool nạp không hiện ở phần mềm cũ). | ✅ | ✅ | — | 🟡 code + test xong, chưa nghiệm thu máy CSĐT |
 | 97 | 04/11/2026 | ✏️ Sửa (phím tắt) | `THU-01` | **Máy tính: phím Enter trong ô nhập = "Lưu & nhập hồ sơ tiếp"** (trước là chụp ảnh); Ctrl+Enter vẫn cùng việc; chụp ảnh bấm nút. Thiếu thông tin thì Enter chỉ báo lỗi, không gửi. Điện thoại giữ nguyên (Enter bàn phím ảo = chụp ảnh). Lý do: gõ xong ô cuối nhấn Enter là sang hồ sơ kế (user chọn A, 04/11/2026). | ✅ v4.37 | ✅ v6.37 | — | ✅ chưa commit/deploy |
 | 96 | 04/11/2026 | ✏️ Sửa (đổi luồng nhập liên tiếp) | `THU-01` · `THU-02` | **Sau "Lưu & nhập hồ sơ tiếp" điện thoại cũng về thẳng form trống, con trỏ ở ô Số CCCD** (trước đó về màn chọn cách nhập, mỗi hồ sơ thêm một lần chạm; máy tính đã vậy từ #30). Muốn quét QR thì bấm "Quét lại" đầu form. Thêm: vùng cuộn về đầu, thông báo "Đã gửi" hiện ở đầu màn trên điện thoại để không đè nút. Lý do: tăng tốc nhận hồ sơ liên tiếp, đỡ chờ và đỡ chạm (user 04/11/2026). | ✅ v4.36 | ✅ v6.36 §6.6 | — | ✅ chưa commit/deploy |
 | 95 | 04/11/2026 | ✏️ Sửa (UX, thuần giao diện) | `THU-01` | **Màn xác nhận hồ sơ:** "Lưu & nhập hồ sơ tiếp" thành nút chính nổi bật (xanh đậm, có bóng; bên phải ở máy tính, trên cùng ở điện thoại), "Tiếp tục — chụp ảnh chân dung" thành nút phụ viền nhạt. Cả hai nằm trong thanh dính đáy trên điện thoại. Hành vi không đổi: Enter vẫn chụp ảnh, Ctrl+Enter vẫn lưu & nhập tiếp. Lý do: đa số hồ sơ gửi nhanh không ảnh để nhập liên tiếp (user 04/11/2026). | ✅ v4.35 | — | — | ✅ chưa commit/deploy |
@@ -105,6 +107,21 @@
 Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên quan
 
 ---
+
+## #99 — GPLX đã có nhập trong popup, badge rõ ở tool · 10/11/2026
+
+- **Mã:** `NAP-07`, `THU-07`
+- **Vì sao:** user 10/11/2026: tích "Đã có GPLX" làm form kéo dài xuống, xấu; muốn nhập trong popup ở cả app web và tool; hồ sơ app web gửi có GPLX thì tool phải thấy badge (chip cũ chữ 10px, cắt 110px nên khó thấy).
+- **Đã sửa:** `webapp/src/components/GplxDaCoNut.tsx` (mới, dòng tóm tắt + popup, bản nháp tạm, tự mở khi gửi bị chặn) dùng ở `pages/Quet.tsx`, `pages/DaGui.tsx` (sửa hồ sơ); `GplxDaCoKhoi` thêm `trongPopup`; `lib/gplxDaCo.ts` `tomTatGplx`, `bangTrong`. Tool: `pages/tool/GplxDaCoNut.tsx` (popup + `BadgeGplx`), dùng ở `NapHoSo.tsx`; `gplxDaCo.ts` `tomTatGplx`, `nhanHangGon`, `bangTrong`. Dữ liệu, API, luật kiểm không đổi. Hộp "Bổ sung GPLX" ở Tra cứu (đã là popup) và màn "Bổ sung GPLX" app web giữ nguyên.
+- **Còn nợ:** deploy app web, đóng gói exe, thử trên điện thoại thật.
+
+## #98 — Nơi cấp GPLX đã có: điền sẵn theo số, ghi chuỗi rỗng như phần mềm cũ · 10/11/2026
+
+- **Mã:** `NAP-07`, `THU-07`, `QLY-10`, `TCB-05`
+- **Vì sao:** user báo đã chọn nơi cấp ở tool nhưng phần mềm cũ không hiện. Tra DB: phần mềm cũ luôn ghi 7 cột `*GPLXDaCo` là chuỗi rỗng (DB Nạp 6.973, DB đích 454 hồ sơ có GPLX, 0 dòng NULL; `NoiCapGPLXDaCo` = `''`/`'|'` theo số bằng), tool ghi NULL. User chốt thêm: nơi cấp suy từ số GPLX, điền sẵn, cho sửa (2 số đầu = mã Sở ở 94% hồ sơ).
+- **Đã sửa:** `tool/app/nap.py` (`dung_chuoi_gplx_da_co` không bằng → `''`; `noi_cap_gplx_rong`), `tool/app/gplx_da_co.py` (lưu bổ sung ghi thêm `NoiCapGPLXDaCo`), `tool/webui/src/pages/tool/gplxDaCo.ts` + `GplxDaCoKhoi.tsx` + `NapHoSo.tsx` (điền sẵn khi gõ số, khi mở, khi nạp lô; danh mục Nơi cấp tải lỗi có nút tải lại), `webapp/src/lib/gplxDaCo.ts` + `components/GplxDaCoKhoi.tsx`. TDD §10.6, §10.7 v6.38; PRD v4.38. Cùng đợt: BUG-20 giấy tờ trống (`docs/BUGS.md`).
+- **Dữ liệu cũ:** `scripts/bo_sung_giay_to_hang_moi.sql` phần 3 sửa hồ sơ tool đã nạp có cột GPLX NULL.
+- **Còn nợ:** nghiệm thu máy CSĐT (nạp 1 học viên có GPLX, mở phần mềm cũ thấy nơi cấp); app web chưa deploy; chưa đóng gói exe.
 
 ## #92 — Báo hồ sơ chưa nạp vừa được app web cập nhật · 04/11/2026
 
@@ -1078,7 +1095,9 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 > `/capnhat` đọc mục này ở Bước 0b để biết có thay đổi nào chưa ghi sổ không.
 > So bằng **danh sách mã**, không so bằng thời gian sửa file.
 
-- **Cập nhật:** 04/11/2026 (#97 ✏️ Enter trên máy tính = Lưu & nhập hồ sơ tiếp, số story giữ 67)
+- **Cập nhật:** 10/11/2026 (#99 ✏️ GPLX đã có nhập trong popup + badge tool; số story giữ 67)
+- **Cập nhật trước:** 10/11/2026 (#98 ✏️ nơi cấp GPLX đã có điền sẵn theo số, ghi chuỗi rỗng như phần mềm cũ; số story giữ 67)
+- **Cập nhật trước:** 04/11/2026 (#97 ✏️ Enter trên máy tính = Lưu & nhập hồ sơ tiếp, số story giữ 67)
 - **Cập nhật trước:** 04/11/2026 (#96 ✏️ sau Lưu & nhập tiếp về thẳng form trống, số story giữ 67)
 - **Cập nhật trước:** 04/11/2026 (#95 ✏️ nút "Lưu & nhập hồ sơ tiếp" thành nút chính, số story giữ 67)
 - **Cập nhật trước:** 04/11/2026 (#94 ➕ `HTG-08` chế độ sáng/tối app web; số story 66→67)

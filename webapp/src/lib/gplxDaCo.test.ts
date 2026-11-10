@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DS_HANG_GPLX, DS_NOI_CAP_GPLX, bangMoi, chonKhiEnter, locLuaChon, loiBang, loiDanhSach, loiTungO, oSaiDau, sangServer, soGplxLa, tuServer } from "./gplxDaCo";
+import { DS_HANG_GPLX, DS_NOI_CAP_GPLX, bangMoi, bangTrong, tomTatGplx, type BangGplx, chonKhiEnter, locLuaChon, loiBang, loiDanhSach, loiTungO, noiCapKhiDoiSo, oSaiDau, sangServer, soGplxLa, suyNoiCapGplx, tuServer } from "./gplxDaCo";
 import { boDau } from "./text";
 
 const b = (over = {}) => ({ ...bangMoi(), hang: "B2", so: "790000000123", ngay_tt: "15/08/2012", ngay_cap: "27/04/2018", ...over });
@@ -64,5 +64,33 @@ describe("GPLX đã có ở app web", () => {
     expect(tim("long an")).toEqual(["80"]);
     expect(DS_NOI_CAP_GPLX).toHaveLength(65);
     expect(new Set(DS_NOI_CAP_GPLX.map((o) => o.ma)).size).toBe(DS_NOI_CAP_GPLX.length);
+  });
+});
+
+describe("Nơi cấp suy từ số GPLX (user chốt 10/11/2026)", () => {
+  it("điền theo 2 số đầu khi số đủ 12 chữ số và mã có trong danh mục Nơi cấp", () => {
+    expect(suyNoiCapGplx("700239000070", DS_NOI_CAP_GPLX)).toBe("70");
+    expect(suyNoiCapGplx("751260009163", DS_NOI_CAP_GPLX)).toBe("75");
+    expect(suyNoiCapGplx("75126000916", DS_NOI_CAP_GPLX)).toBe("");
+    expect(suyNoiCapGplx("030000000000", DS_NOI_CAP_GPLX)).toBe("");   // 03 không có trong danh mục
+  });
+  it("sửa số: chỉ đổi nơi cấp đang trống hoặc đang do máy tự điền", () => {
+    expect(noiCapKhiDoiSo("", "700239000070", "", DS_NOI_CAP_GPLX)).toBe("70");
+    expect(noiCapKhiDoiSo("700239000070", "790239000070", "70", DS_NOI_CAP_GPLX)).toBe("79");
+    expect(noiCapKhiDoiSo("700239000070", "790239000070", "75", DS_NOI_CAP_GPLX)).toBe("75");
+  });
+});
+
+describe("Tóm tắt GPLX ở form (popup, CHANGES #99)", () => {
+  const b = (x: Partial<BangGplx>): BangGplx => ({ ...bangMoi(), ...x });
+  it("mỗi bằng một dòng: hạng · số · tỉnh; bỏ bằng trống", () => {
+    expect(tomTatGplx([b({ hang: "B2", so: "790000000123", don_vi: "79" }), b({})], DS_NOI_CAP_GPLX)).toEqual(["B2 · 790000000123 · Hồ Chí Minh"]);
+    expect(tomTatGplx([b({ nhom: "moi", hang: "A1m", so: "700239000070" })], DS_NOI_CAP_GPLX)).toEqual(["A1 · 700239000070"]);
+    expect(tomTatGplx([b({ so: "1" })], DS_NOI_CAP_GPLX)).toEqual(["Chưa chọn hạng · 1"]);
+    expect(tomTatGplx([], DS_NOI_CAP_GPLX)).toEqual([]);
+  });
+  it("bằng chưa nhập ô nào coi như không có", () => {
+    expect(bangTrong(bangMoi())).toBe(true);
+    expect(bangTrong(b({ don_vi: "70" }))).toBe(false);
   });
 });
