@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mock cảnh báo tuổi khi nạp</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script>
+  tailwind.config = {
+    theme: { extend: {
+      fontFamily: { sans: ['"Be Vietnam Pro"', "system-ui", "sans-serif"] },
+      colors: {
+        background: "hsl(210 40% 96%)", foreground: "hsl(222 47% 11%)", card: "hsl(0 0% 100%)",
+        primary: "hsl(222 76% 40%)", muted: "hsl(210 40% 96%)", "muted-foreground": "hsl(215 16% 47%)",
+        accent: "hsl(224 76% 94%)", destructive: "hsl(0 72% 51%)", success: "hsl(142 71% 38%)",
+        warning: "hsl(32 90% 42%)", border: "hsl(214 32% 91%)", input: "hsl(214 32% 88%)",
+      },
+    } },
+  };
+</script>
+<style>
+  body { font-family: "Be Vietnam Pro", system-ui, sans-serif; background: hsl(210 40% 96%); color: hsl(222 47% 11%); }
+  .chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; border-radius: 6px; padding: 2px 7px; white-space: nowrap; }
+  .chip-do { color: hsl(0 72% 40%); background: hsl(0 80% 96%); }
+  .chip-vang { color: hsl(32 90% 30%); background: hsl(40 90% 93%); }
+  .btn { font-size: 13px; font-weight: 600; border-radius: 8px; padding: 8px 14px; }
+  .btn-1 { background: hsl(222 76% 40%); color: #fff; }
+  .btn-2 { background: #fff; border: 1px solid hsl(214 32% 88%); }
+  th { font-size: 11.5px; font-weight: 600; color: hsl(215 16% 40%); text-align: left; padding: 8px 12px; white-space: nowrap; background: hsl(210 40% 97%); }
+  td { font-size: 13px; padding: 10px 12px; border-top: 1px solid hsl(214 32% 91%); vertical-align: middle; }
+  tr.bo td { color: hsl(215 16% 60%); text-decoration: line-through; }
+  tr.bo td.giu { text-decoration: none; }
+</style>
+</head>
+<body class="min-h-screen">
+<div class="max-w-[1240px] mx-auto px-4 py-5 space-y-4">
+  <header>
+    <h1 class="text-lg font-bold">Mock cảnh báo tuổi khi nạp (NAP-09) — chờ duyệt</h1>
+    <p class="text-[13px] text-muted-foreground mt-1">Dữ liệu minh họa, tên không có thật. Bấm thử ô "Nạp", "Bỏ hết người chưa đủ tuổi", "Tiếp tục".</p>
+  </header>
+
+  <!-- Nền giả màn Nạp phía sau -->
+  <div class="relative bg-card border border-border rounded-xl h-[640px] overflow-hidden">
+    <div class="p-4 text-[13px] text-muted-foreground">Màn Nạp hồ sơ · đã chọn 5 học viên · bấm "Nạp 5 học viên vào A-K02 (70004K26A016)"</div>
+
+    <div class="absolute inset-0 bg-black/50 flex items-center justify-center p-6">
+      <div role="dialog" class="bg-card w-full max-w-[920px] rounded-xl border border-border shadow-2xl max-h-[600px] flex flex-col overflow-hidden">
+        <!-- Đầu -->
+        <div class="px-6 py-4 border-b border-border">
+          <div class="flex items-start gap-3">
+            <div class="w-9 h-9 rounded-full bg-[hsl(40_90%_93%)] text-warning grid place-items-center text-lg shrink-0">⚠</div>
+            <div class="flex-1">
+              <h3 class="font-bold text-[15px]">3 học viên chưa đủ tuổi học hạng của khóa</h3>
+              <p class="text-[13px] text-muted-foreground mt-0.5">Chỉ là cảnh báo — bạn quyết định nạp hay bỏ từng người.</p>
+            </div>
+            <button class="w-8 h-8 rounded-lg hover:bg-muted text-xl leading-none">×</button>
+          </div>
+          <div class="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2 text-[12.5px]">
+            <div class="rounded-lg bg-muted px-3 py-2"><div class="text-muted-foreground">Khóa</div><div class="font-semibold">A-K02 · 70004K26A016</div></div>
+            <div class="rounded-lg bg-muted px-3 py-2"><div class="text-muted-foreground">Hạng đào tạo</div><div class="font-semibold">Hạng A (mô tô &gt; 125 cm³)</div></div>
+            <div class="rounded-lg bg-muted px-3 py-2"><div class="text-muted-foreground">Tuổi tối thiểu</div><div class="font-semibold">18 tuổi</div></div>
+            <div class="rounded-lg bg-muted px-3 py-2"><div class="text-muted-foreground">Tính tuổi tại</div><div class="font-semibold">Hôm nay 10/11/2026</div></div>
+          </div>
+        </div>
+
+        <!-- Bảng -->
+        <div class="overflow-y-auto">
+          <table class="w-full">
+            <thead><tr>
+              <th class="w-[70px]">Nạp</th><th>Học viên</th><th>Ngày sinh</th><th>Tuổi hôm nay</th><th>Ngày đủ 18 tuổi</th><th>Còn thiếu</th>
+            </tr></thead>
+            <tbody id="bang">
+              <tr><td class="giu"><input type="checkbox" checked class="w-4 h-4 accent-[hsl(222_76%_40%)]" /></td>
+                <td><div class="font-semibold">NGUYỄN VĂN AN</div><div class="text-[11.5px] text-muted-foreground">079209001234</div></td>
+                <td>25/12/2008</td><td>17 tuổi</td><td class="font-semibold">25/12/2026</td><td><span class="chip chip-vang">45 ngày</span></td></tr>
+              <tr><td class="giu"><input type="checkbox" checked class="w-4 h-4 accent-[hsl(222_76%_40%)]" /></td>
+                <td><div class="font-semibold">TRẦN THỊ BÌNH</div><div class="text-[11.5px] text-muted-foreground">079309004567</div></td>
+                <td>03/05/2009</td><td>17 tuổi</td><td class="font-semibold">03/05/2027</td><td><span class="chip chip-do">174 ngày</span></td></tr>
+              <tr><td class="giu"><input type="checkbox" checked class="w-4 h-4 accent-[hsl(222_76%_40%)]" /></td>
+                <td><div class="font-semibold">LÊ HOÀNG CƯỜNG</div><div class="text-[11.5px] text-muted-foreground">079210007890</div></td>
+                <td>29/02/2010</td><td>16 tuổi</td><td class="font-semibold">01/03/2028</td><td><span class="chip chip-do">1 năm 3 tháng</span></td></tr>
+            </tbody>
+          </table>
+          <p class="px-6 py-3 text-[12px] text-muted-foreground border-t border-border">2 học viên còn lại trong lô đã đủ tuổi, nạp bình thường. Thiếu dưới 3 tháng hiện vàng, từ 3 tháng hiện đỏ.</p>
+        </div>
+
+        <!-- Chân -->
+        <div class="px-6 py-3 border-t border-border flex flex-wrap items-center gap-2">
+          <button id="boHet" class="btn btn-2">Bỏ hết người chưa đủ tuổi</button>
+          <span id="dem" class="text-[12.5px] text-muted-foreground">Sẽ nạp 5/5 học viên</span>
+          <span class="flex-1"></span>
+          <button class="btn btn-2">Hủy</button>
+          <button id="tiep" class="btn btn-1">Tiếp tục nạp 5 học viên</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  const tong = 5;
+  const cap = () => {
+    const rows = [...document.querySelectorAll("#bang tr")];
+    let bo = 0;
+    rows.forEach((r) => { const c = r.querySelector("input").checked; r.classList.toggle("bo", !c); if (!c) bo++; });
+    document.getElementById("dem").textContent = `Sẽ nạp ${tong - bo}/${tong} học viên`;
+    document.getElementById("tiep").textContent = `Tiếp tục nạp ${tong - bo} học viên`;
+  };
+  document.querySelectorAll("#bang input").forEach((i) => i.addEventListener("change", cap));
+  document.getElementById("boHet").onclick = () => { document.querySelectorAll("#bang input").forEach((i) => (i.checked = false)); cap(); };
+</script>
+</body>
+</html>

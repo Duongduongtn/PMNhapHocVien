@@ -60,6 +60,8 @@ export interface KhoaHoc {
   hang_dt: string | null;
   ma_so_gtvt: string;
   ma_loai_hs: number; // 1 = mô tô, 2 = ô tô
+  tuoi_hv?: number | null; // NAP-09: tuổi tối thiểu học hạng đào tạo (DM_HangDT.TuoiHV); null → không kiểm
+  ten_hang_dt?: string | null;
 }
 
 // Lỗi API: `.chiTiet` giữ nguyên `detail` của server (có thể là object {loi|ketqua, thong_bao,…}) để UI phân loại.

@@ -4,6 +4,7 @@ Collector gửi hồ sơ (idempotent theo uuid client sinh), xem/sửa hồ sơ 
 còn pending, upload ảnh thô. Quyền sở hữu kiểm ở server (created_by = user hiện tại) —
 chặn IDOR (OG-001): không dựa vào sự khó đoán của uuid.
 """
+import re
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Literal
@@ -35,11 +36,18 @@ class GplxBang(BaseModel):
     model_config = ConfigDict(hide_input_in_errors=True)
     nhom: Literal["cu", "moi"]
     hang: str
+    # Hình dạng chung; dạng 12 số / bằng giấy cũ kiểm ở `_kiem_so_moi` (CHANGES #101) để số đã lưu từ trước được giữ.
     so: str = Field(min_length=1, max_length=20, pattern=r"^[^|]+$")
     ngay_tt: str = Field(min_length=8)   # bắt buộc như form cũ FPT.GPLX.CSDT
     ngay_cap: str = Field(min_length=8)  # bắt buộc như form cũ
     ngay_hh: str = ""
     don_vi: str = Field("", pattern=r"^(\d{2})?$")
+
+    @field_validator("so", mode="before")
+    @classmethod
+    def _cat_so(cls, v):
+        """Cắt khoảng trắng hai đầu trước khi so dạng — app web và tool đều trim trước khi gửi/nạp."""
+        return v.strip() if isinstance(v, str) else v
 
     @field_validator("hang")
     @classmethod
@@ -67,6 +75,21 @@ class GplxBang(BaseModel):
         if self.ngay_hh and self.ngay_hh <= self.ngay_cap:
             raise ValueError("ngày hết hạn phải sau ngày cấp")
         return self
+
+
+SO_GPLX_HOP_LE = re.compile(r"[0-9]{12}|[A-Z]{2} ?[0-9]{6}")
+
+
+def _kiem_so_moi(ds: list[GplxBang] | None, so_cu: set[str]) -> None:
+    """CHANGES #101: số GPLX mới phải 12 chữ số hoặc bằng giấy cũ 2 chữ + 6 số; số đã lưu từ trước giữ nguyên thì cho qua."""
+    for i, b in enumerate(ds or [], 1):
+        if b.so not in so_cu and not SO_GPLX_HOP_LE.fullmatch(b.so):
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
+                                f"GPLX đã có, bằng {i}: số GPLX phải đủ 12 chữ số (bằng giấy cũ: 2 chữ cái + 6 số)")
+
+
+def _so_cu(hs) -> set[str]:
+    return {str(b.get("so") or "").strip() for b in (hs.gplx_da_co or []) if isinstance(b, dict)} - {""}
 
 
 def _kiem_gplx(ds: list[GplxBang] | None) -> list[GplxBang] | None:
@@ -195,6 +218,8 @@ def gui_ho_so(body: HoSoIn, response: Response, user: User = Depends(require_rol
     """Gửi hồ sơ mới → 201. Idempotent: gửi lại cùng uuid (mất mạng rồi thử lại)
     không nhân đôi, trả 200 (TDD §4.7)."""
     hs = db.get(HoSoThuThap, body.uuid)
+    if hs is None:
+        _kiem_so_moi(body.gplx_da_co, set())  # hồ sơ mới: mọi số phải đúng dạng
     if hs is not None:
         if hs.created_by != user.id:
             raise HTTPException(status.HTTP_409_CONFLICT, "Mã hồ sơ đã được dùng")
@@ -274,6 +299,8 @@ def sua_ho_so(uuid: UUID, body: HoSoSua, user: User = Depends(require_role("coll
     hs = _cua_minh(uuid, user, db)
     if hs.trang_thai != "pending":
         raise HTTPException(status.HTTP_409_CONFLICT, "Hồ sơ đã được xử lý, không sửa được")
+    if "gplx_da_co" in body.model_fields_set:
+        _kiem_so_moi(body.gplx_da_co, _so_cu(hs))
     for truong, gia_tri in body.model_dump(exclude_unset=True).items():
         setattr(hs, truong, (gia_tri or None) if truong == "gplx_da_co" else gia_tri)
     db.commit()
@@ -286,6 +313,8 @@ def bo_sung_gplx(uuid: UUID, body: GplxBoSungIn, user: User = Depends(require_ro
     """Bổ sung GPLX đã có cho hồ sơ ĐÃ NẠP của mình (THU-07, TDD §10.7): chỉ ghi `gplx_da_co` + `updated_at`, người nạp
     duyệt mới vào DB. UPDATE nguyên tử để không đua với gỡ về chờ nạp; `pending` dùng PUT /{uuid}. Dòng audit
     `bo_sung_gplx` là dấu hiệu tool phân biệt bổ sung thật với GPLX có từ trước khi nạp; không ghi giá trị vào audit."""
+    hien = db.get(HoSoThuThap, uuid)
+    _kiem_so_moi(body.gplx_da_co, _so_cu(hien) if hien is not None and hien.created_by == user.id else set())
     rowcount = db.execute(
         update(HoSoThuThap)
         .where(HoSoThuThap.uuid == uuid, HoSoThuThap.created_by == user.id, HoSoThuThap.trang_thai == "imported")

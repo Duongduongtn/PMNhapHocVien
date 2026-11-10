@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ODate } from "./ODate";
 import {
-  DS_HANG_GPLX, DS_NOI_CAP_GPLX, bangMoi, chonKhiEnter, khoaHang, locLuaChon, laBangMoTo, loiTungO, noiCapKhiDoiSo, suyNoiCapGplx, soGplxLa, tachKhoaHang, type BangGplx, type LuaChon, type OGplx,
+  DS_HANG_GPLX, DS_NOI_CAP_GPLX, bangMoi, chonKhiEnter, khoaHang, locLuaChon, laBangMoTo, loiTungO, noiCapKhiDoiSo, soCuSaiDang, suyNoiCapGplx, locSoGplx, tachKhoaHang, type BangGplx, type LuaChon, type OGplx,
 } from "../lib/gplxDaCo";
 
 // Ô gõ để tìm: gõ tới đâu lọc tới đó, không phân biệt dấu. Enter chỉ chọn khi chỉ còn đúng một khả năng (BUG-17).
@@ -65,7 +65,7 @@ function OTim({
 const MOI_O: OGplx[] = ["hang", "so", "ngay_tt", "ngay_cap", "ngay_hh"];
 
 // trongPopup: dùng trong popup GplxDaCoNut — bỏ ô tích bật/tắt (popup đã là chỗ bật), nút "+ Thêm GPLX" luôn hiện.
-export function GplxDaCoKhoi({ ds, onDoi, lanGui = 0, rong = false, trongPopup = false }: { ds: BangGplx[]; onDoi: (ds: BangGplx[]) => void; lanGui?: number; rong?: boolean; trongPopup?: boolean }) {
+export function GplxDaCoKhoi({ ds, onDoi, lanGui = 0, rong = false, trongPopup = false, soCu }: { ds: BangGplx[]; onDoi: (ds: BangGplx[]) => void; lanGui?: number; rong?: boolean; trongPopup?: boolean; soCu?: Set<string> }) {
   const [cham, setCham] = useState<Record<string, boolean>>({});
   useEffect(() => {
     if (!lanGui) return;
@@ -91,7 +91,7 @@ export function GplxDaCoKhoi({ ds, onDoi, lanGui = 0, rong = false, trongPopup =
       </>)}
       {trongPopup && ds.length === 0 && <p className="text-[13px] text-muted-foreground">Chưa có bằng nào. Bấm "+ Thêm GPLX" nếu học viên có bằng.</p>}
       {ds.map((b, i) => {
-        const loi = loiTungO(b).filter((x) => cham[`${i}-${x.o}`]).map((x) => x.loi);
+        const loi = loiTungO(b, soCu).filter((x) => cham[`${i}-${x.o}`]).map((x) => x.loi);
         return (
         <div key={i} className={(trongPopup && i === 0 ? "" : "mt-3 border-t border-border pt-3 ") + "space-y-2"}>
           <div className="flex items-center justify-between">
@@ -114,12 +114,12 @@ export function GplxDaCoKhoi({ ds, onDoi, lanGui = 0, rong = false, trongPopup =
               <input
                 id={`gplx-so-${i}`}
                 className="field-input mt-1"
-                inputMode="numeric"
-                maxLength={20}
+                autoCapitalize="characters"
+                autoComplete="off"
                 value={b.so}
                 placeholder="12 chữ số"
                 onChange={(e) => {
-                  const so = e.target.value.replace(/\|/g, "");
+                  const so = locSoGplx(e.target.value); // CHANGES #101: 12 số, hoặc bằng giấy cũ 2 chữ + 6 số
                   sua(i, { so, don_vi: noiCapKhiDoiSo(b.so, so, b.don_vi, DS_NOI_CAP_GPLX) }); // điền sẵn nơi cấp theo 2 số đầu
                 }}
                 onBlur={roi(i, "so")}
@@ -149,7 +149,7 @@ export function GplxDaCoKhoi({ ds, onDoi, lanGui = 0, rong = false, trongPopup =
               )}
             </div>
           </div>
-          {soGplxLa(b.so) && <p className="text-[12px] text-warning">Số GPLX thường có 12 chữ số — kiểm lại, vẫn gửi được.</p>}
+          {soCuSaiDang(b.so, soCu) && <p className="text-[12px] text-warning">Số GPLX đã lưu từ trước, sai dạng 12 số — kiểm lại khi có bằng thật; giữ nguyên vẫn lưu được.</p>}
           {loi.length > 0 && <p className="text-[12px] text-destructive">{loi.join(" · ")}</p>}
         </div>
         );

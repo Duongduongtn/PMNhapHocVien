@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  DS_HANG_GPLX, bangMoi, bangTrong, nhanHangGon, tomTatGplx, type BangGplx, dienNoiCapTheoSo, docBang, noiCapKhiDoiSo, suyNoiCapGplx, duocMienLyThuyet, gomBang, khoaHang, loiBang, soGplxLa, tachKhoaHang, tenHang, trungHangDangKy,
+  DS_HANG_GPLX, bangMoi, bangTrong, nhanHangGon, tomTatGplx, type BangGplx, dienNoiCapTheoSo, docBang, noiCapKhiDoiSo, suyNoiCapGplx, duocMienLyThuyet, gomBang, khoaHang, loiBang, locSoGplx, soCuSaiDang, soGplxLa, tachKhoaHang, tenHang, trungHangDangKy,
 } from "./gplxDaCo";
 
 const b = (over = {}) => ({ ...bangMoi(), hang: "B2", so: "790000000123", ngay_tt: "15/08/2012", ngay_cap: "27/04/2018", ...over });
@@ -68,6 +68,15 @@ describe("thông báo nghiệp vụ", () => {
     expect(soGplxLa("790000000123")).toBe(false);
     expect(soGplxLa("7900")).toBe(true);
     expect(soGplxLa("")).toBe(false);
+    // CHANGES #101
+    expect(soGplxLa("AY 123456")).toBe(false);
+    expect(soGplxLa("79000000012")).toBe(true);
+    expect(locSoGplx("ay123456")).toBe("AY 123456");
+    expect(locSoGplx("AY 123 456")).toBe("AY 123456");
+    expect(locSoGplx("GPLX 790000000123")).toBe("790000000123");
+    expect(locSoGplx("79000000012345")).toBe("790000000123");
+    expect(loiBang({ ...bangMoi(), hang: "B2", so: "7900000001234", ngay_tt: "15/08/2012", ngay_cap: "27/04/2018" }))
+      .toContain("Số GPLX phải đủ 12 chữ số (bằng giấy cũ: 2 chữ cái + 6 số)");
   });
   it("lỗi chặn: thiếu hạng, số, ngày sai; bằng mô tô bỏ qua hết hạn", () => {
     expect(loiBang(bangMoi())).toEqual(["Chưa chọn hạng", "Chưa nhập số GPLX", "Chưa nhập ngày trúng tuyển", "Chưa nhập ngày cấp"]);
@@ -113,5 +122,14 @@ describe("Tóm tắt + badge GPLX (popup, CHANGES #99)", () => {
     expect(nhanHangGon([b({ hang: "B2" })])).toBe("B2");
     expect(nhanHangGon([b({ hang: "B2" }), b({ nhom: "moi", hang: "A1m" }), b({ hang: "C" }), b({ hang: "D" })])).toBe("B2·A1 +2");
     expect(bangTrong(bangMoi())).toBe(true);
+  });
+});
+
+describe("CHANGES #101 — số GPLX cũ đã lưu sai dạng", () => {
+  const b = { ...bangMoi(), hang: "B2", so: "79000000012", ngay_tt: "15/08/2012", ngay_cap: "27/04/2018" };
+  it("giữ nguyên số cũ thì không chặn, chỉ nhắc; số mới sai thì chặn", () => {
+    expect(loiBang(b, new Set(["79000000012"]))).toEqual([]);
+    expect(soCuSaiDang(b.so, new Set(["79000000012"]))).toBe(true);
+    expect(loiBang({ ...b, so: "79000000013" }, new Set(["79000000012"]))).toContain("Số GPLX phải đủ 12 chữ số (bằng giấy cũ: 2 chữ cái + 6 số)");
   });
 });

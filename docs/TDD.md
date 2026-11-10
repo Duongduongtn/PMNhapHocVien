@@ -974,6 +974,7 @@ Suy từ `KhoaHoc` thật (`B`→`B1`, `B.01`→`B11`, `C1`→`C1`) + mô tả d
 - **Kéo lại từ VPS:** `keo_ve_upsert` làm tươi `keo_ve.gplx_da_co_json` khi dòng còn `cho`. Nháp khác NULL vẫn được ưu tiên (NULL = chưa sửa, `'[]'` = đã xóa hết, JSON = bản đã sửa). UI so nháp với `keo_ve`: khác nhau và VPS vừa đổi thì hiện cờ "App web có bản mới" + nút "Dùng bản app web" (đưa nháp về NULL). `goiNhap` gửi đủ trường mỗi lần lưu nên `nhap_luu` (`INSERT OR REPLACE`) không làm mất cột này. Sửa ở app web: `GET /cua-toi` trả kèm để form hiện đúng.
 - **Sau khi nạp:** `keo_ve_cap_nhat(..., gplx_da_co_json=…)` ghi danh sách đã nạp TRƯỚC `nhap_xoa`, để chip + lọc tab Đã nạp vẫn đúng. Dòng `xong` không bị `keo_ve_upsert` đè. Gỡ về chờ nạp (QLY-08) rồi kéo lại thì lấy lại giá trị VPS (chấp nhận).
 - **Chip + lọc:** `nhap_co` trả thêm `gplx_da_co_json`, `_KEO_COLS` thêm cột; dữ liệu nhỏ, không phải ảnh.
+- **Số GPLX (CHANGES #101):** biểu thức chung `^(\d{12}|[A-Z]{2} ?\d{6})$` ở app web (`webapp/src/lib/gplxDaCo.ts` `SO_GPLX_HOP_LE`, `locSoGplx`), tool webui (`gplxDaCo.ts`), tool backend (`nap.SO_GPLX_HOP_LE` trong `dung_chuoi_gplx_da_co` — dùng chung nạp + bổ sung sau nạp) và VPS (`GplxBang.so`, 422). Đối chiếu DB Nạp 10/11/2026: 6.833/6.974 bằng 12 số; 48 bằng giấy bìa cũ `AY 123456`/`AH123456` (cấp 2005–2013, A1 không thời hạn còn hiệu lực); 84 bằng 11/13 số cấp 2013–2018 là gõ sai. *Vì sao không ép đúng 12 số: chặn mất người có bằng giấy cũ còn hiệu lực.* **Số đã lưu từ trước giữ nguyên thì không chặn** (user chốt): VPS so với `gplx_da_co` đang lưu (`_kiem_so_moi`, hồ sơ mới thì không có số cũ), tool nạp so với bản kéo về (`nap.so_gplx_keo_ve`), tool bổ sung so với chuỗi DB đang có (`tho.SoGPLXDaCo`), app web so với bản VPS của hồ sơ; giao diện nhắc vàng thay vì báo đỏ. *Vì sao: 84 bằng cũ 11/13 số đã nằm trong dữ liệu; chặn cả danh sách thì không bổ sung thêm bằng được khi người nhập không biết số đúng.*
 - **Quy tắc khớp form cũ** (chuỗi thông báo trong `FPT.GPLX.CSDT.dll`, đối chiếu 6.973 hồ sơ): bắt buộc hạng, số, ngày cấp, ngày trúng tuyển (0 hồ sơ thiếu); "GPLX hiện có không được chứa hạng cần cấp" (0 hồ sơ trùng) → **chặn**; ngày cấp không trước trúng tuyển (0 vi phạm), không sau hôm nay; hết hạn sau ngày cấp (4 vi phạm cũ); đủ 18 tuổi khi cấp. Trùng hạng và 18 tuổi chỉ kiểm ở tool (VPS chưa biết khóa). Số GPLX 98% dài 12 chữ số; khác thì nhắc, không chặn.
 - **Migrate:** SQLite `keo_ve` + `nhap_chuan_bi` dùng guard `PRAGMA table_info` + `ALTER` như `ngay_cap`. VPS: `init.sql` chỉ chạy cho DB mới, nên API tự chạy `ALTER TABLE ho_so_thu_thap ADD COLUMN IF NOT EXISTS gplx_da_co JSONB` lúc khởi động, trước khi nhận truy vấn; checklist deploy kiểm `\d ho_so_thu_thap`. Model dùng `JSON().with_variant(JSONB, "postgresql")`.
 - **PII:** `gplx_da_co` là dữ liệu cá nhân: `jobs/pii.py` dọn cùng số căn cước; xóa mềm hồ sơ (THU-05) đặt NULL, job 30 ngày dọn luôn dòng `deleted` (trước đó bỏ sót, còn giữ `so_cccd` mãi); không ghi vào audit/log; lỗi 422 không log giá trị trường này. Bản ở `keo_ve` máy tool cùng nhóm PII staging như `so_cccd`.
@@ -1072,6 +1073,14 @@ Khóa đã lập Báo cáo 1: vẫn CẢNH BÁO, khối chỉ xem, chỉ Bỏ qu
 - Chỉ so và báo hồ sơ `cho`. Hồ sơ `loi` không có cảnh báo (nhân viên đang xem lỗi của nó); nạp lại thành công thì cảnh báo chưa xem của nó mất theo.
 - Giao diện chỉ nhận phản hồi mới nhất của danh sách cảnh báo (bộ đếm yêu cầu); "Đã xem" lỗi thì báo lỗi và cảnh báo vẫn còn. Số `thay_doi` trong kết quả kéo là tổng cảnh báo chưa xem, không phải số hồ sơ đổi riêng lượt này.
 - PII: bảng chỉ chứa uuid, mã trường, giờ; không có giá trị cá nhân. Tên học viên lấy từ `keo_ve` lúc đọc.
+
+### 10.9 Cảnh báo tuổi khi nạp (NAP-09 — CHANGES #102)
+> **Phục vụ:** `NAP-09`. *Vì sao lấy tuổi từ `DM_HangDT.TuoiHV` mà không tự đặt bảng: đó là số phần mềm cũ dùng (ô "Tuổi tối thiểu" màn khóa học) và có cả mức nâng hạng (19, 23, 30…); tự đặt bảng dễ lệch Sở.*
+
+- **Nguồn tuổi:** `GET /local/khoa-hoc` trả thêm `tuoi_hv` = `DM_HangDT.TuoiHV` nối theo `KhoaHoc.HangDT` (`LEFT JOIN`, thiếu → `null` → không kiểm). DB Nạp 10/11/2026: mọi `HangDT` đều có `TuoiHV` (18 cấp mới A*/B*/C1; 21 C/BE/Cm; 24 D1/D2/C1E/CE; 27 D/DE…; nâng hạng 19/23/30), khớp Luật TTATGTĐB 2024 Điều 59.
+- **Ngày tính tuổi:** ngày nạp (hôm nay, giờ máy tool) — user chốt; quy định đào tạo tính tới ngày sát hạch nhưng 425/460 khóa chưa nhập `NgaySH`.
+- **Tính:** hàm thuần `kiemTuoi(ngaySinh yyyymmdd, tuoiToiThieu, homNay)` (`tool/webui/src/pages/tool/napSanSang.ts`) → `{du, tuoi, ngayDuTuoi, conThieuNgay}`; ngày đủ tuổi = cùng ngày/tháng sinh của năm sinh + tuổi tối thiểu, 29/02 năm không nhuận → 01/03. Ngày sinh hỏng → coi như không kiểm được, không cảnh báo (đã có luật thiếu ngày sinh ở BUG-24).
+- **Luồng:** `chayNapLo` / `moNapDialog` dựng `NapIn[]` → lọc người chưa đủ tuổi → có thì mở `CanhBaoTuoiDialog` (rộng, bảng + ô chọn Nạp, mặc định chọn hết) → user bấm Tiếp tục → nạp danh sách đã lọc theo đường cũ; Hủy thì dừng. Không đổi backend nạp, VPS, app web.
 
 ## 11. Quản lý hồ sơ đã có & tạo khóa (tool)
 
@@ -2222,6 +2231,8 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 | --- | --- | --- |
+| 10/11/2026 | 6.47 | +§10.9 cảnh báo tuổi khi nạp: `tuoi_hv` từ `DM_HangDT.TuoiHV`, tính tại ngày nạp, popup `CanhBaoTuoiDialog` (NAP-09, CHANGES #102). |
+| 10/11/2026 | 6.46 | §10.6 số GPLX chỉ nhận 12 chữ số hoặc 2 chữ + 6 số, chặn ở cả app web/tool/VPS (CHANGES #101). |
 | 10/11/2026 | 6.45 | Màn Nạp: hồ sơ thiếu họ tên/ngày sinh/giới tính là "chưa sẵn sàng" (chip Thiếu TT + dòng báo ở ngăn), không lặng lẽ loại khỏi lô; giới tính trống suy từ chữ số thứ 4 CCCD (chẵn Nam, lẻ Nữ), bỏ mặc định "M" (BUG-24). |
 | 10/11/2026 | 6.44 | Nạp lô: HV vào DB mà ghi file ảnh lỗi (`anh_loi`) → dòng vẫn `xong` + `canh_bao` "Thiếu ảnh" (lưu ở `keo_ve.loi`), hộp nạp hiện vàng, nút Bổ sung ảnh đếm cả ca này (BUG-23). |
 | 10/11/2026 | 6.43 | §10.1/§10.3: SoHoSo ghi đúng cách code chạy — lấp khe (BUG-9), không phải MAX+1; user xác nhận giữ (A4). |

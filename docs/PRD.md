@@ -374,7 +374,8 @@
 - ⬜ Ghi qua 6 tham số `@p_*DaCo` của SP gộp: một bằng ghi thẳng; nhiều bằng nối `|` theo cùng thứ tự ở mọi cột (hạng `A1|B2`); ngày nhập `dd/mm/yyyy`, lưu `yyyymmdd`; ô trống giữ vị trí. `NoiCapGPLXDaCo` = chuỗi rỗng theo số bằng (`''` hoặc `|`). Không có bằng → chuỗi rỗng `''` cả 7 cột, không bao giờ NULL như phần mềm cũ (CHANGES #98). **Không thêm bớt cột nào ở DB Nạp.**
 - ⬜ Dòng học viên có **badge nền xanh "GPLX B2·A1"** (tối đa 2 hạng rồi "+n", CHANGES #99), cùng badge ở đầu ngăn Chuẩn bị cạnh tên học viên — hồ sơ app web gửi có GPLX đã có là thấy ngay; bộ lọc "Có GPLX đã có" kèm số lượng, dùng ở cả tab Cần xử lý và Đã nạp.
 - ⬜ Hồ sơ kéo từ VPS có GPLX đã có (`THU-07`) → tự điền, ghi chú "Từ app web", sửa được; bản nhân viên sửa được ưu tiên và không bị lần kéo sau đè; nếu app web đổi sau đó thì hiện cờ "App web có bản mới" kèm nút "Dùng bản app web".
-- ⬜ Khóa `A1`/`Am`/`A1m` + có bằng ô tô → dòng báo "miễn thi lý thuyết". Số GPLX khác 12 chữ số → nhắc, không chặn. Bằng mô tô ẩn ô Ngày hết hạn.
+- ⬜ Khóa `A1`/`Am`/`A1m` + có bằng ô tô → dòng báo "miễn thi lý thuyết". Bằng mô tô ẩn ô Ngày hết hạn.
+- ⬜ **Số GPLX chỉ nhận 2 dạng** (CHANGES #101): đúng **12 chữ số** (thẻ PET), hoặc **bằng giấy bìa cũ 2 chữ cái + 6 số** (`AY 123456`, có/không dấu cách). Gõ thì tự viết hoa, bỏ ký tự lạ, tối đa 12 số; sai dạng (vd 11, 13 số) báo đỏ, không lưu/gửi/nạp được. Ô dùng bàn phím thường (bằng giấy có chữ).
 - ⬜ **Quy tắc khớp form cũ (chặn nạp):** bắt buộc hạng, số GPLX, ngày trúng tuyển, ngày cấp; GPLX đã có không được trùng hạng đăng ký của khóa; ngày cấp không trước ngày trúng tuyển, không sau hôm nay; ngày hết hạn sau ngày cấp; đủ 18 tuổi khi cấp.
 - ⬜ Dữ liệu sai (hạng ngoài danh sách, ngày không hợp lệ, chứa `|`, chuỗi nối quá 100 ký tự) → từ chối và báo rõ: VPS trả 422 ngay lúc gửi; tool nạp lô báo lỗi đúng dòng học viên đó, nạp đơn trả 400.
 - ⬜ **Nghiệm thu máy CSĐT:** nạp thật 1 học viên một bằng + 1 học viên hai bằng; mở phần mềm cũ xem hiển thị; nội dung sát hạch ra miễn lý thuyết; Đồng bộ CDB giữ nguyên chuỗi.
@@ -416,6 +417,21 @@
 
 > Nguồn: user 04/11/2026 · CHANGES #92 · khuôn `NAP-07` (cờ "App web có bản mới"), `NAP-01` (kéo làm tươi, reset địa chỉ). Phụ thuộc `NAP-01`.
 
+#### [NAP-09] Cảnh báo tuổi học viên khi nạp vào khóa
+
+**Trạng thái:** ⚠️ Partial — code + test xong 10/11/2026 (vitest, e2e popup bỏ chọn/hủy/không ai thiếu tuổi; API thật trả `tuoi_hv`), mock `ui-mock/canhbaotuoi.html` user duyệt; chưa đóng gói exe, chưa nghiệm thu máy CSĐT.
+**Story:** Là nhân viên nạp DB, tôi muốn được cảnh báo học viên chưa đủ tuổi học hạng của khóa trước khi nạp, để không nạp nhầm người chưa đủ điều kiện sát hạch.
+
+**Done khi:**
+- ⬜ Bấm nạp (một học viên hoặc cả lô): tool so ngày sinh với **tuổi tối thiểu của hạng đào tạo của khóa** (`DM_HangDT.TuoiHV` — số phần mềm cũ hiện ở ô "Tuổi tối thiểu"; khớp Luật TTATGTĐB 2024 Điều 59: 18 · 21 · 24 · 27, nâng hạng có mức riêng), tính **tại ngày nạp (hôm nay)** — user chốt 10/11/2026.
+- ⬜ Có người chưa đủ tuổi → **popup rộng** hiện trước khi nạp: khóa, hạng đào tạo, tuổi tối thiểu, ngày tính tuổi; bảng từng người: họ tên · ngày sinh · tuổi hiện tại · **ngày đủ tuổi** (dd/mm/yyyy) · còn thiếu bao nhiêu ngày · ô chọn **Nạp**.
+- ⬜ Mặc định vẫn chọn nạp hết; user bỏ chọn từng người, hoặc bấm "Bỏ hết người chưa đủ tuổi"; "Tiếp tục nạp N học viên" chỉ nạp người còn chọn cùng người đã đủ tuổi; "Hủy" không nạp gì.
+- ⬜ Không ai chưa đủ tuổi → không hiện popup, nạp như cũ. Khóa không có số tuổi tối thiểu trong DB → không kiểm (không chặn).
+- ⬜ Ngày đủ tuổi: sinh 29/02 mà năm đủ tuổi không nhuận → 01/03.
+- ❌ Không chặn cứng (chỉ cảnh báo, user quyết). Không kiểm tuổi tối đa. Không kiểm ở app web.
+
+> Nguồn: user 10/11/2026 · CHANGES #102.
+
 #### [THU-07] Nhập GPLX đã có ở app web
 
 **Trạng thái:** ⚠️ Partial — bổ sung sau khi đã nạp đã code + test 03/11/2026 (CHANGES #89, #90), đã deploy 03/11/2026 commit 12d6b21; chưa thử thật trên điện thoại. Phần trước khi nạp giữ nguyên: đã deploy 02/11/2026 và thử nối API thật về tool khớp (CHANGES #81-#84); CHANGES #86 đã deploy `f8f3fb7`; chưa bấm thật trên điện thoại rồi gửi kèm ảnh.
@@ -427,6 +443,7 @@
 - ⬜ Lưu lên VPS khi gửi hồ sơ, sửa được khi hồ sơ còn sửa được; tool kéo về nhận được.
 - ⬜ Số GPLX nằm trong cơ chế dọn dữ liệu cá nhân 30 ngày như số căn cước.
 - ⬜ **Nơi cấp điền sẵn theo số GPLX** (CHANGES #98): nhập đủ 12 chữ số thì ô Nơi cấp đang trống tự điền tỉnh theo 2 số đầu, sửa được; cùng quy tắc `NAP-07`.
+- ⬜ **Số GPLX chỉ nhận 2 dạng** (CHANGES #101): đúng **12 chữ số** (thẻ PET), hoặc **bằng giấy bìa cũ 2 chữ cái + 6 số** (`AY 123456`, có/không dấu cách). Gõ thì tự viết hoa, bỏ ký tự lạ, tối đa 12 số; sai dạng (vd 11, 13 số) báo đỏ, không lưu/gửi/nạp được. Ô dùng bàn phím thường (bằng giấy có chữ). Cùng luật `NAP-07`; VPS cũng chặn (422).
 - ⬜ Dùng tốt ở khổ điện thoại 375px.
 - ✅ **Bổ sung sau khi đã nạp (CHANGES #89):** hồ sơ Đã nạp có nút "Bổ sung GPLX", mở cùng khối nhập; lưu lên VPS, hồ sơ giữ trạng thái Đã nạp, thời hạn 30 ngày tính lại từ lần bổ sung, **ngay sau khi gửi** hiện "Đang chờ người nạp đưa vào hệ thống" (mở lại hồ sơ không hiện nữa, vì VPS không biết người nạp đã duyệt hay chưa; user chốt 03/11/2026). Chưa có bằng nào thì không lưu được (muốn xóa GPLX đã có trong DB thì làm ở tool). Các thông tin khác vẫn khóa. Chỉ hồ sơ của mình; Đang nạp hoặc đã xóa bị chặn.
 - ✅ Người nạp duyệt mới vào DB (`QLY-10`); app web không ghi trực tiếp vào DB.
@@ -1660,6 +1677,8 @@
 | 02/11/2026 | v4.27 — `THU-01`, `THU-07` báo lỗi form dễ sửa trên điện thoại, chữ ô nhập 16px (CHANGES #86, sau critique giao diện). | BA/PM |
 | 02/11/2026 | v4.28 — `THU-01` thông báo đã gửi nêu tên học viên (CHANGES #87). | BA/PM |
 | 02/11/2026 | v4.29 — `KQD-08` nhận cả mẫu PDF DAT cũ và mới (CHANGES #88). | BA/PM |
+| 10/11/2026 | v4.42 — **+`NAP-09`** cảnh báo tuổi học viên khi nạp vào khóa (tuổi theo hạng đào tạo, tính tại ngày nạp, popup bỏ chọn từng người) (CHANGES #102). |
+| 10/11/2026 | v4.41 — `NAP-07`, `THU-07`: số GPLX đã có chỉ nhận 12 chữ số hoặc bằng giấy cũ 2 chữ + 6 số, sai dạng chặn (trước chỉ nhắc) (CHANGES #101). |
 | 10/11/2026 | v4.40 — `THU-01`: thanh tiến độ nhập hồ sơ ở thanh nút đáy, bấm nhảy tới ô thiếu; bỏ dòng "Còn thiếu" cuối form (CHANGES #100). Hạ ⏳ Todo. |
 | 10/11/2026 | v4.39 — `NAP-07`, `THU-07`: GPLX đã có nhập trong popup, form chỉ còn dòng tóm tắt; tool có badge "GPLX B2·A1" ở dòng danh sách và đầu ngăn Chuẩn bị (CHANGES #99). |
 | 10/11/2026 | v4.38 — `NAP-07`, `THU-07`: Nơi cấp GPLX đã có điền sẵn theo 2 số đầu số GPLX, sửa được; 7 cột GPLX đã có ghi chuỗi rỗng như phần mềm cũ, không NULL (CHANGES #98). `NAP-05`: BUG-20 giấy tờ trống ở khóa hạng mới. |

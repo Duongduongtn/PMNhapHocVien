@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { ComboLoc } from "../../components/ComboLoc";
 import { ODate } from "../../components/ODate";
 import {
-  DS_HANG_GPLX, bangMoi, dienNoiCapTheoSo, duocMienLyThuyet, khoaHang, laBangMoTo, loiBang, noiCapKhiDoiSo, soGplxLa, suyNoiCapGplx, tachKhoaHang, trungHangDangKy,
+  DS_HANG_GPLX, bangMoi, dienNoiCapTheoSo, duocMienLyThuyet, khoaHang, laBangMoTo, loiBang, noiCapKhiDoiSo, locSoGplx, soCuSaiDang, suyNoiCapGplx, tachKhoaHang, trungHangDangKy,
   type BangGplx,
 } from "./gplxDaCo";
 
@@ -18,6 +18,7 @@ export function GplxDaCoKhoi({
   onDungBanWeb,
   chuLuu = "nạp",
   trongPopup = false,
+  soCu,
 }: {
   ds: BangGplx[];
   onDoi: (ds: BangGplx[]) => void;
@@ -28,6 +29,7 @@ export function GplxDaCoKhoi({
   onDungBanWeb: () => void;
   chuLuu?: string; // động từ trong câu chặn trùng hạng: "nạp" ở màn Nạp, "lưu" ở hộp bổ sung
   trongPopup?: boolean;
+  soCu?: Set<string>; // số GPLX đã lưu từ trước — giữ nguyên thì không chặn dạng (CHANGES #101)
 }) {
   const sua = (i: number, p: Partial<BangGplx>) => onDoi(ds.map((b, j) => (j === i ? { ...b, ...p } : b)));
   // Nơi cấp trống mà số GPLX đủ 12 số → điền sẵn theo 2 số đầu (cả bằng app web gửi về). Đã có nơi cấp thì giữ.
@@ -84,12 +86,11 @@ export function GplxDaCoKhoi({
                   <input
                     id={`gplx-so-${i}`}
                     className="field-input mt-1"
-                    inputMode="numeric"
-                    maxLength={20}
+                    autoComplete="off"
                     value={b.so}
                     placeholder="12 chữ số"
                     onChange={(e) => {
-                      const so = e.target.value.replace(/\|/g, "");
+                      const so = locSoGplx(e.target.value); // CHANGES #101: 12 số, hoặc bằng giấy cũ 2 chữ + 6 số
                       sua(i, { so, don_vi: noiCapKhiDoiSo(b.so, so, b.don_vi, noiCap) }); // điền sẵn nơi cấp theo 2 số đầu
                     }}
                   />
@@ -111,8 +112,8 @@ export function GplxDaCoKhoi({
                   )}
                 </div>
               </div>
-              {soGplxLa(b.so) && <p className="text-[12px] text-warning">Số GPLX thường có 12 chữ số — kiểm lại, vẫn lưu được.</p>}
-              {loiBang(b).length > 0 && <p className="text-[12px] text-destructive">{loiBang(b).join(" · ")}</p>}
+              {soCuSaiDang(b.so, soCu) && <p className="text-[12px] text-warning">Số GPLX đã lưu từ trước, sai dạng 12 số — kiểm lại khi có bằng thật; giữ nguyên vẫn lưu được.</p>}
+              {loiBang(b, soCu).length > 0 && <p className="text-[12px] text-destructive">{loiBang(b, soCu).join(" · ")}</p>}
             </div>
           ))}
           <button type="button" className="btn btn-secondary btn-row mt-3" onClick={() => onDoi([...ds, bangMoi()])}>+ Thêm GPLX</button>

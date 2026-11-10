@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DS_HANG_GPLX, DS_NOI_CAP_GPLX, bangMoi, bangTrong, tomTatGplx, type BangGplx, chonKhiEnter, locLuaChon, loiBang, loiDanhSach, loiTungO, noiCapKhiDoiSo, oSaiDau, sangServer, soGplxLa, suyNoiCapGplx, tuServer } from "./gplxDaCo";
+import { DS_HANG_GPLX, DS_NOI_CAP_GPLX, bangMoi, bangTrong, tomTatGplx, type BangGplx, chonKhiEnter, locLuaChon, loiBang, loiDanhSach, loiTungO, noiCapKhiDoiSo, oSaiDau, sangServer, soCuTu, soGplxLa, locSoGplx, suyNoiCapGplx, tuServer } from "./gplxDaCo";
 import { boDau } from "./text";
 
 const b = (over = {}) => ({ ...bangMoi(), hang: "B2", so: "790000000123", ngay_tt: "15/08/2012", ngay_cap: "27/04/2018", ...over });
@@ -54,6 +54,21 @@ describe("GPLX đã có ở app web", () => {
   it("số khác 12 chữ số chỉ nhắc", () => {
     expect(soGplxLa("7900")).toBe(true);
     expect(soGplxLa("790000000123")).toBe(false);
+    // CHANGES #101: chỉ 12 số hoặc bằng giấy cũ 2 chữ + 6 số; 11/13 số là sai
+    expect(soGplxLa("AY 123456")).toBe(false);
+    expect(soGplxLa("AH123456")).toBe(false);
+    expect(soGplxLa("79000000012")).toBe(true);
+    expect(soGplxLa("7900000001234")).toBe(true);
+    expect(locSoGplx("7900-0000 0123 99")).toBe("790000000123");
+    expect(locSoGplx("ay 123456")).toBe("AY 123456");
+    expect(locSoGplx("AY1234567")).toBe("AY 123456");
+    expect(locSoGplx("A Y 123 456")).toBe("AY 123456");      // dán có cách quãng — không mất số
+    expect(locSoGplx("Số: 790000000123")).toBe("790000000123"); // tiền tố chữ — lấy dãy số
+    expect(locSoGplx("GPLX 790000000123")).toBe("790000000123");
+    expect(locSoGplx("O79000000012")).toBe("79000000012");   // gõ nhầm chữ O ở đầu — không nuốt số
+    expect(locSoGplx("A")).toBe("A");
+    expect(locSoGplx("AY")).toBe("AY");
+    expect(loiTungO({ ...bangMoi(), hang: "B2", nhom: "cu", so: "79000000012", ngay_tt: "15/08/2012", ngay_cap: "27/04/2018", ngay_hh: "27/04/2028" }).map((x) => x.o)).toEqual(["so"]);
   });
   it("danh sách Nơi cấp theo DM_DonViGTVT, tìm được theo mã và tên không dấu", () => {
     const tim = (q: string) => DS_NOI_CAP_GPLX.filter((o) => boDau(o.ten).includes(boDau(q))).map((o) => o.ma);
@@ -92,5 +107,15 @@ describe("Tóm tắt GPLX ở form (popup, CHANGES #99)", () => {
   it("bằng chưa nhập ô nào coi như không có", () => {
     expect(bangTrong(bangMoi())).toBe(true);
     expect(bangTrong(b({ don_vi: "70" }))).toBe(false);
+  });
+});
+
+describe("CHANGES #101 — số GPLX cũ đã lưu sai dạng", () => {
+  const b: BangGplx = { ...bangMoi(), hang: "B2", so: "79000000012", ngay_tt: "15/08/2012", ngay_cap: "27/04/2018", ngay_hh: "27/04/2028" };
+  it("giữ nguyên số đã lưu trên VPS thì không chặn; đổi sang số sai khác thì chặn", () => {
+    const soCu = soCuTu([b]);
+    expect(loiDanhSach([b], soCu)).toBeNull();
+    expect(loiDanhSach([b])).toMatch(/12 chữ số/);
+    expect(loiDanhSach([{ ...b, so: "79000000013" }], soCu)).toMatch(/12 chữ số/);
   });
 });

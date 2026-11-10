@@ -71,6 +71,9 @@ def test_khong_doi_so_va_thu_tu_tham_so_sp():
     ({"hang": ""}, "hạng"),
     ({"so": ""}, "số"),
     ({"so": "1" * 21}, "số"),
+    ({"so": "79000000012"}, "12 chữ số"),     # CHANGES #101: 11 số — gõ thiếu
+    ({"so": "7900000001234"}, "12 chữ số"),   # 13 số — gõ thừa
+    ({"so": "ay123456"}, "12 chữ số"),        # chữ thường: app web/tool đã viết hoa, server không tự sửa
     ({"so": "12|3"}, "|"),
     ({"don_vi": "700"}, "nơi cấp"),
     ({"ngay_cap": "20181332"}, "ngày cấp"),
@@ -110,7 +113,7 @@ def test_qua_nhieu_bang_va_vuot_100_ky_tu():
     with pytest.raises(ValueError, match="tối đa"):
         nap.dung_chuoi_gplx_da_co([B2] * 9)
     with pytest.raises(ValueError, match="100 ký tự"):
-        nap.dung_chuoi_gplx_da_co([{**B2, "so": "1" * 20}] * 8)
+        nap.dung_chuoi_gplx_da_co([{**B2, "so": "1" * 12}] * 8)  # 8 × 12 số + 7 dấu | = 103 > 100
 
 
 @pytest.fixture
@@ -203,3 +206,20 @@ def test_nap_don_sai_gplx_tra_400_truoc_khi_dung_db(auth_headers):
         "gplx_da_co": [{"hang": "Z9", "so": "1", "ngay_tt": "20100101", "ngay_cap": "20180101"}]})
     assert r.status_code == 400
     assert "hạng" in r.json()["detail"]
+
+
+def test_so_gplx_bang_giay_cu_hop_le():
+    """CHANGES #101: bằng giấy bìa cũ 2 chữ cái + 6 số vẫn nạp được (có/không dấu cách)."""
+    for so in ("AY 123456", "AH123456"):
+        assert nap.dung_chuoi_gplx_da_co([{**B2, "so": so}], "A1m")["p_SoGPLXDaCo"] == so
+
+
+
+def test_so_cu_sai_dang_giu_nguyen_thi_qua_so_moi_sai_thi_chan():
+    """CHANGES #101: số đã lưu từ trước (DB/app web) giữ nguyên thì không chặn dạng; số mới sai dạng vẫn chặn."""
+    cu = {**B2, "so": "79000000012"}
+    assert nap.dung_chuoi_gplx_da_co([cu], "A1m", so_cu={"79000000012"})["p_SoGPLXDaCo"] == "79000000012"
+    with pytest.raises(ValueError, match="12 chữ số"):
+        nap.dung_chuoi_gplx_da_co([cu], "A1m")
+    with pytest.raises(ValueError, match="12 chữ số"):
+        nap.dung_chuoi_gplx_da_co([cu, {**B2, "hang": "C", "so": "7900000004"}], "A1m", so_cu={"79000000012"})

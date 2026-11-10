@@ -144,7 +144,8 @@ def _nap_mot(body: NapIn) -> dict:
     trùng CCCD / SP từ chối), ConfigChuaDay, Exception (lỗi DB). Trả dict kết quả đầy đủ.
     SP gộp atomic → lỗi tự rollback, bản ghi KHÔNG nửa vời.
     """
-    nap.dung_chuoi_gplx_da_co(body.gplx_da_co, ngay_sinh=body.ngay_sinh)  # sai → báo ngay, trước khi đụng DB
+    so_cu = nap.so_gplx_keo_ve(body.uuid)  # CHANGES #101: số app web gửi từ trước giữ nguyên thì không chặn dạng
+    nap.dung_chuoi_gplx_da_co(body.gplx_da_co, ngay_sinh=body.ngay_sinh, so_cu=so_cu)  # sai → báo ngay, trước khi đụng DB
     try:
         jp2 = base64.b64decode(body.anh_jp2_b64) if body.anh_jp2_b64 else None
     except Exception:
@@ -201,6 +202,7 @@ def _nap_mot(body: NapIn) -> dict:
             "noi_ct_ma_dvql": body.noi_ct_ma_dvql or body.noi_tt_ma_dvql,
             "chon_in_gplx": body.chon_in_gplx,               # None → build_params_sp_gop chọn theo hạng khóa
             "gplx_da_co": body.gplx_da_co,
+            "gplx_so_cu": so_cu,
         }
         # nguoi="" → NguoiNhanHSo/NguoiThuNhanAnh trống, khớp app cũ (55/55 HV thật để trống)
         return nap.nap_mot_hv(conn, hv, khoa, jp2, img_path, "", body.uuid, giay_to)

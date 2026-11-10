@@ -57,9 +57,9 @@ def tach_chuoi_gplx(row: dict) -> tuple[list[dict], bool]:
     return ds, lech
 
 
-def gia_tri_ghi(ds: list[dict], hang_dang_ky: str | None, ngay_sinh: str | None) -> dict[str, str]:
+def gia_tri_ghi(ds: list[dict], hang_dang_ky: str | None, ngay_sinh: str | None, so_cu=()) -> dict[str, str]:
     """Danh sách bằng → giá trị 6 cột, cùng quy tắc nạp mới (NAP-07). Sai → ValueError. Rỗng → '' (không NULL)."""
-    kq = dung_chuoi_gplx_da_co(ds, hang_dang_ky, ngay_sinh)
+    kq = dung_chuoi_gplx_da_co(ds, hang_dang_ky, ngay_sinh, so_cu)
     return {c: kq[ts] for (c, _), (ts, _) in zip(GPLX_COT, _GPLX_THAM_SO)}
 
 
@@ -86,7 +86,8 @@ def ket_qua_doc(ma_dk: str, row: dict, chan: str | None) -> dict:
 def ghi(cur, ma_dk: str, row: dict, ds: list[dict], tho: dict[str, str]) -> bool:
     """UPDATE 6 cột (+ NoiCapGPLXDaCo rỗng theo số bằng) nếu DB còn đúng chuỗi thô đã đọc lúc mở. Trả False khi dữ liệu đã đổi.
     Sai dữ liệu → ValueError. Không đổi TT_XuLy hay cột nào khác."""
-    moi = gia_tri_ghi(ds, row.get("HangGPLX"), row.get("NgaySinh"))
+    so_cu = {s.strip() for s in (tho.get("SoGPLXDaCo") or "").split("|")} - {""}  # CHANGES #101: số đang có trong DB
+    moi = gia_tri_ghi(ds, row.get("HangGPLX"), row.get("NgaySinh"), so_cu)
     cur.execute(_SQL_GHI, (*[moi[c] for c in TEN_COT], nap.noi_cap_gplx_rong(ds), ma_dk, *[tho[c] for c in TEN_COT]))
     return cur.rowcount > 0
 

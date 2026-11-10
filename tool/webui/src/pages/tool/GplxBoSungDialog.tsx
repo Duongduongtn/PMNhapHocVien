@@ -63,7 +63,9 @@ export function GplxBoSungDialog({
 
   useEffect(() => { taiNoiCap().then(setNoiCap).catch(() => {}); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
-  const coLoi = ds.some((b) => loiBang(b).length > 0) || trungHangDangKy(hs?.hang_khoa, ds);
+  // CHANGES #101: số đang có trong DB giữ nguyên thì không chặn dạng (khớp backend `ghi`).
+  const soCu = new Set((hs?.tho?.SoGPLXDaCo ?? "").split("|").map((s) => s.trim()).filter(Boolean));
+  const coLoi = ds.some((b) => loiBang(b, soCu).length > 0) || trungHangDangKy(hs?.hang_khoa, ds);
   const xoaHet = ds.length === 0 && goc.length > 0;
 
   async function bamLuu() {
@@ -136,7 +138,7 @@ export function GplxBoSungDialog({
                   Chỉ xem, không sửa được ở đây.{banWeb ? ` App web gửi: ${docBang(JSON.stringify(banWeb.gplx)).map(tenHang).join(", ")}.` : ""}
                 </p>
               ) : (
-                <GplxDaCoKhoi ds={ds} onDoi={(d) => { setDs(d); setXacNhanXoa(false); }} noiCap={noiCap} hangKhoa={hs.hang_khoa} tuAppWeb={false} coBanMoi={false} onDungBanWeb={() => {}} chuLuu="lưu" />
+                <GplxDaCoKhoi ds={ds} onDoi={(d) => { setDs(d); setXacNhanXoa(false); }} noiCap={noiCap} hangKhoa={hs.hang_khoa} tuAppWeb={false} coBanMoi={false} onDungBanWeb={() => {}} chuLuu="lưu" soCu={soCu} />
               )}
             </div>
           )}

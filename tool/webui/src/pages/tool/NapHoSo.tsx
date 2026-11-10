@@ -9,7 +9,8 @@ import { ComboLoc } from "../../components/ComboLoc";
 import { boDau, nghiSaiChinhTa, ymdToVN } from "../../lib/format";
 import { tachDiaChiGoc, lamTuoiNhapDiaChi } from "../../lib/diachi";
 import { BadgeGplx, GplxDaCoNut } from "./GplxDaCoNut";
-import { gioiTinhNap, thieuThongTin } from "./napSanSang";
+import { gioiTinhNap, kiemTuoi, thieuThongTin } from "./napSanSang";
+import { CanhBaoTuoiDialog, type HvChuaDuTuoi } from "./CanhBaoTuoiDialog";
 import { gioThayDoi, tomTatThayDoi } from "./napThayDoi";
 import { dienNoiCapTheoSo, docBang, gomBang, type BangGplx } from "./gplxDaCo";
 import { IN_GPLX_NHAN, IN_GPLX_THU_TU, ghiChuMacDinh, inGplxMacDinh, laInGplx, laMoTo, type InGplx } from "./inGplx";
@@ -796,6 +797,10 @@ export default function NapHoSo() {
       setNapErr("Chưa hồ sơ nào sẵn sàng — mỗi hồ sơ cần map Nơi thường trú trước khi nạp.");
       return;
     }
+    quaCanhBaoTuoi(items, (its) => void napNgay(its));
+  };
+
+  const napNgay = async (items: NapIn[]) => {
     setNapBusy(true);
     try {
       const kq = await napLo(items);
@@ -834,7 +839,23 @@ export default function NapHoSo() {
       setNapErr("Chưa hồ sơ nào sẵn sàng — mỗi hồ sơ cần map Nơi thường trú trước khi nạp.");
       return;
     }
-    setNapDialog({ items, boQua: Math.max(0, chon.size - items.length) });
+    quaCanhBaoTuoi(items, (its) => setNapDialog({ items: its, boQua: Math.max(0, chon.size - its.length) }));
+  };
+
+  // NAP-09 (CHANGES #102): có học viên chưa đủ tuổi học hạng của khóa (tính hôm nay) → popup cho user bỏ từng người
+  // hoặc nạp hết; không ai thiếu tuổi / khóa không có số tuổi → đi tiếp như cũ.
+  const [canhBaoTuoi, setCanhBaoTuoi] = useState<{ khoa: KhoaHoc; items: NapIn[]; ds: HvChuaDuTuoi[]; homNay: Date; tiep: (its: NapIn[]) => void } | null>(null);
+  const quaCanhBaoTuoi = (items: NapIn[], tiep: (its: NapIn[]) => void) => {
+    const tuoi = khoa?.tuoi_hv;
+    if (!khoa || !tuoi) { tiep(items); return; }
+    const homNay = new Date();
+    const ds: HvChuaDuTuoi[] = [];
+    for (const item of items) {
+      const kq = kiemTuoi(item.ngay_sinh, tuoi, homNay);
+      if (kq && !kq.du) ds.push({ item, kq });
+    }
+    if (ds.length === 0) { tiep(items); return; }
+    setCanhBaoTuoi({ khoa, items, ds, homNay, tiep }); // giữ khóa lúc bấm để tiêu đề khớp danh sách
   };
 
   // Task 47 — nhảy sang route Tra cứu DB, mở khóa đích + làm nổi HV vừa nạp.
@@ -1075,6 +1096,7 @@ export default function NapHoSo() {
                       tuAppWeb={!!selRow.gplx_da_co_json && !layNhap(selRow.uuid).gplx}
                       coBanMoi={!!layNhap(selRow.uuid).gplx && (layNhap(selRow.uuid).gplxGoc ?? null) !== (selRow.gplx_da_co_json ?? null)}
                       onDungBanWeb={() => capNhatNhap(selRow.uuid, { gplx: undefined, gplxGoc: undefined })}
+                      soCu={new Set(docBang(selRow.gplx_da_co_json).map((b) => b.so.trim()).filter(Boolean))}
                     />
 
                     {/* Ngày cấp + Nơi cấp căn cước — điền sẵn từ hồ sơ VPS, operator sửa được (CHANGES #43) */}
@@ -1700,6 +1722,22 @@ export default function NapHoSo() {
           onXong={xongNapLo}
           onXemDB={(maDks) => { setNapDialog(null); xemTrongDB(khoa.ma_kh, maDks); }}
           onBoSungAnh={() => { setNapDialog(null); xemTrongDB(khoa.ma_kh, [], "chua"); }}
+        />
+      )}
+
+      {/* NAP-09 — cảnh báo học viên chưa đủ tuổi trước khi nạp */}
+      {canhBaoTuoi && (
+        <CanhBaoTuoiDialog
+          khoa={canhBaoTuoi.khoa}
+          ds={canhBaoTuoi.ds}
+          tongLo={canhBaoTuoi.items.length}
+          homNay={canhBaoTuoi.homNay}
+          onHuy={() => setCanhBaoTuoi(null)}
+          onTiep={(bo) => {
+            const { items, tiep } = canhBaoTuoi;
+            setCanhBaoTuoi(null);
+            tiep(items.filter((it) => !bo.has(it.uuid)));
+          }}
         />
       )}
 

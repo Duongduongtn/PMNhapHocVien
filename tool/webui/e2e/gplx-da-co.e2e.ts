@@ -17,13 +17,13 @@ const hv = (uuid: string, ten: string, ex: Record<string, unknown> = {}) => ({
 });
 const DIA_CHI = JSON.stringify({ ma_dvhc: "01001", ma_dvql: "01", ten_xa: "Phường Ba Đình", ten_tinh: "Hà Nội" });
 
-async function vao(page: Page, mo: Mo, opts: { hang?: string; hv01?: Record<string, unknown>; w?: number; giayTo?: unknown[]; canhBao?: string } = {}) {
+async function vao(page: Page, mo: Mo, opts: { hang?: string; hv01?: Record<string, unknown>; w?: number; giayTo?: unknown[]; canhBao?: string; tuoiHv?: number } = {}) {
   const hang = opts.hang ?? "A1m";
   await page.addInitScript(() => localStorage.setItem("tool_session_token", "tok-test"));
   await page.route("**/local/auth/me", (r) => r.fulfill({ json: { username: "thu1", ho_ten: "Nhân viên thử", vai_tro: "operator" } }));
   await page.route("**/local/config/moi-truong", (r) => r.fulfill({ json: { thu_muc_ghi_duoc: true, duong_dan: "x", da_cau_hinh: true } }));
   await page.route("**/version", (r) => r.fulfill({ json: { build: "dev", commit: "x" } }));
-  await page.route("**/local/khoa-hoc?**", (r) => r.fulfill({ json: [{ ma_kh: "K001", ten_kh: "Khóa thử", hang_gplx: hang, hang_dt: hang, ma_so_gtvt: "01", ma_loai_hs: hang.startsWith("A") ? 1 : 2 }] }));
+  await page.route("**/local/khoa-hoc?**", (r) => r.fulfill({ json: [{ ma_kh: "K001", ten_kh: "Khóa thử", hang_gplx: hang, hang_dt: hang, ma_so_gtvt: "01", ma_loai_hs: hang.startsWith("A") ? 1 : 2, tuoi_hv: opts.tuoiHv ?? null, ten_hang_dt: `Hạng ${hang}` }] }));
   await page.route("**/local/dvhc/so-gtvt", (r) => r.fulfill({ json: [] }));
   await page.route("**/local/dvhc/noi-cap-gplx", (r) => r.fulfill({ json: [
     { ma: "00", ten: "00 — Tổng cục đường bộ Việt Nam" }, { ma: "70", ten: "70 — Bình Phước" }, { ma: "79", ten: "79 — Hồ Chí Minh" },
@@ -254,12 +254,20 @@ test.describe("NAP-07 — GPLX đã có ở màn Nạp", () => {
     await expect(pk(page).getByText("trùng hạng đăng ký")).toBeVisible();      // A1 mới trùng khóa A1m
   });
 
-  test("số GPLX sai độ dài chỉ nhắc; thiếu hạng báo lỗi ngay trong popup", async ({ page }) => {
+  test("CHANGES #101: số GPLX chỉ nhận 12 số hoặc bằng giấy cũ 2 chữ + 6 số; sai dạng báo đỏ, không Xong được", async ({ page }) => {
     await vao(page, moi());
     await moPopup(page);
     await expect(pk(page).getByText("Chưa chọn hạng")).toBeVisible();
-    await pk(page).locator("#gplx-so-0").fill("7900");
-    await expect(pk(page).getByText("thường có 12 chữ số")).toBeVisible();
+    const so = pk(page).locator("#gplx-so-0");
+    await so.fill("7900-0000-0123-99");                 // lọc khi gõ: bỏ ký tự lạ, tối đa 12 số
+    await expect(so).toHaveValue("790000000123");
+    await so.fill("79000000012");                       // 11 số
+    await expect(pk(page).getByText(/Số GPLX phải đủ 12 chữ số/)).toBeVisible();
+    await pk(page).getByRole("button", { name: "Xong" }).click();
+    await expect(pk(page)).toBeVisible();
+    await so.fill("ay 123456");                         // bằng giấy cũ, tự viết hoa
+    await expect(so).toHaveValue("AY 123456");
+    await expect(pk(page).getByText(/Số GPLX phải đủ 12 chữ số/)).toHaveCount(0);
   });
 
   test("lọc 'Có GPLX đã có': đếm đúng, chỉ hiện học viên có bằng", async ({ page }) => {
@@ -420,5 +428,42 @@ test.describe("NAP-07 — GPLX đã có ở màn Nạp", () => {
     await expect(page.getByTestId("chip-thieu-tt-u01")).toBeVisible();
     await expect(page.getByTestId("ngan-thieu-tt")).toContainText("thiếu giới tính");
     await expect(page.getByTestId("chip-thieu-tt-u02")).toHaveCount(0);
+  });
+
+  test("NAP-09: học viên chưa đủ tuổi → popup cảnh báo, bỏ chọn thì không nạp người đó", async ({ page }) => {
+    const mo = moi();
+    const nam = new Date().getFullYear() - 16;  // 16 tuổi, khóa cần 18
+    await vao(page, mo, { tuoiHv: 18, hv01: { ngay_sinh: `${nam}0101` } });
+    await page.getByTestId("hv-u02").click();
+    await expect(ngan(page).getByText("TRẦN VĂN BÌNH")).toBeVisible();
+    await page.getByLabel("Chọn tất cả học viên trong danh sách").check();
+    await page.getByRole("button", { name: /Nạp 2 học viên vào/ }).click();
+    const pop = page.getByTestId("canh-bao-tuoi");
+    await expect(pop).toContainText("1 học viên chưa đủ tuổi");
+    await expect(pop).toContainText("18 tuổi");
+    await expect(pop.getByTestId("tuoi-u01")).toContainText(`01/01/${nam + 18}`);
+    await expect(pop.getByTestId("tuoi-u02")).toHaveCount(0);           // đã đủ tuổi thì không liệt kê
+    await expect(pop.getByTestId("tuoi-dem")).toHaveText("Sẽ nạp 2/2 học viên");
+    await pop.getByLabel(/Nạp NGUYỄN THỊ HOÀ/i).uncheck();
+    await page.screenshot({ path: "../../anh-kiem/10-11-2026-canh-bao-tuoi-tool.png" });
+    await pop.getByRole("button", { name: "Tiếp tục nạp 1 học viên" }).click();
+    await expect(pop).toHaveCount(0);
+    await ngan(page).getByRole("button", { name: "Bắt đầu nạp" }).click();
+    await expect(ngan(page).getByTestId("tien-do-nap")).toContainText("1/1 · 100%");
+    expect(mo.napLo.flatMap((b) => b.items).map((i) => i.uuid)).toEqual(["u02"]);
+  });
+
+  test("NAP-09: ai cũng đủ tuổi → không hiện popup; Hủy ở popup thì không nạp", async ({ page }) => {
+    const mo = moi();
+    await vao(page, mo, { tuoiHv: 18 });
+    await napHaiHocVien(page);
+    expect(mo.napLo.length).toBeGreaterThan(0);
+    const mo2 = moi();
+    await vao(page, mo2, { tuoiHv: 21, hv01: { ngay_sinh: `${new Date().getFullYear() - 19}0101` } });
+    await ngan(page).getByRole("button", { name: /Nạp học viên này vào khóa/ }).click();
+    await expect(page.getByTestId("canh-bao-tuoi")).toContainText("21 tuổi");
+    await page.getByTestId("canh-bao-tuoi").getByRole("button", { name: "Hủy" }).click();
+    await expect(page.getByTestId("canh-bao-tuoi")).toHaveCount(0);
+    expect(mo2.napLo).toHaveLength(0);
   });
 });

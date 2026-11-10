@@ -8,7 +8,7 @@ import { dangKyGuiLai, guiLaiTatCa } from "../lib/gui";
 import { khopTim } from "../lib/text";
 import { GplxDaCoKhoi } from "../components/GplxDaCoKhoi";
 import { GplxDaCoNut } from "../components/GplxDaCoNut";
-import { loiDanhSach, oSaiDau, sangServer, tenHang, tuServer, type BangGplx } from "../lib/gplxDaCo";
+import { loiDanhSach, oSaiDau, sangServer, soCuTu, tenHang, tuServer, type BangGplx } from "../lib/gplxDaCo";
 import { laNgaySinh } from "../lib/qr";
 import { chuCaiDau, tongTheoTen } from "../lib/chuCai";
 
@@ -594,12 +594,13 @@ function ChiTiet({ row, onDong, onCapNhat, onXoa }: { row: HoSoOut; onDong: () =
 
   // Giống chặn ở luuSua: lỗi thì đưa con trỏ tới ô sai đầu tiên. Trả true nếu dữ liệu đạt.
   function kiemGplx(): boolean {
-    const loiGplx = loiDanhSach(gplx);
+    const soCu = soCuTu(tuServer(row.gplx_da_co)); // CHANGES #101: số đã lưu trên VPS giữ nguyên thì không chặn
+    const loiGplx = loiDanhSach(gplx, soCu);
     if (!loiGplx) return true;
     setLoi(loiGplx);
     setLanLuuGplx((n) => n + 1);
     requestAnimationFrame(() => {
-      const el = document.querySelector<HTMLInputElement>(`[data-o="${oSaiDau(gplx)}"] input`);
+      const el = document.querySelector<HTMLInputElement>(`[data-o="${oSaiDau(gplx, soCu)}"] input`);
       el?.scrollIntoView({ block: "center" });
       el?.focus({ preventScroll: true });
     });
@@ -731,12 +732,12 @@ function ChiTiet({ row, onDong, onCapNhat, onXoa }: { row: HoSoOut; onDong: () =
               </div>
               <OSua label="Nơi thường trú" value={f.noi_tt_raw ?? ""} onChange={(v) => set("noi_tt_raw", v)} />
               <div className="sm:col-span-2">
-                <GplxDaCoNut ds={gplx} onDoi={(ds) => { setGplx(ds); setDaSuaGplx(true); }} lanGui={lanLuuGplx} />
+                <GplxDaCoNut ds={gplx} onDoi={(ds) => { setGplx(ds); setDaSuaGplx(true); }} lanGui={lanLuuGplx} soCu={soCuTu(tuServer(row.gplx_da_co))} />
               </div>
             </div>
           ) : che === "gplx" ? (
             <div className="mt-4 space-y-3">
-              <GplxDaCoKhoi ds={gplx} onDoi={setGplx} lanGui={lanLuuGplx} rong />
+              <GplxDaCoKhoi ds={gplx} onDoi={setGplx} lanGui={lanLuuGplx} rong soCu={soCuTu(tuServer(row.gplx_da_co))} />
               <p className="text-[12px] text-muted-foreground">Các thông tin khác của hồ sơ đã nạp vẫn khóa. Người nạp xem lại rồi mới đưa vào hệ thống.</p>
             </div>
           ) : (

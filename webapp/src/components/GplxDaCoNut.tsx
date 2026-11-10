@@ -6,7 +6,7 @@ import { DS_NOI_CAP_GPLX, bangMoi, bangTrong, loiDanhSach, oSaiDau, tomTatGplx, 
 // "GPLX đã có" gọn trong form: một dòng tóm tắt + nút mở popup nhập (CHANGES #99). Form không dài ra khi có bằng.
 // Popup sửa trên bản nháp tạm: Hủy = bỏ; Xong = kiểm lỗi, còn lỗi thì không đóng. Form bấm gửi bị chặn vì GPLX
 // (lanGui tăng) → tự mở popup, hiện đủ lỗi, con trỏ vào ô sai đầu tiên.
-export function GplxDaCoNut({ ds, onDoi, lanGui = 0 }: { ds: BangGplx[]; onDoi: (ds: BangGplx[]) => void; lanGui?: number }) {
+export function GplxDaCoNut({ ds, onDoi, lanGui = 0, soCu }: { ds: BangGplx[]; onDoi: (ds: BangGplx[]) => void; lanGui?: number; soCu?: Set<string> }) {
   const [mo, setMo] = useState(false);
   const [nhap, setNhap] = useState<BangGplx[]>([]);
   const [lanTam, setLanTam] = useState(0);
@@ -24,13 +24,13 @@ export function GplxDaCoNut({ ds, onDoi, lanGui = 0 }: { ds: BangGplx[]; onDoi: 
   useEffect(() => {
     if (lanGui === lanDau.current) return;
     lanDau.current = lanGui;
-    if (loiDanhSach(ds.filter((b) => !bangTrong(b)))) moPopup(true);
+    if (loiDanhSach(ds.filter((b) => !bangTrong(b)), soCu)) moPopup(true);
   }, [lanGui]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Có lỗi → đưa con trỏ tới ô sai đầu tiên trong popup.
   useEffect(() => {
     if (!mo || !lanTam) return;
-    const o = oSaiDau(nhap.filter((b) => !bangTrong(b)));
+    const o = oSaiDau(nhap.filter((b) => !bangTrong(b)), soCu);
     if (!o) return;
     requestAnimationFrame(() => {
       const el = document.querySelector<HTMLInputElement>(`[data-popup-gplx] [data-o="${o}"] input`);
@@ -48,14 +48,14 @@ export function GplxDaCoNut({ ds, onDoi, lanGui = 0 }: { ds: BangGplx[]; onDoi: 
 
   const xong = () => {
     const sach = nhap.filter((b) => !bangTrong(b));
-    const l = loiDanhSach(sach);
+    const l = loiDanhSach(sach, soCu);
     if (l) { setNhap(sach.length ? sach : nhap); setLanTam((n) => n + 1); setDaBamXong(true); return; }
     onDoi(sach);
     setMo(false);
   };
 
   const tomTat = tomTatGplx(ds, DS_NOI_CAP_GPLX);
-  const loiNgoai = loiDanhSach(ds.filter((b) => !bangTrong(b))); // cùng cách tính với Xong
+  const loiNgoai = loiDanhSach(ds.filter((b) => !bangTrong(b)), soCu); // cùng cách tính với Xong
   return (
     <div className="rounded-lg border border-border bg-card px-3 py-2.5" data-testid="gplx-tom-tat">
       <div className="flex items-center gap-2">
@@ -101,7 +101,7 @@ export function GplxDaCoNut({ ds, onDoi, lanGui = 0 }: { ds: BangGplx[]; onDoi: 
               </button>
             </div>
             <div className="p-4 overflow-y-auto">
-              <GplxDaCoKhoi ds={nhap} onDoi={setNhap} lanGui={lanTam} trongPopup />
+              <GplxDaCoKhoi ds={nhap} onDoi={setNhap} lanGui={lanTam} trongPopup soCu={soCu} />
             </div>
             <div className="shrink-0 border-t border-border px-4 py-3">
               {daBamXong && <p role="alert" className="mb-2 text-[12px] text-destructive">Còn lỗi ở trên — sửa xong mới bấm Xong được.</p>}

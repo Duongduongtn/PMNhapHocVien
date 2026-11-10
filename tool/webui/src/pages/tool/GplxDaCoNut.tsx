@@ -6,7 +6,7 @@ import { bangMoi, bangTrong, dienNoiCapTheoSo, loiBang, nhanHangGon, tenHang, to
 // "GPLX đã có" gọn ở ngăn Chuẩn bị: dòng tóm tắt + nút mở popup nhập (CHANGES #99), ngăn không dài ra khi có bằng.
 // Popup sửa trên bản nháp tạm: Hủy/Esc/bấm nền = bỏ; Xong = còn lỗi thì không đóng (lỗi đã hiện dưới từng bằng).
 export function GplxDaCoNut({
-  ds, onDoi, noiCap, hangKhoa, tuAppWeb, coBanMoi, onDungBanWeb,
+  ds, onDoi, noiCap, hangKhoa, tuAppWeb, coBanMoi, onDungBanWeb, soCu,
 }: {
   ds: BangGplx[];
   onDoi: (ds: BangGplx[]) => void;
@@ -15,6 +15,7 @@ export function GplxDaCoNut({
   tuAppWeb: boolean;
   coBanMoi: boolean;
   onDungBanWeb: () => void;
+  soCu?: Set<string>; // số app web gửi từ trước — giữ nguyên thì không chặn dạng (CHANGES #101)
 }) {
   const [mo, setMo] = useState(false);
   const [nhap, setNhap] = useState<BangGplx[]>([]);
@@ -37,13 +38,13 @@ export function GplxDaCoNut({
   const moPopup = () => { setNhap(ds.length ? ds : [bangMoi()]); setDaBamXong(false); setMo(true); };
   const xong = () => {
     const sach = nhap.filter((b) => !bangTrong(b));
-    if (sach.some((b) => loiBang(b).length > 0) || trungHangDangKy(hangKhoa, sach)) { setNhap(sach.length ? sach : nhap); setDaBamXong(true); return; }
+    if (sach.some((b) => loiBang(b, soCu).length > 0) || trungHangDangKy(hangKhoa, sach)) { setNhap(sach.length ? sach : nhap); setDaBamXong(true); return; }
     onDoi(sach);
     setMo(false);
   };
 
   const tomTat = tomTatGplx(ds, noiCap);
-  const coLoi = ds.some((b) => loiBang(b).length > 0) || trungHangDangKy(hangKhoa, ds);
+  const coLoi = ds.some((b) => loiBang(b, soCu).length > 0) || trungHangDangKy(hangKhoa, ds);
   return (
     <div className="rounded-lg border border-border bg-card px-4 py-3" data-testid="gplx-tom-tat">
       <div className="flex items-center gap-2">
@@ -85,7 +86,7 @@ export function GplxDaCoNut({
               </button>
             </div>
             <div className="p-5 overflow-y-auto">
-              <GplxDaCoKhoi ds={nhap} onDoi={setNhap} noiCap={noiCap} hangKhoa={hangKhoa} tuAppWeb={false} coBanMoi={false} onDungBanWeb={() => {}} trongPopup />
+              <GplxDaCoKhoi ds={nhap} onDoi={setNhap} noiCap={noiCap} hangKhoa={hangKhoa} tuAppWeb={false} coBanMoi={false} onDungBanWeb={() => {}} trongPopup soCu={soCu} />
               {daBamXong && <p role="alert" className="mt-3 text-[12px] text-destructive">Còn lỗi ở trên — sửa xong mới bấm Xong được.</p>}
             </div>
             <div className="shrink-0 border-t border-border px-5 py-3 flex justify-end gap-2">

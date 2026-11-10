@@ -128,15 +128,38 @@ export function sangServer(ds: BangGplx[]): BangGplx[] {
   });
 }
 
-export const soGplxLa = (so: string) => so.trim() !== "" && !/^\d{12}$/.test(so.trim());
+/** Số GPLX hợp lệ (CHANGES #101): đúng 12 chữ số (thẻ PET), hoặc bằng giấy bìa cũ 2 chữ cái + 6 số ("AY 123456").
+ *  Dữ liệu DB Nạp 10/11/2026: 98% 12 số, 48 bằng giấy dạng chữ+6 số; còn lại 11/13 số là gõ sai. */
+export const SO_GPLX_HOP_LE = /^([0-9]{12}|[A-Z]{2} ?[0-9]{6})$/;
+
+/** Số GPLX đã gõ mà sai dạng (rỗng không tính — đó là lỗi "chưa nhập"). */
+export const soGplxLa = (so: string) => so.trim() !== "" && !SO_GPLX_HOP_LE.test(so.trim());
+
+/** Lọc khi gõ/dán ô Số GPLX. Bỏ mọi ký tự không phải chữ/số rồi:
+ *  - đúng 2 chữ cái đứng đầu (bằng giấy cũ) → "AY 123456" (tự chèn 1 dấu cách, tối đa 6 số; dán "A Y 123 456" vẫn đủ);
+ *  - còn lại → chỉ lấy chữ số, tối đa 12 (dán "Số: 0123…", "GPLX 0123…", gõ nhầm chữ O ở đầu đều không mất dãy số).
+ *  Sai dạng còn lại (thiếu số) báo đỏ ở loiTungO/loiBang. */
+export function locSoGplx(raw: string): string {
+  const s = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const m = s.match(/^([A-Z]+)([0-9]*)/);
+  if (m && m[1].length <= 2 && (m[1].length === 2 || m[2] === "")) {
+    const so = m[2].slice(0, 6);
+    return m[1].length === 2 && so ? `${m[1]} ${so}` : m[1];
+  }
+  return s.replace(/[^0-9]/g, "").slice(0, 12);
+}
+
+/** Câu lỗi khi số GPLX sai dạng. */
+export const LOI_SO_GPLX = "Số GPLX phải đủ 12 chữ số (bằng giấy cũ: 2 chữ cái + 6 số)";
 
 export type OGplx = "hang" | "so" | "ngay_tt" | "ngay_cap" | "ngay_hh";
 
 /** Lỗi chặn gửi của 1 bằng kèm ô gây lỗi, để form chỉ báo ô đã rời và đưa con trỏ tới đúng ô. */
-export function loiTungO(b: BangGplx): { o: OGplx; loi: string }[] {
+export function loiTungO(b: BangGplx, soCu?: Set<string>): { o: OGplx; loi: string }[] {
   const ds: { o: OGplx; loi: string }[] = [];
   if (!b.hang) ds.push({ o: "hang", loi: "Chưa chọn hạng" });
   if (!b.so.trim()) ds.push({ o: "so", loi: "Chưa nhập số GPLX" });
+  else if (soGplxLa(b.so) && !soCu?.has(b.so.trim())) ds.push({ o: "so", loi: LOI_SO_GPLX }); // số đã lưu giữ nguyên → không chặn (CHANGES #101)
   if (!b.ngay_tt.trim()) ds.push({ o: "ngay_tt", loi: "Chưa nhập ngày trúng tuyển" });
   if (!b.ngay_cap.trim()) ds.push({ o: "ngay_cap", loi: "Chưa nhập ngày cấp" });
   const ten = { ngay_tt: "Ngày trúng tuyển", ngay_cap: "Ngày cấp", ngay_hh: "Ngày hết hạn" } as const;
@@ -151,23 +174,29 @@ export function loiTungO(b: BangGplx): { o: OGplx; loi: string }[] {
 }
 
 /** Lỗi chặn gửi của 1 bằng; rỗng = hợp lệ. */
-export function loiBang(b: BangGplx): string[] {
-  return loiTungO(b).map((x) => x.loi);
+export function loiBang(b: BangGplx, soCu?: Set<string>): string[] {
+  return loiTungO(b, soCu).map((x) => x.loi);
 }
 
+/** Số đã lưu từ trước mà sai dạng, giữ nguyên không sửa → chỉ nhắc (CHANGES #101). */
+export const soCuSaiDang = (so: string, soCu?: Set<string>) => !!soCu?.has(so.trim()) && soGplxLa(so);
+
+/** Tập số GPLX đã lưu trên VPS của hồ sơ (dùng làm `soCu`). */
+export const soCuTu = (ds: BangGplx[] | null | undefined) => new Set((ds ?? []).map((b) => b.so.trim()).filter(Boolean));
+
 /** Tên `data-o` của ô sai đầu tiên trong khối GPLX; null = hợp lệ. */
-export function oSaiDau(ds: BangGplx[]): string | null {
+export function oSaiDau(ds: BangGplx[], soCu?: Set<string>): string | null {
   for (let i = 0; i < ds.length; i++) {
-    const l = loiTungO(ds[i]);
+    const l = loiTungO(ds[i], soCu);
     if (l.length) return `gplx-${i}-${l[0].o}`;
   }
   return null;
 }
 
 /** Lỗi của cả danh sách, dùng khi bấm gửi/lưu; null = hợp lệ. */
-export function loiDanhSach(ds: BangGplx[]): string | null {
+export function loiDanhSach(ds: BangGplx[], soCu?: Set<string>): string | null {
   for (let i = 0; i < ds.length; i++) {
-    const l = loiBang(ds[i]);
+    const l = loiBang(ds[i], soCu);
     if (l.length) return `GPLX đã có, bằng ${i + 1}: ${l.join(", ")}.`;
   }
   return null;

@@ -110,13 +110,16 @@ def chon_in_gplx_mac_dinh(hang_gplx: str | None) -> int:
 GPLX_HANG_HOP_LE = frozenset({"A01", "A02", "A1", "A1m", "A2", "A3", "B1", "B11", "B2", "C", "C1", "D", "D1",
                               "E", "FB2", "FC", "FD", "FE"})
 GPLX_TOI_DA = 8
+# Số GPLX (CHANGES #101): 12 chữ số (thẻ PET) hoặc bằng giấy bìa cũ 2 chữ cái + 6 số. DB Nạp 10/11/2026: 98% 12 số,
+# 48 bằng giấy; 11/13 số là gõ sai. Cùng biểu thức với app web, tool webui và VPS.
+SO_GPLX_HOP_LE = re.compile(r"[0-9]{12}|[A-Z]{2} ?[0-9]{6}")  # [0-9], không \d: chặn chữ số Unicode lạ
 _GPLX_THAM_SO = (("p_SoGPLXDaCo", "so"), ("p_HangGPLXDaCo", "hang"), ("p_NgayTTGPLXDaCo", "ngay_tt"),
                  ("p_NgayCapGPLXDaCo", "ngay_cap"), ("p_NgayHHGPLXDaCo", "ngay_hh"), ("p_DVCapGPLXDaCo", "don_vi"))
 _GPLX_TEN_NGAY = {"ngay_tt": "ngày trúng tuyển", "ngay_cap": "ngày cấp", "ngay_hh": "ngày hết hạn"}
 
 
 def dung_chuoi_gplx_da_co(ds: list[dict] | None, hang_dang_ky: str | None = None,
-                          ngay_sinh: str | None = None) -> dict[str, str]:
+                          ngay_sinh: str | None = None, so_cu=()) -> dict[str, str]:
     """Danh sách bằng → giá trị 6 tham số SP. Không có bằng → '' cả 6 cột: phần mềm cũ không bao giờ để NULL
     (DB Nạp và DB đích đều 0 dòng NULL, đã tra 10/11/2026); NULL làm phần mềm cũ không hiện nơi cấp. Sai → ValueError (nạp lô
     thành dòng lỗi của đúng học viên đó, không hỏng cả lô). Quy tắc khớp form cũ FPT.GPLX.CSDT: bắt buộc hạng,
@@ -133,8 +136,11 @@ def dung_chuoi_gplx_da_co(ds: list[dict] | None, hang_dang_ky: str | None = None
             raise ValueError(f"GPLX đã có, bằng {i}: không được chứa ký tự |.")
         if gt["hang"] not in GPLX_HANG_HOP_LE:
             raise ValueError(f"GPLX đã có, bằng {i}: hạng không hợp lệ.")
-        if not gt["so"] or len(gt["so"]) > 20:
-            raise ValueError(f"GPLX đã có, bằng {i}: thiếu số GPLX hoặc số dài quá 20 ký tự.")
+        if not gt["so"]:
+            raise ValueError(f"GPLX đã có, bằng {i}: thiếu số GPLX.")
+        # CHANGES #101: số mới phải đúng dạng; số đã lưu từ trước (`so_cu` — DB/VPS) giữ nguyên thì cho qua.
+        if gt["so"] not in so_cu and not SO_GPLX_HOP_LE.fullmatch(gt["so"]):
+            raise ValueError(f"GPLX đã có, bằng {i}: số GPLX phải đủ 12 chữ số (bằng giấy cũ: 2 chữ cái + 6 số).")
         if gt["don_vi"] and not re.fullmatch(r"\d{2}", gt["don_vi"]):
             raise ValueError(f"GPLX đã có, bằng {i}: nơi cấp phải là mã 2 số.")
         for f, ten in _GPLX_TEN_NGAY.items():
@@ -216,7 +222,7 @@ def build_params_sp_gop(hv: dict, khoa: dict, so_ho_so: str, ten: dict,
         ("p_SoNamLX", hv.get("so_nam_lx")),                   # None → không vỡ check thâm niên
         ("p_SoKmLX", hv.get("so_km_lx")),
         ("p_GiayTo", giay_to_str),                            # '1,2,3,'
-        *dung_chuoi_gplx_da_co(hv.get("gplx_da_co"), khoa.get("hang_gplx"), hv.get("ngay_sinh")).items(),  # 6 cột GPLX đã có (NAP-07); không có bằng → NULL
+        *dung_chuoi_gplx_da_co(hv.get("gplx_da_co"), khoa.get("hang_gplx"), hv.get("ngay_sinh"), hv.get("gplx_so_cu", ())).items(),  # 6 cột GPLX đã có (NAP-07); không có bằng → NULL
         ("p_NoiCapGPLXDaCo", noi_cap_gplx_rong(hv.get("gplx_da_co"))),  # quốc gia cấp: '' theo số bằng như phần mềm cũ
         ("p_GhiChu", None),
         ("p_SO_CMND_CU", None),
@@ -680,6 +686,20 @@ def keo_ve_danh_sach() -> list[dict]:
     finally:
         conn.close()
     return [dict(zip(_KEO_COLS, row)) for row in rows]
+
+
+def so_gplx_keo_ve(uuid: str) -> set[str]:
+    """Các số GPLX app web đã gửi cho hồ sơ này (bản kéo về) — CHANGES #101: số cũ giữ nguyên thì không chặn dạng."""
+    conn = _keo_conn()
+    try:
+        row = conn.execute("SELECT gplx_da_co_json FROM keo_ve WHERE uuid=?", (str(uuid),)).fetchone()
+    finally:
+        conn.close()
+    try:
+        ds = json.loads(row[0]) if row and row[0] else []
+    except ValueError:
+        return set()
+    return {str(b.get("so") or "").strip() for b in ds if isinstance(b, dict)} - {""}
 
 
 def keo_ve_gan_gplx(ma_dk: str, gplx_da_co: list[dict]) -> None:

@@ -72,6 +72,8 @@ Chú thích: ✅ Xong · 🟡 Placeholder · ⬜ Chưa có route
 
 ## Quyết định UX đã chốt
 
+- **Cảnh báo tuổi khi nạp** (10/11/2026, CHANGES #102, `NAP-09`): popup rộng (≈900px) chen trước bước nạp ở màn Nạp tool, chỉ hiện khi có người chưa đủ tuổi; bảng họ tên · ngày sinh · tuổi · ngày đủ tuổi · còn thiếu · ô Nạp (mặc định chọn); nút "Bỏ hết người chưa đủ tuổi" + "Tiếp tục nạp N học viên".
+
 - **Tiến độ nhập hồ sơ ở thanh nút đáy** (10/11/2026, CHANGES #100, `THU-01`): vạch từng ô bắt buộc + "Còn N: <ô>" (bấm nhảy tới ô thiếu) gắn ở mép trên thanh nút dính đáy; máy tính đặt ngay trên hàng nút cuối form. Không làm lớp nổi, không đè ô; bỏ dòng "Còn thiếu" cuối form. User chọn qua câu hỏi so sánh 3 vị trí (thanh nút đáy / tiêu đề form / cả hai).
 
 - **GPLX đã có = dòng tóm tắt + popup** (10/11/2026, CHANGES #99): app web (màn nhập, popup sửa) và tool (ngăn Chuẩn bị) không mở khối 6 ô ngay trong form; một dòng "GPLX đã có: Không có / B2 · số · tỉnh" + nút "Nhập GPLX"/"Sửa" mở popup (điện thoại trượt từ đáy, Hủy/Xong dính đáy). Tool có badge nền xanh "GPLX B2·A1" ở dòng danh sách và đầu ngăn.

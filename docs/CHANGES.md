@@ -4,6 +4,8 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 102 | 10/11/2026 | ➕ Thêm | `NAP-09` | **Cảnh báo tuổi học viên khi nạp vào khóa**: tuổi tối thiểu theo hạng đào tạo (`DM_HangDT.TuoiHV`), tính tại ngày nạp; popup rộng liệt kê người chưa đủ tuổi + ngày đủ tuổi, user bỏ chọn từng người hoặc nạp hết. | ✅ | ✅ | ✅ mock `canhbaotuoi.html` duyệt | 🟡 code + test xong, chưa commit/exe |
+| 101 | 10/11/2026 | ✏️ Sửa (luật kiểm) | `NAP-07` · `THU-07` · `QLY-10` · `TCB-05` | **Số GPLX đã có chỉ nhận 12 chữ số hoặc bằng giấy cũ 2 chữ cái + 6 số**; sai dạng báo đỏ, không lưu/gửi/nạp (trước chỉ nhắc). | ✅ | ✅ | — | 🟡 code + test xong, chưa commit/deploy |
 | 100 | 10/11/2026 | ✏️ Sửa (giao diện) | `THU-01` | **Thanh tiến độ nhập hồ sơ** ở thanh nút đáy: vạch từng ô bắt buộc + "Còn N: <ô>" bấm nhảy tới ô thiếu; bỏ dòng "Còn thiếu" cuối form. | ✅ | ✅ | ✅ | 🟡 deploy `cf34060`; chưa thử điện thoại thật |
 | 99 | 10/11/2026 | ✏️ Sửa (giao diện) | `NAP-07` · `THU-07` | **GPLX đã có nhập trong popup** ở app web (màn nhập, popup sửa hồ sơ) và tool (ngăn Chuẩn bị); form chỉ còn dòng tóm tắt. Tool có **badge "GPLX B2·A1"** rõ ở dòng danh sách và đầu ngăn. | ✅ | — | ✅ | 🟡 deploy `a3068d0` + exe 10/11/2026; chưa thử điện thoại thật |
 | 98 | 10/11/2026 | ✏️ Sửa | `NAP-07` · `THU-07` · `QLY-10` · `TCB-05` | **Nơi cấp GPLX đã có điền sẵn theo 2 số đầu số GPLX, sửa được; 7 cột GPLX đã có ghi chuỗi rỗng như phần mềm cũ, không NULL** (nơi cấp do tool nạp không hiện ở phần mềm cũ). | ✅ | ✅ | — | 🟡 deploy `a3068d0` + exe 10/11/2026; chưa nghiệm thu máy CSĐT |
@@ -108,6 +110,21 @@
 Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên quan
 
 ---
+
+## #102 — Cảnh báo tuổi học viên khi nạp vào khóa · 10/11/2026
+
+- **Mã:** `NAP-09` (mới)
+- **Vì sao:** user 10/11/2026: khóa có hạng GPLX, mỗi hạng có tuổi học theo luật; khi nạp phải cảnh báo học viên chưa đủ tuổi trong popup rộng, có ngày đủ tuổi, để user tự quyết nạp hết hay bỏ ai. Tuổi lấy từ `DM_HangDT.TuoiHV` (số phần mềm cũ dùng, khớp Luật TTATGTĐB 2024 Điều 59). User chốt tính tuổi tại **ngày nạp (hôm nay)**.
+- **Đã sửa tài liệu:** PRD `NAP-09` (v4.42) · TDD §10.9 (v6.47) · `ui-demo/SCREENS.md`.
+- **Còn nợ:** code `tool/app/routers/khoahoc.py` (`tuoi_hv`), `tool/webui` (`kiemTuoi`, `CanhBaoTuoiDialog`, chèn vào `chayNapLo`/`moNapDialog`); không đụng VPS/app web; build exe.
+
+## #101 — Số GPLX: 12 chữ số hoặc bằng giấy cũ · 10/11/2026
+
+- **Mã:** `NAP-07`, `THU-07` (và `QLY-10`, `TCB-05` dùng chung hàm kiểm)
+- **Vì sao:** user hỏi số GPLX có chắc 12 số không, nếu đúng thì chỉ cho gõ đúng 12 số. Tra DB Nạp: 98% là 12 số, 48 bằng giấy bìa cũ dạng 2 chữ + 6 số (vẫn hiệu lực), 84 số 11/13 chữ số là gõ sai. User chọn: nhận 12 số hoặc dạng bằng giấy cũ, còn lại chặn.
+- **Đã sửa:** `webapp/src/lib/gplxDaCo.ts` + `components/GplxDaCoKhoi.tsx` (lọc khi gõ `locSoGplx`, báo lỗi theo ô, bàn phím thường tự viết hoa); `tool/webui/src/pages/tool/gplxDaCo.ts` + `GplxDaCoKhoi.tsx`; `tool/app/nap.py` (`SO_GPLX_HOP_LE`); `server/app/routers/ho_so.py` (`GplxBang.so`). PRD v4.41, TDD v6.46.
+- **Số cũ đã lưu sai dạng (user chốt 10/11/2026):** số đã lưu từ trước — trên VPS (hồ sơ app web), bản kéo về ở tool, hoặc trong DB Nạp — **giữ nguyên thì cho qua**, chỉ nhắc vàng "đã lưu từ trước, sai dạng — kiểm lại khi có bằng thật"; bằng mới thêm hoặc số bị sửa thì phải đúng dạng. Áp ở VPS (`_kiem_so_moi` cho gửi/sửa/bổ sung), tool (`so_cu` ở nạp + bổ sung), app web (`soCu` ở popup sửa / bổ sung). Sau review: lọc khi dán không mất số (`AY 123 456`, `GPLX 0123…`), `[0-9]` thay `\d`, VPS cắt khoảng trắng.
+- **Còn nợ:** deploy VPS + app web, đóng gói exe.
 
 ## #100 — Thanh tiến độ nhập hồ sơ ở thanh nút đáy · 10/11/2026
 
@@ -1104,7 +1121,9 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 > `/capnhat` đọc mục này ở Bước 0b để biết có thay đổi nào chưa ghi sổ không.
 > So bằng **danh sách mã**, không so bằng thời gian sửa file.
 
-- **Cập nhật:** 10/11/2026 (#100 ✏️ thanh tiến độ nhập hồ sơ THU-01; số story giữ 67)
+- **Cập nhật:** 10/11/2026 (#102 ➕ `NAP-09` cảnh báo tuổi khi nạp; số story 67→68)
+- **Cập nhật trước:** 10/11/2026 (#101 ✏️ số GPLX 12 số hoặc bằng giấy cũ; số story giữ 67)
+- **Cập nhật trước:** 10/11/2026 (#100 ✏️ thanh tiến độ nhập hồ sơ THU-01; số story giữ 67)
 - **Cập nhật trước:** 10/11/2026 (#99 ✏️ GPLX đã có nhập trong popup + badge tool; số story giữ 67)
 - **Cập nhật trước:** 10/11/2026 (#98 ✏️ nơi cấp GPLX đã có điền sẵn theo số, ghi chuỗi rỗng như phần mềm cũ; số story giữ 67)
 - **Cập nhật trước:** 04/11/2026 (#97 ✏️ Enter trên máy tính = Lưu & nhập hồ sơ tiếp, số story giữ 67)
@@ -1139,6 +1158,6 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 - **Cập nhật trước:** 04/10/2026 (#34 +story `HTG-07` cấu hình kết nối lên header dùng chung; hạ `SYNC-01`+`SYNC-02` ✅→⏳ làm lại UI (nay đã ✅ lại); sửa bullet `HTG-01`)
 - **Trước nữa:** 04/10/2026 (#33 +Feature "Đồng bộ CDB" 3 story `SYNC-01/02/03` SHOULD, port sync_tool v2.0 + tool chuyển sidebar module)
 - **Trước đó:** 04/10/2026 (#32 bổ sung tiêu chí NAP-01 + QLY-05; ⚠️ #31 có dòng bảng nhưng THIẾU mục chi tiết — cần phiên #31 bổ sung) · 03/10/2026 (gộp 2 phiên song song: #28 QLY-09 + #29 NAP-01/03 + #30 THU-01/05; THU-01 hạ ✅→⏳)
-- **Số story trong PRD:** 67 (gồm **`HTG-08`** #94; gồm **`NAP-08`** #92; gồm **`QLY-10`**, **`TCB-05`** #89; gồm **`NAP-07`**, **`THU-07`** #81; gồm **`KQD-10`** #75 + **`KQD-09`** #72 + **`KQD-08`** #69 + **`KQD-07`** #65 + **`PCG-06`** #66 + **`TNB-01..07`** #60 + **`PCG-01..05`** #54 + **`THU-06`** #49 + `KQD-01/02/03/04` #42 + `KQD-05` #45 + `KQD-06` #48; cùng `HTG-01..07` · `THU-01/02/04/05` · `NAP-01..06` · `KHO-01` · `QLY-01/02/03/05/06/07/08/09` · `SYNC-01/02/03` · `TCB-01/02/03/04` · `DGT-01/02/03/04`; chưa tính NICE `QLY-04`, `THU-03`)
-- **Mã story hiện có:** `HTG-01`…`HTG-08`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `THU-06`, `THU-07`, `NAP-01`…`NAP-08`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `QLY-10`, `SYNC-01`, `SYNC-02`, `SYNC-03`, `TCB-01`, `TCB-02`, `TCB-03`, `TCB-04`, `TCB-05`, `DGT-01`, `DGT-02`, `DGT-03`, `DGT-04`, `KQD-01`, `KQD-02`, `KQD-03`, `KQD-04`, `KQD-05`, `KQD-06`, `KQD-07`, `KQD-08`, `KQD-09`, `KQD-10`, `PCG-01`…`PCG-06` (NICE: `QLY-04`, `THU-03`), `TNB-01`…`TNB-07`
+- **Số story trong PRD:** 68 (gồm **`NAP-09`** #102; gồm **`HTG-08`** #94; gồm **`NAP-08`** #92; gồm **`QLY-10`**, **`TCB-05`** #89; gồm **`NAP-07`**, **`THU-07`** #81; gồm **`KQD-10`** #75 + **`KQD-09`** #72 + **`KQD-08`** #69 + **`KQD-07`** #65 + **`PCG-06`** #66 + **`TNB-01..07`** #60 + **`PCG-01..05`** #54 + **`THU-06`** #49 + `KQD-01/02/03/04` #42 + `KQD-05` #45 + `KQD-06` #48; cùng `HTG-01..07` · `THU-01/02/04/05` · `NAP-01..06` · `KHO-01` · `QLY-01/02/03/05/06/07/08/09` · `SYNC-01/02/03` · `TCB-01/02/03/04` · `DGT-01/02/03/04`; chưa tính NICE `QLY-04`, `THU-03`)
+- **Mã story hiện có:** `HTG-01`…`HTG-08`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `THU-06`, `THU-07`, `NAP-01`…`NAP-09`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `QLY-10`, `SYNC-01`, `SYNC-02`, `SYNC-03`, `TCB-01`, `TCB-02`, `TCB-03`, `TCB-04`, `TCB-05`, `DGT-01`, `DGT-02`, `DGT-03`, `DGT-04`, `KQD-01`, `KQD-02`, `KQD-03`, `KQD-04`, `KQD-05`, `KQD-06`, `KQD-07`, `KQD-08`, `KQD-09`, `KQD-10`, `PCG-01`…`PCG-06` (NICE: `QLY-04`, `THU-03`), `TNB-01`…`TNB-07`
 - **Mã đã nghỉ hưu:** (chưa có)

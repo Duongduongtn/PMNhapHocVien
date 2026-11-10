@@ -37,6 +37,7 @@ def test_khong_gui_la_null(api):
 
 @pytest.mark.parametrize("sua", [
     {"hang": "Z9"}, {"hang": ""}, {"so": ""}, {"so": "1" * 21}, {"so": "12|3"},
+    {"so": "79000000012"}, {"so": "7900000001234"}, {"so": "ay123456"},  # CHANGES #101: 11/13 số, chữ thường
     {"don_vi": "700"}, {"ngay_cap": "20181332"}, {"ngay_tt": "15/08/2012"}, {"nhom": "khac"},
     {"ngay_cap": ""}, {"ngay_tt": ""}, {"ngay_cap": "20100101"}, {"ngay_cap": "20990101"}, {"ngay_hh": "20180427"},
 ])
@@ -47,7 +48,13 @@ def test_du_lieu_sai_422_ngay_luc_gui(api, sua):
 
 def test_qua_8_bang_hoac_vuot_100_ky_tu_422(api):
     assert _gui(api, gplx_da_co=[B2] * 9)[1].status_code == 422
-    assert _gui(api, gplx_da_co=[{**B2, "so": "1" * 20}] * 8)[1].status_code == 422
+    assert _gui(api, gplx_da_co=[{**B2, "so": "1" * 12}] * 8)[1].status_code == 422  # 8×12 + 7 dấu | = 103 > 100
+
+
+@pytest.mark.parametrize("so", ["AY 123456", "AH123456"])
+def test_so_gplx_bang_giay_cu_nhan(api, so):
+    """CHANGES #101: bằng giấy bìa cũ 2 chữ cái + 6 số vẫn gửi được."""
+    assert _gui(api, gplx_da_co=[{**B2, "so": so}])[1].status_code in (200, 201)
 
 
 def test_loi_422_khong_chep_so_gplx_vao_phan_hoi(api):
@@ -224,3 +231,35 @@ def test_bo_sung_gia_han_30_ngay(api, db_setup):
     db.expire_all()
     assert xoa_pii_qua_han(db, retention_days=30) == 0
     assert db.scalar(select(HoSoThuThap).where(HoSoThuThap.uuid == uid)) is not None
+
+
+# ---- CHANGES #101: số GPLX cũ đã lưu sai dạng (trước luật mới) giữ nguyên thì không chặn ----
+def _gan_so_cu_sai(db, u, so="79000000012"):
+    """Giả dữ liệu cũ: số 11 chữ số đã nằm trên VPS từ trước khi có luật 12 số."""
+    from uuid import UUID
+    hs = db.scalar(select(HoSoThuThap).where(HoSoThuThap.uuid == UUID(u)))
+    hs.gplx_da_co = [{**B2, "so": so}]
+    db.commit()
+
+
+def test_sua_pending_giu_so_cu_sai_dang_van_luu(api, db_setup):
+    db, _ = db_setup
+    u, _ = _gui(api, gplx_da_co=[B2])
+    _gan_so_cu_sai(db, u)
+    h = _login(api, "col1")
+    giu = api.put(f"/api/ho-so/{u}", headers=h, json={"gplx_da_co": [{**B2, "so": "79000000012", "don_vi": "79"}]})
+    assert giu.status_code == 200
+    moi_sai = api.put(f"/api/ho-so/{u}", headers=h, json={"gplx_da_co": [{**B2, "so": "79000000099"}]})
+    assert moi_sai.status_code == 422 and "12 chữ số" in moi_sai.text
+
+
+def test_bo_sung_giu_so_cu_sai_dang_them_bang_moi_dung(api, db_setup):
+    db, _ = db_setup
+    u, _ = _gui(api, so_cccd="099999999902", gplx_da_co=[B2])
+    _nap(api, u)
+    _gan_so_cu_sai(db, u)
+    h = _login(api, "col1")
+    ok = api.put(f"/api/ho-so/{u}/gplx", headers=h, json={"gplx_da_co": [{**B2, "so": "79000000012"}, A1]})
+    assert ok.status_code == 200
+    sai = api.put(f"/api/ho-so/{u}/gplx", headers=h, json={"gplx_da_co": [{**B2, "so": "79000000012"}, {**A1, "so": "7900000004"}]})
+    assert sai.status_code == 422

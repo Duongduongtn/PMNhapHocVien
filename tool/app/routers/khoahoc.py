@@ -33,8 +33,9 @@ def list_khoa_hoc(loai: str = Query(..., pattern="^(moto|oto)$")):
     chu_dau = _CHU_DAU[loai]
     placeholders = ",".join(["%s"] * len(chu_dau))
     sql = f"""
-        SELECT k.MaKH, k.TenKH, k.HangGPLX, k.HangDT, k.MaSoGTVT
+        SELECT k.MaKH, k.TenKH, k.HangGPLX, k.HangDT, k.MaSoGTVT, h.TuoiHV, h.TenHangDT
         FROM KhoaHoc k
+        OUTER APPLY (SELECT TOP 1 d.TuoiHV, d.TenHangDT FROM DM_HangDT d WHERE d.MaHangDT = k.HangDT) h  -- TOP 1: DB cũ thiếu khóa chính cũng không nhân đôi khóa
         WHERE k.TrangThai = 1
           AND LEFT(k.HangGPLX, 1) IN ({placeholders})
           AND NOT EXISTS (SELECT 1 FROM BaoCaoI b WHERE b.MaKH = k.MaKH)
@@ -57,6 +58,9 @@ def list_khoa_hoc(loai: str = Query(..., pattern="^(moto|oto)$")):
             "hang_dt": r["HangDT"],
             "ma_so_gtvt": r["MaSoGTVT"],
             "ma_loai_hs": suy_ma_loai_hs(r["HangGPLX"], r["HangDT"]),
+            # NAP-09: tuổi tối thiểu học hạng này (số phần mềm cũ dùng; null → không kiểm tuổi khi nạp)
+            "tuoi_hv": int(r["TuoiHV"]) if r.get("TuoiHV") is not None else None,
+            "ten_hang_dt": (r.get("TenHangDT") or "").strip() or None,
         }
         for r in rows
     ]
