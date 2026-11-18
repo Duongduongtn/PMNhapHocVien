@@ -1,6 +1,6 @@
 # Production compose — image từ ghcr.io, KHÔNG build tại VPS. Đặt ở /opt/nhaphocvien/.
 # IMAGE_TAG_API / IMAGE_TAG_WEB: workflow truyền FULL URL
-#   ghcr.io/duongnamdata/pmnhaphocvien-api:<sha> · ...-web:<sha>.
+#   ghcr.io/duongduongtn/pmnhaphocvien-api:<sha> · ...-web:<sha>.
 # Chỉ 'web' mở cổng host (127.0.0.1:3012 → nginx host proxy); api + postgres nội bộ.
 services:
   postgres:
@@ -23,7 +23,7 @@ services:
       options: { max-size: "10m", max-file: "3" }
 
   api:
-    image: ${IMAGE_TAG_API:-ghcr.io/duongnamdata/pmnhaphocvien-api:latest}
+    image: ${IMAGE_TAG_API:-ghcr.io/duongduongtn/pmnhaphocvien-api:latest}
     env_file: .env
     depends_on:
       postgres:
@@ -42,7 +42,7 @@ services:
       options: { max-size: "10m", max-file: "3" }
 
   web:
-    image: ${IMAGE_TAG_WEB:-ghcr.io/duongnamdata/pmnhaphocvien-web:latest}
+    image: ${IMAGE_TAG_WEB:-ghcr.io/duongduongtn/pmnhaphocvien-web:latest}
     ports:
       - "127.0.0.1:3012:80"
     depends_on:

@@ -10,8 +10,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  IMG_API: ghcr.io/duongnamdata/pmnhaphocvien-api
-  IMG_WEB: ghcr.io/duongnamdata/pmnhaphocvien-web
+  IMG_API: ghcr.io/duongduongtn/pmnhaphocvien-api
+  IMG_WEB: ghcr.io/duongduongtn/pmnhaphocvien-web
 
 jobs:
   build:
