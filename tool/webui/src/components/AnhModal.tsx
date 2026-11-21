@@ -171,7 +171,6 @@ export default function AnhModal({
       <div className="bg-card rounded-xl shadow-xl w-full max-w-2xl p-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2 mb-1">
           <h3 className="text-sm font-bold">Ảnh chân dung</h3>
-          <span className="text-[11px] font-semibold text-primary bg-primary/10 rounded-full px-2 py-0.5">NAP-04</span>
           <button onClick={onDong} className="ml-auto text-muted-foreground hover:text-foreground">
             <Icon name="x" className="w-5 h-5" />
           </button>

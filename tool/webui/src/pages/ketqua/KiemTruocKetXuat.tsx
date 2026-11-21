@@ -124,9 +124,7 @@ export default function KiemTruocKetXuat({
       <div className="absolute right-0 top-0 h-full w-[540px] max-w-full bg-card shadow-2xl flex flex-col" role="dialog" aria-label="Kiểm trước kết xuất">
         <div className="shrink-0 px-4 py-3 border-b border-border flex items-start gap-3">
           <div>
-            <div className="font-bold text-[15px] flex items-center gap-2">Kiểm trước kết xuất
-              <span className="text-[10px] font-semibold text-kq bg-kq-soft border border-kq-border rounded-full px-1.5 py-px">KQD-07</span>
-            </div>
+            <div className="font-bold text-[15px] flex items-center gap-2">Kiểm trước kết xuất</div>
             <div className="text-[12px] text-muted-foreground">Khóa <b className="text-foreground">{khoa.ten_kh}</b> · hạng {khoa.hang_gplx} · chỉ học viên chưa kết xuất</div>
           </div>
           <button onClick={tai} disabled={dang} className="ml-auto inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-border text-[12.5px] whitespace-nowrap hover:bg-muted disabled:opacity-50">

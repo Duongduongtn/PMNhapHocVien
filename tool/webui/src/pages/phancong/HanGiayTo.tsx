@@ -103,7 +103,6 @@ export default function HanGiayTo() {
         <h1 className="text-[15px] font-bold flex items-center gap-2">
           <Icon name="clock" className="w-5 h-5 text-pc" /> Hạn giấy tờ
         </h1>
-        <span className="text-[10px] font-semibold text-pc bg-pc-soft border border-pc-border rounded-full px-1.5 py-px">PCG-06</span>
         <span className="text-[12.5px] text-muted-foreground">
           Toàn bộ cơ sở · chỉ đọc{kq ? <> · ngưỡng {kq.nguong} ngày · tính đến <b className="text-foreground">{ymdToVN(kq.hom_nay)}</b></> : null}. Bấm một khóa để mở khóa đó ở “Phân công theo khóa”.
         </span>

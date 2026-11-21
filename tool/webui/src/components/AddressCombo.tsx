@@ -96,7 +96,6 @@ export default function AddressCombo({ diaChiGoc, onChon }: { diaChiGoc?: string
     <div className="rounded-lg border border-border bg-card p-4">
       <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
         <Icon name="file" className="w-4 h-4 text-primary" /> Nơi thường trú — map địa chỉ
-        <span className="text-[11px] font-semibold text-primary bg-primary/10 rounded-full px-2 py-0.5">NAP-03</span>
       </h3>
 
       {/* Địa chỉ cũ (text) */}
