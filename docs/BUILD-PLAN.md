@@ -2,7 +2,7 @@
 
 > File do `/kehoach` sinh. `/tieptheo` đọc file này để biết làm gì tiếp theo.
 > **Thứ tự code** nằm ở đây. **Yêu cầu và trạng thái story** nằm ở `docs/PRD.md`.
-> Cập nhật lần cuối: 02/11/2026 (v31 — +Phase 12 task 149-154 GPLX đã có, CHANGES #81-#82; trước đó v30 — +Phase 11 task 146-148 "Chọn in GPLX", CHANGES #79; trước đó v29 — mô tả task 137/139/140/141 theo `/reviewtdd` §11D.13, CHANGES #78; trước đó v28 — thêm task 136-145 + Checkpoint 34/35 cho `KQD-04` đổi (14→90 + giải trình hàng loạt), CHANGES #77). Trước đó 12/10/2026 (v27 — thêm task 127-135 + Checkpoint 33 cho `KQD-09` xuất Excel kết quả học tập và `KQD-10` xuất Sổ theo dõi (mẫu Phụ lục VI) (CHANGES #72-#76); trước đó v26 — thêm task 123-126 (126 đã đóng gói exe, selftest đạt) + Checkpoint 32 cho `KQD-08` nạp giờ/km đường từ PDF DAT + phần đổi của `KQD-02` (CHANGES #69-#70); trước đó v25 — thêm task 118-122 + Checkpoint 29-31 cho QLY-07 sửa ghi ảnh, KQD-07, PCG-06; trước đó v24 — thêm task 116-117 (110b) + Checkpoint 28; trước đó v23 — Phase 10 Tốt nghiệp & Báo cáo 2 TNB-01..07, task 96-115, CHANGES #60-#62, TDD §11F v6.8. Trước đó v22 — Phase 9 Phân công GV – xe PCG-01..05, task 85-95, CHANGES #54. Trước đó v21 — KQD-05 mở rộng "Sửa sau gửi" #53, task 83-84. Trước đó v20 — Phase 8 NAP-01 #51 "Bỏ khỏi hàng đợi" dòng chờ/lỗi + tombstone, task 81-82. Trước đó v19 — THU-06 chỉ OCR 5 trường (CHANGES #50); v18 — Phase 7 THU-06 task 79-80)
+> Cập nhật lần cuối: 21/11/2026 (+Phase 14 task 164-169 `TNB-08` In Báo cáo 2, CHANGES #103). Trước đó 02/11/2026 (v31 — +Phase 12 task 149-154 GPLX đã có, CHANGES #81-#82; trước đó v30 — +Phase 11 task 146-148 "Chọn in GPLX", CHANGES #79; trước đó v29 — mô tả task 137/139/140/141 theo `/reviewtdd` §11D.13, CHANGES #78; trước đó v28 — thêm task 136-145 + Checkpoint 34/35 cho `KQD-04` đổi (14→90 + giải trình hàng loạt), CHANGES #77). Trước đó 12/10/2026 (v27 — thêm task 127-135 + Checkpoint 33 cho `KQD-09` xuất Excel kết quả học tập và `KQD-10` xuất Sổ theo dõi (mẫu Phụ lục VI) (CHANGES #72-#76); trước đó v26 — thêm task 123-126 (126 đã đóng gói exe, selftest đạt) + Checkpoint 32 cho `KQD-08` nạp giờ/km đường từ PDF DAT + phần đổi của `KQD-02` (CHANGES #69-#70); trước đó v25 — thêm task 118-122 + Checkpoint 29-31 cho QLY-07 sửa ghi ảnh, KQD-07, PCG-06; trước đó v24 — thêm task 116-117 (110b) + Checkpoint 28; trước đó v23 — Phase 10 Tốt nghiệp & Báo cáo 2 TNB-01..07, task 96-115, CHANGES #60-#62, TDD §11F v6.8. Trước đó v22 — Phase 9 Phân công GV – xe PCG-01..05, task 85-95, CHANGES #54. Trước đó v21 — KQD-05 mở rộng "Sửa sau gửi" #53, task 83-84. Trước đó v20 — Phase 8 NAP-01 #51 "Bỏ khỏi hàng đợi" dòng chờ/lỗi + tombstone, task 81-82. Trước đó v19 — THU-06 chỉ OCR 5 trường (CHANGES #50); v18 — Phase 7 THU-06 task 79-80)
 
 ## Quyết định về thứ tự
 
@@ -60,6 +60,7 @@
 - **AS-003** nạp thử 1 HV → mở app cũ đối chiếu — kiểm ở Checkpoint 2.
 - **MaGT identity?** — kiểm `NguoiLXHS_GiayTo.MaGT` ở `GPLX_CDB_CSDT` có IDENTITY không (quyết truyền tay hay dùng hàm `GetMaGiaytoByHosoForSync`) — cần trước **task 57**.
 - **SQL login của tool ở DB Nạp có `EXECUTE` trên 7 SP của TDD §11F.1** (`usp_NguoiLX_HoSo_Update_CNTN`, `usp_BaoCaoII_Insert`, `usp_BaoCaoII_Delete`, `usp_NguoiLX_HoSo_ThemHS_BC2`, `usp_NguoiLX_Update_ThemHSBC2`, `usp_NguoiLXHoSo_Update_DanhSachHocSinhBC2`, `usp_NguoiLX_HoSo_UpdateTTXLy`) và `sp_getapplock` — cần trước **task 98**.
+- **TNB-08 (task 165-166):** SQL login của tool có quyền đọc `usp_BaoCao_TieuDe`, `usp_BaoCao2_ViewRPT`, `usf_BaBT_GetMaNoidungSathach`, `usf_BaBT_GetNoidungSathach`, `usf_ToanPK_BoDauPhaiCuoi`, `DM_NoiDungSH`, `DM_DiemSatHach`; máy CSĐT có phần mềm cũ + bộ chạy Crystal 32-bit.
 - **Chụp trước/sau PM cũ** (1 HV + 1 BC2 thử: `NgaySua`, `NguoiSua`, `Transfer_flag` và cột khác PM cũ chạm) — cần trước **task 99/102** để biết SP + cột chính xác (TDD-decisions §23 "Còn mở").
 - **Quy tắc số giấy CNTN liên tiếp** (`N1|7282` → ?) và số sổ/quyết định theo khóa — cần trước **task 107**; chưa rõ thì mặc định nhập tay từng ô (nhân viên luôn sửa được).
 - **SP sửa/đổi khóa/xóa trong CDB?** — kiểm `GPLX_CDB_CSDT` có `usp_NguoiLX_Update` / SP đổi khóa / SP xóa (như `GPLX_CSDT`) không — cần trước **task 65-66**; thiếu thì tắt nút tương ứng + báo (đã ghi trong TDD §11B.7 + CHANGES #35).
@@ -601,6 +602,31 @@
 
 - [ ] Các cột khác không đổi; phần mềm cũ hiển thị đúng; Báo cáo 2 ra miễn lý thuyết.
 
+## Phase 14 — In Báo cáo 2 từ tool, chọn phần thi (TNB-08)
+
+> CHANGES #103 · TDD §11F.9 (v6.48) · TDD-decisions §32 · mock `ui-mock/inbc2.html` (user duyệt 21/11/2026). Không ghi DB Nạp/DB đích; lựa chọn lưu SQLite của tool. Kế hoạch cũ chưa có cột Rủi ro/Làn — chỉ phase này có.
+
+| # | Task | Story | Quy mô | Rủi ro | Làn | Phụ thuộc | Kiểm | Xong |
+|---|---|---|---|---|---|---|---|---|
+| 164 | **Luật phần thi** `tool/app/tn_bc2_phan_thi.py` + pytest: nhóm hạng (ô tô L/H/Đ · mô tô LT/TH · A3/A4), tập phần ↔ mục `DM_NoiDungSH` (lần đầu/thi lại), quy đổi bỏ M, suy đã đạt từ `KetQuaSH` + điểm + ngưỡng, cộng dồn, quá hạn bảo lưu. | `TNB-08 (1/6)` | S | thường | A | — | 1+2 | [x] |
+| 165 | **Backend dữ liệu + sổ:** `du_lieu_ban_in` (đầu trang `usp_BaoCao_TieuDe`, dòng cùng điều kiện `usp_BaoCao2_ViewRPT`, chữ hàm cũ khi chưa sửa) · SQLite `noi_dung_thi`/`so_phan_thi`/`lan_in` (`tn_bc2_ban_in.py`) · API `GET /bc2/{ma}/ban-in`, `PUT …/noi-dung-thi`, `GET /noi-dung-sh`, `POST …/da-in`, `GET /bc2` thêm `ban_in` · bảng `bc2_tom_tat` cho cột Bản in · thứ tự ưu tiên `noi_dung_thi` > sổ > DB > phần mềm cũ · test dữ liệu khớp SP cũ trên 3 BC2 thật. | `TNB-08 (2/6)` | M | thường | A | 164 | 1+2 | [x] |
+| 166 | **Dựng PDF bằng Crystal của phần mềm cũ:** `tool/app/crystal_bc2.py` + `tool/app/scripts/in_bc2.ps1` (PowerShell 32-bit, đẩy DataSet, thay `{?@MaKH}` trên bản sao tạm), `POST …/xem-truoc`, cấu hình `gplx_cu_dir` + tự dò + `GET/PUT /gplx-cu-dir`, lỗi `chua_co_phan_mem_cu`/quá giờ, **xóa tệp tạm trong `finally` mọi nhánh**, khóa một lần dựng, `tool.spec` đóng gói script. | `TNB-08 (3/6)` | M | cao | Chung | 165 | 1+2 | [x] |
+| 167 | **UI chọn phần thi:** Danh sách BC2 (nút In BC2 mỗi dòng cả mở/đóng, ô tìm, cột Bản in; **các nút cuối dòng bọc một hàng căn giữa, cùng cỡ** — lỗi lệch dòng thấy ở mock) · màn In BC2 (ô phần thi bấm bật/tắt, Ghi chú tự đổi, dải đếm/lọc, chọn nhiều + bộ ô chung, ↺, tự lưu, rê chuột hiện phần/kỳ/nguồn, Tab + phím cách, dòng đỏ "Phải bật ít nhất 1 phần" chặn Xem trước) · nút In BC2 ở Xem BC2. | `TNB-08 (4/6)` | M | thường | A | 165 | 1 | [x] |
+| 168 | **UI xem trước** (PDF trong tool, nút In… / Lưu PDF của tool gọi `da-in`, đang dựng, lỗi + **ô chọn thư mục phần mềm cũ**, Dựng lại) + **E2E** chọn → xem trước → tải lại vẫn giữ (bước xem trước dùng API giả trả PDF mẫu) + `/soatweb`. | `TNB-08 (5/6)` | S | thường | A | 166, 167 | 1+3 | [x] |
+| 169 | **Đóng gói exe + nghiệm thu máy CSĐT:** so ảnh từng trang PDF tool với PDF phần mềm cũ (BC2 75/2026), đếm DB Nạp trước/sau không đổi. Chạy một mình. **Đã đóng gói 21/11/2026 10:24** (buildinfo `08d09d3` + cây chưa commit) → `tool/dist/tnb08/pmcsdtlx-tool/` (có `_internal/app/scripts/in_bc2.ps1`; dựng PDF thật bằng script trong gói đạt, 6 trang 2,5 giây). **Còn:** thử ở máy CSĐT, so PDF với bản phần mềm cũ, thử hộp In…. | `TNB-08 (6/6)` | S | thường | Chung | 168 | 1 | [ ] |
+
+### ✅ Checkpoint 42 — sau task 164-166 (backend + dựng PDF)
+
+- [x] pytest luật phần thi + sổ xanh; chạy lại toàn bộ test mức 2 của tool (1.173 test xanh, 21/11/2026)
+- [x] Dữ liệu dòng khớp `EXEC usp_BaoCao2_ViewRPT` trên 3 BC2 thật (75/2026 · 66/2026 · 870/26-TTTÐ: 42/91/150 dòng, thứ tự + 9 cột trùng tuyệt đối; Ghi chú khác chỉ ở dòng bỏ M / luật tool)
+- [x] Dựng được PDF cho 1 BC2 ô tô (4 trang) + 1 BC2 mô tô (11 trang) thật, 2-3 giây; code mới chỉ SELECT/EXEC SP đọc, không có câu ghi SQL Server
+
+### ✅ Checkpoint 43 — sau task 167-169 (UI + nghiệm thu)
+
+- [x] `pnpm build` sạch; E2E luồng In BC2 xanh (7 test) + 79 E2E BC2 cũ + 198 vitest; chụp màn thật đối chiếu mock
+- [ ] PDF tool trùng từng trang bản in phần mềm cũ ở các dòng chưa sửa (mô tô trùng hoàn toàn)
+- [ ] Đóng story: soát nghiệp vụ gộp một lần (`review-nghiepvu`) + `review-xuat-file` (có xuất PDF)
+
 ---
 
 ## Nhóm chạy song song được
@@ -672,20 +698,23 @@
 | Phần mềm CDB cũng đặt `TT_XuLy='90'` ở màn giải trình riêng → hai nơi cùng đặt (task 136/145) | Thấp (cùng giá trị) | Nghiệm thu so trước/sau ở máy CSĐT; guard SQL `TT_XuLy='14'` nên không ghi đè khi đã 90 |
 | `usp_CSDT_PheDuyetKQDT_TiepNhan` xóa trắng `GiaiTrinh` ở lần Sở phản hồi kế tiếp; HV `90` mà Sở trả lời bản kết xuất cũ → SP yêu cầu `12` có thể báo lỗi (task 136/137) | Trung bình | Ghi rõ ở TDD §11D.13; nghiệm thu máy CSĐT; không chặn, chỉ báo |
 | Sửa `cap_nhat` (hàm dùng chung KQD-02/04/05/06) làm hỏng luồng nhập điểm thường (task 136) | Cao nếu sót | `impact` trước khi sửa + test hồi quy 03→09/10 + `detect_changes` ở Checkpoint 34 |
+| Máy CSĐT khác phiên bản Crystal / khác thư mục cài phần mềm cũ → không dựng được PDF (task 166) | Trung bình | Dò `D:\GPLX-*`, cho chọn thư mục; nạp dll từ chính thư mục phần mềm cũ; báo rõ, không in bản dựng lại khác mẫu; nghiệm thu task 169 |
+| Mốc hết bảo lưu phần đã đạt chưa chốt (tạm 365 ngày từ `NgayQDTT` như phần mềm cũ) (task 164) | Thấp | Để thành một hằng trong `tn_bc2_phan_thi.py`, đổi một chỗ khi user chốt |
 
 ## Nguồn đối chiếu
 
 > `/tieptheo` so mục này với PRD mỗi buổi để biết kế hoạch còn khớp không. Lệch thì báo user chạy lại `/kehoach` chế độ bổ sung. **Không tự sửa kế hoạch.**
 
-- **Số story trong PRD khi cập nhật:** 65 (thêm `QLY-10`, `TCB-05` từ CHANGES #89; trước đó 63, thêm `NAP-07`, `THU-07` từ CHANGES #81; giữ nguyên ở CHANGES #77 — KQD-04 đổi, không thêm/bớt mã; thêm `KQD-09`, `KQD-10` từ CHANGES #72, #75; trước đó 59 — thêm `KQD-08` từ CHANGES #69; trước đó 58 — thêm `KQD-07` từ CHANGES #65 + `PCG-06` từ CHANGES #66; `TNB-01..07` từ CHANGES #60; `PCG-01..05` từ CHANGES #54; thêm `THU-06` từ CHANGES #49; `KQD-06` #48; `KQD-05` #45; trước đó `KQD-01/02/03/04` #42; `DGT-01/02/03/04` #38/#39; `TCB-01/02/03/04` #35; `HTG-07` #34; `SYNC-01/02/03` #33; chưa tính NICE `QLY-04`, `THU-03`)
-- **Mã story đã đưa vào kế hoạch:** `HTG-01`, `HTG-02`, `HTG-03`, `HTG-07`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `THU-06`, `THU-07`, `NAP-01`…`NAP-07`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `QLY-10`, `SYNC-01`, `SYNC-02`, `SYNC-03`, `TCB-01`, `TCB-02`, `TCB-03`, `TCB-04`, `TCB-05`, `DGT-01`, `DGT-02`, `DGT-03`, `DGT-04`, `KQD-01`, `KQD-02`, `KQD-03`, `KQD-04`, `KQD-05`, `KQD-06`, `KQD-07`, `KQD-08`, `KQD-09`, `KQD-10`, `PCG-01`, `PCG-02`, `PCG-03`, `PCG-04`, `PCG-05`, `PCG-06`, `TNB-01`, `TNB-02`, `TNB-03`, `TNB-04`, `TNB-05`, `TNB-06`, `TNB-07`
-- **Mã story chưa đưa vào:** `QLY-04`, `THU-03` (NICE, chưa đủ chi tiết) · **`HTG-04/05/06`** (thêm ở CHANGES #18, đã code thẳng — chưa có task trong plan; cần `/kehoach` bổ sung riêng nếu muốn khớp sổ)
-- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 03/11/2026 (#90)
+- **Số story trong PRD khi cập nhật:** 69 (thêm `TNB-08` từ CHANGES #103; `NAP-08` #92, `HTG-08` #94, `NAP-09` #102 đã code thẳng, không có task) · trước đó: 65 (thêm `QLY-10`, `TCB-05` từ CHANGES #89; trước đó 63, thêm `NAP-07`, `THU-07` từ CHANGES #81; giữ nguyên ở CHANGES #77 — KQD-04 đổi, không thêm/bớt mã; thêm `KQD-09`, `KQD-10` từ CHANGES #72, #75; trước đó 59 — thêm `KQD-08` từ CHANGES #69; trước đó 58 — thêm `KQD-07` từ CHANGES #65 + `PCG-06` từ CHANGES #66; `TNB-01..07` từ CHANGES #60; `PCG-01..05` từ CHANGES #54; thêm `THU-06` từ CHANGES #49; `KQD-06` #48; `KQD-05` #45; trước đó `KQD-01/02/03/04` #42; `DGT-01/02/03/04` #38/#39; `TCB-01/02/03/04` #35; `HTG-07` #34; `SYNC-01/02/03` #33; chưa tính NICE `QLY-04`, `THU-03`)
+- **Mã story đã đưa vào kế hoạch:** `TNB-08` (Phase 14), `HTG-01`, `HTG-02`, `HTG-03`, `HTG-07`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `THU-06`, `THU-07`, `NAP-01`…`NAP-07`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `QLY-10`, `SYNC-01`, `SYNC-02`, `SYNC-03`, `TCB-01`, `TCB-02`, `TCB-03`, `TCB-04`, `TCB-05`, `DGT-01`, `DGT-02`, `DGT-03`, `DGT-04`, `KQD-01`, `KQD-02`, `KQD-03`, `KQD-04`, `KQD-05`, `KQD-06`, `KQD-07`, `KQD-08`, `KQD-09`, `KQD-10`, `PCG-01`, `PCG-02`, `PCG-03`, `PCG-04`, `PCG-05`, `PCG-06`, `TNB-01`, `TNB-02`, `TNB-03`, `TNB-04`, `TNB-05`, `TNB-06`, `TNB-07`
+- **Mã story chưa đưa vào:** `QLY-04`, `THU-03` (NICE, chưa đủ chi tiết) · **`HTG-04/05/06`** (thêm ở CHANGES #18, đã code thẳng — chưa có task trong plan; cần `/kehoach` bổ sung riêng nếu muốn khớp sổ) · **`NAP-08`, `HTG-08`, `NAP-09`** (CHANGES #92, #94, #102 — đã code thẳng, ghi nhận, không lên lịch lại)
+- **Đã đọc `docs/CHANGES.md` tới dòng ngày:** 21/11/2026 (#103)
 
 ## Changelog
 
 | Ngày | Thay đổi |
 |---|---|
+| 21/11/2026 | Bổ sung (CHANGES #103; PRD v4.43, TDD v6.48 §11F.9): **Phase 14** `TNB-08` in Báo cáo 2 — task **164-169** + **Checkpoint 42, 43** (có cột Rủi ro, Làn). Không đánh số lại task cũ; số story 69. |
 | 03/11/2026 | Bổ sung (CHANGES #89, #90): **Phase 13** task 155-163, Checkpoint 39-41. |
 | 02/11/2026 | v31 — bổ sung (CHANGES #81-#82; PRD v4.24, TDD v6.28): thêm **Phase 12** `NAP-07`, `THU-07` — task **149-154** + **Checkpoint 37, 38**. Không đánh số lại task cũ; số story 63. |
 | 16/10/2026 | v30 — bổ sung (CHANGES #79; PRD v4.22, TDD v6.25): thêm **Phase 11** `NAP-05`/`NAP-01` ô "Chọn in GPLX" theo hạng khóa — task **146** (đã xong, M) · **147** đóng gói exe · **148** nghiệm thu máy CSĐT + **Checkpoint 36**. Không đánh số lại task cũ; số story giữ 61. |

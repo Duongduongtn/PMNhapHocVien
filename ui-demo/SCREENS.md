@@ -64,6 +64,8 @@ Prototype là tham chiếu **style/layout**, không phải scaffold thật.
 | 36 | **GPLX đã có** (`NAP-07` màn Nạp: khối nhập, chip, lọc · `THU-07` app web) — mock `ui-mock/gplxdaco.html` | — | — | — | ✅ mock đã duyệt 02/11/2026 |
 | 37 | **Bổ sung GPLX sau khi đã nạp** (`THU-07` app web · `QLY-10` Tra cứu DB: cảnh báo, chip, lọc, khối xem trước · `TCB-05` Tra cứu CDB) — mock `ui-mock/gplxbosung.html` | — | — | — | ✅ mock đã duyệt 03/11/2026 |
 | 38 | **Hồ sơ chưa nạp được app web cập nhật** (`NAP-08` màn Nạp: dải cảnh báo, danh sách đổi gì, chip, lọc, cảnh báo đậm "nháp đang giữ ảnh cũ" kèm Dùng ảnh mới / Giữ ảnh cũ) — mock `ui-mock/napthaydoi.html` | — | — | — | ✅ mock đã duyệt 04/11/2026; đã dựng thật ở `tool/webui/src/pages/tool/NapHoSo.tsx` (E2E `tool/webui/e2e/nap-thay-doi.e2e.ts`) |
+| 39 | **Tốt nghiệp & BC2 · In Báo cáo 2: chọn nội dung thi** (vào từ nút "In BC2" ở từng dòng Danh sách BC2 #28 — thêm ô tìm + cột Bản in — hoặc từ Xem BC2: dải đếm theo nội dung thi · **ô phần thi hiện sẵn trên từng dòng, bấm bật/tắt** (gộp phần đã đạt) · cột Ghi chú khi in tự đổi · chọn nhiều + bộ ô chung ở thanh đáy · tự lưu) — mock `ui-mock/inbc2.html` | TNB-08 | `/tot-nghiep-bc2/bao-cao-2` (trong tab) | ⬜ mock đã duyệt 21/11/2026, chưa dựng thật | — |
+| 40 | **Tốt nghiệp & BC2 · Xem trước bản in BC2** (PDF dựng bằng mẫu phần mềm cũ · In… · Lưu PDF · lỗi thiếu phần mềm cũ) | TNB-08 | `/tot-nghiep-bc2/bao-cao-2` (trong tab) | ⬜ mock đã duyệt 21/11/2026, chưa dựng thật | — |
 | — | Hàng đợi VPS + xóa PII 30 ngày | HTG-02 | (backend, không có UI) | ⬜ Không dựng | — |
 | — | Kết xuất Excel (NICE) | QLY-04 | (mới có nút, chưa luồng) | ⬜ NICE — sau | — |
 | — | Offline app web (NICE) | THU-03 | — | ⬜ NICE — sau | — |
@@ -71,6 +73,8 @@ Prototype là tham chiếu **style/layout**, không phải scaffold thật.
 Chú thích: ✅ Xong · 🟡 Placeholder · ⬜ Chưa có route
 
 ## Quyết định UX đã chốt
+
+- **In Báo cáo 2** (21/11/2026, CHANGES #103, `TNB-08`): **ô phần thi hiện sẵn trên từng dòng, bấm bật/tắt, không mở menu/popup** (ô tô `L H Đ`, mô tô `LT TH`; xanh đậm = phải thi, xanh lá ✓ = đã đạt), phần đã đạt gộp vào chính các ô, cột Ghi chú khi in tự ra tên mục (Lần đầu / Thi lại tool tự biết); đổi là tự lưu; **bắt buộc xem trước** PDF (đúng mẫu phần mềm cũ) rồi mới In / Lưu PDF.
 
 - **Cảnh báo tuổi khi nạp** (10/11/2026, CHANGES #102, `NAP-09`): popup rộng (≈900px) chen trước bước nạp ở màn Nạp tool, chỉ hiện khi có người chưa đủ tuổi; bảng họ tên · ngày sinh · tuổi · ngày đủ tuổi · còn thiếu · ô Nạp (mặc định chọn); nút "Bỏ hết người chưa đủ tuổi" + "Tiếp tục nạp N học viên".
 

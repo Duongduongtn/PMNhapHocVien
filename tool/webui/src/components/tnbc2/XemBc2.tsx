@@ -27,10 +27,12 @@ export default function XemBc2({
   maBc2,
   onVe,
   onThem,
+  onIn,
 }: {
   maBc2: string;
   onVe: () => void;
   onThem: (ct: ChiTietBc2) => void;
+  onIn: (ma: string) => void;
 }) {
   const [ct, setCt] = useState<ChiTietBc2 | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
@@ -87,6 +89,8 @@ export default function XemBc2({
         <input aria-label="Tìm học viên trong BC2" className="field-input ml-auto" style={{ width: 240 }} value={q}
           placeholder="Tìm tên / số CMT" onChange={(e) => setQ(e.target.value)} />
         <button type="button" className={nutNho} onClick={lamTuoi}>Làm tươi</button>
+        <button type="button" className={nutNho} onClick={() => onIn(maBc2)} disabled={!ct || ct.hv_thuc_te === 0}
+          data-testid="in-bc2-tu-xem">In BC2</button>
         <ChuGiaiTrangThai />
         <button type="button" disabled={!ct?.xoa_duoc} onClick={() => setHop("xoa")}
           title="Chỉ xóa được BC2 đang mở và không còn học viên"

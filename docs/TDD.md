@@ -2065,6 +2065,7 @@ Tiền tố `/local/tnbc2`. Mọi `POST/DELETE` ghi cần `xac_nhan_csdl_that: t
 | Xem / gỡ / xóa | `GET /bc2/{ma:path}` · `POST /bc2/{ma:path}/go` · `DELETE /bc2/{ma:path}?xac_nhan_csdl_that=true` | `go` chạy nền; xóa đồng bộ |
 | Cứu trạng thái | `GET /cuu/tim` · `POST /cuu/chuyen` · `POST /cuu/hoan-tac` | §11F.5 |
 | Danh sách | `GET /bc1?loai=` · `GET /bc2?loai=&dong=mo\|dong` · `GET /nhat-ky?loai=&ma_bc2=&gioi_han=` | chỉ đọc |
+| In BC2 (TNB-08) | `GET /noi-dung-sh` · `GET /bc2/{ma:path}/ban-in` · `PUT /bc2/{ma:path}/noi-dung-thi` · `POST /bc2/{ma:path}/xem-truoc` (PDF) · `POST /bc2/{ma:path}/da-in` · `GET/PUT /gplx-cu-dir` · `GET /bc2` thêm `ban_in` | không ghi DB Nạp, §11F.9 |
 
 **Mã lỗi hay gặp** (`detail.ma`): 400 `thieu_xac_nhan_csdl_that`, `lo_id_khong_hop_le`, `khong_co_hoc_vien`, `qua_nhieu_dong`, `dong_qua_dai`, `chi_o_to`, `vuot_do_dai`, `dong_trung_hoc_vien`, `thieu_tu_khoa` · 404 `bc2_khong_ton_tai`, `khoa_khong_ton_tai`, `khong_co_lo`, `khong_co_lan_cuu`, `hv_khong_ton_tai` · 409 `dang_ghi`, `trung_so`, `can_xac_nhan_canh_bao` (kèm `canh_bao[]`), `khoa_chua_co_bc1`, `bc2_khac_khoa`, `bc2_da_dong`, `con_hoc_vien`, `khong_co_dong_hop_le` / `khong_co_hoc_vien_huy_duoc` (kèm `bo_qua[]`), `khoa_chua_be_giang`, `khong_cuu_duoc` (kèm `chan[]`), `da_hoan_tac`, `da_bi_doi`, `lo_id_khong_khop`. `GET /bc2` "HV thực tế" bằng **một** `SELECT MaBC2, COUNT(*) … GROUP BY MaBC2` cho cả danh sách; 437/455 BC2 có Tổng ghi ≠ HV thực tế là **bình thường** (PM cũ không đếm lại, HV thi lại bị chuyển sang BC2 sau) nên chỉ đánh dấu thông tin.
 
@@ -2085,9 +2086,70 @@ Tiền tố `/local/tnbc2`. Mọi `POST/DELETE` ghi cần `xac_nhan_csdl_that: t
 - Cho các mục review: `lo_id` idempotent (gửi hai lần → một lần chạy) · "Làm tiếp" không gọi lại SP với HV đã `11` · BC2 đã đóng giữa chừng → không ghi · xóa BC2 còn HV → chặn · `MaBC2` không tồn tại xử như rỗng · giới hạn đầu vào/độ dài cột · nhật ký không chứa CMT/họ tên.
 - **Đã có test (kết nối giả mô phỏng đúng các SP):** `tests/test_tn_bc2_{rules,service,ghi,lap,go,tot_nghiep,ghi_tn,huy_tn,cuu,danh_sach}.py` (~200 test; backend task 96–105, Checkpoint 23/24). Chưa có: ghi thật ở máy CSDT.
 - **Chỉ tiêu đo được (nghiệm thu máy CSDT; máy dev 11/10/2026: ứng viên 1,4–1,7 giây lần đầu, BC2 0,07 giây):** danh sách ứng viên một khóa ≤ 2 giây · thêm 100 HV vào BC2 ≤ 5 giây · từ 200 HV có thanh tiến độ.
-- Nghiệm thu máy CSDT: login SQL của tool có `EXECUTE` trên 7 SP của §11F.1 và `sp_getapplock`; so sánh trước/sau với PM cũ trên 1 HV + 1 BC2 thử (chụp snapshot cột).
+- Nghiệm thu máy CSDT: login SQL của tool có `EXECUTE` trên 7 SP của §11F.1 và `sp_getapplock`; **TNB-08 thêm quyền đọc:** `EXECUTE` `usp_BaoCao_TieuDe`, `usp_BaoCao2_ViewRPT`, hàm `usf_BaBT_GetMaNoidungSathach`, `usf_BaBT_GetNoidungSathach`, `usf_ToanPK_BoDauPhaiCuoi`, `SELECT` `DM_NoiDungSH`, `DM_DiemSatHach`; so sánh trước/sau với PM cũ trên 1 HV + 1 BC2 thử (chụp snapshot cột).
 
-> **Phục vụ:** TNB-01/02/03/04/05/06/07. Quyết định: TDD-decisions §23. Liên quan: §11 (DB Nạp), §11E (mẫu nhật ký + đọc lại trước khi ghi).
+> **Phục vụ:** TNB-01/02/03/04/05/06/07/08. Quyết định: TDD-decisions §23, §32 (TNB-08). Liên quan: §11 (DB Nạp), §11E (mẫu nhật ký + đọc lại trước khi ghi).
+
+### 11F.9 In BC2 + chọn nội dung thi (TNB-08 — CHANGES #103)
+> **Phục vụ:** `TNB-08`. *Vì sao dựng bằng chính mẫu Crystal của phần mềm cũ: user yêu cầu bản in giống 100%; dựng lại bằng HTML không cam kết được ngắt dòng/ngắt trang; Crystal 32-bit đã có trên máy CSĐT vì phần mềm cũ dùng (TDD-decisions §32).*
+
+**Luồng:** Xem BC2 → "In BC2" → `GET /bc2/{ma}/ban-in` (đầu trang + dòng HV + đã đạt + mặc định + lựa chọn đã lưu) → user chọn → `PUT /bc2/{ma}/noi-dung-thi` (tự lưu) → "Xem trước" → `POST /bc2/{ma}/xem-truoc` trả PDF → trình xem PDF của trình duyệt tool → In… / Lưu PDF.
+
+**Dữ liệu bản in (chỉ đọc DB Nạp):**
+- Đầu trang: `EXEC usp_BaoCao_TieuDe @MaKH` với `MaKH` = khóa có nhiều HV nhất trong BC2 (khớp tham số phần mềm cũ truyền).
+- Dòng: cùng điều kiện, cột, thứ tự `usp_BaoCao2_ViewRPT` (`MaBC2`, `TT_XuLy IN 11–19`, `ORDER BY TenNLX, HoDemNLX`, `usf_ToanPK_BoDauPhaiCuoi(SoGiayCNTN, SoCCN)`) **thêm** `MaDK`, `HangGPLX`, `KetQuaSH`, `KetQua_LyThuyet/Hinh/Duong`, `MaKySH`, `NgayQDTT`, `usf_BaBT_GetMaNoidungSathach(MaDK)`; cột Ghi chú khi in = `TenNoiDungSH` của mục đã chọn; **riêng dòng CHƯA chọn lại (không có lựa chọn đã lưu) và trùng mã mục phần mềm cũ tính (không chọn lại, không qua quy đổi bỏ M) in nguyên chữ của `usf_BaBT_GetNoidungSathach`** — hàm trả chữ riêng khác danh mục ở vài mục (vd "Sát hạch H (Miễn thi lý thuyết)" so với `DM_NoiDungSH` 8 "Sát hạch Hình"), để bản in mô tô chưa sửa trùng từng chữ.
+- Danh mục: `DM_NoiDungSH` (`TrangThai=1`), ngưỡng `DM_DiemSatHach` theo hạng.
+
+**Luật phần thi (`tool/app/tn_bc2_phan_thi.py`, hàm thuần):**
+- Nhóm hạng: mô tô A1/A2/Am/A1m/A11 → phần `LT`,`TH`; A3/A4 → `LT`,`TH`,`Đ`; còn lại ô tô → `L`,`H`,`Đ` (không còn `M` từ 01/07/2025).
+- Mục ↔ tập phần thi: giao diện chỉ bật/tắt ô phần thi, tool tra mục theo tập phần + đã thi hay chưa (bảng ở PRD `TNB-08`); mục có `M` không bao giờ được chọn. Quy đổi mặc định ô tô: 11→1 · 12→4 · 13→5 · 20→3 · 19→18 · 17→8 · 15→6 · 14→2 · 16→**cần chọn**; mục khác giữ nguyên.
+- Đã đạt từ DB: `RH/VH` ⇒ {L}; `RD/VD` ⇒ {L,H}; `RO/VA` ⇒ {} ; điểm phần ≥ ngưỡng hạng ⇒ thêm phần đó; `DA`/`'1'`/rỗng ⇒ không suy.
+- Mặc định = mọi phần − đã đạt (sổ tool ưu tiên, rồi DB) → mục khớp tập; tập rỗng hoặc không có mục khớp ⇒ cần chọn. Quá 365 ngày từ `NgayQDTT` ⇒ đã đạt = {} (theo phần mềm cũ, chờ user xác nhận).
+
+**Bảng tập phần → mục** (khóa: tập phải thi + đã thi lần nào chưa; code `tn_bc2_phan_thi._MUC`, test `tests/test_tn_bc2_phan_thi.py`):
+
+| Nhóm | Tập phải thi | Chưa thi | Đã thi |
+|---|---|---|---|
+| Ô tô (`L` `H` `Đ`) | L+H+Đ | 1 SH lần đầu | 4 SH lại LT + H + Đ |
+| | L+H · L+Đ · H+Đ · Đ · L · H | 3 · 18 · 5 · 6 · 2 · 8 | như cột trái |
+| Mô tô A1/A2/Am/A1m/A11 (`LT` `TH`) | LT+TH | 1 SH lần đầu | 3 SH lại LT + H |
+| | TH | 8 (in chữ phần mềm cũ "Sát hạch H (Miễn thi lý thuyết)") | 7 SH lại TH |
+| | LT | 2 SH lại LT | 2 |
+| A3/A4 (`LT` `TH` `Đ`) | đủ 3 · LT+TH · TH+Đ · LT+Đ · Đ · LT · TH | 1 / 4 · 3 · 5 · 18 · 6 · 2 · 7 | |
+
+**Định nghĩa:** *đã thi* = `KetQuaSH` ∈ {RO, VA, RH, VH, RD, VD, RM, VM} hoặc sổ tool có lần thi; `'1'`, `DA`, rỗng = chưa có kết quả (DB dev: mọi hồ sơ `'1'` có điểm 0, nhiều người đang ở BC2 mở). *Phần đã thi* của một lần = tập phải thi user đã lưu cho BC2 đó (`noi_dung_thi`); điểm chỉ cộng đạt cho phần trong tập này. Ngưỡng `DM_DiemSatHach` tra theo **mã hạng cũ** (`NguoiLX_HoSo.HangGPLX`); hạng có 2 dòng (B, C1) lấy ngưỡng **cao nhất**. Mô tô A1/Am/A1m có GPLX ô tô (dò chuỗi `HangGPLXDaCo` như phần mềm cũ: B1, B2, C, D, E, FB2, FC, FD, FE) → miễn LT, cả khi đã thi. `NgayQDTT` = ngày quyết định trúng tuyển của hồ sơ (`NguoiLX_HoSo.NgayQDTT`, phần mềm cũ dùng cho luật 365 ngày).
+
+**Hai kho, thứ tự ưu tiên:** bấm ô trong một BC2 → ghi `noi_dung_thi(ma_bc2, ma_dk)` (dùng cho bản in BC2 đó) **và** một dòng `so_phan_thi` nguồn `sua` với `da_dat` = phần không thi (gốc cho lần sau). Mở In BC2: dòng có `noi_dung_thi` của BC2 đó → dùng nó; không có → `mac_dinh()` (sổ → DB → phần mềm cũ). ↺ Mặc định xóa `noi_dung_thi` của dòng đó **và các dòng sổ "Anh sửa" của chính BC2 đó** (dòng đã In / kết quả Sở giữ nguyên).
+
+**Cột "Bản in" ở Danh sách BC2:** bảng `bc2_tom_tat(ma_bc2 PK, so_chon_lai, so_can_chon, luc)` ghi lại mỗi khi mở / lưu In BC2; `GET /bc2` chỉ đọc bảng này + `lan_in` (SQLite, một truy vấn) — không tính lại trên DB Nạp, giữ chỉ tiêu một `SELECT` của §11F.6. BC2 chưa mở In lần nào → "Chưa in từ tool".
+
+**Thư mục phần mềm cũ:** `GET/PUT /local/tnbc2/gplx-cu-dir` (`PUT` kiểm có `PM1\Reports\rptBaoCao2.rpt` + `CrystalDecisions.CrystalReports.Engine.dll` mới lưu, sai → 400 `thu_muc_khong_hop_le`); màn lỗi xem trước có ô chọn/nhập đường dẫn gọi `PUT` này.
+
+**Tệp tạm:** JSON dữ liệu (có họ tên, số giấy) và PDF ghi vào thư mục tạm riêng của tool, **xóa trong `finally` ở mọi nhánh** (thành công, lỗi, quá giờ); không ghi họ tên/CMT vào log.
+
+**Tên tệp lưu:** `BC2_<số BC2 thay / bằng ->_<mã khóa đầu trang>.pdf`. **In… / Lưu PDF là nút của tool** (In… = in khung PDF, Lưu PDF = tải tệp), cả hai gọi `POST …/da-in`; nút của trình xem PDF trình duyệt không ghi `lan_in`.
+
+**Bản in 11 cột** = STT (Crystal tự đánh) + 10 cột dữ liệu từ `usp_BaoCao2_ViewRPT`.
+
+**Lưu trong tool** (`tool/app/tn_bc2_ban_in.py`, SQLite `tnbc2_ban_in.sqlite` cạnh `tnbc2_nhat_ky.sqlite`):
+```
+noi_dung_thi(ma_bc2 TEXT, ma_dk TEXT, ma_nd INTEGER, nguoi TEXT, luc TEXT, PRIMARY KEY(ma_bc2, ma_dk))
+so_phan_thi(id INTEGER PK, ma_dk TEXT, ma_bc2 TEXT, phan_thi TEXT, ket_qua_sh TEXT, diem_lt INT, diem_h INT, diem_d INT,
+            ma_ky_sh TEXT, da_dat TEXT, nguon TEXT CHECK(nguon IN ('so','sua','suy')), nguoi TEXT, luc TEXT)
+INDEX so_phan_thi(ma_dk, luc)
+lan_in(ma_bc2 TEXT, luc TEXT, nguoi TEXT, so_hv INT, so_chon_lai INT)   -- cột "Bản in" ở Danh sách BC2
+bc2_tom_tat(ma_bc2 TEXT PRIMARY KEY, so_chon_lai INT, so_can_chon INT, luc TEXT)
+```
+`GET /bc2` (danh sách) ghép thêm `ban_in: {da_in_luc, so_chon_lai, so_can_chon}` từ SQLite (không đụng DB Nạp); ghi `lan_in` khi user bấm In… / Lưu PDF (`POST /bc2/{ma}/da-in`).
+Mở In BC2: HV có lần thi ghi trong sổ mà `MaKySH`/`KetQuaSH` ở DB đã khác lần trước ⇒ thêm dòng `nguon='so'`, `da_dat` = đạt cũ ∪ phần vừa đạt trong các phần đã thi. Không lưu họ tên/CMT vào sổ.
+
+**Dựng PDF (`tool/app/crystal_bc2.py` + `tool/app/scripts/in_bc2.ps1`):**
+- Ghi JSON dữ liệu ra thư mục tạm của tool → gọi `%WINDIR%\SysWOW64\WindowsPowerShell\v1.0\powershell.exe -File in_bc2.ps1` (32-bit) → nạp `CrystalDecisions.*.dll` từ thư mục phần mềm cũ → `ReportDocument.Load(rpt, OpenReportByTempCopy)` → `SetDataSource(DataSet{"usp_BaoCao_TieuDe;1","usp_BaoCao2_ViewRPT;1"})` → thay `{?@MaKH}` trong công thức bằng hằng chuỗi (Crystal bỏ tham số SP khi đẩy DataSet; chỉ trên bản sao tạm) → `ExportToDisk(PDF)` → trả tệp, xóa tệp tạm.
+- Thư mục phần mềm cũ: cấu hình tool `gplx_cu_dir`; trống thì dò `D:\GPLX-*\**\PM1\Reports\rptBaoCao2.rpt`. Thiếu dll/mẫu ⇒ 409 `chua_co_phan_mem_cu`. Quá 60 giây ⇒ 504 `dung_ban_in_qua_lau`. Một lần dựng mỗi lúc (khóa trong tiến trình).
+
+**API** (`/local/tnbc2`, gác phiên): `GET /noi-dung-sh` · `GET /bc2/{ma}/ban-in` · `PUT /bc2/{ma}/noi-dung-thi` `{ds:[{ma_dk, ma_nd|null, da_dat?}]}` (null = về mặc định) · `POST /bc2/{ma}/xem-truoc` → `application/pdf` · `POST /bc2/{ma}/da-in` (ghi `lan_in`). Khai báo trước route `{ma:path}`. Không cần `xac_nhan_csdl_that` (không ghi DB). Lỗi: 404 `bc2_khong_ton_tai` · 409 `con_hv_can_chon` (kèm `ds_ma_dk`), `chua_co_phan_mem_cu` · 400 `ma_nd_khong_hop_le` (mục không thuộc nhóm hạng HV).
+
+**Kiểm:** pytest luật phần thi (quy đổi 9 dòng, suy đã đạt 6 mã + điểm theo ngưỡng từng hạng, cộng dồn, quá hạn) · pytest sổ (lưu/đọc/về mặc định/cộng kết quả mới) · dữ liệu dòng khớp `EXEC usp_BaoCao2_ViewRPT` cho 3 BC2 thật · E2E chọn → xem trước → tải lại vẫn giữ · so ảnh từng trang PDF tool với PDF phần mềm cũ cùng BC2 (BC2 75/2026): đổi cả hai ra ảnh 110 dpi, so từng điểm ảnh; khác chỉ được phép nằm trong ô Ghi chú các dòng đã đổi nội dung và dòng ngày in · E2E dùng API giả trả PDF mẫu cho bước xem trước; PDF thật kiểm ở Checkpoint 42 và task 169 · đếm dòng DB Nạp trước/sau = không đổi.
 
 ---
 
@@ -2231,6 +2293,7 @@ VPS_TOOL_KEY=<random-key-cho-tool>
 
 | Ngày | Version | Thay đổi |
 | --- | --- | --- |
+| 21/11/2026 | 6.48 | +§11F.9 in BC2 + chọn nội dung thi: dữ liệu theo 2 SP cũ, luật phần thi (ô tô bỏ mô phỏng, suy đã đạt), sổ SQLite, dựng PDF bằng mẫu Crystal 32-bit của phần mềm cũ, 4 API (TNB-08, CHANGES #103). |
 | 10/11/2026 | 6.47 | +§10.9 cảnh báo tuổi khi nạp: `tuoi_hv` từ `DM_HangDT.TuoiHV`, tính tại ngày nạp, popup `CanhBaoTuoiDialog` (NAP-09, CHANGES #102). |
 | 10/11/2026 | 6.46 | §10.6 số GPLX chỉ nhận 12 chữ số hoặc 2 chữ + 6 số, chặn ở cả app web/tool/VPS (CHANGES #101). |
 | 10/11/2026 | 6.45 | Màn Nạp: hồ sơ thiếu họ tên/ngày sinh/giới tính là "chưa sẵn sàng" (chip Thiếu TT + dòng báo ở ngăn), không lặng lẽ loại khỏi lô; giới tính trống suy từ chữ số thứ 4 CCCD (chẵn Nam, lẻ Nữ), bỏ mặc định "M" (BUG-24). |

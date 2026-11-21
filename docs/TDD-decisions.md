@@ -436,3 +436,11 @@
 - **Phương án đã bỏ:** (B) luôn sáng cho tới khi bấm nút — người dùng máy chế độ tối vẫn bị chói; (C) ba nút Sáng/Tối/Theo máy — thêm một bước chọn, nhân viên thu nhận ít khi cần.
 - **Đánh đổi:** lựa chọn nằm ở từng điện thoại, không theo tài khoản; đã bấm nút thì không còn tự theo máy nữa cho tới khi xóa dữ liệu trình duyệt. Chấp nhận để không thêm cột ở VPS.
 - Nguồn: user 04/11/2026; CHANGES #94; TDD §6.9; PRD `HTG-08`.
+
+## 32. In Báo cáo 2 bằng chính mẫu Crystal của phần mềm cũ (21/11/2026)
+
+- **Đã chốt (21/11/2026, user: "phải cho xem trước rồi mới in hoặc xuất PDF, đảm bảo giống 100% của báo cáo in từ phần mềm cũ"):** tool dựng PDF bằng mẫu `rptBaoCao2.rpt` và bộ chạy Crystal 32-bit có sẵn trong thư mục phần mềm cũ trên máy; tool chỉ đưa dữ liệu (giống 2 SP cũ, riêng cột Ghi chú theo lựa chọn). Lựa chọn nội dung thi chỉ lưu trong tool (user chọn, không ghi DB Nạp).
+- **Phương án đã bỏ:** (B) dựng lại bản in bằng HTML theo tọa độ twip — gần giống nhưng phông/ngắt dòng/ngắt trang có thể lệch, không cam kết 100%; **không dùng** (PRD `TNB-08`: máy thiếu Crystal thì báo và cho chọn thư mục, không in bản dựng lại). (C) ghi nội dung thi vào `NguoiLX_HoSo.NoiDungSH` — phần mềm cũ bỏ qua cột này khi in, Đồng bộ chép sang DB đích với tác động chưa rõ.
+- **Chốt thêm (21/11/2026, user chọn A):** "giống 100%" = mẫu, bố cục, phông, ngắt trang, không thêm chữ nào; **cột Ghi chú theo luật tool**, không ép giống chữ phần mềm cũ (phần mềm cũ còn ra mục có mô phỏng, coi `KetQuaSH='1'` là đã thi, bỏ qua điểm từng phần). Phương án bỏ: điền đúng chữ phần mềm cũ, luật tool chỉ là gợi ý — 22 HV mô tô ở BC2 đang mở sẽ in sai "SH lại TH" nếu quên sửa.
+- **Đánh đổi:** phụ thuộc phần mềm cũ cài trên máy (dll Crystal + mẫu); không chép mẫu của FPT vào tool. Mỗi lần xem trước mất ~3 giây (thử 21/11/2026: 2,8 giây, BC2 42 HV). Công thức `{?@MaKH}` phải thay bằng hằng khi đẩy dữ liệu (chỉ trên bản sao tạm).
+- Nguồn: user 21/11/2026; CHANGES #103; TDD §11F.9; PRD `TNB-08`.

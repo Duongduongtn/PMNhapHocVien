@@ -1370,7 +1370,7 @@
 
 **Trạng thái:** ⏳ Todo — nhóm mới (CHANGES #60, 11/10/2026, prefix **TNB**). Phân hệ #5 của tool: **cập nhật tốt nghiệp** cho học viên **ô tô**, **tạo Báo cáo 2 (BC2)** và **thêm/bỏ học viên khỏi BC2** (ô tô và mô tô riêng), kèm chức năng **cứu trạng thái** học viên không tìm thấy khi lập BC2. Làm việc trên **DB Nạp** (`GPLX_CSDT`) để **phần mềm cũ (PM cũ) mở lên thấy y chang**.
 
-> **Phạm vi:** tool làm — cập nhật/hủy tốt nghiệp ô tô · tạo số + tạo BC2 · thêm/bỏ HV khỏi BC2 · chuyển `TT_XuLy` cứu HV. **PM cũ vẫn làm:** kết xuất BC2, cập nhật kết quả BC2, đổi trạng thái HV sau khi gửi BC2, **đóng BC2** (`TrangThai=1`). **KHÔNG làm:** gửi BC2, nhập kết quả sát hạch, lập/sửa BC1.
+> **Phạm vi:** tool làm — cập nhật/hủy tốt nghiệp ô tô · tạo số + tạo BC2 · thêm/bỏ HV khỏi BC2 · chuyển `TT_XuLy` cứu HV · **in BC2 có chọn nội dung thi, chỉ đọc DB (`TNB-08`, CHANGES #103)**. **PM cũ vẫn làm:** kết xuất BC2, cập nhật kết quả BC2, đổi trạng thái HV sau khi gửi BC2, **đóng BC2** (`TrangThai=1`). **KHÔNG làm:** gửi BC2, nhập kết quả sát hạch, lập/sửa BC1.
 >
 > **Ràng buộc cứng:** chỉ dùng **SP có sẵn** trong DB Nạp (`usp_NguoiLX_HoSo_Update_CNTN`, `usp_BaoCaoII_Insert`, `usp_NguoiLX_HoSo_ThemHS_BC2`, `usp_NguoiLX_Update_ThemHSBC2`, `usp_NguoiLXHoSo_Update_DanhSachHocSinhBC2`, `usp_NguoiLX_HoSo_UpdateTTXLy`); **không** `INSERT/UPDATE/DELETE` trực tiếp, **không** sửa schema, **không** tạo SP mới. Tool và PM cũ **dùng chung một DB** (không staging) → mọi thứ PM cũ làm tool thấy ngay sau khi làm tươi.
 >
@@ -1508,7 +1508,29 @@
 
 > **Ghi nhận khi dựng UI (v4.8, CHANGES #64 — tài liệu đi theo code, không đổi yêu cầu):** tab Nhật ký lưu và hiển thị **số lượng + mã thao tác, không có họ tên/CMT học viên** (ghi chú ở cuối màn); danh sách BC2 đánh dấu "lệch" chỉ là thông tin (PM cũ không đếm lại; HV thi lại chuyển sang BC2 khác).
 
+> **Mở rộng bởi `TNB-08` (CHANGES #103):** màn danh sách BC2 thêm ô tìm, cột Bản in và nút "In BC2" mỗi dòng — yêu cầu ghi ở `TNB-08`, story này giữ ✅.
+
 > Nguồn: user 11/10/2026 · `usp_BaoCaoII_Search`, `usp_BaoCaoI_SelectAll` · TDD §11F.6
+
+#### [TNB-08] In Báo cáo 2 từ tool, chọn nội dung thi từng học viên
+
+**Trạng thái:** 🔄 In Progress — Phase 14: code xong task 164-168 (21/11/2026); còn 169 đóng gói exe + nghiệm thu máy CSĐT (so PDF với bản phần mềm cũ, kiểm hộp In…) + soát đóng Feature
+**Story:** Là nhân viên cơ sở, tôi muốn in Báo cáo 2 ngay trong tool và chọn lại nội dung thi (thi những phần nào) cho từng học viên ở cột Ghi chú, xem trước rồi mới in hoặc lưu PDF, để bản in đúng phần học viên còn phải thi mà không phải sửa tay.
+
+**Done khi:**
+- ⬜ Lối vào gắn vào màn **Danh sách BC2 có sẵn** (TNB-07): mỗi dòng (cả BC2 **đang mở và đã đóng**) có nút **"In BC2"** cạnh Xem / + Thêm HV; danh sách thêm **ô tìm** (số BC2, BC1, tên khóa — tên khóa đã có hạng) và cột **Bản in** (Chưa in từ tool / Đang chọn · N cần chọn / Đã in dd/mm · N chọn lại). Màn Xem BC2 cũng có nút "In BC2". Bấm → màn **In Báo cáo 2**: danh sách học viên đúng thứ tự bản in phần mềm cũ (tên, họ đệm), cột **Phần thi** và cột **Ghi chú khi in**.
+- ⬜ Mỗi dòng **hiện sẵn các ô phần thi theo hạng** (user chốt 21/11/2026: không mở menu/popup): **ô tô** `L` `H` `Đ` = Lý thuyết · Sa hình · Đường (**bỏ mô phỏng từ 01/07/2025**); **mô tô** A1/A2/Am/A1m/A11 `LT` `TH`, A3/A4 `LT` `TH` `Đ`. Ô **xanh đậm = phải thi**, ô **xanh lá có ✓ = đã đạt, không thi**; bấm một ô là đổi qua lại, cột **Ghi chú khi in** đổi ngay theo bảng: ô tô — đủ 3 phần → "SH lần đầu" (chưa thi lần nào) / "SH lại LT + H + Đ" (đã thi) · L+H → SH lại LT + H · L+Đ → SH lại L+Đ · H+Đ → SH lại H + Đ · Đ → SH lại Đ · L → SH lại LT · H → Sát hạch Hình; mô tô — LT+TH → "SH lần đầu" / "SH lại LT + H" · TH → "Sát hạch H (Miễn thi lý thuyết)" (chưa thi, miễn lý thuyết — in đúng chữ phần mềm cũ) / "SH lại TH" · LT → SH lại LT; A3/A4 thêm LT+TH+Đ → SH lại LT + H + Đ · TH+Đ → SH lại H + Đ · Đ → SH lại Đ. Tắt hết → dòng đỏ **"Phải bật ít nhất 1 phần"**, chặn xem trước. Tên in lấy đúng chữ `DM_NoiDungSH`. Rê chuột lên ô: phần gì, đạt kỳ nào, nguồn nào. Dùng được bằng bàn phím (Tab, phím cách).
+- ⬜ **Điền sẵn** theo thứ tự: (1) sổ phần thi đã đạt của tool → mọi phần của hạng trừ phần đã đạt; (2) suy từ DB Nạp: `KetQuaSH` (RH/VH ⇒ lý thuyết đã đạt · RD/VD ⇒ lý thuyết + hình đã đạt · RO/VA ⇒ chưa đạt phần nào) và điểm từng phần so ngưỡng `DM_DiemSatHach`; (3) giá trị phần mềm cũ tính (`usf_BaBT_GetMaNoidungSathach`), **ô tô đã bỏ mô phỏng** theo bảng quy đổi (L+M+H+Đ → SH lần đầu / SH lại LT + H + Đ · M+H+Đ → H + Đ · L+M+H → LT + H · L+M+Đ → L+Đ · M+H → Sát hạch Hình · M+Đ → Đ · L+M → LT); "SH lại M" → mọi ô hiện đã đạt, dòng đỏ "Phải bật ít nhất 1 phần". Quá hạn bảo lưu → thi lại toàn bộ (**tạm theo phần mềm cũ: quá 365 ngày kể từ ngày trúng tuyển — chờ user xác nhận**).
+- ⬜ **Phần đã đạt gộp vào chính các ô phần thi** (user chốt 21/11/2026, không có cột Đã đạt riêng); dưới ô ghi phần đã đạt + nguồn (Kết quả Sở / Anh sửa / Suy từ DB) + ngày; ô user đổi được lưu là "Anh sửa" và làm gốc cho lần sau; nút ↺ "Mặc định" trả về như tool điền sẵn **và rút lựa chọn đó khỏi sổ** (BC2 sau không điền theo lựa chọn đã bỏ).
+- ⬜ Chọn nhiều học viên → thanh đáy hiện **bộ ô phần thi chung**, bấm một ô áp cho tất cả HV đã chọn · "Về mặc định" · lọc theo nội dung thi bằng dải đếm (kèm "Đã sửa", "Chưa có phần thi").
+- ⬜ Đổi là **tự lưu trong tool** (SQLite, khóa theo số BC2 + mã đăng ký) — **không ghi DB Nạp/DB đích**, gói XML gửi Sở không đổi. Kết quả Sở trả về kỳ sau được tool cộng vào sổ phần đã đạt (không xóa phần đạt cũ) để lần lập BC2 sau tự điền.
+- ⬜ **"Xem trước"** dựng PDF bằng **chính mẫu `rptBaoCao2.rpt` và bộ chạy Crystal của phần mềm cũ trên máy** (Letter ngang, 11 cột = STT + 10 cột dữ liệu, đầu/cuối trang như cũ) → hiện trong tool → **In…** hoặc **Lưu PDF** (nút của tool; tệp `BC2_<số BC2, / thay bằng ->_<khóa đầu trang>.pdf`). **Bản in giống bản in phần mềm cũ, không thêm bất kỳ chữ, chú thích hay dấu hiệu nào của tool** (user chốt 21/11/2026: "cảm giác như từ PM cũ in ra"); cùng mẫu, bố cục, phông, ngắt trang. **Cột Ghi chú in theo luật điền sẵn của tool** (bỏ mô phỏng, phần đã đạt từ điểm/sổ, "chưa có kết quả" = thi lần đầu) hoặc theo lựa chọn của user — có thể khác chữ phần mềm cũ ở các dòng đó (DB dev 21/11/2026: 960 HV BC2 đang mở → 215 dòng bỏ M, 36 dòng khác vì luật). Dòng "PM cũ: …" chỉ hiện trên màn chọn, không in.
+- ⬜ Máy không có phần mềm cũ / bộ chạy Crystal / mẫu → báo rõ và cho chọn thư mục phần mềm cũ; **không** in bản dựng lại khác mẫu.
+- ❌ Không gửi Sở, không sửa kết quả sát hạch, không đổi trạng thái học viên, không sửa mẫu `.rpt`, không chép mẫu của phần mềm cũ vào tool.
+
+> **Sự thật đã verify (21/11/2026):** bản in cũ = `usp_BaoCao2_ViewRPT` + `usp_BaoCao_TieuDe`, cột Ghi chú = `usf_BaBT_GetNoidungSathach` tính lúc in, không lưu; DB Nạp chỉ giữ kết quả **kỳ gần nhất** (`KetQuaSH`, `KetQua_LyThuyet/Hinh/Duong`), bảng `KySH` trống ở máy CSĐT, `NgayQDSH` trống; gói XML BC2 gửi Sở có `BC2_GHICHU` **trống** (3 tệp mẫu, 330 HV). Thử dựng PDF bằng Crystal 32-bit với dữ liệu BC2 75/2026: 2,8 giây, đủ dấu tiếng Việt.
+
+> Nguồn: user 21/11/2026 · CHANGES #103 · TDD §11F.9
 
 ---
 
@@ -1677,6 +1699,7 @@
 | 02/11/2026 | v4.27 — `THU-01`, `THU-07` báo lỗi form dễ sửa trên điện thoại, chữ ô nhập 16px (CHANGES #86, sau critique giao diện). | BA/PM |
 | 02/11/2026 | v4.28 — `THU-01` thông báo đã gửi nêu tên học viên (CHANGES #87). | BA/PM |
 | 02/11/2026 | v4.29 — `KQD-08` nhận cả mẫu PDF DAT cũ và mới (CHANGES #88). | BA/PM |
+| 21/11/2026 | v4.43 — **+`TNB-08`** in Báo cáo 2 từ tool: chọn nội dung thi từng HV bằng ô phần thi bấm bật/tắt theo hạng (ô tô bỏ mô phỏng từ 01/07/2025), sổ phần đã đạt tự điền lần sau, xem trước PDF dựng bằng mẫu Crystal của phần mềm cũ rồi In/Lưu PDF; chỉ lưu trong tool (CHANGES #103). |
 | 10/11/2026 | v4.42 — **+`NAP-09`** cảnh báo tuổi học viên khi nạp vào khóa (tuổi theo hạng đào tạo, tính tại ngày nạp, popup bỏ chọn từng người) (CHANGES #102). |
 | 10/11/2026 | v4.41 — `NAP-07`, `THU-07`: số GPLX đã có chỉ nhận 12 chữ số hoặc bằng giấy cũ 2 chữ + 6 số, sai dạng chặn (trước chỉ nhắc) (CHANGES #101). |
 | 10/11/2026 | v4.40 — `THU-01`: thanh tiến độ nhập hồ sơ ở thanh nút đáy, bấm nhảy tới ô thiếu; bỏ dòng "Còn thiếu" cuối form (CHANGES #100). Hạ ⏳ Todo. |

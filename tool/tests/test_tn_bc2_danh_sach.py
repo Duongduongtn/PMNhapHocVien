@@ -165,6 +165,8 @@ def client(monkeypatch, auth_headers, tmp_path):
 
     monkeypatch.setattr(router, "sqlserver_cursor", _cur)
     monkeypatch.setattr(nk, "DB_PATH", tmp_path / "nk.sqlite")
+    from app import tn_bc2_ban_in as _kho
+    monkeypatch.setattr(_kho, "DB_PATH", tmp_path / "ban_in.sqlite")
     i = nk.bat_dau("thu1", nk.TAO_BC2, "K", "81/2026", 0, "Tạo BC2 81/2026", {})
     nk.ket_thuc(i, "xong", {"ma_bc2": "81/2026"})
     c = TestClient(app)

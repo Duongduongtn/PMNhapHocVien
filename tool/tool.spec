@@ -17,6 +17,7 @@ SPEC_DIR = Path(os.getcwd())
 datas = [
     ("webui/dist", "webui/dist"),                      # giao diện build tĩnh (FastAPI phục vụ)
     ("db/data/dvhc_map.sqlite", "db/data"),            # map DVHC cũ→mới (NAP-03)
+    ("app/scripts/in_bc2.ps1", "app/scripts"),         # dựng PDF BC2 bằng Crystal của phần mềm cũ (TNB-08)
 ]
 binaries = []
 hiddenimports = []

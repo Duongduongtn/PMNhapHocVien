@@ -325,6 +325,8 @@ export interface Bc2Dong {
   dang_mo: boolean;
   nguoi_tao: string;
   ngay_tao: string;
+  /** TNB-08: từ SQLite của tool; `null` = chưa mở In BC2 lần nào. */
+  ban_in?: { da_in_luc: string | null; so_chon_lai: number; so_can_chon: number } | null;
 }
 export interface DsBc2Resp {
   loai: string;
@@ -494,3 +496,76 @@ export interface NhatKyResp {
 }
 export const dsNhatKy = (loai = "", maBc2 = "", gioiHan = 100) =>
   goi<NhatKyResp>("GET", "/nhat-ky", { query: { loai, ma_bc2: maBc2, gioi_han: gioiHan } });
+
+// ── In BC2 + chọn phần thi (TNB-08, TDD §11F.9) ──
+/** Một học viên ở màn In BC2. `phan` = các phần của hạng (ô tô L·H·Đ, mô tô LT·TH); `phai_thi` ⊆ `phan`. */
+export interface HvBanIn {
+  stt: number;
+  ma_dk: string;
+  ho_ten: string;
+  ngay_sinh: string;
+  so_cmt: string;
+  hang: string;
+  nhom: "oto" | "moto" | "a3a4";
+  phan: string[];
+  phai_thi: string[];
+  dat: string[];
+  da_thi: boolean;
+  ma_nd: number | null;
+  ghi_chu: string;
+  da_sua: boolean;
+  nguon: "so" | "sua" | "in" | "suy" | "pm_cu" | "chua_thi" | "qua_han";
+  ten_nguon: string;
+  nguon_luc: string;
+  ket_qua_sh: string;
+  /** Mã kỳ sát hạch ở DB Nạp lúc này (tooltip "đạt kỳ nào"). */
+  ma_ky_sh?: string;
+  mac_dinh: { phai_thi: string[]; dat: string[]; ma_nd: number | null; ghi_chu: string; da_thi: boolean };
+  pm_cu: string;
+  pm_cu_khac: boolean;
+}
+export interface BanInResp {
+  ma_bc2: string;
+  so_bao_cao: string;
+  ngay_bao_cao: string;
+  dang_mo: boolean;
+  ma_kh: string;
+  loai: LoaiHang | "";
+  hoc_vien: HvBanIn[];
+  so_chon_lai: number;
+  so_can_chon: number;
+}
+export interface ThuMucPmCu {
+  thu_muc: string;
+  nguon: "da_luu" | "tu_do" | "khong_co";
+  ung_vien: string[];
+  luu_khong_hop_le?: string;
+}
+export const banInBc2 = (ma: string) => goi<BanInResp>("GET", `${duongBc2(ma)}/ban-in`);
+/** `phaiThi = null` → về mặc định. Trả dữ liệu màn In BC2 mới (server là nguồn duy nhất của tên mục). */
+export const luuNoiDungThi = (ma: string, ds: { ma_dk: string; phai_thi: string[] | null }[]) =>
+  goi<BanInResp>("PUT", `${duongBc2(ma)}/noi-dung-thi`, { body: { ds } });
+export const daInBc2 = (ma: string) => goi<{ ok: boolean }>("POST", `${duongBc2(ma)}/da-in`);
+export const thuMucPmCu = () => goi<ThuMucPmCu>("GET", "/gplx-cu-dir");
+export const datThuMucPmCu = (thuMuc: string) => goi<ThuMucPmCu>("PUT", "/gplx-cu-dir", { body: { thu_muc: thuMuc } });
+
+/** Dựng PDF xem trước (mẫu phần mềm cũ). Lỗi giữ nguyên dạng `LoiTnbc2` như các hàm khác. */
+export async function xemTruocBc2(ma: string): Promise<Blob> {
+  const r = await fetch(`${BASE}/local/tnbc2${duongBc2(ma)}/xem-truoc`, { method: "POST", headers: authHeaders() });
+  if (!r.ok) {
+    const d = await r.json().catch(() => null);
+    const detail = d?.detail;
+    if (detail && typeof detail === "object" && !Array.isArray(detail)) {
+      const { ma: m, noi_dung, ...conLai } = detail as DuLieu & { ma?: string; noi_dung?: string };
+      throw new LoiTnbc2(String(m ?? "loi"), String(noi_dung ?? `${r.status}`), r.status, conLai);
+    }
+    throw new LoiTnbc2("loi_he_thong", `${r.status} ${r.statusText}`, r.status);
+  }
+  return r.blob();
+}
+
+/** Tên tệp PDF: số BC2 có `/` → `-`, kèm mã khóa đầu trang. */
+export const tenTepBc2 = (maBc2: string, maKh: string) => {
+  const sach = (s: string) => s.replace(/Ð/g, "Đ").replace(/ð/g, "đ").replace(/[\\/:*?"<>|\u0000-\u001f]/g, "-");
+  return `BC2_${sach(maBc2)}${maKh ? `_${sach(maKh)}` : ""}.pdf`;
+};

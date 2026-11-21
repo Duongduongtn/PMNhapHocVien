@@ -3,6 +3,7 @@ import ChuGiaiTrangThai from "../../components/ChuGiaiTrangThai";
 import BuocChonHocVien from "../../components/tnbc2/BuocChonHocVien";
 import BuocXacNhan from "../../components/tnbc2/BuocXacNhan";
 import DanhSachBc2 from "../../components/tnbc2/DanhSachBc2";
+import InBc2 from "../../components/tnbc2/InBc2";
 import TaoBc2Rong from "../../components/tnbc2/TaoBc2Rong";
 import XemBc2 from "../../components/tnbc2/XemBc2";
 import { BuocChonKhoa, DauWizard, type TrangThaiWizard } from "../../components/tnbc2/WizardBc2";
@@ -17,13 +18,20 @@ export default function BaoCao2() {
   const [thongBao, setThongBao] = useState("");
   const [rong, setRong] = useState(false);
   const [xem, setXem] = useState<string | null>(null);
+  const [inMa, setInMa] = useState<string | null>(null);   // TNB-08: màn In BC2 (chọn phần thi → xem trước → in)
+  const [veXem, setVeXem] = useState<string | null>(null); // vào In BC2 từ màn Xem → "quay lại" trở về đúng màn Xem
   // Từ bước ② nhảy sang xem một BC2 (để gỡ học viên): giữ wizard để "Quay lại" trở về đúng bước.
   const [veWiz, setVeWiz] = useState<TrangThaiWizard | null>(null);
+
+  if (inMa) {
+    return <InBc2 maBc2={inMa} onVe={() => { setInMa(null); if (veXem) { setXem(veXem); setVeXem(null); } }} />;
+  }
 
   if (xem) {
     return (
       <XemBc2
         maBc2={xem}
+        onIn={(ma) => { setVeXem(ma); setXem(null); setInMa(ma); }}
         onVe={() => {
           setXem(null);
           if (veWiz) { setWiz(veWiz); setVeWiz(null); }
@@ -124,6 +132,7 @@ export default function BaoCao2() {
       <DanhSachBc2
         loai={loai}
         onXem={(b) => setXem(b.ma_bc2)}
+        onIn={(b) => setInMa(b.ma_bc2)}
         onThem={(b) => {
           setThongBao(`Thêm học viên vào BC2 ${b.ma_bc2}.`);
           setWiz({ loai: b.loai === "moto" ? "moto" : "oto", buoc: 2, maKh: b.ma_kh, tenKh: b.ten_kh, maBc2: b.ma_bc2,

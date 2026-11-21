@@ -9,9 +9,12 @@ from __future__ import annotations
 
 import re
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 
+from app import crystal_bc2
+from app import tn_bc2_ban_in as ban_in
+from app import tn_bc2_in as in_bc2
 from app import tn_bc2_rules as rules
 from app import tn_bc2_service as svc
 from app.db import ConfigChuaDay, sqlserver_conn, sqlserver_cursor
@@ -399,7 +402,15 @@ def ds_bc2(loai: str = Query("", pattern="^(|moto|oto)$"), dong: str = Query("",
     """Danh sách BC2 (tab Ô tô/Mô tô; `dong` = `mo` đang mở · `dong` đã đóng): Tổng ghi, HV thực tế, lệch."""
     try:
         with sqlserver_cursor() as cur:
-            return svc.ds_bc2(cur, loai, dong)
+            kq = svc.ds_bc2(cur, loai, dong)
+        # TNB-08: cột "Bản in" — chỉ đọc SQLite của tool, không thêm truy vấn DB Nạp
+        try:
+            bi = ban_in.ban_in_cho_ds(b["ma_bc2"] for b in kq["bc2"])
+        except Exception:  # noqa: BLE001 — kho SQLite của tool hỏng/khóa: bỏ cột phụ, không làm hỏng danh sách
+            bi = {}
+        for b in kq["bc2"]:
+            b["ban_in"] = bi.get(b["ma_bc2"])
+        return kq
     except Exception as e:  # noqa: BLE001
         raise _loi(e)
 
@@ -410,6 +421,98 @@ def nhat_ky(loai: str = Query("", max_length=30), ma_bc2: str = Query("", max_le
     """Nhật ký thao tác phía tool: ai · lúc nào · loại · số HV · kết quả đã/chưa ghi (không PII)."""
     try:
         return svc.ds_nhat_ky(loai, ma_bc2, gioi_han)
+    except Exception as e:  # noqa: BLE001
+        raise _loi(e)
+
+
+# ── In BC2 + chọn phần thi (TNB-08, task 165). Chỉ đọc DB Nạp; lựa chọn lưu SQLite của tool. Đặt TRƯỚC
+#    `/bc2/{ma:path}` để đuôi `/ban-in`, `/noi-dung-thi`, `/da-in` không bị route chung nuốt. ──
+@router.get("/noi-dung-sh")
+def ds_noi_dung_sh():
+    """Danh mục `DM_NoiDungSH` (mã → tên in)."""
+    try:
+        with sqlserver_cursor() as cur:
+            return {"muc": [{"ma": k, "ten": v} for k, v in sorted(in_bc2.doc_dm_noi_dung(cur).items())]}
+    except Exception as e:  # noqa: BLE001
+        raise _loi(e)
+
+
+@router.get("/bc2/{ma:path}/ban-in")
+def ban_in_bc2(ma: str):
+    """Dữ liệu màn In BC2: đầu trang, dòng HV (cột in + phần thi đã đạt/phải thi + ghi chú), tóm tắt."""
+    try:
+        with sqlserver_cursor() as cur:
+            return in_bc2.du_lieu_ban_in(cur, ma)
+    except Exception as e:  # noqa: BLE001
+        raise _loi(e)
+
+
+class PhanThiIn(BaseModel):
+    ma_dk: str = Field(min_length=1, max_length=40)
+    phai_thi: list[str] | None = Field(default=None, max_length=3)   # None = về mặc định
+
+
+class NoiDungThiIn(BaseModel):
+    ds: list[PhanThiIn] = Field(min_length=1, max_length=5000)
+
+
+@router.put("/bc2/{ma:path}/noi-dung-thi")
+def luu_noi_dung_thi(ma: str, body: NoiDungThiIn, phien: Phien = Depends(require_session)):
+    """Lưu lựa chọn phần thi (tự lưu khi bấm ô). Không ghi DB Nạp. Trả dữ liệu màn In BC2 mới."""
+    try:
+        with sqlserver_cursor() as cur:
+            return in_bc2.luu_noi_dung_thi(cur, ma, [d.model_dump() for d in body.ds], phien.username)
+    except Exception as e:  # noqa: BLE001
+        raise _loi(e)
+
+
+@router.post("/bc2/{ma:path}/xem-truoc")
+def xem_truoc(ma: str):
+    """Dựng PDF bản in bằng mẫu Crystal của phần mềm cũ (cột Ghi chú = nội dung thi đã chọn). Chỉ đọc DB Nạp."""
+    try:
+        with sqlserver_cursor() as cur:
+            dl = in_bc2.du_lieu_ban_in(cur, ma)
+        if not dl["hoc_vien"]:
+            raise svc.LoiNghiepVu("bc2_khong_co_hoc_vien", "BC2 chưa có học viên để in", 409)
+        can = [h["ma_dk"] for h in dl["hoc_vien"] if h["ma_nd"] is None]
+        if can:
+            raise svc.LoiNghiepVu("con_hv_can_chon", f"Còn {len(can)} học viên chưa có phần thi nào", 409,
+                                  {"ds_ma_dk": can})
+        pdf = crystal_bc2.dung_pdf(in_bc2.du_lieu_crystal(dl))
+        return Response(content=pdf, media_type="application/pdf",
+                        headers={"Content-Disposition": "inline; filename=ban_in_bc2.pdf", "Cache-Control": "no-store"})
+    except Exception as e:  # noqa: BLE001
+        raise _loi(e)
+
+
+@router.get("/gplx-cu-dir")
+def doc_gplx_cu_dir():
+    """Thư mục phần mềm cũ đang dùng để dựng bản in (đã lưu → dò tự động)."""
+    try:
+        return crystal_bc2.doc_thu_muc()
+    except Exception as e:  # noqa: BLE001
+        raise _loi(e)
+
+
+class ThuMucIn(BaseModel):
+    thu_muc: str = Field(max_length=400)
+
+
+@router.put("/gplx-cu-dir")
+def dat_gplx_cu_dir(body: ThuMucIn, phien: Phien = Depends(require_session)):
+    """Đặt thư mục phần mềm cũ (kiểm có mẫu BC2 + dll Crystal mới lưu)."""
+    try:
+        return crystal_bc2.luu_thu_muc(body.thu_muc)
+    except Exception as e:  # noqa: BLE001
+        raise _loi(e)
+
+
+@router.post("/bc2/{ma:path}/da-in")
+def da_in(ma: str, phien: Phien = Depends(require_session)):
+    """In… / Lưu PDF: chụp phần thi của BC2 vào sổ (kỳ sau biết đã thi phần nào) + ghi lần in."""
+    try:
+        with sqlserver_cursor() as cur:
+            return in_bc2.ghi_da_in(cur, ma, phien.username)
     except Exception as e:  # noqa: BLE001
         raise _loi(e)
 

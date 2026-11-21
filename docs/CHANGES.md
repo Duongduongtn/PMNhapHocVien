@@ -4,6 +4,7 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 103 | 21/11/2026 | ➕ Thêm | `TNB-08` | **In Báo cáo 2 từ tool**: chọn nội dung thi (cột Ghi chú) từng HV bằng **ô phần thi bấm bật/tắt hiện sẵn trên dòng** theo hạng (ô tô bỏ mô phỏng từ 01/07/2025, quy đổi mặc định từ giá trị phần mềm cũ); sổ phần đã đạt cộng dồn để tự điền lần sau, cho sửa; chỉ lưu trong tool; xem trước PDF dựng bằng mẫu Crystal của phần mềm cũ rồi In / Lưu PDF. | ✅ | ✅ | ✅ mock `ui-mock/inbc2.html` duyệt 21/11 | 🟡 task 164 |
 | 102 | 10/11/2026 | ➕ Thêm | `NAP-09` | **Cảnh báo tuổi học viên khi nạp vào khóa**: tuổi tối thiểu theo hạng đào tạo (`DM_HangDT.TuoiHV`), tính tại ngày nạp; popup rộng liệt kê người chưa đủ tuổi + ngày đủ tuổi, user bỏ chọn từng người hoặc nạp hết. | ✅ | ✅ | ✅ mock `canhbaotuoi.html` duyệt | 🟡 code + test xong, chưa commit/exe |
 | 101 | 10/11/2026 | ✏️ Sửa (luật kiểm) | `NAP-07` · `THU-07` · `QLY-10` · `TCB-05` | **Số GPLX đã có chỉ nhận 12 chữ số hoặc bằng giấy cũ 2 chữ cái + 6 số**; sai dạng báo đỏ, không lưu/gửi/nạp (trước chỉ nhắc). | ✅ | ✅ | — | 🟡 code + test xong, chưa commit/deploy |
 | 100 | 10/11/2026 | ✏️ Sửa (giao diện) | `THU-01` | **Thanh tiến độ nhập hồ sơ** ở thanh nút đáy: vạch từng ô bắt buộc + "Còn N: <ô>" bấm nhảy tới ô thiếu; bỏ dòng "Còn thiếu" cuối form. | ✅ | ✅ | ✅ | 🟡 deploy `cf34060`; chưa thử điện thoại thật |
@@ -110,6 +111,16 @@
 Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên quan
 
 ---
+
+## #103 — In Báo cáo 2 từ tool, chọn nội dung thi · 21/11/2026
+
+- **Mã:** `TNB-08` (mới)
+- **Vì sao:** user 21/11/2026: phần mềm cũ tự tính nội dung thi ở cột Ghi chú bản in BC2 và không cho sửa, lại vẫn tính ra phần **mô phỏng đã bỏ từ 01/07/2025** cho ô tô (DB dev: 4.342 "SH lần đầu (L+M+H+Đ)", 5.251 "SH lại L+M+H+Đ"). User muốn chọn lại trong menu theo hạng, tool nhớ phần đã đạt (DB Nạp chỉ giữ kỳ gần nhất) để lần sau tự điền, **xem trước rồi mới in / lưu PDF, giống 100% bản in cũ**. Đã chốt: lưu chỉ trong tool; ô phần thi hiện sẵn, bấm bật/tắt (không menu/popup), gộp phần đã đạt vào ô; mặc định ô tô = giá trị phần mềm cũ bỏ M.
+- **Đã sửa tài liệu:** PRD `TNB-08` + dòng Phạm vi Feature TNB (v4.43) · TDD §11F.9 + §11F.6 (v6.48) · TDD-decisions §32 · `ui-demo/SCREENS.md` #39, #40.
+- **Chưa chốt:** mốc hết hạn bảo lưu phần đã đạt (tạm: quá 365 ngày từ ngày trúng tuyển như phần mềm cũ).
+- **Đã:** mock `ui-mock/inbc2.html` user duyệt 21/11/2026 (sau 2 vòng sửa: ô phần thi hiện sẵn, nút cuối dòng thẳng hàng) · `/kehoach` bổ sung Phase 14 task 164-169 · soát chéo 0 Chặn, đã vá tài liệu.
+- **Code:** task 164-168 xong 21/11/2026 (pytest 1.202 · vitest 198 · E2E In BC2 8 + BC2 cũ 79 xanh); soát độc lập 3 agent (nghiệp vụ · xuất file · code) → đã vá: bấm nhanh lệch dữ liệu, ↺ không rút sổ, chữ in khi đã chọn lại, UNC/USB/dll lạ, lỗi Crystal lộ dữ liệu, tệp tạm sót, quá hạn làm mất miễn lý thuyết mô tô, cột Bản in làm hỏng danh sách.
+- **Còn nợ:** task 169 — đóng gói exe + nghiệm thu máy CSĐT (so PDF với phần mềm cũ BC2 75/2026; thử hộp **In…** thật trong khung PDF; xác nhận mốc bảo lưu 365 ngày) · cũ: code task 164-169 (`tool/app/tn_bc2_phan_thi.py`, `tn_bc2_ban_in.py`, `crystal_bc2.py`, `scripts/in_bc2.ps1`, `tn_bc2_service.py`, `routers/tn_bc2.py`, `tool.spec`; `tool/webui` `InBc2.tsx`, `XemTruocBc2.tsx`, `DanhSachBc2.tsx`, `XemBc2.tsx`, `lib/tnbc2Api.ts`) · PDF mẫu từ phần mềm cũ (BC2 75/2026) để so trang.
 
 ## #102 — Cảnh báo tuổi học viên khi nạp vào khóa · 10/11/2026
 
@@ -1121,7 +1132,8 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 > `/capnhat` đọc mục này ở Bước 0b để biết có thay đổi nào chưa ghi sổ không.
 > So bằng **danh sách mã**, không so bằng thời gian sửa file.
 
-- **Cập nhật:** 10/11/2026 (#102 ➕ `NAP-09` cảnh báo tuổi khi nạp; số story 67→68)
+- **Cập nhật:** 21/11/2026 (#103 ➕ `TNB-08` in Báo cáo 2 từ tool; số story 68→69)
+- **Cập nhật trước:** 10/11/2026 (#102 ➕ `NAP-09` cảnh báo tuổi khi nạp; số story 67→68)
 - **Cập nhật trước:** 10/11/2026 (#101 ✏️ số GPLX 12 số hoặc bằng giấy cũ; số story giữ 67)
 - **Cập nhật trước:** 10/11/2026 (#100 ✏️ thanh tiến độ nhập hồ sơ THU-01; số story giữ 67)
 - **Cập nhật trước:** 10/11/2026 (#99 ✏️ GPLX đã có nhập trong popup + badge tool; số story giữ 67)
@@ -1158,6 +1170,6 @@ Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên qu
 - **Cập nhật trước:** 04/10/2026 (#34 +story `HTG-07` cấu hình kết nối lên header dùng chung; hạ `SYNC-01`+`SYNC-02` ✅→⏳ làm lại UI (nay đã ✅ lại); sửa bullet `HTG-01`)
 - **Trước nữa:** 04/10/2026 (#33 +Feature "Đồng bộ CDB" 3 story `SYNC-01/02/03` SHOULD, port sync_tool v2.0 + tool chuyển sidebar module)
 - **Trước đó:** 04/10/2026 (#32 bổ sung tiêu chí NAP-01 + QLY-05; ⚠️ #31 có dòng bảng nhưng THIẾU mục chi tiết — cần phiên #31 bổ sung) · 03/10/2026 (gộp 2 phiên song song: #28 QLY-09 + #29 NAP-01/03 + #30 THU-01/05; THU-01 hạ ✅→⏳)
-- **Số story trong PRD:** 68 (gồm **`NAP-09`** #102; gồm **`HTG-08`** #94; gồm **`NAP-08`** #92; gồm **`QLY-10`**, **`TCB-05`** #89; gồm **`NAP-07`**, **`THU-07`** #81; gồm **`KQD-10`** #75 + **`KQD-09`** #72 + **`KQD-08`** #69 + **`KQD-07`** #65 + **`PCG-06`** #66 + **`TNB-01..07`** #60 + **`PCG-01..05`** #54 + **`THU-06`** #49 + `KQD-01/02/03/04` #42 + `KQD-05` #45 + `KQD-06` #48; cùng `HTG-01..07` · `THU-01/02/04/05` · `NAP-01..06` · `KHO-01` · `QLY-01/02/03/05/06/07/08/09` · `SYNC-01/02/03` · `TCB-01/02/03/04` · `DGT-01/02/03/04`; chưa tính NICE `QLY-04`, `THU-03`)
-- **Mã story hiện có:** `HTG-01`…`HTG-08`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `THU-06`, `THU-07`, `NAP-01`…`NAP-09`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `QLY-10`, `SYNC-01`, `SYNC-02`, `SYNC-03`, `TCB-01`, `TCB-02`, `TCB-03`, `TCB-04`, `TCB-05`, `DGT-01`, `DGT-02`, `DGT-03`, `DGT-04`, `KQD-01`, `KQD-02`, `KQD-03`, `KQD-04`, `KQD-05`, `KQD-06`, `KQD-07`, `KQD-08`, `KQD-09`, `KQD-10`, `PCG-01`…`PCG-06` (NICE: `QLY-04`, `THU-03`), `TNB-01`…`TNB-07`
+- **Số story trong PRD:** 69 (gồm **`TNB-08`** #103; gồm **`NAP-09`** #102; gồm **`HTG-08`** #94; gồm **`NAP-08`** #92; gồm **`QLY-10`**, **`TCB-05`** #89; gồm **`NAP-07`**, **`THU-07`** #81; gồm **`KQD-10`** #75 + **`KQD-09`** #72 + **`KQD-08`** #69 + **`KQD-07`** #65 + **`PCG-06`** #66 + **`TNB-01..07`** #60 + **`PCG-01..05`** #54 + **`THU-06`** #49 + `KQD-01/02/03/04` #42 + `KQD-05` #45 + `KQD-06` #48; cùng `HTG-01..07` · `THU-01/02/04/05` · `NAP-01..06` · `KHO-01` · `QLY-01/02/03/05/06/07/08/09` · `SYNC-01/02/03` · `TCB-01/02/03/04` · `DGT-01/02/03/04`; chưa tính NICE `QLY-04`, `THU-03`)
+- **Mã story hiện có:** `HTG-01`…`HTG-08`, `THU-01`, `THU-02`, `THU-04`, `THU-05`, `THU-06`, `THU-07`, `NAP-01`…`NAP-09`, `KHO-01`, `QLY-01`, `QLY-02`, `QLY-03`, `QLY-05`, `QLY-06`, `QLY-07`, `QLY-08`, `QLY-09`, `QLY-10`, `SYNC-01`, `SYNC-02`, `SYNC-03`, `TCB-01`, `TCB-02`, `TCB-03`, `TCB-04`, `TCB-05`, `DGT-01`, `DGT-02`, `DGT-03`, `DGT-04`, `KQD-01`, `KQD-02`, `KQD-03`, `KQD-04`, `KQD-05`, `KQD-06`, `KQD-07`, `KQD-08`, `KQD-09`, `KQD-10`, `PCG-01`…`PCG-06` (NICE: `QLY-04`, `THU-03`), `TNB-01`…`TNB-08`
 - **Mã đã nghỉ hưu:** (chưa có)
