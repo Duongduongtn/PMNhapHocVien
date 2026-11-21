@@ -203,7 +203,7 @@ export const huyTotNghiep = (loId: string, maKh: string, dsMaDk: string[]) =>
 // ── Báo cáo 2: lập + thêm HV ──
 export interface Bc2CuaKhoa {
   ma: string;
-  /** 0 = đang mở, 1 = đã đóng. */
+  /** 0 = đang mở, 1 = đã đóng, 2 = chưa đóng nhưng đã gửi / có kết quả (khóa như đã đóng). */
   trang_thai: number;
   tong_ghi: number | null;
 }
@@ -322,7 +322,11 @@ export interface Bc2Dong {
   hv_thuc_te: number;
   lech: boolean;
   dong: boolean;
+  /** `false` khi đã đóng HOẶC đã có kết quả (khóa). */
   dang_mo: boolean;
+  /** 0 đang mở · 1 đã đóng · 2 đã gửi / có kết quả (chưa đóng). */
+  trang_thai?: number;
+  hv_ket_qua?: number;
   nguoi_tao: string;
   ngay_tao: string;
   /** TNB-08: từ SQLite của tool; `null` = chưa mở In BC2 lần nào. */
@@ -334,6 +338,7 @@ export interface DsBc2Resp {
   tong: number;
   dang_mo: number;
   da_dong: number;
+  co_ket_qua?: number;
   lech: number;
   bc2: Bc2Dong[];
 }
@@ -385,6 +390,7 @@ export interface ChiTietBc2 {
   so_bao_cao: string;
   ngay_bao_cao: string;
   trang_thai: number;
+  hv_ket_qua?: number;
   dang_mo: boolean;
   nguoi_tao: string;
   ngay_tao: string;

@@ -4,6 +4,7 @@
 
 | # | Ngày | Loại | Mã | Thay đổi | PRD | TDD | Màn hình | Code |
 |---|---|---|---|---|---|---|---|---|
+| 104 | 21/11/2026 | ✏️ Sửa (yêu cầu đổi) | `TNB-07` · `TNB-04` · `TNB-05` | **Danh sách BC2 có cột Trạng thái 3 giá trị** (Đang mở / Đã có kết quả / Đã đóng); BC2 **chưa đóng nhưng đã có ≥1 học viên gửi / có kết quả** bị khóa như BC2 đã đóng: không thêm / gỡ / hoàn tác / xóa, chỉ xem + in, và không hiện ở bước chọn BC2 khi thêm học viên. User chốt (A): chỉ cần 1 học viên có kết quả là khóa cả BC2. Số story giữ 67. | ✅ v4.44 | ✅ v6.49 §11F.6 | — (sửa màn có sẵn) | ✅ pytest 1.210 · vitest 198 · E2E đạt; chưa commit |
 | 103 | 21/11/2026 | ➕ Thêm | `TNB-08` | **In Báo cáo 2 từ tool**: chọn nội dung thi (cột Ghi chú) từng HV bằng **ô phần thi bấm bật/tắt hiện sẵn trên dòng** theo hạng (ô tô bỏ mô phỏng từ 01/07/2025, quy đổi mặc định từ giá trị phần mềm cũ); sổ phần đã đạt cộng dồn để tự điền lần sau, cho sửa; chỉ lưu trong tool; xem trước PDF dựng bằng mẫu Crystal của phần mềm cũ rồi In / Lưu PDF. | ✅ | ✅ | ✅ mock `ui-mock/inbc2.html` duyệt 21/11 | 🟡 task 164 |
 | 102 | 10/11/2026 | ➕ Thêm | `NAP-09` | **Cảnh báo tuổi học viên khi nạp vào khóa**: tuổi tối thiểu theo hạng đào tạo (`DM_HangDT.TuoiHV`), tính tại ngày nạp; popup rộng liệt kê người chưa đủ tuổi + ngày đủ tuổi, user bỏ chọn từng người hoặc nạp hết. | ✅ | ✅ | ✅ mock `canhbaotuoi.html` duyệt | 🟡 code + test xong, chưa commit/exe |
 | 101 | 10/11/2026 | ✏️ Sửa (luật kiểm) | `NAP-07` · `THU-07` · `QLY-10` · `TCB-05` | **Số GPLX đã có chỉ nhận 12 chữ số hoặc bằng giấy cũ 2 chữ cái + 6 số**; sai dạng báo đỏ, không lưu/gửi/nạp (trước chỉ nhắc). | ✅ | ✅ | — | 🟡 code + test xong, chưa commit/deploy |
@@ -111,6 +112,15 @@
 Chú thích: ✅ Xong · 🟡 Còn dở · ⬜ Chưa làm · — Không liên quan
 
 ---
+
+## #104 — Danh sách BC2: trạng thái 3 giá trị và khóa BC2 đã có kết quả · 21/11/2026
+
+- **Mã:** `TNB-07` (chính) · `TNB-04` · `TNB-05`
+- **Vì sao:** user hỏi danh sách có biết BC2 đã được cập nhật kết quả chưa — trước đây chỉ biết cờ đóng của phần mềm cũ; BC2 đã có kết quả thì không được thêm học viên nữa. Dữ liệu thật (DB Nạp, 21/11/2026): BC2 đang mở có 958 học viên đều "Đã vào BC2"; mọi BC2 có học viên `13/14/16–19` đều đã đóng. User chốt **A**: chỉ cần 1 học viên đã gửi / có kết quả là khóa cả BC2.
+- **Đã sửa tài liệu:** PRD `TNB-07` (cột Trạng thái + khóa) · `TNB-04` (chọn BC2) · `TNB-05` (gỡ / hoàn tác / xóa) (v4.44) · TDD §11F.6 (v6.49).
+- **Code:** `tn_bc2_rules.TT_DA_CO_KET_QUA` · `tn_bc2_service` (`_trang_thai_bc2`, `_loi_bc2_khoa`, `doc_bc`, `_doc_bc2_mot`, `ds_bc2`, `chi_tiet_bc2`) · `routers/tn_bc2.py` · `tn_bc2_in.py` · UI `TrangThaiBc2.tsx`, `DanhSachBc2.tsx`, `XemBc2.tsx`. Test: 4 ca go/xóa/hoàn tác/chi tiết, 2 ca danh sách, 2 ca lập, E2E C26-12.
+- **Lưu ý:** trạng thái `12` (đã gửi BC2) cũng tính là khóa, không chỉ kết quả cuối. Tab lọc đổi thành "Đã đóng / đã có kết quả (chỉ xem)".
+- **Còn nợ:** chưa thử trên dữ liệu thật ở máy CSĐT; chưa có ca "phần mềm cũ cập nhật dở một phần" trong DB thật để kiểm.
 
 ## #103 — In Báo cáo 2 từ tool, chọn nội dung thi · 21/11/2026
 

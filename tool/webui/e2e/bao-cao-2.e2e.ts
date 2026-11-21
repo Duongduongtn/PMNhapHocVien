@@ -1001,6 +1001,21 @@ test.describe("TNB-03 → TNB-04 → TNB-05 — Checkpoint 26: lập BC2 và xem
     await expect(page.getByRole("button", { name: /Đóng BC2/ })).toHaveCount(0);
   });
 
+  test("C26-12 BC2 chưa đóng nhưng đã có kết quả (TNB-07): nhãn riêng, khóa Thêm/Gỡ/Hoàn tác/Xóa như BC2 đã đóng", async ({ page }) => {
+    const mo: Mo = { cacLanGoi: [], ungVien: [], chiTiet: { ...CHI_TIET, trang_thai: 2, hv_ket_qua: 3, dang_mo: false, xoa_duoc: false,
+      hoc_vien: CHI_TIET.hoc_vien.map((h) => ({ ...h, go_duoc: false, ly_do_khoa: "BC2 đã gửi hoặc đã có kết quả — không gỡ được" })) } };
+    await giaBackend(page, mo);
+    await page.goto("/tot-nghiep-bc2/bao-cao-2");
+    await page.getByRole("button", { name: "Xem BC2 80/2026" }).click();
+    await expect(page.getByText("Đã có kết quả — chỉ xem")).toBeVisible();
+    await expect(page.getByText("Đã đóng — chỉ xem")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "+ Thêm học viên" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Hoàn tác lần thêm vừa rồi" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: /Gỡ 0 học viên khỏi BC2/ })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Xóa BC2 rỗng" })).toBeDisabled();
+    await expect(page.getByLabel("Chọn Nguyễn Thị Hoà")).toBeDisabled();
+  });
+
   test("C26-11 xóa BC2 mất kết nối: nêu 'kiểm lại rồi thử', không báo đã xóa, vẫn bấm lại được", async ({ page }) => {
     const mo: Mo = { cacLanGoi: [], ungVien: [], xoaKieu: "abort", chiTiet: { ...CHI_TIET, hv_thuc_te: 0, xoa_duoc: true, hoc_vien: [] } };
     await giaBackend(page, mo);

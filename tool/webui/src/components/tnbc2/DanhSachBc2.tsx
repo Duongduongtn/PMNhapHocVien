@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { soVN } from "../../lib/format";
 import { dsBc2, type Bc2Dong, type DsBc2Resp, type LoaiHang } from "../../lib/tnbc2Api";
+import TrangThaiBc2 from "./TrangThaiBc2";
 
-// TNB-07 (+ lối vào TNB-04/05) — bảng BC2 theo loại hạng, lọc đang mở / đã đóng: số báo cáo · ngày · BC1 · khóa ·
+// TNB-07 (+ lối vào TNB-04/05) — bảng BC2 theo loại hạng, lọc đang mở / đã có kết quả hoặc đã đóng: số báo cáo · ngày · BC1 · khóa ·
 // Tổng ghi · HV thực tế (đánh dấu lệch) · trạng thái · người tạo. Bấm một dòng → chi tiết. Chỉ đọc: không sửa/xóa ở đây.
 
 const dmy = (iso: string) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "");
@@ -59,7 +60,7 @@ export default function DanhSachBc2({
     <div className="mt-4">
       <div className="flex flex-wrap items-center gap-3">
         <div className="inline-flex rounded-lg border border-border overflow-hidden" role="group" aria-label="Lọc BC2">
-          {([["mo", "Đang mở"], ["dong", "Đã đóng (chỉ xem)"]] as const).map(([v, t]) => (
+          {([["mo", "Đang mở"], ["dong", "Đã đóng / đã có kết quả (chỉ xem)"]] as const).map(([v, t]) => (
             <button key={v} type="button" aria-pressed={dong === v} onClick={() => setDong(v)}
               className={`h-8 px-3 text-[12.5px] font-semibold ${dong === v ? "bg-tn-soft text-tn" : "bg-white hover:bg-muted"}`}>
               {t}
@@ -73,7 +74,7 @@ export default function DanhSachBc2({
         <input aria-label="Tìm BC2" className="field-input" style={{ width: 240, height: 32 }} value={q}
           placeholder="Tìm số BC2, BC1, tên khóa" onChange={(e) => setQ(e.target.value)} />
         <div className="text-[12px] text-muted-foreground">
-          BC2 <b>đang mở</b> = còn thêm/gỡ học viên được. Việc đóng BC2 do phần mềm cũ làm.
+          BC2 <b>đang mở</b> = còn thêm/gỡ học viên được. BC2 đã <b>gửi hoặc có kết quả</b> bị khóa (chỉ xem, in) — việc đóng BC2 do phần mềm cũ làm.
         </div>
         {kq && (
           <div className="ml-auto text-[12px] text-muted-foreground" data-testid="tom-tat-ds-bc2">
@@ -104,7 +105,7 @@ export default function DanhSachBc2({
             <tbody>
               {ds.length === 0 && (
                 <tr><td colSpan={10} className="text-center text-muted-foreground py-8">
-                  {q.trim() ? "Không có BC2 khớp." : dong === "mo" ? "Chưa có BC2 đang mở." : "Chưa có BC2 đã đóng."}
+                  {q.trim() ? "Không có BC2 khớp." : dong === "mo" ? "Chưa có BC2 đang mở." : "Chưa có BC2 đã đóng hoặc đã có kết quả."}
                 </td></tr>
               )}
               {ds.map((b) => (
@@ -125,11 +126,7 @@ export default function DanhSachBc2({
                     )}
                   </td>
                   <td className="py-2 pr-3 whitespace-nowrap">
-                    {b.dang_mo ? (
-                      <span className="text-[11px] font-semibold px-2 rounded-full border text-tn bg-tn-soft border-tn-border">Đang mở</span>
-                    ) : (
-                      <span className="text-[11px] font-semibold px-2 rounded-full border text-muted-foreground bg-muted border-border">Đã đóng</span>
-                    )}
+                    <TrangThaiBc2 tt={b.trang_thai ?? (b.dang_mo ? 0 : 1)} hvKetQua={b.hv_ket_qua} />
                   </td>
                   <td className="py-2 pr-3 whitespace-nowrap" data-testid={`ban-in-${b.ma_bc2}`}><BanIn b={b} /></td>
                   <td className="py-2 pr-3 whitespace-nowrap">{b.nguoi_tao || "—"}</td>

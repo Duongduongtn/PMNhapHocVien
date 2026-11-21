@@ -27,7 +27,8 @@ class Cur(_Cur):
             r = [b for b in st.bc2 if b["MaBCII"] == params[0]]
             self._rows = [{"MaBCII": b["MaBCII"], "MaBCI": b["MaBCI"], "SoBaoCao": b.get("SoBaoCao"),
                            "NgayBaoCao": datetime(2026, 10, 3), "TongSoThiSinh": b.get("TongSoThiSinh"),
-                           "TrangThai": b.get("TrangThai"), "NguoiTao": "thu1", "NgayTao": datetime(2026, 10, 3, 8, 0)}
+                           "TrangThai": b.get("TrangThai"), "NguoiTao": "thu1", "NgayTao": datetime(2026, 10, 3, 8, 0),
+                           "hv_ket_qua": b.get("hv_ket_qua", 0)}
                           for b in r]
         elif s.startswith("SELECT h.MaDK, h.SoHoSo, n.HoVaTen, n.NgaySinh"):
             st.log.append((s, tuple(params)))
@@ -376,3 +377,38 @@ def test_chi_tiet_dem_tho_ke_ca_hv_thieu_nguoilx_va_loai_suy_tu_hv():
     d = svc.chi_tiet_bc2(c.cursor(), BC2)
     assert d["hv_thuc_te"] == 1 and d["ma_kh"] == "" and d["loai"] == "moto"      # không đoán 'oto'
     assert any("LEFT JOIN NguoiLX" in s for s, _ in c.log)
+
+
+# ── TNB-07 (CHANGES #104): BC2 chưa đóng nhưng đã gửi / có kết quả → khóa như BC2 đã đóng ──
+def bc2_co_ket_qua(hv_ket_qua=2):
+    return [{"MaBCII": BC2, "MaBCI": "858/26-TTTÐ", "SoBaoCao": BC2, "TrangThai": False, "TongSoThiSinh": 5,
+             "hv_ket_qua": hv_ket_qua}]
+
+
+def test_go_bc2_chua_dong_nhung_da_co_ket_qua_bi_khoa_khong_ghi_gi():
+    c = Conn(hvs_trong_bc2(), bc2=bc2_co_ket_qua())
+    with pytest.raises(svc.LoiNghiepVu) as e:
+        go(c, ["G-0001"])                      # G-0001 còn "11" nhưng BC2 đã có HV có kết quả → khóa cả BC2
+    assert e.value.ma == "bc2_da_co_ket_qua" and e.value.http == 409 and "đã gửi hoặc đã có kết quả" in e.value.noi_dung
+    assert c.goi("EXEC usp_NguoiLXHoSo_Update_DanhSachHocSinhBC2") == []
+
+
+def test_xoa_bc2_chua_dong_nhung_da_co_ket_qua_bi_khoa():
+    c = Conn({}, bc2=[{**bc2_co_ket_qua()[0], "MaBCII": "91/2026", "SoBaoCao": "91/2026", "TongSoThiSinh": 0}])
+    with pytest.raises(svc.LoiNghiepVu) as e:
+        svc.xoa_bc2(c, "91/2026", "thu1")
+    assert e.value.ma == "bc2_da_co_ket_qua" and c.goi("EXEC usp_BaoCaoII_Delete") == []
+
+
+def test_chi_tiet_bc2_da_co_ket_qua_khoa_het_nut_va_noi_ro_ly_do():
+    c = Conn(hvs_trong_bc2(), bc2=bc2_co_ket_qua(3))
+    d = svc.chi_tiet_bc2(c.cursor(), BC2)
+    assert d["trang_thai"] == 2 and d["hv_ket_qua"] == 3 and d["dang_mo"] is False and d["xoa_duoc"] is False
+    assert all(h["go_duoc"] is False and "đã gửi hoặc đã có kết quả" in h["ly_do_khoa"] for h in d["hoc_vien"])
+
+
+def test_hoan_tac_bc2_da_co_ket_qua_bi_khoa():
+    c = Conn(hvs_trong_bc2(), bc2=bc2_co_ket_qua())
+    with pytest.raises(svc.LoiNghiepVu) as e:
+        svc.hoan_tac(c, ma_bc2=BC2, lo_id="lo-ht-00001", nguoi="thu1")
+    assert e.value.ma == "bc2_da_co_ket_qua"

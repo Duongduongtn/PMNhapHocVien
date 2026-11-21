@@ -156,7 +156,7 @@ def du_lieu_ban_in(cur, ma_bc2: str, *, hom_nay: date | None = None) -> dict:
     kho.ghi_tom_tat(dang_db, n_lai, n_can)
     return {
         "ma_bc2": dang_db, "so_bao_cao": bc2["so_bao_cao"], "ngay_bao_cao": bc2["ngay_bao_cao"],
-        "dang_mo": bc2["trang_thai"] != 1, "ma_kh": ma_kh, "tieu_de": _tieu_de(tieu_de),
+        "dang_mo": bc2["trang_thai"] == 0, "ma_kh": ma_kh, "tieu_de": _tieu_de(tieu_de),
         "loai": rules.loai_hang(dong[0]["HangGPLX"]) if dong else "", "hoc_vien": hv,
         "so_chon_lai": n_lai, "so_can_chon": n_can,
     }

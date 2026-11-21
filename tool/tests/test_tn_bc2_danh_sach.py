@@ -32,9 +32,10 @@ class FakeCur:
 
 
 def bc2_row(ma, loai="B2", tong=10, thuc=10, tt=False, bc1="858/26-TTTĐ", kh="70004K26B0108", nguoi="CSDTTHANHDAT",
-            ngay=datetime(2026, 10, 3)):
+            ngay=datetime(2026, 10, 3), kq=0):
     return {"MaBCII": ma, "SoBaoCao": ma, "NgayBaoCao": ngay, "MaBCI": bc1, "SoBC1": bc1, "MaKH": kh, "TenKH": "K " + kh[-4:],
-            "HangGPLX": loai, "TongSoThiSinh": tong, "TrangThai": tt, "NguoiTao": nguoi, "NgayTao": ngay, "hv_thuc_te": thuc}
+            "HangGPLX": loai, "TongSoThiSinh": tong, "TrangThai": tt, "NguoiTao": nguoi, "NgayTao": ngay, "hv_thuc_te": thuc,
+            "hv_ket_qua": kq}
 
 
 def du_lieu_bc2():
@@ -189,3 +190,25 @@ def test_router_bc2_bc1_nhat_ky_khong_bi_route_catch_all_nuot(client):
     assert r.status_code == 200 and r.json()["nhat_ky"][0]["ten_loai"] == "Tạo BC2"
     assert c.get("/local/tnbc2/nhat-ky", params={"gioi_han": 0}).status_code == 422
     assert c.get("/local/tnbc2/nhat-ky", params={"gioi_han": 501}).status_code == 422
+
+
+# ── TNB-07 (CHANGES #104): cột Trạng thái 3 giá trị; BC2 đã gửi / có kết quả bị khóa dù chưa đóng ──
+def test_ds_bc2_trang_thai_3_gia_tri_va_khoa_khi_da_co_ket_qua():
+    rows = [bc2_row("81/2026", thuc=3),                                  # đang mở: mọi HV còn "Đã vào BC2"
+            bc2_row("76/2026", thuc=24, kq=24),                          # chưa đóng nhưng đã có kết quả
+            bc2_row("62/2025", thuc=28, tt=True, kq=28)]                 # đã đóng
+    r = svc.ds_bc2(FakeCur(bc2=rows))
+    b = {x["ma_bc2"]: x for x in r["bc2"]}
+    assert (b["81/2026"]["trang_thai"], b["76/2026"]["trang_thai"], b["62/2025"]["trang_thai"]) == (0, 2, 1)
+    assert b["81/2026"]["dang_mo"] is True and b["76/2026"]["dang_mo"] is False and b["62/2025"]["dang_mo"] is False
+    assert b["76/2026"]["dong"] is False and b["76/2026"]["hv_ket_qua"] == 24 and b["62/2025"]["dong"] is True
+    assert (r["dang_mo"], r["da_dong"], r["co_ket_qua"]) == (1, 1, 1)
+    mo = svc.ds_bc2(FakeCur(bc2=rows), "", "mo")
+    assert [x["ma_bc2"] for x in mo["bc2"]] == ["81/2026"]
+    khoa = svc.ds_bc2(FakeCur(bc2=rows), "", "dong")
+    assert [x["ma_bc2"] for x in khoa["bc2"]] == ["76/2026", "62/2025"]
+
+
+def test_ds_bc2_mot_hv_co_ket_qua_la_du_de_khoa_ca_bc2():
+    r = svc.ds_bc2(FakeCur(bc2=[bc2_row("90/2026", thuc=100, kq=1)]))
+    assert r["bc2"][0]["trang_thai"] == 2 and r["bc2"][0]["dang_mo"] is False

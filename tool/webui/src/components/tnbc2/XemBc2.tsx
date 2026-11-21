@@ -15,6 +15,7 @@ import {
 } from "../../lib/tnbc2Api";
 import { khopTim } from "../../lib/tnbcUngVien";
 import MaTT from "../MaTT";
+import TrangThaiBc2 from "./TrangThaiBc2";
 
 // TNB-05 — màn xem / gỡ / xóa BC2 (ít dùng hơn thêm). Bám ui-mock/tnbc2.html `viewXem`, `xacNhanGo`.
 
@@ -80,11 +81,7 @@ export default function XemBc2({
               Tổng ghi <b>{ct.tong_ghi ?? "—"}</b> · Học viên thực tế <b>{soVN(ct.hv_thuc_te)}</b>
               {ct.lech && <span className="ml-1 text-muted-foreground">(lệch là bình thường)</span>}
             </div>
-            {ct.dang_mo ? (
-              <span className="text-[11px] font-semibold px-2 rounded-full border text-tn bg-tn-soft border-tn-border">Đang mở</span>
-            ) : (
-              <span className="text-[11px] font-semibold px-2 rounded-full border text-muted-foreground bg-muted border-border">Đã đóng — chỉ xem</span>
-            )}
+            <TrangThaiBc2 tt={ct.trang_thai ?? (ct.dang_mo ? 0 : 1)} hvKetQua={ct.hv_ket_qua} chiXem />
           </>
         )}
         <input aria-label="Tìm học viên trong BC2" className="field-input ml-auto" style={{ width: 240 }} value={q}

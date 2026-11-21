@@ -26,7 +26,26 @@ TOI_DA_KHONG_DUOC = 500          # trần số dòng "Không đưa được" c�
 _KHOI_IN = 900                   # pymssql: tối đa ~2100 tham số → chia khối
 
 _Q_BC1 = "SELECT MaBCI, MaKH, MaCSDT, SoBaoCao, NgayBaoCao, SoHocSinh FROM BaoCaoI"
-_Q_BC2 = "SELECT MaBCII, MaBCI, SoBaoCao, TrangThai, TongSoThiSinh FROM BaoCaoII"
+_SQL_TT_KET_QUA = ",".join(f"'{x}'" for x in rules.TT_DA_CO_KET_QUA)
+# Kèm số HV đã gửi / có kết quả của từng BC2 (một lượt quét NguoiLX_HoSo) để biết BC2 nào phải khóa.
+_Q_BC2 = ("SELECT MaBCII, MaBCI, SoBaoCao, TrangThai, TongSoThiSinh, ISNULL(x.n, 0) AS hv_ket_qua FROM BaoCaoII "
+          "LEFT JOIN (SELECT MaBC2, COUNT(*) AS n FROM NguoiLX_HoSo WHERE ISNULL(MaBC2, '') <> '' "
+          f"AND TT_XuLy IN ({_SQL_TT_KET_QUA}) GROUP BY MaBC2) x ON x.MaBC2 = BaoCaoII.MaBCII")
+
+
+def _trang_thai_bc2(r: dict) -> int:
+    """0 = đang mở · 1 = đã đóng (cờ của PM cũ) · 2 = chưa đóng nhưng đã có HV gửi / có kết quả. Khác 0 ⇒ KHÓA:
+    không thêm / gỡ / hoàn tác / xóa ở tool, chỉ xem + in (TNB-07, CHANGES #104)."""
+    if r.get("TrangThai") in (1, True, "1"):
+        return 1
+    return 2 if int(r.get("hv_ket_qua") or 0) > 0 else 0
+
+
+def _loi_bc2_khoa(ma: str, tt: int, ket: str) -> "LoiNghiepVu":
+    """Lỗi 409 khi BC2 đã khóa; `ket` = vế sau ("không thêm học viên được" / "không gỡ được" / "không xóa ở tool")."""
+    if tt == 2:
+        return LoiNghiepVu("bc2_da_co_ket_qua", f"BC2 số {ma} đã gửi hoặc đã có kết quả — {ket}", 409)
+    return LoiNghiepVu("bc2_da_dong", f"BC2 số {ma} đã đóng — {ket}", 409)
 _Q_KHOA = "SELECT MaKH, TenKH, HangGPLX, NgayBG FROM KhoaHoc"
 _Q_HANG_KHOA = "SELECT MaKH, TenKH, HangGPLX, NgayBG FROM KhoaHoc WHERE MaKH = %s"
 _Q_BO_SUNG = ("SELECT h.MaDK, h.TT_XuLy, h.MaBC2, h.HangGPLX, h.SoGiayCNTN, k.NgayBG "
@@ -119,7 +138,7 @@ def doc_bc(cur) -> tuple[dict, dict, dict, dict]:
     bc2_theo_bc1: dict[str, list[dict]] = {}
     for r in cur.fetchall():
         ma = _s(r["MaBCII"])
-        tt = 1 if r.get("TrangThai") in (1, True, "1") else 0
+        tt = _trang_thai_bc2(r)
         bc2_map[ma] = tt
         bc2_bci[ma] = _s(r["MaBCI"])
         bc2_theo_bc1.setdefault(_s(r["MaBCI"]), []).append(
@@ -217,7 +236,7 @@ def kiem_dau_vao(tap: dict, ma_kh: str, ma_bc2: str = "") -> None:
     if bc1 is None or tap["bc2_bci"].get(ma_bc2) != bc1["ma_bci"]:
         raise LoiNghiepVu("bc2_khac_khoa", f"BC2 số {ma_bc2} không thuộc khóa {ma_kh} (khác BC1)", 409)
     if tt != 0:
-        raise LoiNghiepVu("bc2_da_dong", f"BC2 số {ma_bc2} đã đóng — không thêm học viên được", 409)
+        raise _loi_bc2_khoa(ma_bc2, tt, "không thêm học viên được")
 
 
 def khoa_san_sang(tap: dict, loai: str, cu: bool = False, thi_lai_thang: int = rules.THI_LAI_THANG_MAC_DINH) -> dict:
@@ -456,7 +475,7 @@ def _tao_bc2_trong_khoa(cur, ma_kh: str, so: str, ngay: datetime, ghi_chu: str, 
     if co is not None:
         if thu_lai and bc2_bci.get(co) == bc1["ma_bci"]:
             if yeu_cau_mo and bc2_map.get(co) != 0:      # lập + thêm HV: BC2 phải còn MỞ (⛔ thêm vào BC2 đã đóng)
-                raise LoiNghiepVu("bc2_da_dong", f"BC2 số {co} đã đóng — không thêm học viên được", 409)
+                raise _loi_bc2_khoa(co, bc2_map.get(co), "không thêm học viên được")
             nhat_ky.ket_thuc(nhat_ky.bat_dau(nguoi, nhat_ky.TAO_BC2, ma_kh, co, 0, f"BC2 {co} đã có"), "da_ton_tai",
                              {"ma_bc2": co})
             return {"ma_bc2": co, "da_ton_tai": True, "ma_kh": ma_kh, "loai": khoa["loai"],
@@ -706,7 +725,7 @@ def hoan_tac(conn, *, ma_bc2: str, lo_id: str, nguoi: str, bao_tien_do: Callable
         if tt is None:
             raise LoiNghiepVu("bc2_khong_ton_tai", f"Không có BC2 số {ma_bc2}", 404)
         if tt != 0:
-            raise LoiNghiepVu("bc2_da_dong", f"BC2 số {ma_bc2} đã đóng — không gỡ được", 409)
+            raise _loi_bc2_khoa(ma_bc2, tt, "không gỡ được")
         goc = nhat_ky.lo_lap_gan_nhat_cua_bc2(dang_db)
         if goc is None:
             raise LoiNghiepVu("khong_co_lo", "Không có lần thêm nào của BC2 này để hoàn tác", 404)
@@ -850,7 +869,9 @@ def quen_job(lo_id: str) -> None:
 
 
 # ══════════════ Xem / gỡ / xóa BC2 (TNB-05, task 100) ══════════════
-_Q_BC2_MOT = ("SELECT MaBCII, MaBCI, SoBaoCao, NgayBaoCao, TongSoThiSinh, TrangThai, NguoiTao, NgayTao "
+_Q_BC2_MOT = ("SELECT MaBCII, MaBCI, SoBaoCao, NgayBaoCao, TongSoThiSinh, TrangThai, NguoiTao, NgayTao, "
+              "(SELECT COUNT(*) FROM NguoiLX_HoSo h WHERE h.MaBC2 = BaoCaoII.MaBCII "
+              f"AND h.TT_XuLy IN ({_SQL_TT_KET_QUA})) AS hv_ket_qua "
               "FROM BaoCaoII WHERE MaBCII = %s")
 _Q_HV_CUA_BC2 = ("SELECT h.MaDK, h.SoHoSo, n.HoVaTen, n.NgaySinh, n.SoCMT, h.HangGPLX, h.TT_XuLy, h.TT_XuLy_Old, "
                  "h.MaBC2, h.SoGiayCNTN, h.MaKhoaHoc, k.TenKH, k.NgayBG "
@@ -867,12 +888,14 @@ def _doc_bc2_mot(cur, dang_db: str) -> dict | None:
         return None
     return {"ma": _s(r["MaBCII"]), "ma_bci": _s(r["MaBCI"]), "so_bao_cao": _s(r.get("SoBaoCao")),
             "ngay_bao_cao": _ngay_iso(r.get("NgayBaoCao")), "tong_ghi": r.get("TongSoThiSinh"),
-            "trang_thai": 1 if r.get("TrangThai") in (1, True, "1") else 0,
+            "trang_thai": _trang_thai_bc2(r), "hv_ket_qua": int(r.get("hv_ket_qua") or 0),
             "nguoi_tao": _s(r.get("NguoiTao")), "ngay_tao": _ngay_iso(r.get("NgayTao"))}
 
 
-def _ly_do_khoa(hv: dict, bc2_dong: bool) -> str:
-    if bc2_dong:
+def _ly_do_khoa(hv: dict, tt_bc2: int) -> str:
+    if tt_bc2 == 2:
+        return "BC2 đã gửi hoặc đã có kết quả — không gỡ được"
+    if tt_bc2 != 0:
         return "BC2 đã đóng — không gỡ được"
     if hv["tt"] == rules.TT_DA_VAO_BC2 and hv["tt_cu"] == rules.TT_DA_VAO_BC2:
         return ("Trạng thái trước đó của học viên cũng là \"Đã vào BC2\" — gỡ ra sẽ không về đúng, "
@@ -898,7 +921,7 @@ def chi_tiet_bc2(cur, ma_bc2: str) -> dict:
             khoa = loai_cua_khoa(cur, ma_kh)
         except LoiNghiepVu:
             pass
-    dong = bc2["trang_thai"] == 1
+    bi_khoa = bc2["trang_thai"] != 0     # đã đóng HOẶC đã gửi / có kết quả
     cur.execute(_Q_HV_CUA_BC2, (dang_db,))
     dong_hv = cur.fetchall()
     loai = khoa["loai"] or (rules.loai_hang(dong_hv[0].get("HangGPLX")) if dong_hv else "")
@@ -909,7 +932,7 @@ def chi_tiet_bc2(cur, ma_bc2: str) -> dict:
               "tt": _s(r.get("TT_XuLy")), "tt_cu": _s(r.get("TT_XuLy_Old")), "ma_bc2": _s(r.get("MaBC2")),
               "so_giay": _s(r.get("SoGiayCNTN")), "ma_kh": _s(r.get("MaKhoaHoc")), "ten_kh": _s(r.get("TenKH")),
               "bg": _ngay_iso(r.get("NgayBG")), "loai": rules.loai_hang(r.get("HangGPLX"))}
-        ly = _ly_do_khoa(hv, dong)
+        ly = _ly_do_khoa(hv, bc2["trang_thai"])
         canh_bao = hv["tt"] == rules.TT_DA_VAO_BC2 and hv["tt_cu"] == ""     # gỡ ra sẽ về giá trị rỗng
         hocvien.append({
             "ma_dk": hv["ma_dk"], "so_ho_so": hv["so_ho_so"], "ten": hv["ten"], "ngay_sinh": hv["ngay_sinh"],
@@ -921,11 +944,11 @@ def chi_tiet_bc2(cur, ma_bc2: str) -> dict:
         })
     return {
         "ma_bc2": bc2["ma"], "so_bao_cao": bc2["so_bao_cao"], "ngay_bao_cao": bc2["ngay_bao_cao"],
-        "trang_thai": bc2["trang_thai"], "dang_mo": not dong, "nguoi_tao": bc2["nguoi_tao"],
+        "trang_thai": bc2["trang_thai"], "hv_ket_qua": bc2["hv_ket_qua"], "dang_mo": not bi_khoa, "nguoi_tao": bc2["nguoi_tao"],
         "ngay_tao": bc2["ngay_tao"], "ma_bci": bc2["ma_bci"], "ma_kh": ma_kh, "ten_kh": khoa.get("ten_kh", ""),
         "loai": loai, "tong_ghi": bc2["tong_ghi"], "hv_thuc_te": len(hocvien),
         "lech": bc2["tong_ghi"] is not None and int(bc2["tong_ghi"] or 0) != len(hocvien),
-        "hoc_vien": hocvien, "xoa_duoc": (not dong) and len(hocvien) == 0,
+        "hoc_vien": hocvien, "xoa_duoc": (not bi_khoa) and len(hocvien) == 0,
     }
 
 
@@ -970,7 +993,7 @@ def kiem_truoc_go(cur, ma_bc2: str, ds_ma_dk: Iterable[str], da_xem_canh_bao: bo
     if bc2 is None:
         raise LoiNghiepVu("bc2_khong_ton_tai", f"Không có BC2 số {ma_bc2}", 404)
     if bc2["trang_thai"] != 0:
-        raise LoiNghiepVu("bc2_da_dong", f"BC2 số {ma_bc2} đã đóng — không gỡ được", 409)
+        raise _loi_bc2_khoa(ma_bc2, bc2["trang_thai"], "không gỡ được")
     _g, _b, canh_bao = _phan_loai_go(cur, dang_db, ds)
     if canh_bao and not da_xem_canh_bao:
         raise LoiNghiepVu("can_xac_nhan_canh_bao", canh_bao[0]["noi_dung"], 409, {"canh_bao": canh_bao})
@@ -994,7 +1017,7 @@ def go_hv(conn, *, ma_bc2: str, lo_id: str, ds_ma_dk: Iterable[str], nguoi: str,
         if bc2 is None:
             raise LoiNghiepVu("bc2_khong_ton_tai", f"Không có BC2 số {ma_bc2}", 404)
         if bc2["trang_thai"] != 0:
-            raise LoiNghiepVu("bc2_da_dong", f"BC2 số {ma_bc2} đã đóng — không gỡ được", 409)
+            raise _loi_bc2_khoa(ma_bc2, bc2["trang_thai"], "không gỡ được")
         da_go_truoc = {h["ma_dk"] for h in nhat_ky.lo_hv(lo_id) if h["ket_qua"] == "da_go"}   # "Làm tiếp"
         ds_moi = [m for m in ds if m not in da_go_truoc]
         ung_vien_go, bo_qua, canh_bao = _phan_loai_go(cur, dang_db, ds_moi)
@@ -1048,7 +1071,7 @@ def xoa_bc2(conn, ma_bc2: str, nguoi: str) -> dict:
         if bc2 is None:
             raise LoiNghiepVu("bc2_khong_ton_tai", f"Không có BC2 số {ma_bc2}", 404)
         if bc2["trang_thai"] != 0:
-            raise LoiNghiepVu("bc2_da_dong", f"BC2 số {ma_bc2} đã đóng — không xóa ở tool", 409)
+            raise _loi_bc2_khoa(ma_bc2, bc2["trang_thai"], "không xóa ở tool")
         cur.execute(_Q_DEM_HV_BC2, (dang_db,))
         n = int((cur.fetchone() or {}).get("n") or 0)
         if n > 0:
@@ -1789,9 +1812,11 @@ _Q_BC1_DS = ("SELECT c.MaBCI, c.SoBaoCao, c.NgayBaoCao, c.MaKH, c.SoHocSinh, k.T
              "ORDER BY c.NgayBaoCao DESC")
 # "HV thực tế" bằng ĐÚNG MỘT GROUP BY cho cả danh sách (NguoiLX_HoSo không có index theo MaBC2: đếm từng BC2 = 455 lần quét)
 _Q_BC2_DS = ("SELECT b.MaBCII, b.SoBaoCao, b.NgayBaoCao, b.MaBCI, c.SoBaoCao AS SoBC1, c.MaKH, k.TenKH, k.HangGPLX, "
-             "b.TongSoThiSinh, b.TrangThai, b.NguoiTao, b.NgayTao, ISNULL(x.n, 0) AS hv_thuc_te "
+             "b.TongSoThiSinh, b.TrangThai, b.NguoiTao, b.NgayTao, ISNULL(x.n, 0) AS hv_thuc_te, "
+             "ISNULL(x.kq, 0) AS hv_ket_qua "
              "FROM BaoCaoII b LEFT JOIN BaoCaoI c ON c.MaBCI = b.MaBCI LEFT JOIN KhoaHoc k ON k.MaKH = c.MaKH "
-             "LEFT JOIN (SELECT MaBC2, COUNT(*) AS n FROM NguoiLX_HoSo WHERE ISNULL(MaBC2,'') <> '' GROUP BY MaBC2) x "
+             f"LEFT JOIN (SELECT MaBC2, COUNT(*) AS n, SUM(CASE WHEN TT_XuLy IN ({_SQL_TT_KET_QUA}) THEN 1 ELSE 0 END) AS kq "
+             "FROM NguoiLX_HoSo WHERE ISNULL(MaBC2,'') <> '' GROUP BY MaBC2) x "
              "ON x.MaBC2 = b.MaBCII ORDER BY b.NgayBaoCao DESC, b.NgayTao DESC")
 
 TEN_LOAI_NHAT_KY = {
@@ -1820,29 +1845,33 @@ def ds_bc1(cur, loai: str = "") -> dict:
 
 
 def ds_bc2(cur, loai: str = "", dong: str = "") -> dict:
-    """Danh sách BC2 (tab Ô tô / Mô tô, lọc đang mở / đã đóng): Tổng ghi, HV thực tế, lệch, người tạo.
-    Hoàn toàn chỉ đọc — một truy vấn duy nhất."""
+    """Danh sách BC2 (tab Ô tô / Mô tô, lọc đang mở / đã khóa): Tổng ghi, HV thực tế, lệch, người tạo, trạng thái.
+    Trạng thái `trang_thai`: 0 đang mở · 1 đã đóng · 2 đã gửi / có kết quả (chưa đóng) — khác 0 là khóa
+    (TNB-07, CHANGES #104). `dong` = lọc "mo" (chưa khóa) / "dong" (đã khóa, chỉ xem). Hoàn toàn chỉ đọc."""
     cur.execute(_Q_BC2_DS)
-    out, mo, da_dong, lech = [], 0, 0, 0
+    out, mo, da_dong, co_kq, lech = [], 0, 0, 0, 0
     for r in cur.fetchall():
         loai_k = rules.loai_hang(r.get("HangGPLX")) if _s(r.get("HangGPLX")) else ""   # thiếu BC1/khóa: không đoán loại
         if loai and loai_k != loai:
             continue
-        la_dong = r.get("TrangThai") in (1, True, "1")
-        if (dong == "mo" and la_dong) or (dong == "dong" and not la_dong):
+        tt = _trang_thai_bc2(r)
+        la_khoa = tt != 0
+        if (dong == "mo" and la_khoa) or (dong == "dong" and not la_khoa):
             continue
         tong_ghi = r.get("TongSoThiSinh")
         thuc_te = int(r.get("hv_thuc_te") or 0)
         la_lech = tong_ghi is not None and int(tong_ghi or 0) != thuc_te
-        mo += 0 if la_dong else 1
-        da_dong += 1 if la_dong else 0
+        mo += 0 if la_khoa else 1
+        da_dong += 1 if tt == 1 else 0
+        co_kq += 1 if tt == 2 else 0
         lech += 1 if la_lech else 0
         out.append({"ma_bc2": _s(r["MaBCII"]), "so_bao_cao": _s(r.get("SoBaoCao")), "ngay_bao_cao": _ngay_iso(r.get("NgayBaoCao")),
                     "ma_bci": _s(r.get("MaBCI")), "so_bc1": _s(r.get("SoBC1")), "ma_kh": _s(r.get("MaKH")),
                     "ten_kh": _s(r.get("TenKH")), "loai": loai_k, "tong_ghi": tong_ghi, "hv_thuc_te": thuc_te,
-                    "lech": la_lech, "dong": la_dong, "dang_mo": not la_dong, "nguoi_tao": _s(r.get("NguoiTao")),
+                    "lech": la_lech, "dong": tt == 1, "dang_mo": not la_khoa, "trang_thai": tt,
+                    "hv_ket_qua": int(r.get("hv_ket_qua") or 0), "nguoi_tao": _s(r.get("NguoiTao")),
                     "ngay_tao": _ngay_iso(r.get("NgayTao"))})
-    return {"loai": loai, "dong": dong, "tong": len(out), "dang_mo": mo, "da_dong": da_dong, "lech": lech, "bc2": out}
+    return {"loai": loai, "dong": dong, "tong": len(out), "dang_mo": mo, "da_dong": da_dong, "co_ket_qua": co_kq, "lech": lech, "bc2": out}
 
 
 def _tom_tat_ket_qua(kq: dict) -> dict:

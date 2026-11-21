@@ -1439,7 +1439,7 @@
 **Story:** Là nhân viên cơ sở, tôi muốn đưa đúng các học viên đủ điều kiện (kể cả HV rớt/vắng từ khóa cũ) vào một BC2 đang mở.
 
 **Done khi:**
-- ⬜ Chọn **BC2 đang mở** (`TrangThai=0`) của đúng loại; BC2 đã đóng chỉ xem (công tắc "Hiện BC2 đã đóng").
+- ⬜ Chọn **BC2 đang mở** (`TrangThai=0`) của đúng loại **và chưa có học viên nào đã gửi / có kết quả** (xem `TNB-07`); BC2 đã đóng hoặc đã có kết quả chỉ xem (công tắc "Hiện BC2 đã đóng / đã có kết quả"). Thêm vào BC2 bị khóa → báo 409, không ghi.
 - ⬜ **Luồng 3 bước, một nút làm xong:** ① **Chọn khóa** (khóa đã bế giảng chưa có BC2; mỗi dòng ghi "Sẵn sàng · Thi lại · Cần xem") → ② **Chọn học viên** (một màn, không tab) → ③ **Xác nhận** ("Lập BC2 và thêm N học viên": tạo BC2 nếu chưa có rồi thêm HV; BC2 đã có thì chỉ thêm). Vào từ "Lập BC2 mới" (đủ 3 bước) hoặc từ dòng BC2 đang mở → "Thêm học viên" (vào thẳng bước ②).
 - ⬜ **Bốn nhóm học viên (thay cho tab + mã):** ✅ **Sẵn sàng** (HV của khóa đủ điều kiện, chưa ở báo cáo nào — **tích sẵn**) · 🔁 **Thi lại** (rớt/vắng sát hạch hoặc chưa đạt BC2, từ khóa trước hoặc chính khóa này — **KHÔNG tích sẵn**; có nút **"Thêm HV thi lại trong [12] tháng"** đổi được số tháng; gom theo khóa gốc, "chọn cả khóa") · ⚠️ **Cần xem** (chưa tốt nghiệp (ô tô) · thiếu số giấy; mỗi dòng có hướng xử lý 1 chạm) · ⛔ **Không đưa được** (khóa chưa bế giảng · đã có kết quả cuối · sai loại · **đang ở BC2 đang mở khác — phải gỡ khỏi BC2 đó trước (TNB-05)**; ẩn mặc định, mở ra để biết lý do).
 - ⬜ **Dải tóm tắt luôn hiện:** "Sẽ đưa vào BC2: 150 + 74 = 224 học viên" cập nhật khi tích, kèm số cảnh báo.
@@ -1470,6 +1470,7 @@
 - ⬜ HV thi lại từng ở BC2 cũ đã đóng rồi được thêm vào BC2 này: gỡ ra về trạng thái trước đó (`14/17/18`), **không** tự quay về BC2 cũ (hộp xác nhận nêu rõ).
 - ⬜ **Màn xem/gỡ riêng** (ít dùng hơn thêm): danh sách HV trong BC2 có tìm kiếm, chọn nhiều, "Gỡ N học viên"; HV đã có kết quả bị khóa kèm lý do.
 - ⬜ **Hoàn tác lần thêm vừa rồi** (gỡ theo lô thêm gần nhất, chỉ HV còn "Đã vào BC2, chờ kết quả").
+- ⬜ **BC2 đã gửi / có kết quả khóa cả Gỡ, Hoàn tác, Xóa** (kể cả khi phần mềm cũ chưa đóng BC2): nút xám, lý do ghi "BC2 đã gửi hoặc đã có kết quả — không gỡ được" (`TNB-07`, CHANGES #104).
 - ❌ Không nút "Đóng BC2".
 
 **Edge cases:** HV bị PM cũ đổi trạng thái giữa lúc chọn → đọc lại, bỏ qua kèm lý do · `TT_XuLy_Old` rỗng → cảnh báo trước khi gỡ (sẽ về giá trị rỗng) · `TT_XuLy_Old` cũng là "Đã vào BC2" → **không gỡ được** (xử lý ở phần mềm cũ).
@@ -1498,11 +1499,12 @@
 
 #### [TNB-07] Danh sách BC2 và nhật ký thao tác
 
-**Trạng thái:** ✅ Done — 2/2 task xong (105 backend danh sách BC1/BC2 + nhật ký, 115 UI); chỉ đọc nên không cần ghi thật; kiểm bằng Playwright giả backend + đọc DB Nạp thật ở task 105 (455 BC2)
+**Trạng thái:** ✅ Done — 2/2 task xong (105 backend danh sách BC1/BC2 + nhật ký, 115 UI); chỉ đọc nên không cần ghi thật; kiểm bằng Playwright giả backend + đọc DB Nạp thật ở task 105 (455 BC2). 21/11/2026 (CHANGES #104): +cột Trạng thái 3 giá trị + khóa BC2 đã có kết quả — pytest 1.210 · vitest 198 · E2E đạt
 **Story:** Là nhân viên cơ sở, tôi muốn xem các BC2 hiện có và biết ai đã làm gì trong tool.
 
 **Done khi:**
-- ⬜ Bảng BC2 theo **loại hạng (Ô tô / Mô tô — nút chọn chung ở đầu màn Báo cáo 2)**, lọc **đang mở / đã đóng**: số báo cáo · ngày · BC1 · khóa · **Tổng ghi** · **HV thực tế** (đánh dấu lệch) · người tạo. Bấm một dòng → chi tiết (TNB-04/05).
+- ⬜ Bảng BC2 theo **loại hạng (Ô tô / Mô tô — nút chọn chung ở đầu màn Báo cáo 2)**, lọc **đang mở / đã đóng hoặc đã có kết quả**: số báo cáo · ngày · BC1 · khóa · **Tổng ghi** · **HV thực tế** (đánh dấu lệch) · **Trạng thái** · người tạo. Bấm một dòng → chi tiết (TNB-04/05).
+- ⬜ **Cột Trạng thái có 3 giá trị:** **Đang mở** (mọi học viên còn "Đã vào BC2, chờ kết quả") · **Đã có kết quả** (BC2 chưa đóng nhưng có **ít nhất 1** học viên đã gửi / có kết quả: trạng thái `12`, `13`, `14`, `16`–`19`) · **Đã đóng** (cờ do phần mềm cũ đặt). **Đã có kết quả và Đã đóng đều KHÓA**: không thêm / gỡ / hoàn tác / xóa ở tool, chỉ Xem và In BC2; bước chọn BC2 để thêm học viên không liệt kê chúng (CHANGES #104, user chốt 21/11/2026: chỉ cần 1 học viên có kết quả là khóa cả BC2). Dữ liệu thật: BC2 đang mở toàn học viên "Đã vào BC2", mọi BC2 đã có kết quả đều đã đóng.
 - ⬜ **Nhật ký thao tác phía tool:** ai · lúc nào · loại (tốt nghiệp / tạo BC2 / thêm / gỡ / cứu trạng thái) · số HV · kết quả đã/chưa ghi.
 - ❌ Chỉ đọc; không sửa/xóa BC2 ở màn này.
 
@@ -1699,6 +1701,7 @@
 | 02/11/2026 | v4.27 — `THU-01`, `THU-07` báo lỗi form dễ sửa trên điện thoại, chữ ô nhập 16px (CHANGES #86, sau critique giao diện). | BA/PM |
 | 02/11/2026 | v4.28 — `THU-01` thông báo đã gửi nêu tên học viên (CHANGES #87). | BA/PM |
 | 02/11/2026 | v4.29 — `KQD-08` nhận cả mẫu PDF DAT cũ và mới (CHANGES #88). | BA/PM |
+| 21/11/2026 | v4.44 — `TNB-07` · `TNB-04` · `TNB-05`: cột Trạng thái 3 giá trị (Đang mở / Đã có kết quả / Đã đóng); BC2 chưa đóng nhưng có ≥1 học viên đã gửi / có kết quả bị khóa như BC2 đã đóng (không thêm / gỡ / hoàn tác / xóa; chỉ xem + in) (CHANGES #104). Số story giữ 67. |
 | 21/11/2026 | v4.43 — **+`TNB-08`** in Báo cáo 2 từ tool: chọn nội dung thi từng HV bằng ô phần thi bấm bật/tắt theo hạng (ô tô bỏ mô phỏng từ 01/07/2025), sổ phần đã đạt tự điền lần sau, xem trước PDF dựng bằng mẫu Crystal của phần mềm cũ rồi In/Lưu PDF; chỉ lưu trong tool (CHANGES #103). |
 | 10/11/2026 | v4.42 — **+`NAP-09`** cảnh báo tuổi học viên khi nạp vào khóa (tuổi theo hạng đào tạo, tính tại ngày nạp, popup bỏ chọn từng người) (CHANGES #102). |
 | 10/11/2026 | v4.41 — `NAP-07`, `THU-07`: số GPLX đã có chỉ nhận 12 chữ số hoặc bằng giấy cũ 2 chữ + 6 số, sai dạng chặn (trước chỉ nhắc) (CHANGES #101). |

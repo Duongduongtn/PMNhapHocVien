@@ -320,6 +320,8 @@ def co_chan(vde: Iterable[dict]) -> bool:
 
 # ══════════════ Tốt nghiệp ô tô (TNB-01/02, task 101) ══════════════
 TT_VAO_BC2_TRO_DI = ("11", "12", "13", "14", "16", "17", "18", "19")
+# TNB-07 (CHANGES #104): HV đã rời "Đã vào BC2, chờ kết quả" = BC2 đã gửi / có kết quả → khóa cả BC2 (kể cả khi PM cũ chưa đóng).
+TT_DA_CO_KET_QUA = tuple(x for x in TT_VAO_BC2_TRO_DI if x != TT_DA_VAO_BC2)
 _MAU_SO_GIAY = re.compile(r"^([A-Za-z0-9]+)\|(\d+)$")
 
 # kết quả dự kiến của một dòng ghi tốt nghiệp

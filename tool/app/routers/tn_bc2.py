@@ -210,7 +210,7 @@ def hoan_tac(ma: str, body: HoanTacIn, phien: Phien = Depends(require_session)):
             if tt is None:
                 raise svc.LoiNghiepVu("bc2_khong_ton_tai", f"Không có BC2 số {ma}", 404)
             if tt != 0:
-                raise svc.LoiNghiepVu("bc2_da_dong", f"BC2 số {ma} đã đóng — không gỡ được", 409)
+                raise svc._loi_bc2_khoa(ma, tt, "không gỡ được")
             from app import tn_bc2_nhat_ky as nk
             goc = nk.lo_lap_gan_nhat_cua_bc2(dang_db)
             if goc is None:

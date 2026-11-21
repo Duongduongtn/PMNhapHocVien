@@ -514,3 +514,22 @@ def test_hoan_tac_bo_qua_lo_khong_them_duoc_ai_va_lay_lo_that_truoc_do():
     assert kq2["da_them"] == [] and kq2["da_co_tu_truoc"] == ["D-0001"]
     kq = svc.hoan_tac(c, ma_bc2="76/2026", lo_id="lo-hoantac1", nguoi="thu1")
     assert kq["lo_goc"] == "lo-aaaaaaa1" and kq["da_go"] == ["D-0001", "D-0002"]
+
+
+# ── TNB-07 (CHANGES #104): thêm HV vào BC2 chưa đóng nhưng đã gửi / có kết quả → chặn, đúng mã lỗi ──
+def test_kiem_dau_vao_bc2_da_co_ket_qua_bi_chan_khong_phai_bc2_da_dong():
+    tap = {"bc1_theo_khoa": {"70004K26B0108": {"ma_bci": "858/26-TTTÐ"}}, "bc2_bci": {"76/2026": "858/26-TTTÐ", "62/2025": "858/26-TTTÐ"},
+           "bc2_map": {"76/2026": 2, "62/2025": 1, "81/2026": 0}}
+    tap["bc2_bci"]["81/2026"] = "858/26-TTTÐ"
+    with pytest.raises(svc.LoiNghiepVu) as e:
+        svc.kiem_dau_vao(tap, "70004K26B0108", "76/2026")
+    assert e.value.ma == "bc2_da_co_ket_qua" and "đã gửi hoặc đã có kết quả" in e.value.noi_dung
+    with pytest.raises(svc.LoiNghiepVu) as e:
+        svc.kiem_dau_vao(tap, "70004K26B0108", "62/2025")
+    assert e.value.ma == "bc2_da_dong"
+    svc.kiem_dau_vao(tap, "70004K26B0108", "81/2026")        # còn mở → qua
+
+
+def test_truy_van_bc2_dem_hv_theo_dung_trang_thai_da_gui_va_co_ket_qua():
+    assert "'11'" not in svc._SQL_TT_KET_QUA and all(f"'{x}'" in svc._SQL_TT_KET_QUA for x in ("12", "13", "14", "16", "17", "18", "19"))
+    assert "hv_ket_qua" in svc._Q_BC2 and svc._Q_BC2.startswith("SELECT MaBCII, MaBCI, SoBaoCao")
