@@ -1514,7 +1514,7 @@
 
 #### [TNB-08] In Báo cáo 2 từ tool, chọn nội dung thi từng học viên
 
-**Trạng thái:** 🔄 In Progress — Phase 14: code xong task 164-168 (21/11/2026); còn 169 đóng gói exe + nghiệm thu máy CSĐT (so PDF với bản phần mềm cũ, kiểm hộp In…) + soát đóng Feature
+**Trạng thái:** ✅ Done — 21/11/2026: code task 164-168, đóng gói exe `tnb08` và nghiệm thu máy CSĐT (hộp In…, so bản in với phần mềm cũ, mốc bảo lưu 365 ngày) user xác nhận đạt
 **Story:** Là nhân viên cơ sở, tôi muốn in Báo cáo 2 ngay trong tool và chọn lại nội dung thi (thi những phần nào) cho từng học viên ở cột Ghi chú, xem trước rồi mới in hoặc lưu PDF, để bản in đúng phần học viên còn phải thi mà không phải sửa tay.
 
 **Done khi:**

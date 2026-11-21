@@ -613,7 +613,7 @@
 | 166 | **Dựng PDF bằng Crystal của phần mềm cũ:** `tool/app/crystal_bc2.py` + `tool/app/scripts/in_bc2.ps1` (PowerShell 32-bit, đẩy DataSet, thay `{?@MaKH}` trên bản sao tạm), `POST …/xem-truoc`, cấu hình `gplx_cu_dir` + tự dò + `GET/PUT /gplx-cu-dir`, lỗi `chua_co_phan_mem_cu`/quá giờ, **xóa tệp tạm trong `finally` mọi nhánh**, khóa một lần dựng, `tool.spec` đóng gói script. | `TNB-08 (3/6)` | M | cao | Chung | 165 | 1+2 | [x] |
 | 167 | **UI chọn phần thi:** Danh sách BC2 (nút In BC2 mỗi dòng cả mở/đóng, ô tìm, cột Bản in; **các nút cuối dòng bọc một hàng căn giữa, cùng cỡ** — lỗi lệch dòng thấy ở mock) · màn In BC2 (ô phần thi bấm bật/tắt, Ghi chú tự đổi, dải đếm/lọc, chọn nhiều + bộ ô chung, ↺, tự lưu, rê chuột hiện phần/kỳ/nguồn, Tab + phím cách, dòng đỏ "Phải bật ít nhất 1 phần" chặn Xem trước) · nút In BC2 ở Xem BC2. | `TNB-08 (4/6)` | M | thường | A | 165 | 1 | [x] |
 | 168 | **UI xem trước** (PDF trong tool, nút In… / Lưu PDF của tool gọi `da-in`, đang dựng, lỗi + **ô chọn thư mục phần mềm cũ**, Dựng lại) + **E2E** chọn → xem trước → tải lại vẫn giữ (bước xem trước dùng API giả trả PDF mẫu) + `/soatweb`. | `TNB-08 (5/6)` | S | thường | A | 166, 167 | 1+3 | [x] |
-| 169 | **Đóng gói exe + nghiệm thu máy CSĐT:** so ảnh từng trang PDF tool với PDF phần mềm cũ (BC2 75/2026), đếm DB Nạp trước/sau không đổi. Chạy một mình. **Đã đóng gói 21/11/2026 10:24** (buildinfo `08d09d3` + cây chưa commit) → `tool/dist/tnb08/pmcsdtlx-tool/` (có `_internal/app/scripts/in_bc2.ps1`; dựng PDF thật bằng script trong gói đạt, 6 trang 2,5 giây). **Còn:** thử ở máy CSĐT, so PDF với bản phần mềm cũ, thử hộp In…. | `TNB-08 (6/6)` | S | thường | Chung | 168 | 1 | [ ] |
+| 169 | **Đóng gói exe + nghiệm thu máy CSĐT:** so ảnh từng trang PDF tool với PDF phần mềm cũ (BC2 75/2026), đếm DB Nạp trước/sau không đổi. Chạy một mình. **Đã đóng gói 21/11/2026 10:24** (buildinfo `08d09d3` + cây chưa commit) → `tool/dist/tnb08/pmcsdtlx-tool/` (có `_internal/app/scripts/in_bc2.ps1`; dựng PDF thật bằng script trong gói đạt, 6 trang 2,5 giây). **Đóng gói lại 21/11/2026 15:49** (buildinfo `c3bbb9a`, gồm 4 chỉnh sau khi user xem tool). **Nghiệm thu máy CSĐT xong 21/11/2026:** hộp In…, so bản in với phần mềm cũ, mốc 365 ngày — user xác nhận đạt. | `TNB-08 (6/6)` | S | thường | Chung | 168 | 1 | [x] |
 
 ### ✅ Checkpoint 42 — sau task 164-166 (backend + dựng PDF)
 
@@ -699,7 +699,7 @@
 | `usp_CSDT_PheDuyetKQDT_TiepNhan` xóa trắng `GiaiTrinh` ở lần Sở phản hồi kế tiếp; HV `90` mà Sở trả lời bản kết xuất cũ → SP yêu cầu `12` có thể báo lỗi (task 136/137) | Trung bình | Ghi rõ ở TDD §11D.13; nghiệm thu máy CSĐT; không chặn, chỉ báo |
 | Sửa `cap_nhat` (hàm dùng chung KQD-02/04/05/06) làm hỏng luồng nhập điểm thường (task 136) | Cao nếu sót | `impact` trước khi sửa + test hồi quy 03→09/10 + `detect_changes` ở Checkpoint 34 |
 | Máy CSĐT khác phiên bản Crystal / khác thư mục cài phần mềm cũ → không dựng được PDF (task 166) | Trung bình | Dò `D:\GPLX-*`, cho chọn thư mục; nạp dll từ chính thư mục phần mềm cũ; báo rõ, không in bản dựng lại khác mẫu; nghiệm thu task 169 |
-| Mốc hết bảo lưu phần đã đạt chưa chốt (tạm 365 ngày từ `NgayQDTT` như phần mềm cũ) (task 164) | Thấp | Để thành một hằng trong `tn_bc2_phan_thi.py`, đổi một chỗ khi user chốt |
+| ~~Mốc hết bảo lưu phần đã đạt~~ — **đã chốt 21/11/2026: 365 ngày từ `NgayQDTT`** như phần mềm cũ (task 164) | Thấp | Là một hằng trong `tn_bc2_phan_thi.py`, đổi một chỗ nếu luật đổi |
 
 ## Nguồn đối chiếu
 

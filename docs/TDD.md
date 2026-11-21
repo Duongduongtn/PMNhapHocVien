@@ -2104,7 +2104,7 @@ Tiền tố `/local/tnbc2`. Mọi `POST/DELETE` ghi cần `xac_nhan_csdl_that: t
 - Nhóm hạng: mô tô A1/A2/Am/A1m/A11 → phần `LT`,`TH`; A3/A4 → `LT`,`TH`,`Đ`; còn lại ô tô → `L`,`H`,`Đ` (không còn `M` từ 01/07/2025).
 - Mục ↔ tập phần thi: giao diện chỉ bật/tắt ô phần thi, tool tra mục theo tập phần + đã thi hay chưa (bảng ở PRD `TNB-08`); mục có `M` không bao giờ được chọn. Quy đổi mặc định ô tô: 11→1 · 12→4 · 13→5 · 20→3 · 19→18 · 17→8 · 15→6 · 14→2 · 16→**cần chọn**; mục khác giữ nguyên.
 - Đã đạt từ DB: `RH/VH` ⇒ {L}; `RD/VD` ⇒ {L,H}; `RO/VA` ⇒ {} ; điểm phần ≥ ngưỡng hạng ⇒ thêm phần đó; `DA`/`'1'`/rỗng ⇒ không suy.
-- Mặc định = mọi phần − đã đạt (sổ tool ưu tiên, rồi DB) → mục khớp tập; tập rỗng hoặc không có mục khớp ⇒ cần chọn. Quá 365 ngày từ `NgayQDTT` ⇒ đã đạt = {} (theo phần mềm cũ, chờ user xác nhận).
+- Mặc định = mọi phần − đã đạt (sổ tool ưu tiên, rồi DB) → mục khớp tập; tập rỗng hoặc không có mục khớp ⇒ cần chọn. Quá 365 ngày từ `NgayQDTT` ⇒ đã đạt = {} (theo phần mềm cũ; user xác nhận 21/11/2026).
 
 **Bảng tập phần → mục** (khóa: tập phải thi + đã thi lần nào chưa; code `tn_bc2_phan_thi._MUC`, test `tests/test_tn_bc2_phan_thi.py`):
 
