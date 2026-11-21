@@ -54,3 +54,6 @@ Thumbs.db
 
 # File xuất ra khi chạy dev (Excel kết quả học tập, KQD-09)
 tool/output/
+
+# Báo cáo 2 xuất thật của cơ sở: có dữ liệu cá nhân học viên, không commit
+Báo cáo 2 ô tô Thành Đạt/
