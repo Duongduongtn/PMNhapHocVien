@@ -3,6 +3,13 @@ name: Deploy
 on:
   push:
     branches: [main]
+    # Chỉ deploy khi có đổi ở phần chạy trên VPS; đổi tool/, docs/, scripts/ không kéo VPS dựng lại vô ích.
+    paths:
+      - "server/**"
+      - "webapp/**"
+      - "deploy/**"
+      - "docker-compose.prod.yml"
+      - ".github/workflows/deploy.yml"
   workflow_dispatch:
 
 concurrency:
