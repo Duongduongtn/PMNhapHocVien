@@ -1,5 +1,6 @@
 /* =====================================================================================================
-   Bổ sung giấy tờ kèm theo + sửa cột GPLX đã có cho DB Nạp (GPLX_CSDT) — 10/11/2026
+   Bổ sung giấy tờ kèm theo + sửa cột GPLX đã có — chạy được cho DB Nạp (GPLX_CSDT) VÀ DB đích (GPLX_CDB_CSDT)
+   10/11/2026, sửa 11/11/2026: bỏ USE cố định để dùng chung cho cả hai DB.
 
    Vì sao:
    - Màn "Giấy tờ kèm theo" của phần mềm cũ lấy danh sách bằng usp_QuangLA_PM4_ThuNhanHS_DSGiayTo: tra
@@ -16,11 +17,20 @@
 
    Không sửa được bằng dữ liệu: khóa hạng B2 cũ (phần mềm cũ gộp B1/B2 chung mã mới 'B', luôn lấy B1).
 
-   CÁCH CHẠY: 1) SAO LƯU DB.  2) Chạy với @ChayThat = 0 → đọc số dòng in ra (tự hoàn tác).
+   DB đích (CDB): phần mềm CDB hiện danh sách bằng cùng SP nên thiếu 'Am'/'Cm' như DB Nạp. Đồng bộ (tool) chép
+   nguyên giấy tờ của hồ sơ ở DB Nạp, KHÔNG chép danh mục → chạy script ở CẢ HAI DB; chạy DB Nạp trước rồi mới đồng bộ.
+
+   CÁCH CHẠY: 0) Trong SSMS chọn ĐÚNG DB ở ô "Available Databases" (dòng đầu tab Messages in tên DB đang chạy).
+              1) SAO LƯU DB.  2) Chạy với @ChayThat = 0 → đọc số dòng in ra (tự hoàn tác).
               3) Hợp lý thì đổi @ChayThat = 1 rồi chạy lại.  4) Mở hồ sơ trong phần mềm cũ kiểm.
    ===================================================================================================== */
-USE GPLX_CSDT;
 SET NOCOUNT ON;
+PRINT N'Đang chạy trên DB: ' + DB_NAME();
+IF OBJECT_ID('dbo.DM_LoaiHSo_GiayTo') IS NULL OR OBJECT_ID('dbo.NguoiLXHS_GiayTo') IS NULL
+BEGIN
+    RAISERROR(N'DB đang chọn không phải DB Nạp/DB đích GPLX — chọn lại DB rồi chạy.', 16, 1);
+    RETURN;
+END
 SET XACT_ABORT ON;
 
 DECLARE @ChayThat bit = 0;           -- 0 = chạy thử (hoàn tác) · 1 = ghi thật
