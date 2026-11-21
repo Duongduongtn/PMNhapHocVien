@@ -48,6 +48,12 @@ class LoiNghiepVu(Exception):
 
 
 # ── Tiện ích ──
+def _tt_ngoac(tt: str | None, loai: str = "oto") -> str:
+    """"Đã vào BC2, chờ kết quả (11)" — tên nghiệp vụ trước, mã chỉ là chú thích trong ngoặc (dòng nhật ký, thông báo)."""
+    t = (tt or "").strip() if isinstance(tt, str) or tt is None else str(tt).strip()
+    return f"{rules.ten_trang_thai(t, loai)} ({t})" if t else rules.ten_trang_thai(t, loai)
+
+
 def _s(v: Any) -> str:
     return "" if v is None else str(v).strip()
 
@@ -1688,7 +1694,7 @@ def cuu_chuyen(conn, *, lo_id: str, ma_dk: str, dich: str, ly_do: str, loai: str
         if vde:
             raise LoiNghiepVu("khong_cuu_duoc", vde[0]["noi_dung"], 409, {"chan": vde})
         nhat_ky.lo_bat_dau(lo_id, nguoi, nhat_ky.LO_CUU, hv["ma_kh"], "", 1)
-        nk = nhat_ky.bat_dau(nguoi, nhat_ky.CUU, hv["ma_kh"], "", 1, f"Cứu trạng thái {hv['tt']} → {dich}",
+        nk = nhat_ky.bat_dau(nguoi, nhat_ky.CUU, hv["ma_kh"], "", 1, f"Cứu trạng thái: {_tt_ngoac(hv['tt'], rules.loai_hang(hv['hang']))} → {_tt_ngoac(dich, rules.loai_hang(hv['hang']))}",
                              {"ma_dk": ma_dk, "tt_cu": hv["tt"], "tt_moi": dich, "ly_do": ly_do}, lo_id=lo_id)
         try:
             cur.execute("EXEC usp_NguoiLX_HoSo_UpdateTTXLy %s,%s,%s", (ma_dk, hv["so_ho_so"], dich))
@@ -1742,7 +1748,7 @@ def cuu_hoan_tac(conn, *, lo_id_cuu: str, lo_id: str, nguoi: str) -> dict:
         if vde:
             raise LoiNghiepVu(vde[0]["ma"], vde[0]["noi_dung"], 409, {"chan": vde})
         nhat_ky.lo_bat_dau(lo_id, nguoi, nhat_ky.LO_CUU_HOAN_TAC, hv["ma_kh"], "", 1, lo_goc=lo_id_cuu)
-        nk = nhat_ky.bat_dau(nguoi, nhat_ky.CUU, hv["ma_kh"], "", 1, f"Hoàn tác cứu {tt_moi} → {tt_cu}",
+        nk = nhat_ky.bat_dau(nguoi, nhat_ky.CUU, hv["ma_kh"], "", 1, f"Hoàn tác cứu: {_tt_ngoac(tt_moi, rules.loai_hang(hv['hang']))} → {_tt_ngoac(tt_cu, rules.loai_hang(hv['hang']))}",
                              {"ma_dk": ma_dk, "tt_cu": tt_moi, "tt_moi": tt_cu, "lo_goc": lo_id_cuu}, lo_id=lo_id)
         try:
             cur.execute("EXEC usp_NguoiLX_HoSo_UpdateTTXLy %s,%s,%s", (ma_dk, hv["so_ho_so"], tt_cu))
@@ -1852,7 +1858,7 @@ def _tom_tat_ket_qua(kq: dict) -> dict:
         if n(k):
             phan.append(f"{nhan} {n(k)}")
     if kq.get("tt_cu") and kq.get("tt_moi"):
-        phan.append(f"{kq['tt_cu']} → {kq['tt_moi']}")
+        phan.append(f"{_tt_ngoac(kq['tt_cu'])} → {_tt_ngoac(kq['tt_moi'])}")
     return {"da_ghi": da, "chua_ghi": chua, "bo_qua": bo, "tom_tat": " · ".join(phan)}
 
 

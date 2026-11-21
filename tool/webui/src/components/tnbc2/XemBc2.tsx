@@ -14,6 +14,7 @@ import {
   type LoTn,
 } from "../../lib/tnbc2Api";
 import { khopTim } from "../../lib/tnbcUngVien";
+import MaTT from "../MaTT";
 
 // TNB-05 — màn xem / gỡ / xóa BC2 (ít dùng hơn thêm). Bám ui-mock/tnbc2.html `viewXem`, `xacNhanGo`.
 
@@ -136,7 +137,7 @@ export default function XemBc2({
                     <td className="py-1.5 pr-3">{h.ten_kh}</td>
                     <td className="py-1.5 pr-3">
                       <span className="text-[12px]">{h.ten_trang_thai}</span>
-                      <span className="ml-1 text-[10px] opacity-70">{h.tt}</span>
+                      <MaTT ma={h.tt} />
                       {h.ly_do_khoa && <div className="text-[11px] text-warning mt-0.5">{h.ly_do_khoa}</div>}
                       {h.go_duoc && h.canh_bao_tt_cu && (
                         <div className="text-[11px] text-warning mt-0.5">Không có trạng thái trước đó — gỡ ra sẽ về giá trị rỗng</div>

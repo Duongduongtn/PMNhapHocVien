@@ -161,8 +161,13 @@ export default function InBc2({ maBc2, onVe }: { maBc2: string; onVe: () => void
             <span>· Bấm một ô để đổi; cột Ghi chú tự đổi theo. {dl.loai === "moto" ? "Mô tô: Lý thuyết · Thực hành." : "Ô tô: Lý thuyết · Sa hình · Đường (không còn mô phỏng từ 01/07/2025)."}</span>
           </div>
 
-          <div className="flex-1 min-h-0 overflow-auto">
-            <table className="w-full text-[13px]">
+          <div className="flex-1 min-h-0 overflow-auto [scrollbar-gutter:stable]">
+            {/* Bố cục cố định: bề rộng cột và chiều cao dòng không phụ thuộc nội dung → bật/tắt ô không làm bảng co giãn */}
+            <table className="w-full min-w-[1020px] table-fixed text-[13px]">
+              <colgroup>
+                <col style={{ width: 44 }} /><col style={{ width: 48 }} /><col style={{ width: 230 }} /><col style={{ width: 104 }} />
+                <col style={{ width: 130 }} /><col style={{ width: 240 }} /><col />
+              </colgroup>
               <thead className="sticky top-0 bg-card border-b border-border z-10">
                 <tr className="text-left text-[12px] text-muted-foreground">
                   <th className="w-10 px-3 py-2"><input type="checkbox" className="w-4 h-4 accent-[hsl(222_76%_40%)]" aria-label="Chọn tất cả" checked={tatCaChon} onChange={chonHet} /></th>
@@ -217,35 +222,35 @@ function Dong({ h, chon, onChon, ap }: {
     ? `PM cũ: ${h.pm_cu}${coM(h.pm_cu) && h.nhom !== "moto" ? " — đã bỏ M" : ""}${can ? " — không còn phần nào để thi" : ""}` : "";
   const datTxt = h.dat.length > 0 && !can ? `${h.dat.join(", ")} đạt · ` : "";
   return (
-    <tr data-testid={`hv-${h.ma_dk}`} className={`border-b border-border ${chon ? "bg-tn-soft" : ""} ${can ? "bg-destructive/5" : "hover:bg-tn-soft/40"}`}>
-      <td className="px-3 py-2.5"><input type="checkbox" className="w-4 h-4 accent-[hsl(222_76%_40%)]" checked={chon} onChange={(e) => onChon(e.target.checked)} aria-label={`Chọn ${h.ho_ten}`} /></td>
-      <td className="py-2.5 pr-3 tabular-nums text-muted-foreground">{h.stt}</td>
-      <td className="py-2.5 pr-3 font-semibold whitespace-nowrap">{h.ho_ten}</td>
-      <td className="py-2.5 pr-3 tabular-nums">{h.ngay_sinh}</td>
-      <td className="py-2.5 pr-3 tabular-nums">{h.so_cmt}</td>
-      <td className="py-2.5 pr-3">
-        <div className="inline-flex gap-1">
+    <tr data-testid={`hv-${h.ma_dk}`} className={`h-[68px] border-b border-border ${chon ? "bg-tn-soft" : ""} ${can ? "bg-destructive/5" : "hover:bg-tn-soft/40"}`}>
+      <td className="px-3 py-0"><input type="checkbox" className="w-4 h-4 accent-[hsl(222_76%_40%)]" checked={chon} onChange={(e) => onChon(e.target.checked)} aria-label={`Chọn ${h.ho_ten}`} /></td>
+      <td className="py-0 pr-3 tabular-nums text-muted-foreground">{h.stt}</td>
+      <td className="py-0 pr-3 font-semibold truncate" title={h.ho_ten}>{h.ho_ten}</td>
+      <td className="py-0 pr-3 tabular-nums">{h.ngay_sinh}</td>
+      <td className="py-0 pr-3 tabular-nums truncate">{h.so_cmt}</td>
+      <td className="py-0 pr-3">
+        <div className="flex gap-1 h-7">
           {h.phan.map((p) => (
             <OPhanThi key={p} phan={p} phaiThi={h.phai_thi.includes(p)} testId={`phan-${h.ma_dk}-${p}`}
               tieuDe={chuGiaiO(h, p, TEN_PHAN)} onBam={() => void ap([{ ma_dk: h.ma_dk, phai_thi: doiPhan(h, p) }])} />
           ))}
         </div>
-        <div className="text-[11px] text-muted-foreground mt-1 whitespace-nowrap">{datTxt}{h.ten_nguon}{ngayNguon(h) ? ` · ${ngayNguon(h)}` : ""}</div>
+        <div className="text-[11px] text-muted-foreground mt-1 h-4 leading-4 truncate" title={`${datTxt}${h.ten_nguon}`}>{datTxt}{h.ten_nguon}{ngayNguon(h) ? ` · ${ngayNguon(h)}` : ""}</div>
       </td>
-      <td className="py-2.5 pr-3">
-        <div className="flex items-center gap-2">
+      <td className="py-0 pr-3">
+        <div className="flex items-center gap-2 h-7 min-w-0">
           {can ? (
-            <span className="inline-flex items-center gap-1.5 text-destructive font-semibold" data-testid={`ghi-chu-${h.ma_dk}`}>{icCanh}Phải bật ít nhất 1 phần</span>
+            <span className="inline-flex items-center gap-1.5 text-destructive font-semibold truncate" data-testid={`ghi-chu-${h.ma_dk}`}>{icCanh}Phải bật ít nhất 1 phần</span>
           ) : (
-            <span className="font-semibold" data-testid={`ghi-chu-${h.ma_dk}`}>{h.ghi_chu}</span>
+            <span className="font-semibold truncate" title={h.ghi_chu} data-testid={`ghi-chu-${h.ma_dk}`}>{h.ghi_chu}</span>
           )}
           {h.da_sua && (
             <button type="button" aria-label={`Về mặc định ${h.ho_ten}`} title="Về như tool điền sẵn"
               onClick={() => void ap([{ ma_dk: h.ma_dk, phai_thi: null }])}
-              className="text-[12px] text-tn font-semibold inline-flex items-center gap-1 hover:underline">{icVe}Mặc định</button>
+              className="shrink-0 text-[12px] text-tn font-semibold inline-flex items-center gap-1 hover:underline">{icVe}Mặc định</button>
           )}
         </div>
-        {phu && <div className="text-[11px] text-muted-foreground mt-0.5">{phu}</div>}
+        <div className="text-[11px] text-muted-foreground mt-1 h-4 leading-4 truncate" title={phu}>{phu}</div>
       </td>
     </tr>
   );

@@ -3,6 +3,7 @@ import ChuGiaiTrangThai from "../../components/ChuGiaiTrangThai";
 import PanelCuuTrangThai from "../../components/tnbc2/PanelCuuTrangThai";
 import { soVN } from "../../lib/format";
 import { LoiTnbc2, timHvCuu, type HvCuu, type LoaiHang, type TimCuuResp } from "../../lib/tnbc2Api";
+import MaTT from "../../components/MaTT";
 
 // TNB-06 (2/2) — tab "Học viên không tìm thấy": tìm HV trên toàn DB, nói rõ vì sao không có trong danh sách BC2,
 // và chuyển về đúng trạng thái chờ lập BC2 (có lý do, hoàn tác một lần). Bám ui-mock/tnbc2.html `viewCuu`.
@@ -117,7 +118,7 @@ export default function CuuTrangThai() {
                         <td className="py-2 pr-3 whitespace-nowrap">{h.loai === "oto" ? "Ô tô" : "Mô tô"}</td>
                         <td className="py-2 pr-3 hidden min-[1400px]:table-cell">{h.ten_kh || h.ma_kh}</td>
                         <td className="py-2 pr-3">
-                          {h.ten_trang_thai} <span className="text-[10px] opacity-70">{h.tt}</span>
+                          {h.ten_trang_thai} <MaTT ma={h.tt} />
                         </td>
                         <td className={`py-2 pr-3 text-[12.5px] ${mau}`}>
                           {h.khac_loai ? "Khác loại hạng với loại đang chọn — không đổi trạng thái" : h.khong_hien.noi_dung}

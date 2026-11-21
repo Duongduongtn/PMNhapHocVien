@@ -1,4 +1,5 @@
 """TNB-08 task 166 — dựng PDF bằng mẫu Crystal của phần mềm cũ (subprocess giả; 1 test thật tự bỏ qua nếu máy không có)."""
+import base64
 import subprocess
 from pathlib import Path
 
@@ -144,7 +145,9 @@ def test_router_xem_truoc_tra_pdf(client, monkeypatch):
     from app.routers import tn_bc2 as router
     monkeypatch.setattr(router.crystal_bc2, "dung_pdf", lambda dl: b"%PDF-1.4 x")
     r = client.post("/local/tnbc2/bc2/81/2026/xem-truoc")
-    assert r.status_code == 200 and r.headers["content-type"] == "application/pdf" and r.content.startswith(b"%PDF")
+    # JSON base64, không application/pdf (phần mềm tải file của trình duyệt sẽ bắt phản hồi PDF)
+    assert r.status_code == 200 and r.headers["content-type"].startswith("application/json")
+    assert base64.b64decode(r.json()["pdf_base64"]).startswith(b"%PDF")
     assert r.headers["cache-control"] == "no-store"
 
 

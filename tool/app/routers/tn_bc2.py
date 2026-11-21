@@ -7,9 +7,11 @@ session cục bộ → 403). Đọc DB Nạp `GPLX_CSDT` bằng `sqlserver_curso
 """
 from __future__ import annotations
 
+import base64
 import re
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from app import crystal_bc2
@@ -479,8 +481,10 @@ def xem_truoc(ma: str):
             raise svc.LoiNghiepVu("con_hv_can_chon", f"Còn {len(can)} học viên chưa có phần thi nào", 409,
                                   {"ds_ma_dk": can})
         pdf = crystal_bc2.dung_pdf(in_bc2.du_lieu_crystal(dl))
-        return Response(content=pdf, media_type="application/pdf",
-                        headers={"Content-Disposition": "inline; filename=ban_in_bc2.pdf", "Cache-Control": "no-store"})
+        # JSON + base64, KHÔNG trả application/pdf: phần mềm tải file (IDM, XDM…) cài trong trình duyệt bắt mọi phản hồi PDF
+        # và bật hộp "tải xuống" thay vì để giao diện tool hiện bản xem trước.
+        return JSONResponse(content={"pdf_base64": base64.b64encode(pdf).decode("ascii")},
+                            headers={"Cache-Control": "no-store"})
     except Exception as e:  # noqa: BLE001
         raise _loi(e)
 

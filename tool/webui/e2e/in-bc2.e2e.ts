@@ -47,7 +47,7 @@ function banIn(mo: Mo) {
     return {
       stt: i + 1, ma_dk: h.ma_dk, ho_ten: h.ho_ten, ngay_sinh: "01/01/2000", so_cmt: h.so_cmt, hang: "B2", nhom: "oto",
       phan: ["L", "H", "Đ"], phai_thi: phai, dat: ["L", "H", "Đ"].filter((p) => !phai.includes(p)), da_thi: h.da_thi,
-      ma_nd, ghi_chu, da_sua: daSua, nguon: daSua ? "sua" : h.nguon, ten_nguon: daSua ? "Anh sửa" : h.ten_nguon,
+      ma_nd, ghi_chu, da_sua: daSua, nguon: daSua ? "sua" : h.nguon, ten_nguon: daSua ? "User chỉnh sửa" : h.ten_nguon,
       nguon_luc: daSua ? "2026-11-21T08:42:00" : "", ket_qua_sh: "",
       mac_dinh: { phai_thi: h.mac_dinh, dat: ["L", "H", "Đ"].filter((p) => !h.mac_dinh.includes(p)), ma_nd: md.ma_nd, ghi_chu: md.ghi_chu, da_thi: h.da_thi },
       pm_cu: h.pm_cu, pm_cu_khac: h.pm_cu !== md.ghi_chu,
@@ -93,7 +93,7 @@ async function giaBackend(page: Page, mo: Mo) {
       await r.fulfill({ status: 409, json: { detail: { ma: "chua_co_phan_mem_cu", noi_dung: "Máy này chưa dựng được bản in: không tìm thấy mẫu in và bộ Crystal của phần mềm cũ." } } });
       return;
     }
-    await r.fulfill({ status: 200, contentType: "application/pdf", body: PDF_MAU });
+    await r.fulfill({ json: { pdf_base64: PDF_MAU.toString("base64") } });
   });
   await page.route(/\/local\/tnbc2\/bc2\/[^?]*\/da-in$/, (r) => { mo.daIn++; return r.fulfill({ json: { ok: true } }); });
   await page.route("**/local/tnbc2/gplx-cu-dir", async (r) => {
@@ -164,6 +164,24 @@ test.describe("TNB-08 — chọn phần thi", () => {
     await page.getByRole("button", { name: "Về mặc định NGUYỄN VĂN AN" }).click();
     await expect(page.getByTestId("ghi-chu-D1")).toHaveText("SH lần đầu");
     expect(mo.luaChon["D1"]).toBeUndefined();
+  });
+
+  test("bố cục cố định: bấm bật/tắt ô không làm đổi bề rộng cột hay chiều cao dòng (không giật)", async ({ page }) => {
+    const mo = moi();
+    await vaoInBc2(page, mo);
+    const hinh = () => page.evaluate(() => ({
+      cot: [...document.querySelectorAll("thead th")].map((t) => Math.round(t.getBoundingClientRect().width)),
+      cao: [...document.querySelectorAll("tbody tr")].map((t) => Math.round(t.getBoundingClientRect().height)),
+      bang: Math.round(document.querySelector("table")!.getBoundingClientRect().width),
+    }));
+    const truoc = await hinh();
+    expect(new Set(truoc.cao).size).toBe(1);          // mọi dòng cao bằng nhau (có/không dòng chú thích phụ)
+    await page.getByTestId("phan-D1-H").click();      // thành "đã đạt" (có dấu ✓, đổi chữ Ghi chú, hiện nút Mặc định)
+    await expect(page.getByTestId("ghi-chu-D1")).toHaveText("SH lại L+Đ");
+    expect(await hinh()).toEqual(truoc);
+    await page.getByRole("button", { name: "Về mặc định NGUYỄN VĂN AN" }).click();
+    await expect(page.getByTestId("ghi-chu-D1")).toHaveText("SH lần đầu");
+    expect(await hinh()).toEqual(truoc);
   });
 
   test("tắt hết ô → dòng đỏ, khóa Xem trước; bật lại thì mở", async ({ page }) => {

@@ -110,7 +110,7 @@ def test_nhat_ky_ten_nghiep_vu_tom_tat_va_khong_pii(nhat_ky_db):
     i1 = nk.bat_dau("thu1", nk.THEM_HV, "70004K26B0108", "81/2026", 4, "Thêm 4 HV",
                     {"ma_dk": ["A-1", "A-2"], "ten": "Nguyễn Văn A", "cmt": "079200000001"}, lo_id="lo-1", db_path=nhat_ky_db)
     nk.ket_thuc(i1, "xong", {"da_them": 3, "bo_qua": 1, "chua_ghi": 0}, db_path=nhat_ky_db)
-    i2 = nk.bat_dau("thu1", nk.CUU, "70004K26B0108", "", 1, "Cứu trạng thái 03 → 17", {"ma_dk": "A-9", "ly_do": "x"},
+    i2 = nk.bat_dau("thu1", nk.CUU, "70004K26B0108", "", 1, "Cứu trạng thái: Đã học xong, chưa tốt nghiệp (03) → Thi sát hạch chưa đạt (17)", {"ma_dk": "A-9", "ly_do": "x"},
                     db_path=nhat_ky_db)
     nk.ket_thuc(i2, "xong", {"tt_cu": "03", "tt_moi": "17"}, db_path=nhat_ky_db)
     i3 = nk.bat_dau("thu2", nk.TOT_NGHIEP, "70004K26B0107", "", 5, "Tốt nghiệp 5 HV", {"ma_dk": ["B-1"]},
@@ -123,7 +123,7 @@ def test_nhat_ky_ten_nghiep_vu_tom_tat_va_khong_pii(nhat_ky_db):
     assert d[i1]["ten_loai"] == "Thêm học viên vào BC2" and d[i1]["ket_qua"] == {
         "da_ghi": 3, "chua_ghi": 0, "bo_qua": 1, "tom_tat": "Đã thêm 3 · Bỏ qua 1"}
     assert d[i1]["ma_bc2"] == "81/2026" and d[i1]["so_hv"] == 4 and d[i1]["nguoi"] == "thu1"
-    assert d[i2]["ten_loai"] == "Cứu trạng thái" and d[i2]["ket_qua"]["tom_tat"] == "03 → 17"
+    assert d[i2]["ten_loai"] == "Cứu trạng thái" and d[i2]["ket_qua"]["tom_tat"] == "Đã học xong, chưa tốt nghiệp (03) → Thi sát hạch chưa đạt (17)"
     assert d[i3]["ten_loai"] == "Cập nhật tốt nghiệp" and d[i3]["ten_trang_thai"].startswith("Lỗi giữa chừng")
     assert d[i3]["ket_qua"]["da_ghi"] == 2 and d[i3]["ket_qua"]["chua_ghi"] == 3
     assert d[i4]["ten_trang_thai"] == "Đang chạy hoặc bị gián đoạn"          # còn `bat_dau`: treo hoặc đang chạy

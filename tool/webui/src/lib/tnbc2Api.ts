@@ -561,7 +561,12 @@ export async function xemTruocBc2(ma: string): Promise<Blob> {
     }
     throw new LoiTnbc2("loi_he_thong", `${r.status} ${r.statusText}`, r.status);
   }
-  return r.blob();
+  // Server trả JSON + base64 (không trả application/pdf để phần mềm tải file trong trình duyệt không chặn bắt).
+  const d = (await r.json()) as { pdf_base64: string };
+  const bin = atob(d.pdf_base64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type: "application/pdf" });
 }
 
 /** Tên tệp PDF: số BC2 có `/` → `-`, kèm mã khóa đầu trang. */

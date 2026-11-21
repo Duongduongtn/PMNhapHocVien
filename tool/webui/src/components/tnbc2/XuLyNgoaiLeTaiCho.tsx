@@ -10,6 +10,7 @@ import {
   type HvUngVien,
   type LoaiHang,
 } from "../../lib/tnbc2Api";
+import MaTT from "../MaTT";
 
 // TNB-04 — xử lý ngoại lệ ngay ở bước ②, khỏi rời wizard: (a) "Cập nhật tốt nghiệp" = mini-form số giấy + bộ sổ chung →
 // dùng lại hộp Xem lại & ghi của TNB-01; (b) "Cứu trạng thái" = dùng lại panel của TNB-06. Xong thì báo `onXong` để
@@ -88,7 +89,7 @@ export function CapNhatTotNghiepTaiCho({
           <div className="rounded-lg border border-border p-3">
             <b>{hv.ten}</b>
             <div className="font-mono text-[12px] text-muted-foreground">{hv.cmt} · {hv.ten_kh}</div>
-            <div className="mt-1">Hiện tại: {hv.ten_trang_thai} <span className="text-[10px] opacity-70">{hv.tt}</span></div>
+            <div className="mt-1">Hiện tại: {hv.ten_trang_thai} <MaTT ma={hv.tt} /></div>
           </div>
           {loi && <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-destructive">{loi}</div>}
           {!data && !loi && <div className="text-muted-foreground">Đang tải số giấy gợi ý và bộ sổ của khóa…</div>}

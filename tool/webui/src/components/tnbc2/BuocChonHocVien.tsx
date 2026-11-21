@@ -6,6 +6,7 @@ import { CapNhatTotNghiepTaiCho, CuuTrangThaiTaiCho } from "./XuLyNgoaiLeTaiCho"
 import { soVN } from "../../lib/format";
 import { ungVienBc2, type HvUngVien, type LoaiHang, type UngVienResp } from "../../lib/tnbc2Api";
 import { demDaChon, gomTheoKhoaGoc, khopTim } from "../../lib/tnbcUngVien";
+import MaTT from "../MaTT";
 
 // TNB-04 — bước ②: chọn học viên. Bốn nhóm trong một màn: Sẵn sàng (tích sẵn) · Thi lại (không tích sẵn, gom theo
 // khóa gốc, ngưỡng tháng) · Cần xem · Không đưa được. Bám ui-mock/tnbc2.html `wizChon`. "Dán danh sách CMT" (task 116);
@@ -38,7 +39,7 @@ function Dong({ h, tich, doiTich, khoa }: { h: HvUngVien; tich?: boolean; doiTic
         ) : (
           <>
             <span className="text-[12px]">{h.ten_trang_thai}</span>
-            <span className="ml-1 text-[10px] opacity-70">{h.tt}</span>
+            <MaTT ma={h.tt} />
           </>
         )}
       </div>

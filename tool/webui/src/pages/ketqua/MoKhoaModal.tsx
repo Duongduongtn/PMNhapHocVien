@@ -95,7 +95,7 @@ export default function MoKhoaModal({
                 <ul className="list-disc pl-5 space-y-0.5 text-foreground">
                   <li>Thao tác ở <b>mức cơ sở</b>: lùi <b>toàn bộ {tt.so_hv_mo} học viên đã kết xuất chưa gửi của cơ sở ({tt.so_khoa} khóa)</b> về "Đã cập nhật" (09/10) — <b>không chỉ khóa đang xem</b>.</li>
                   <li>Sửa xong phải <b>kết xuất lại</b> ở phần mềm CDB để gửi bản mới.</li>
-                  {tt.so_hv_bo_qua > 0 && <li className="text-muted-foreground">{tt.so_hv_bo_qua} học viên trạng thái 12 nhưng chưa có kết luận sẽ được <b>bỏ qua</b> (không đổi).</li>}
+                  {tt.so_hv_bo_qua > 0 && <li className="text-muted-foreground">{tt.so_hv_bo_qua} học viên "Đã kết xuất gửi Sở" (12) nhưng chưa có kết luận sẽ được <b>bỏ qua</b> (không đổi).</li>}
                 </ul>
               </div>
               <div>

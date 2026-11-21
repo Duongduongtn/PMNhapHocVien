@@ -27,7 +27,7 @@ const NK = [
     lo_id: "lo-2", so_hv: 150, tom_tat_thao_tac: "Thêm 150 học viên", trang_thai: "loi_giua_chung", ten_trang_thai: "Lỗi giữa chừng (một phần đã ghi)",
     ket_qua: { da_ghi: 100, chua_ghi: 50, bo_qua: 0, tom_tat: "Đã thêm 100 · Chưa ghi 50" } },
   { id: 1, luc: "2026-10-10T16:45:10", nguoi: "thu1", loai: "cuu_trang_thai", ten_loai: "Cứu trạng thái", ma_kh: "K001", ma_bc2: "",
-    lo_id: "lo-1", so_hv: 1, tom_tat_thao_tac: "Cứu trạng thái 03 → 17", trang_thai: "that_bai", ten_trang_thai: "Thất bại — chưa ghi",
+    lo_id: "lo-1", so_hv: 1, tom_tat_thao_tac: "Cứu trạng thái: Đã học xong, chưa tốt nghiệp (03) → Thi sát hạch chưa đạt (17)", trang_thai: "that_bai", ten_trang_thai: "Thất bại — chưa ghi",
     ket_qua: { da_ghi: 0, chua_ghi: 0, bo_qua: 0, tom_tat: "" } },
 ];
 
@@ -123,7 +123,7 @@ test.describe("TNB-07 — Nhật ký thao tác", () => {
     await page.goto("/tot-nghiep-bc2/nhat-ky");
     await expect(page.getByText("Gỡ 2 học viên")).toBeVisible();
     await page.getByLabel("Loại thao tác").selectOption("cuu_trang_thai");
-    await expect(page.getByText("Cứu trạng thái 03 → 17")).toBeVisible();
+    await expect(page.getByText("Cứu trạng thái: Đã học xong, chưa tốt nghiệp (03) → Thi sát hạch chưa đạt (17)")).toBeVisible();
     await expect(page.getByText("Gỡ 2 học viên")).toHaveCount(0);
     expect(mo.nhatKy.some((q) => q.includes("loai=cuu_trang_thai"))).toBe(true);
     await page.getByLabel("Số BC2 (tùy chọn)").fill("80/2026");

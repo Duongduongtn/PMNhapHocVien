@@ -7,7 +7,7 @@ const dau = (
 );
 
 const KHUNG =
-  "min-w-[30px] h-7 px-2 rounded-[7px] text-[12px] font-bold inline-flex items-center justify-center gap-1 " +
+  "w-[46px] h-7 px-1 rounded-[7px] text-[12px] font-bold inline-flex items-center justify-center gap-1 " +
   "transition-colors duration-100 ease-out disabled:opacity-45 disabled:cursor-not-allowed";
 const THI = "bg-tn text-white shadow-[0_1px_2px_hsl(222_76%_30%/.35)] hover:bg-[hsl(222_76%_34%)]";
 const DAT = "bg-[hsl(142_60%_94%)] text-[hsl(142_71%_24%)] ring-1 ring-inset ring-[hsl(142_45%_74%)] hover:bg-[hsl(142_60%_89%)]";

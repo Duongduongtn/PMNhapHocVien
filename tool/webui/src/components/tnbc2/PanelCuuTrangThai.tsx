@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { cuuChuyen, cuuHoanTac, LoiTnbc2, taoLoId, type HvCuu, type KetQuaCuu, type LoaiHang } from "../../lib/tnbc2Api";
+import MaTT from "../MaTT";
 
 // TNB-06 — panel "Chuyển trạng thái học viên": chọn đích (không gõ mã tự do) + lý do bắt buộc → hộp xem lại
 // "cũ → mới" → chuyển → hoàn tác một lần. Bám ui-mock/tnbc2.html `viewCuuPanel`, `cuuXemLai`.
@@ -91,7 +92,7 @@ export default function PanelCuuTrangThai({
         <b>{hv.ten}</b>
         <div className="font-mono text-[12px] text-muted-foreground">{hv.cmt} · {hv.ten_kh || hv.ma_kh}</div>
         <div className="mt-1">
-          Hiện tại: {hv.ten_trang_thai} <span className="text-[10px] opacity-70">{hv.tt}</span>
+          Hiện tại: {hv.ten_trang_thai} <MaTT ma={hv.tt} />
         </div>
       </div>
 
@@ -113,7 +114,7 @@ export default function PanelCuuTrangThai({
                 <input type="radio" name="dich-cuu" className="mt-1" value={x.ma} disabled={!x.cho_phep}
                   checked={dich === x.ma} onChange={() => setDich(x.ma)} />
                 <span>
-                  {x.ten} <span className="text-[10px] opacity-70">{x.ma}</span>
+                  {x.ten} <MaTT ma={x.ma} />
                   {!x.cho_phep && x.ly_do && <span className="block text-[11.5px] text-destructive">{x.ly_do}</span>}
                 </span>
               </label>
@@ -155,7 +156,7 @@ export default function PanelCuuTrangThai({
         <div className="space-y-2">
           <div className="rounded-lg border border-success/40 bg-success/10 p-3 text-[13px]">
             Đã chuyển <b>{hv.ten}</b> từ "{kq.ten_trang_thai_cu ?? hv.ten_trang_thai}" sang "{kq.ten_trang_thai_moi}"{" "}
-            <span className="text-[10px] opacity-70">{kq.tt_moi}</span>.
+            <MaTT ma={kq.tt_moi} />.
             {kq.da_ton_tai && <div className="text-muted-foreground mt-1">(Lệnh này đã được thực hiện từ trước.)</div>}
           </div>
           {kq.canh_bao.length > 0 && (
@@ -163,7 +164,7 @@ export default function PanelCuuTrangThai({
           )}
           {hoanTac && (
             <div className="rounded-lg border border-border bg-card p-3 text-[13px]">
-              Đã hoàn tác về "{hoanTac.ten_trang_thai_moi}" <span className="text-[10px] opacity-70">{hoanTac.tt_moi}</span>.
+              Đã hoàn tác về "{hoanTac.ten_trang_thai_moi}" <MaTT ma={hoanTac.tt_moi} />.
             </div>
           )}
           {loiHoanTac && (
@@ -189,11 +190,11 @@ export default function PanelCuuTrangThai({
             <div className="p-4 space-y-3 text-[13px]">
               <div className="flex items-center justify-center gap-3 flex-wrap py-2">
                 <span className="rounded-lg border border-border px-3 py-1.5">
-                  {hv.ten_trang_thai} <span className="text-[10px] opacity-70">{hv.tt}</span>
+                  {hv.ten_trang_thai} <MaTT ma={hv.tt} />
                 </span>
                 <span className="text-2xl" aria-hidden>→</span>
                 <span className="rounded-lg border border-tn-border bg-tn-soft px-3 py-1.5 font-medium">
-                  {d.ten} <span className="text-[10px] opacity-70">{d.ma}</span>
+                  {d.ten} <MaTT ma={d.ma} />
                 </span>
               </div>
               <div><b>{hv.ten}</b> · {hv.ten_kh || hv.ma_kh}<br />Lý do: <i>{lyDoCat}</i></div>

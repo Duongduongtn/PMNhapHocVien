@@ -35,7 +35,7 @@ _Q_DM_DIEM = "SELECT Hang, LtDiemToiThieu, HiDiemToiThieu, DdDiemToiThieu FROM d
 
 _MA_CO_M = {11, 12, 13, 14, 15, 16, 17, 19, 20}
 _COT_IN = ("HoVaTen", "NgaySinh", "SoCMT", "NoiCT", "GiayCNSK", "HangGPLXDaCo", "SoNamLX", "SoKmLXAnToan", "CCTN")
-_TEN_NGUON = {"so": "Kết quả Sở", "sua": "Anh sửa", "in": "Theo BC2 đã in", "suy": "Suy từ DB", "pm_cu": "Theo phần mềm cũ",
+_TEN_NGUON = {"so": "Kết quả Sở", "sua": "User chỉnh sửa", "in": "Theo BC2 đã in", "suy": "Suy từ DB", "pm_cu": "Theo phần mềm cũ",
               "chua_thi": "Chưa thi", "qua_han": "Quá hạn bảo lưu — thi lại toàn bộ"}
 
 

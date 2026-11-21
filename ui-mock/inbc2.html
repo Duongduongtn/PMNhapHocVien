@@ -119,12 +119,12 @@ const TEN = ["NGUYỄN VĂN AN","TRẦN THỊ BÌNH","LÊ HOÀNG CƯỜNG","PH�
 const NGUON = { oto: [
   [[], "", "chưa thi"], [["L","H"], "Kết quả Sở · 12/10/2026", "Rớt đường (RD) · L 32 · H 95"], [[], "Kết quả Sở · 12/10/2026", "Rớt cả kỳ (RO)"],
   [[], "", "chưa thi"], [["L"], "Suy từ DB", "Rớt hình (RH) · L 33"], [[], "", "chưa thi"], [[], "Kết quả Sở · 12/10/2026", "Vắng cả kỳ (VA)"],
-  [[], "", "chưa thi"], [["H"], "Anh sửa · 21/11 08:42", "Sở cho bảo lưu hình"], [[], "", "chưa thi"], [["L","H"], "Kết quả Sở · 28/09/2026", "Rớt đường (RD)"],
+  [[], "", "chưa thi"], [["H"], "User chỉnh sửa · 21/11 08:42", "Sở cho bảo lưu hình"], [[], "", "chưa thi"], [["L","H"], "Kết quả Sở · 28/09/2026", "Rớt đường (RD)"],
   [[], "", "chưa thi"], [["SHM"], "", "PM cũ ra \"SH lại M\" — hết phần mô phỏng"], [[], "", "chưa thi"],
 ], moto: [
   [[], "", "chưa thi"], [["LT"], "Kết quả Sở · 12/10/2026", "Rớt thực hành (RH) · LT 23"], [[], "Kết quả Sở · 12/10/2026", "Rớt cả kỳ (RO)"],
   [["LT"], "Suy từ DB", "Có GPLX ô tô — miễn lý thuyết"], [[], "", "chưa thi"], [["LT"], "Kết quả Sở · 28/09/2026", "Vắng thực hành (VH)"],
-  [[], "", "chưa thi"], [[], "", "chưa thi"], [[], "", "chưa thi"], [["LT"], "Anh sửa · 21/11 08:40", ""], [[], "", "chưa thi"],
+  [[], "", "chưa thi"], [[], "", "chưa thi"], [[], "", "chưa thi"], [["LT"], "User chỉnh sửa · 21/11 08:40", ""], [[], "", "chưa thi"],
   [[], "", "chưa thi"], [[], "", "chưa thi"], [[], "", "chưa thi"],
 ] };
 const PM_CU = { oto: { 0:"SH lần đầu (L+M+H+Đ)", 1:"SH lại L+M+H+Đ", 2:"SH lại L+M+H+Đ", 4:"SH lại M+H+Đ", 6:"SH lại L+M+H+Đ", 12:"SH lại M" }, moto: {} };
@@ -238,7 +238,7 @@ function manChon() {
 
 function dong(h) {
   const m = mucTu(h);
-  const nguon = daSua(h) ? "Anh sửa · vừa xong" : (h.nguon || h.kq);
+  const nguon = daSua(h) ? "User chỉnh sửa · vừa xong" : (h.nguon || h.kq);
   const datTxt = thuTu(h.dat).length && m ? `${thuTu(h.dat).join(", ")} đạt · ` : "";
   const ghi = !m ? `<span class="inline-flex items-center gap-1.5 text-destructive font-semibold">${IC.canh}Phải bật ít nhất 1 phần</span>`
     : `<span class="font-semibold">${m.ten}</span>`;
